@@ -70,7 +70,7 @@ class WebSocketService {
       // Prefer same-origin in dev; in prod use configured base or default
       const base = import.meta?.env?.DEV
         ? ''
-        : (import.meta?.env?.VITE_API_BASE_URL || 'https://api.brokereye.work.gd')
+        : (import.meta?.env?.VITE_API_BASE_URL || 'https://api.brokereye.work.gd.app')
       // Force wss for https pages; otherwise use ws
       const wsProtocol = (window.location.protocol === 'https:' || base.startsWith('https')) ? 'wss' : 'ws'
       const wsHost = base.replace(/^https?:\/\//, '')
