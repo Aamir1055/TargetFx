@@ -44,7 +44,7 @@ export default defineConfig({
         ],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api\.brokereye\.work\.gd\.app\/.*/i,
+            urlPattern: /^https:\/\/api\.brokereye\.app\.work\.gd\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -88,7 +88,7 @@ export default defineConfig({
     proxy: {
       // IB endpoints use the same API domain as other broker endpoints
       '/api/amari/ib': {
-        target: 'https://api.brokereye.work.gd.app',
+        target: 'https://api.brokereye.app.work.gd',
         changeOrigin: true,
         secure: false,
         ws: false,
@@ -106,7 +106,7 @@ export default defineConfig({
         }
       },
       '/api': {
-        target: 'https://api.brokereye.work.gd.app',
+        target: 'https://api.brokereye.app.work.gd',
         changeOrigin: true,
         secure: false, // Disable SSL verification for development (avoid certificate issues)
         ws: true, // Enable WebSocket proxying

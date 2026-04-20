@@ -4,7 +4,7 @@ const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
 // Base URL: force empty in dev (use Vite proxy), allow override or default in prod
 const BASE_URL = import.meta?.env?.DEV
   ? ''
-  : (import.meta?.env?.VITE_API_BASE_URL || 'https://api.brokereye.work.gd.app')
+  : (import.meta?.env?.VITE_API_BASE_URL || 'https://api.brokereye.app.work.gd')
 if (DEBUG_LOGS) console.log('[API] Base URL:', BASE_URL || '(empty - using Vite proxy)')
 
 const api = axios.create({
@@ -24,15 +24,15 @@ const rawApi = axios.create({
   timeout: 30000,
 })
 
-// IB endpoints use different domain (https://brokereye.work.gd.app without api. subdomain)
+// IB endpoints use different domain (https://brokereye.app.work.gd without api. subdomain)
 const ibApi = axios.create({
-  baseURL: 'https://brokereye.work.gd.app',
+  baseURL: 'https://brokereye.app.work.gd',
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 30000,
 })
-if (DEBUG_LOGS) console.log('[API] IB Base URL (hardcoded):', 'https://brokereye.work.gd.app')
+if (DEBUG_LOGS) console.log('[API] IB Base URL (hardcoded):', 'https://brokereye.app.work.gd')
 
 // Refresh handling state
 let isRefreshing = false
