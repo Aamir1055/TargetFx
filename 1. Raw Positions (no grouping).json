@@ -1,0 +1,267 @@
+{
+  "v": 11,
+  "id": "cmo02u5tz03rbgb1ltv48vxaj",
+  "name": "1. Raw Positions (no grouping)",
+  "folders": [],
+  "requests": [
+    {
+      "v": "17",
+      "name": "Basic - All Positions (page 1)",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 50,\n    \"sortBy\": \"timeCreate\",\n    \"sortOrder\": \"desc\"\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": "Fetch raw positions with default sorting by timeCreate descending."
+    },
+    {
+      "v": "17",
+      "name": "Filter by Symbol (contains)",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 100,\n    \"filters\": [\n        {\n            \"field\": \"symbol\",\n            \"operator\": \"contains\",\n            \"value\": \"XAUUSD\"\n        }\n    ]\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": "Find all positions where symbol contains 'XAUUSD'."
+    },
+    {
+      "v": "17",
+      "name": "Filter by Action (BUY only)",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 100,\n    \"filters\": [\n        {\n            \"field\": \"action\",\n            \"operator\": \"equal\",\n            \"value\": \"BUY\"\n        }\n    ]\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": null
+    },
+    {
+      "v": "17",
+      "name": "Filter by Specific Logins (mt5Accounts)",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 100,\n    \"mt5Accounts\": [10001, 10002, 10003]\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": "Return positions only for logins 10001, 10002, 10003."
+    },
+    {
+      "v": "17",
+      "name": "Date Range Filter",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 100,\n    \"dateFrom\": 1735689600,\n    \"dateTo\": 1767225600,\n    \"sortBy\": \"timeCreate\",\n    \"sortOrder\": \"asc\"\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": "Filter positions created between 2025-01-01 and 2026-01-01 (unix timestamps). Applied to timeCreate field."
+    },
+    {
+      "v": "17",
+      "name": "Global Search (symbol / login / comment)",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 50,\n    \"search\": \"XAUUSD\"\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": "Global text search across symbol, login, comment, and action."
+    },
+    {
+      "v": "17",
+      "name": "Filter - Profit Greater Than",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 100,\n    \"sortBy\": \"profit\",\n    \"sortOrder\": \"desc\",\n    \"filters\": [\n        {\n            \"field\": \"profit\",\n            \"operator\": \"greater_than\",\n            \"value\": \"100\"\n        }\n    ]\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": "Positions with profit > 100, sorted by profit descending."
+    },
+    {
+      "v": "17",
+      "name": "Filter - Volume Less Than or Equal",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 100,\n    \"filters\": [\n        {\n            \"field\": \"volume\",\n            \"operator\": \"less_than_or_equal\",\n            \"value\": \"1.0\"\n        }\n    ]\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": null
+    },
+    {
+      "v": "17",
+      "name": "Multiple Filters Combined",
+      "method": "POST",
+      "endpoint": "<<base_url>>/api/broker/positions/search",
+      "params": [],
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "active": true,
+          "description": ""
+        }
+      ],
+      "preRequestScript": "",
+      "testScript": "",
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "body": {
+        "contentType": "application/json",
+        "body": "{\n    \"page\": 1,\n    \"limit\": 50,\n    \"sortBy\": \"profit\",\n    \"sortOrder\": \"desc\",\n    \"dateFrom\": 1735689600,\n    \"filters\": [\n        {\n            \"field\": \"symbol\",\n            \"operator\": \"contains\",\n            \"value\": \"XAU\"\n        },\n        {\n            \"field\": \"action\",\n            \"operator\": \"equal\",\n            \"value\": \"BUY\"\n        },\n        {\n            \"field\": \"profit\",\n            \"operator\": \"greater_than\",\n            \"value\": \"0\"\n        }\n    ]\n}"
+      },
+      "requestVariables": [],
+      "responses": {},
+      "description": "XAU symbols, BUY only, profit > 0, opened after 2025-01-01."
+    }
+  ],
+  "auth": {
+    "authType": "inherit",
+    "authActive": true
+  },
+  "headers": [],
+  "variables": [],
+  "description": null
+}

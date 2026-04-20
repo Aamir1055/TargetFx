@@ -1,0 +1,20 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Enable proxy for WebSocket (must come BEFORE regular API proxy)
+  RewriteCond %{HTTP:Upgrade} =websocket [NC]
+  RewriteCond %{HTTP:Connection} =Upgrade [NC]
+  RewriteRule ^api/broker/ws(.*)$ ws://api.brokereye.work.gd/api/broker/ws$1 [P,L]
+
+  # Enable proxy for regular API requests
+  RewriteCond %{REQUEST_URI} ^/api/
+  RewriteRule ^api/(.*)$ http://api.brokereye.work.gd/api/$1 [P,L]
+  
+  # Don't rewrite files or directories
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  
+  # Rewrite everything else to index.html to allow html5 state links
+  RewriteRule ^ index.html [L]
+</IfModule>

@@ -1,0 +1,11 @@
+/* Mobile keyboard handling - increase modal height when search is focused */
+@media only screen and (max-width: 768px) {
+  .login-group-modal {
+    transition: max-height 0.3s ease-in-out;
+  }
+  
+  .login-group-modal:has(.login-group-search:focus) {
+    max-height: calc(85vh + 450px) !important;
+    transition: max-height 0.3s ease-in-out;
+  }
+}

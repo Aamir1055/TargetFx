@@ -1,0 +1,2348 @@
+{
+	"info": {
+		"_postman_id": "65cd7bd9-2e40-45f9-861d-0452ab5d448a",
+		"name": "Test",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "49334436",
+		"_collection_link": "https://solar-station-174450.postman.co/workspace/Broker-Eye~3110a293-7af5-4b4a-8371-b4e5cf19708d/collection/49334436-65cd7bd9-2e40-45f9-861d-0452ab5d448a?action=share&source=collection_link&creator=49334436"
+	},
+	"item": [
+		{
+			"name": "Client Fast Copy",
+			"item": [
+				{
+					"name": "Pagination Tests",
+					"item": [
+						{
+							"name": "Basic Search - Default Pagination",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status code is 200', () => {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('Response has correct structure', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData).to.have.property('status', 0);",
+											"    pm.expect(jsonData.data).to.have.property('clients');",
+											"    pm.expect(jsonData.data).to.have.property('total');",
+											"    pm.expect(jsonData.data).to.have.property('page');",
+											"    pm.expect(jsonData.data).to.have.property('limit');",
+											"    pm.expect(jsonData.data).to.have.property('pages');",
+											"    pm.expect(jsonData.data).to.have.property('totals');",
+											"});",
+											"",
+											"pm.test('Default pagination values', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.page).to.equal(1);",
+											"    pm.expect(jsonData.data.limit).to.equal(100);",
+											"});",
+											"",
+											"pm.test('Clients is an array', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.clients).to.be.an('array');",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Basic search with no filters, testing default pagination"
+							},
+							"response": []
+						},
+						{
+							"name": "Custom Pagination - Page 2, Limit 50",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status code is 200', () => {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('Correct pagination values', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.page).to.equal(2);",
+											"    pm.expect(jsonData.data.limit).to.equal(50);",
+											"});",
+											"",
+											"pm.test('Clients array size <= limit', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.clients.length).to.be.at.most(50);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"page\": 1,\n    \"limit\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Test custom pagination with page 2 and limit 50"
+							},
+							"response": []
+						},
+						{
+							"name": "Large Page Size - Limit 1000",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"// Parse JSON response\r",
+											"let response = pm.response.json();\r",
+											"\r",
+											"if (response.data && response.data.clients && Array.isArray(response.data.clients)) {\r",
+											"    let clients = response.data.clients;\r",
+											"\r",
+											"    // Collect all numeric keys dynamically\r",
+											"    let numericKeys = new Set();\r",
+											"    clients.forEach(client => {\r",
+											"        Object.keys(client).forEach(key => {\r",
+											"            if (typeof client[key] === \"number\") numericKeys.add(key);\r",
+											"        });\r",
+											"    });\r",
+											"\r",
+											"    numericKeys = Array.from(numericKeys).sort();\r",
+											"\r",
+											"    // Calculate totals for each numeric field\r",
+											"    let totals = {};\r",
+											"    numericKeys.forEach(key => totals[key] = 0);\r",
+											"\r",
+											"    clients.forEach(client => {\r",
+											"        // Divide values by 100 only if currency is USC\r",
+											"        let factor = (client.currency && client.currency.toUpperCase() === \"USC\") ? 0.01 : 1;\r",
+											"\r",
+											"        numericKeys.forEach(key => {\r",
+											"            let val = client[key];\r",
+											"            if (typeof val === \"number\" && !isNaN(val)) {\r",
+											"                val = val * factor; // adjust for USC\r",
+											"                client[key] = val;  // update client value for display\r",
+											"                totals[key] += val; // add to totals\r",
+											"            }\r",
+											"        });\r",
+											"    });\r",
+											"\r",
+											"    // Prepare visualizer data\r",
+											"    let data = {\r",
+											"        clients: clients,\r",
+											"        numericKeys: numericKeys,\r",
+											"        totals: totals\r",
+											"    };\r",
+											"\r",
+											"    // HTML template\r",
+											"    let template = `\r",
+											"    <style>\r",
+											"        body { font-family: Arial, sans-serif; padding: 10px; }\r",
+											"        h2 { color: #333; }\r",
+											"        .table-container {\r",
+											"            max-height: 300px; /* scrollable area height */\r",
+											"            overflow-y: auto;\r",
+											"            border: 1px solid #ccc;\r",
+											"            border-radius: 4px;\r",
+											"        }\r",
+											"        table { \r",
+											"            width: 100%; \r",
+											"            border-collapse: collapse; \r",
+											"            font-size: 12px;\r",
+											"        }\r",
+											"        th, td { \r",
+											"            border: 1px solid #ccc; \r",
+											"            padding: 6px; \r",
+											"            text-align: right; \r",
+											"        }\r",
+											"        th { \r",
+											"            background-color: #007bff; \r",
+											"            color: white; \r",
+											"            text-align: center;\r",
+											"            position: sticky;\r",
+											"            top: 0;\r",
+											"            z-index: 10;\r",
+											"        }\r",
+											"        tr:nth-child(even) { background-color: #f9f9f9; }\r",
+											"        tr.total-row {\r",
+											"            background: #f3f3f3;\r",
+											"            font-weight: bold;\r",
+											"            border-top: 2px solid #007bff;\r",
+											"        }\r",
+											"        td.key {\r",
+											"            text-align: left;\r",
+											"            font-weight: 600;\r",
+											"            color: #007bff;\r",
+											"        }\r",
+											"    </style>\r",
+											"\r",
+											"    <h2>Client Numeric Field Summary</h2>\r",
+											"    <div class=\"table-container\">\r",
+											"    <table>\r",
+											"        <thead>\r",
+											"            <tr>\r",
+											"                <th>Login</th>\r",
+											"                {{#each numericKeys}}\r",
+											"                    <th>{{this}}</th>\r",
+											"                {{/each}}\r",
+											"            </tr>\r",
+											"        </thead>\r",
+											"        <tbody>\r",
+											"            {{#each clients}}\r",
+											"            <tr>\r",
+											"                <td>{{login}}</td>\r",
+											"                {{#each ../numericKeys}}\r",
+											"                    <td>{{lookup ../this this}}</td>\r",
+											"                {{/each}}\r",
+											"            </tr>\r",
+											"            {{/each}}\r",
+											"            <tr class=\"total-row\">\r",
+											"                <td>Total</td>\r",
+											"                {{#each numericKeys}}\r",
+											"                    <td>{{lookup ../totals this}}</td>\r",
+											"                {{/each}}\r",
+											"            </tr>\r",
+											"        </tbody>\r",
+											"    </table>\r",
+											"    </div>\r",
+											"    `;\r",
+											"\r",
+											"    pm.visualizer.set(template, data);\r",
+											"    \r",
+											"} else {\r",
+											"    pm.visualizer.set(`<h3 style=\"color:red;\">Invalid response structure — no 'data.clients' array found.</h3>`);\r",
+											"}\r",
+											""
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"page\": 1,\n    \"limit\": 1,\n    \"percentage\": false\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Test maximum page size (1000 records)"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Account Filters",
+					"item": [
+						{
+							"name": "Filter by Specific MT5 Accounts",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status code is 200', () => {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('Only specified accounts returned', () => {",
+											"    const jsonData = pm.response.json();",
+											"    const allowedAccounts = [123456, 789012, 345678];",
+											"    jsonData.data.clients.forEach(client => {",
+											"        pm.expect(allowedAccounts).to.include(client.login);",
+											"    });",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"mt5Accounts\": [555075,555088,555175],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Filter clients by specific MT5 account numbers"
+							},
+							"response": []
+						},
+						{
+							"name": "Filter by Account Range",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status code is 200', () => {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('All accounts within range', () => {",
+											"    const jsonData = pm.response.json();",
+											"    jsonData.data.clients.forEach(client => {",
+											"        pm.expect(client.login).to.be.at.least(100000);",
+											"        pm.expect(client.login).to.be.at.most(199999);",
+											"    });",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"accountRangeMin\": 500000,\n    \"accountRangeMax\": 600000,\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Filter clients by account number range"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Global Search",
+					"item": [
+						{
+							"name": "Search by Name",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"search\": \"john\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Global search across multiple fields for 'john'"
+							},
+							"response": []
+						},
+						{
+							"name": "Search by Email Domain",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"search\": \"@gmail.com\",\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Search for all Gmail users"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "String Field Filters",
+					"item": [
+						{
+							"name": "Email Contains Filter",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('All emails contain gmail', () => {",
+											"    const jsonData = pm.response.json();",
+											"    jsonData.data.clients.forEach(client => {",
+											"        pm.expect(client.email.toLowerCase()).to.include('gmail');",
+											"    });",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"email\",\n            \"operator\": \"contains\",\n            \"value\": \"gmail\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Filter by email containing 'gmail'"
+							},
+							"response": []
+						},
+						{
+							"name": "Phone Starts With Filter",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"phone\",\n            \"operator\": \"starts_with\",\n            \"value\": \"+1\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Filter by phone starting with +1 (US numbers)"
+							},
+							"response": []
+						},
+						{
+							"name": "Country Equal Filter",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"country\",\n            \"operator\": \"equal\",\n            \"value\": \"United States\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Filter by exact country match"
+							},
+							"response": []
+						},
+						{
+							"name": "Group Not Contains Demo",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"group\",\n            \"operator\": \"not_contains\",\n            \"value\": \"\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Exclude demo accounts"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Numeric Field Filters",
+					"item": [
+						{
+							"name": "Balance Greater Than 10000",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('All balances > 10000', () => {",
+											"    const jsonData = pm.response.json();",
+											"    jsonData.data.clients.forEach(client => {",
+											"        pm.expect(client.balance).to.be.above(10000);",
+											"    });",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"lifetimePnL\",\n            \"operator\": \"greater_than\",\n            \"value\": \"100\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Filter clients with balance > $10,000"
+							},
+							"response": []
+						},
+						{
+							"name": "Equity Range 5000-50000",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"equity\",\n            \"operator\": \"greater_than_equal\",\n            \"value\": \"5000\"\n        },\n        {\n            \"field\": \"equity\",\n            \"operator\": \"less_than_equal\",\n            \"value\": \"50000\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Filter clients with equity between $5,000 and $50,000"
+							},
+							"response": []
+						},
+						{
+							"name": "Negative P&L",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"pnl\",\n            \"operator\": \"less_than\",\n            \"value\": \"0\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find clients with negative P&L (in loss)"
+							},
+							"response": []
+						},
+						{
+							"name": "Low Margin Level (< 200%)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status code is 200', () => {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('Totals object exists', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.totals).to.be.an('object');",
+											"    pm.expect(jsonData.data.totals).to.have.property('equity');",
+											"    pm.expect(jsonData.data.totals).to.have.property('margin');",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"marginLevel\",\n            \"operator\": \"less_than\",\n            \"value\": \"200\"\n        },\n        {\n            \"field\": \"marginLevel\",\n            \"operator\": \"greater_than\",\n            \"value\": \"0\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find clients with margin level below 200% (margin call warning)"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Combined Filters",
+					"item": [
+						{
+							"name": "High-Value US Clients",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"country\",\n            \"operator\": \"equal\",\n            \"value\": \"United States\"\n        },\n        {\n            \"field\": \"equity\",\n            \"operator\": \"greater_than\",\n            \"value\": \"50000\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find US clients with equity over $50,000"
+							},
+							"response": []
+						},
+						{
+							"name": "VIP Client Search",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"comment\",\n            \"operator\": \"contains\",\n            \"value\": \"vip\"\n        },\n        {\n            \"field\": \"balance\",\n            \"operator\": \"greater_than\",\n            \"value\": \"25000\"\n        },\n        {\n            \"field\": \"group\",\n            \"operator\": \"not_contains\",\n            \"value\": \"demo\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find VIP clients with balance over $25,000, excluding demo accounts"
+							},
+							"response": []
+						},
+						{
+							"name": "Profitable Gmail Clients This Month",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"search\": \"@gmail.com\",\n    \"filters\": [\n        {\n            \"field\": \"thisMonthPnL\",\n            \"operator\": \"greater_than\",\n            \"value\": \"1000\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find Gmail clients with over $1,000 profit this month"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Risk Management",
+					"item": [
+						{
+							"name": "Stop Out Candidates (Margin < 50%)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Total exposure calculated', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.totals.equity).to.exist;",
+											"    pm.expect(jsonData.data.totals.margin).to.exist;",
+											"    console.log('Total at-risk equity:', jsonData.data.totals.equity);",
+											"    console.log('Total at-risk margin:', jsonData.data.totals.margin);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"marginLevel\",\n            \"operator\": \"less_than\",\n            \"value\": \"50\"\n        },\n        {\n            \"field\": \"equity\",\n            \"operator\": \"greater_than\",\n            \"value\": \"0\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find accounts at risk of stop-out (margin level < 50%)"
+							},
+							"response": []
+						},
+						{
+							"name": "Clients with Credit",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Total credit exposure calculated', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.totals.credit).to.exist;",
+											"    console.log('Total credit exposure:', jsonData.data.totals.credit);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"credit\",\n            \"operator\": \"not_equal\",\n            \"value\": \"0\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find all clients with active credit"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Advanced Use Cases",
+					"item": [
+						{
+							"name": "Active Traders This Month",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"commission\",\n            \"operator\": \"greater_than\",\n            \"value\": \"100\"\n        },\n        {\n            \"field\": \"thisMonthPnL\",\n            \"operator\": \"not_equal\",\n            \"value\": \"0\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 100\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find active traders (commission > $100 and have P&L this month)"
+							},
+							"response": []
+						},
+						{
+							"name": "Consistent Winners",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"thisWeekPnL\",\n            \"operator\": \"greater_than\",\n            \"value\": \"0\"\n        },\n        {\n            \"field\": \"lastWeekPnL\",\n            \"operator\": \"greater_than\",\n            \"value\": \"0\"\n        },\n        {\n            \"field\": \"thisMonthPnL\",\n            \"operator\": \"greater_than\",\n            \"value\": \"0\"\n        },\n        {\n            \"field\": \"lastMonthPnL\",\n            \"operator\": \"greater_than\",\n            \"value\": \"0\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find clients profitable for 2 consecutive weeks and 2 consecutive months"
+							},
+							"response": []
+						},
+						{
+							"name": "High Commission Payers",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"filters\": [\n        {\n            \"field\": \"commission\",\n            \"operator\": \"greater_than\",\n            \"value\": \"500\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Find high-volume traders (commission > $500)"
+							},
+							"response": []
+						},
+						{
+							"name": "Complex Multi-Filter Search",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"percentage\": true\n    \n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Complex search with account range, global search, and multiple filters"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Error Scenarios",
+					"item": [
+						{
+							"name": "No Authentication Token",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status code is 401', () => {",
+											"    pm.response.to.have.status(401);",
+											"});",
+											"",
+											"pm.test('Error message returned', () => {",
+											"    const jsonData = pm.response.json();",
+											"    pm.expect(jsonData.status).to.equal(1);",
+											"    pm.expect(jsonData.message).to.exist;",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Test unauthorized access"
+							},
+							"response": []
+						},
+						{
+							"name": "Invalid JSON Body",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status code is 400', () => {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{ invalid json }"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								},
+								"description": "Test invalid JSON body"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Sorting",
+					"item": [
+						{
+							"name": "Sort by Login (Ascending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"login\",\n    \"sortOrder\": \"asc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Name (Ascending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"name\",\n    \"sortOrder\": \"asc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Email (Ascending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"email\",\n    \"sortOrder\": \"asc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Group (Ascending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"group\",\n    \"sortOrder\": \"asc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Balance (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"balance\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Equity (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"equity\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Credit (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"credit\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Profit (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"profit\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Margin (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"margin\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Margin Free (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"marginFree\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Margin Level (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"marginLevel\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Floating P&L (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"floating\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Daily P&L (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"dailyPnL\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by This Week P&L (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"thisWeekPnL\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by This Month P&L (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"thisMonthPnL\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Lifetime P&L (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"lifetimePnL\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Leverage (Descending)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"leverage\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Registration Date (Descending - Newest First)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"registration\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort by Last Access (Descending - Most Recent First)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"lastAccess\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Combined - Sort with Filters",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"sortBy\": \"equity\",\n    \"sortOrder\": \"desc\",\n    \"filters\": [\n        {\n            \"field\": \"balance\",\n            \"operator\": \"greater_than\",\n            \"value\": \"1000\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50,\n    \"percentage\": false\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/search",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"search"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Client Fields",
+					"item": [
+						{
+							"name": "Get Client Fields - Default",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Response has correct structure\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData).to.have.property('status', 'success');",
+											"    pm.expect(jsonData).to.have.property('data');",
+											"    pm.expect(jsonData.data).to.have.property('clients');",
+											"    pm.expect(jsonData.data).to.have.property('total');",
+											"    pm.expect(jsonData.data).to.have.property('page');",
+											"    pm.expect(jsonData.data).to.have.property('limit');",
+											"    pm.expect(jsonData.data).to.have.property('totalPages');",
+											"    pm.expect(jsonData.data).to.have.property('fields');",
+											"});",
+											"",
+											"pm.test(\"Clients array exists\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.clients).to.be.an('array');",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									]
+								},
+								"description": "Get client fields with default configuration (login, name, lastName, email, phone, group, status). No parameters specified - uses default fields, page=1, limit=100."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - Login and Email Only",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,email&page=1&limit=1000",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,email",
+											"description": "Only return login and email fields"
+										},
+										{
+											"key": "page",
+											"value": "1",
+											"description": "Page number"
+										},
+										{
+											"key": "limit",
+											"value": "1000",
+											"description": "Results per page"
+										}
+									]
+								},
+								"description": "Retrieve only login and email fields. Useful for dropdown lists or lightweight data export."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - Contact Information",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,name,lastName,email,phone,country,city&page=1&limit=100",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,name,lastName,email,phone,country,city",
+											"description": "Contact and location fields"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Get complete contact information including location details."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - With Search",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,name,lastName,email,phone&search=john&page=1&limit=50",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,name,lastName,email,phone",
+											"description": "Fields to retrieve"
+										},
+										{
+											"key": "search",
+											"value": "john",
+											"description": "Search text (case-insensitive)"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "50"
+										}
+									]
+								},
+								"description": "Search for clients matching 'john' in any of the requested fields. Search is case-insensitive and performs substring matching."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - Search by Login",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,name,email,status&search=12345&page=1&limit=50",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,name,email,status"
+										},
+										{
+											"key": "search",
+											"value": "12345",
+											"description": "Search by login number"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "50"
+										}
+									]
+								},
+								"description": "Search for clients by login number. Numeric search works on the login field."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - Group Analysis",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,name,group,accountType,processorType,status&page=1&limit=100",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,name,group,accountType,processorType,status",
+											"description": "Group and account type fields"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Retrieve clients with group information for analysis and categorization."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - Marketing Data",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,name,email,leadSource,leadCampaign,status&page=1&limit=100",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,name,email,leadSource,leadCampaign,status"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Export marketing attribution data for campaign analysis."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - All User Fields",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,name,lastName,middleName,email,phone,id,status,comment,company,country,city,state,zipCode,address,leadSource,leadCampaign,group,accountType,processorType,currency&page=1&limit=100",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,name,lastName,middleName,email,phone,id,status,comment,company,country,city,state,zipCode,address,leadSource,leadCampaign,group,accountType,processorType,currency",
+											"description": "All 21 supported non-numeric fields"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "Retrieve all 21 supported non-numeric fields. Still much lighter than full client endpoint since it excludes all financial/numeric data."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - Large Limit",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,email,name&page=1&limit=1000",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,email,name"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "1000",
+											"description": "Maximum allowed limit"
+										}
+									]
+								},
+								"description": "Fetch maximum allowed results per page (1000). Useful for bulk exports."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Client Fields - Pagination Example",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{broker_jwt_token}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/broker/clients/fields?fields=login,name,email&page=2&limit=50",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"broker",
+										"clients",
+										"fields"
+									],
+									"query": [
+										{
+											"key": "fields",
+											"value": "login,name,email"
+										},
+										{
+											"key": "page",
+											"value": "2",
+											"description": "Second page"
+										},
+										{
+											"key": "limit",
+											"value": "50",
+											"description": "50 results per page"
+										}
+									]
+								},
+								"description": "Get second page of results. Response includes totalPages to help with pagination."
+							},
+							"response": []
+						}
+					],
+					"description": "Endpoints for retrieving specific non-numeric client fields with pagination and search."
+				}
+			]
+		}
+	]
+}

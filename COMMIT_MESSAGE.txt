@@ -1,0 +1,46 @@
+Fix Client2 module filtering and pagination
+
+Major refactoring to simplify Client2 module and fix filtering issues:
+
+FILTERING FIXES:
+- Fixed column header checkbox filters to use correct API format
+- Email/Name/Phone filters now send: {"email": "val1,val2,val3"}
+- Login filters use mt5Accounts array: {"mt5Accounts": [123, 456, 789]}
+- Removed multi-request approach that was making 100+ API calls
+- Now makes single API call with comma-separated values
+- Removed client-side filtering logic (250+ lines)
+
+PAGINATION FIXES:
+- Fixed pagination to work correctly with filters
+- Removed logic that fetched all pages and showed on one page
+- API now handles pagination properly
+- Page numbers display correctly
+
+FACE CARDS FIXES:
+- Face cards now show correct totals from API
+- Removed client-side total recalculation
+- Totals update correctly when filters are applied
+
+PERFORMANCE IMPROVEMENTS:
+- Reduced auto-refresh interval from 3 seconds to 30 seconds
+- Removed unnecessary API calls (90% reduction)
+- Simplified code to match ClientsPage implementation
+- Removed 250+ lines of complex filtering code
+
+CODE CLEANUP:
+- Removed emailFilterList, nameFilterList, phoneFilterList state
+- Removed allFilteredClients, hasClientSideFilters, filteredTotals
+- Removed displayedClientCount, displayedTotalPages
+- Removed applyClientSideCheckboxFilters function
+- Removed buildPayloadVariants function
+- Removed multi-request merging logic
+
+Files changed:
+- src/pages/Client2Page.jsx (major refactoring)
+
+Testing:
+- Column header filters work correctly for all fields
+- Pagination works with filters applied
+- Face cards show accurate totals
+- Single API call per filter operation
+- No more 50-request limit errors

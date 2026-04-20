@@ -1,0 +1,487 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mobile viewport fixes */
+html {
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  /* Fix mobile viewport height */
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  min-height: 100dvh;
+  /* Prevent text size adjustment */
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Fix for mobile browsers URL bar */
+@supports (-webkit-touch-callout: none) {
+  body {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Custom animations for enhanced UI */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 640px) {
+  /* Prevent zoom on input focus for iOS */
+  input[type="text"],
+  input[type="password"] {
+    font-size: 16px !important;
+  }
+  
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-pulse,
+    .animate-bounce {
+      animation: none;
+    }
+    
+    * {
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Tablet and desktop enhancements */
+@media (min-width: 768px) {
+  /* Enhanced backdrop blur for larger screens */
+  .backdrop-blur-lg {
+    backdrop-filter: blur(16px);
+  }
+}
+
+/* High-DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2) {
+  /* Sharper borders for retina displays */
+  .border,
+  .border-2,
+  .border-3 {
+    border-width: 0.5px;
+  }
+}
+
+/* Custom styles */
+@layer base {
+  html {
+    font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    /* Use true 100% scale to match Figma sizes */
+    font-size: 100%;
+  }
+  
+  body {
+    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+  }
+
+  /* Ensure placeholder text is always visible */
+  input::placeholder,
+  textarea::placeholder {
+    color: #9CA3AF !important; /* gray-400 */
+    opacity: 1 !important;
+  }
+
+  input::-webkit-input-placeholder {
+    color: #9CA3AF !important; /* gray-400 */
+    opacity: 1 !important;
+  }
+
+  input::-moz-placeholder {
+    color: #9CA3AF !important; /* gray-400 */
+    opacity: 1 !important;
+  }
+
+  input:-ms-input-placeholder {
+    color: #9CA3AF !important; /* gray-400 */
+    opacity: 1 !important;
+  }
+}
+
+/* Hide native scrollbars utility */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Custom Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-2px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.8);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 1s ease-out;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Custom scrollbar for data tables */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #3b82f6, #6366f1);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #2563eb, #4f46e5);
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #f1f5f9;
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Table without borders */
+.table-no-borders * {
+  border: none !important;
+  outline: none !important;
+}
+
+.table-no-borders .grid > div {
+  border: none !important;
+  box-sizing: border-box;
+}
+
+/* Custom date picker calendar styling */
+/* Note: Native browser calendar popups (Chrome, Safari, Firefox) have limited styling capabilities.
+   The calendar dialog size and cell spacing are controlled by the browser and cannot be modified via CSS.
+   For full control, a third-party date picker library would be required. */
+
+input[type="date"] {
+  /* Compact input field */
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  width: 14px;
+  height: 14px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Reduce spacing in date input fields */
+input[type="date"]::-webkit-datetime-edit {
+  padding: 0;
+  line-height: 1.2;
+}
+
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+input[type="date"]::-webkit-datetime-edit-text {
+  padding: 0 0.15em;
+}
+
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+  padding: 0 0.1em;
+  font-size: 0.75rem;
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+  input[type="date"] {
+    font-size: 0.7rem;
+  }
+  
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* React DatePicker Compact Styling */
+.compact-calendar {
+  font-size: 0.75rem !important;
+}
+
+.compact-calendar .react-datepicker__header {
+  padding: 4px 0 !important;
+  background-color: #3b82f6 !important;
+}
+
+.compact-calendar .react-datepicker__current-month {
+  font-size: 0.8rem !important;
+  padding: 4px 0 !important;
+  margin-bottom: 4px !important;
+}
+
+.compact-calendar .react-datepicker__day-names {
+  margin-bottom: 0 !important;
+}
+
+.compact-calendar .react-datepicker__day-name {
+  width: 1.5rem !important;
+  line-height: 1.5rem !important;
+  margin: 0.1rem !important;
+  font-size: 0.65rem !important;
+}
+
+.compact-calendar .react-datepicker__day {
+  width: 1.5rem !important;
+  line-height: 1.5rem !important;
+  margin: 0.1rem !important;
+  font-size: 0.7rem !important;
+}
+
+.compact-calendar .react-datepicker__week {
+  margin: 0 !important;
+}
+
+.compact-calendar .react-datepicker__month {
+  margin: 0.2rem !important;
+}
+
+.compact-calendar .react-datepicker__navigation {
+  top: 6px !important;
+}
+
+.compact-calendar .react-datepicker__navigation-icon::before {
+  border-width: 2px 2px 0 0 !important;
+  height: 6px !important;
+  width: 6px !important;
+  top: 6px !important;
+}
+
+.compact-calendar .react-datepicker__day--selected,
+.compact-calendar .react-datepicker__day--keyboard-selected {
+  background-color: #3b82f6 !important;
+  border-radius: 0.2rem !important;
+}
+
+.compact-calendar .react-datepicker__day:hover {
+  background-color: #dbeafe !important;
+  border-radius: 0.2rem !important;
+}
+
+.compact-calendar .react-datepicker__day--disabled {
+  color: #ccc !important;
+}
+
+/* Make calendar popup more compact */
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+.react-datepicker {
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Custom scrollbar for All Metrics modal */
+.overflow-y-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-scroll::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.overflow-y-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.overflow-y-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Custom scrollbar for Client Net table - always visible */
+.client-net-scroll-container {
+  overflow-y: scroll !important;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E0 #F7FAFC;
+}
+
+.client-net-scroll-container::-webkit-scrollbar {
+  width: 8px;
+  -webkit-appearance: none;
+}
+
+.client-net-scroll-container::-webkit-scrollbar-track {
+  background: #F7FAFC;
+  border-radius: 4px;
+}
+
+.client-net-scroll-container::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 4px;
+  min-height: 200px;
+}
+
+.client-net-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #A0AEC0;
+}
+
+.client-net-scroll-container::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* YouTube-style shimmer animation for skeleton loaders */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Mobile Date Picker Styles */
+@media (max-width: 768px) {
+  .mobile-date-picker::-webkit-calendar-picker-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+    color: transparent;
+    background: transparent;
+    cursor: pointer;
+    opacity: 0;
+  }
+
+  /* Style the date picker popup */
+  .mobile-date-picker::-webkit-datetime-edit {
+    font-size: 10px;
+  }
+
+  .mobile-date-picker::-webkit-datetime-edit-fields-wrapper {
+    font-size: 10px;
+  }
+
+  .mobile-date-picker::-webkit-datetime-edit-text {
+    font-size: 10px;
+  }
+
+  .mobile-date-picker::-webkit-datetime-edit-month-field,
+  .mobile-date-picker::-webkit-datetime-edit-day-field,
+  .mobile-date-picker::-webkit-datetime-edit-year-field {
+    font-size: 10px;
+  }
+
+  /* Reduce size of calendar popup for mobile */
+  input[type="date"].mobile-date-picker {
+    transform: scale(0.85);
+    transform-origin: left center;
+  }
+}

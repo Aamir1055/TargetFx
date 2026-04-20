@@ -1,0 +1,81 @@
+name: Branch Based CI/CD
+
+on:
+  push:
+    branches:
+      - amari-capital
+      - broker
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run tests
+        run: npm test
+        continue-on-error: true
+
+      - name: Build project
+        run: npm run build
+
+      - name: Verify dist folder exists
+        run: |
+          ls -la
+          if [ -d "dist" ]; then
+            echo "✅ dist folder exists"
+            ls -la dist/
+          else
+            echo "❌ dist folder not found!"
+            exit 1
+          fi
+
+      - name: Set deployment variables
+        id: deploy-vars
+        run: |
+          if [[ "${{ github.ref_name }}" == "amari-capital" ]]; then
+            echo "DEPLOY_PATH=amari-capital" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == "broker" ]]; then
+            echo "DEPLOY_PATH=broker" >> $GITHUB_OUTPUT
+          else
+            echo "Unsupported branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+
+      - name: Ensure remote directory exists (Windows)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.WINDOWS_HOST }}
+          username: ${{ secrets.WINDOWS_USER }}
+          password: ${{ secrets.WINDOWS_PASSWORD }}
+          port: 22
+          script: |
+            powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path 'C:\\xampp\\htdocs\\${{ steps.deploy-vars.outputs.DEPLOY_PATH }}'"
+
+      - name: Deploy via SFTP (Windows path)
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.WINDOWS_HOST }}
+          username: ${{ secrets.WINDOWS_USER }}
+          password: ${{ secrets.WINDOWS_PASSWORD }}
+          port: 22
+          local_path: ./dist/*
+          remote_path: /C:/xampp/htdocs/${{ steps.deploy-vars.outputs.DEPLOY_PATH }}
+          sftp_only: true
+
