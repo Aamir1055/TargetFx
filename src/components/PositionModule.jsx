@@ -959,27 +959,7 @@ export default function PositionModule() {
             </button>
             <button 
               onClick={() => {
-                setShowNetPositions((v) => {
-                  const nv = !v
-                  if (nv) setShowClientNet(false)
-                  return nv
-                })
-              }}
-              className={`flex-1 h-8 rounded-[12px] ${showNetPositions ? 'bg-blue-600 border-blue-600' : 'bg-white border-[#E5E7EB]'} border shadow-sm flex items-center justify-center gap-1.5 hover:opacity-90 transition-all`}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke={showNetPositions ? "#ffffff" : "#666666"} strokeWidth="2"/>
-                <path d="M12 8v8M8 12h8" stroke={showNetPositions ? "#ffffff" : "#666666"} strokeWidth="2"/>
-              </svg>
-              <span className={`${showNetPositions ? 'text-white' : 'text-[#666666]'} text-[10px] font-medium font-outfit`}>Net Positions</span>
-            </button>
-            <button 
-              onClick={() => {
-                setShowClientNet((v) => {
-                  const nv = !v
-                  if (nv) setShowNetPositions(false)
-                  return nv
-                })
+                setShowClientNet((v) => !v)
               }}
               className={`flex-1 h-8 rounded-[12px] ${showClientNet ? 'bg-blue-600 border-blue-600' : 'bg-white border-[#E5E7EB]'} border shadow-sm flex items-center justify-center gap-1.5 hover:opacity-90 transition-all`}
             >
