@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useMemo, useCallback, Fragment, useDeferre
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useGroups } from '../contexts/GroupContext'
-import { useIB } from '../contexts/IBContext'
 import { brokerAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
 import WebSocketIndicator from '../components/WebSocketIndicator'
@@ -10,7 +9,6 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
-import IBSelector from '../components/IBSelector'
 import PositionModule from '../components/PositionModule'
 import DateFilterModal from '../components/DateFilterModal'
 import { normalizePositions } from '../utils/currencyNormalization'
@@ -37,7 +35,6 @@ const PositionsPage = () => {
   const { orders: cachedOrders, loading, connectionState, rawClients } = useData()
   const { isAuthenticated } = useAuth()
   const { filterByActiveGroup, activeGroupFilters } = useGroups()
-  const { filterByActiveIB, selectedIB, ibMT5Accounts } = useIB()
 
   // --- Positions are fetched via REST polling (1s) when this page is active ---
   const [polledPositions, setPolledPositions] = useState([])
@@ -101,7 +98,6 @@ const PositionsPage = () => {
     symbol: true,
     netType: true,
     netVolume: true,
-    avgPrice: true,
     totalProfit: true,
     totalStorage: false,
     totalCommission: false,
@@ -171,10 +167,7 @@ const PositionsPage = () => {
   // Column visibility states
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const columnSelectorRef = useRef(null)
-  const [showDisplayMenu, setShowDisplayMenu] = useState(false)
-  const displayMenuRef = useRef(null)
-  const displayButtonRef = useRef(null)
-  const [displayMode, setDisplayMode] = useState('value') // 'value', 'percentage', or 'both'
+  const [displayMode, setDisplayMode] = useState('value') // 'value' or 'percentage'
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState({
     position: false,
@@ -248,22 +241,13 @@ const PositionsPage = () => {
       effective.profitPercentage = false
       effective.storagePercentage = false
     } else if (displayMode === 'percentage') {
-      // Show My Percentage: Hide value columns, show only percentage columns
+      // Show Percentage: Replace value columns with percentage columns (only if base column is checked)
+      effective.volumePercentage = visibleColumns.volume
+      effective.profitPercentage = visibleColumns.profit
+      effective.storagePercentage = visibleColumns.storage
       effective.volume = false
       effective.profit = false
       effective.storage = false
-      // Show percentage columns
-      effective.volumePercentage = true
-      effective.profitPercentage = true
-      effective.storagePercentage = true
-    } else if (displayMode === 'both') {
-      // Both: Show value and percentage columns side by side
-      effective.volume = true
-      effective.volumePercentage = true
-      effective.profit = true
-      effective.profitPercentage = true
-      effective.storage = true
-      effective.storagePercentage = true
     }
     
     return effective
@@ -646,6 +630,7 @@ const PositionsPage = () => {
           sortBy: sortColumn || 'timeCreate',
           sortOrder: sortDirection || 'desc'
         }
+        if (displayMode === 'percentage') params.percentage = true
         if (activeSearch.trim()) {
           params.search = activeSearch.trim()
         }
@@ -743,7 +728,7 @@ const PositionsPage = () => {
         flashTimeouts.current.clear()
       } catch {}
     }
-  }, [isAuthenticated, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters])
+  }, [isAuthenticated, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode])
 
   // REST polling for NET positions (netPosition: true) when NET tab is active
   useEffect(() => {
@@ -967,10 +952,6 @@ const PositionsPage = () => {
       if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target)) {
         setShowColumnSelector(false)
       }
-      if (displayMenuRef.current && !displayMenuRef.current.contains(event.target) &&
-          displayButtonRef.current && !displayButtonRef.current.contains(event.target)) {
-        setShowDisplayMenu(false)
-      }
       if (netCardFilterRef.current && !netCardFilterRef.current.contains(event.target)) {
         setNetCardFilterOpen(false)
       }
@@ -987,7 +968,6 @@ const PositionsPage = () => {
     const handleKeyDown = (event) => {
       if (!isMountedRef.current) return
       if (event.key === 'Escape') {
-        if (showDisplayMenu) setShowDisplayMenu(false)
         if (showColumnSelector) setShowColumnSelector(false)
         if (netCardFilterOpen) setNetCardFilterOpen(false)
         if (clientNetCardFilterOpen) setClientNetCardFilterOpen(false)
@@ -996,7 +976,7 @@ const PositionsPage = () => {
       }
     }
 
-    if (showDisplayMenu || showColumnSelector || netCardFilterOpen || clientNetCardFilterOpen || netShowColumnSelector || clientNetShowColumnSelector) {
+    if (showColumnSelector || netCardFilterOpen || clientNetCardFilterOpen || netShowColumnSelector || clientNetShowColumnSelector) {
       document.addEventListener('mousedown', handleClickOutside, true)
       document.addEventListener('keydown', handleKeyDown)
       return () => {
@@ -1004,7 +984,7 @@ const PositionsPage = () => {
         document.removeEventListener('keydown', handleKeyDown)
       }
     }
-  }, [showDisplayMenu, showColumnSelector, netCardFilterOpen, clientNetCardFilterOpen, netShowColumnSelector, clientNetShowColumnSelector, isAuthenticated])
+  }, [showColumnSelector, netCardFilterOpen, clientNetCardFilterOpen, netShowColumnSelector, clientNetShowColumnSelector, isAuthenticated])
 
   // Helper to get position key/id
   const getPosKey = (obj) => {
@@ -1366,10 +1346,7 @@ const PositionsPage = () => {
     // Server already did search + sort + pagination — start from the page of data we got
     let ibFiltered = [...deferredPositions]
     
-    // Apply IB filter first (cumulative order: IB -> Group)
-    ibFiltered = filterByActiveIB(ibFiltered, 'login')
-    
-    // Apply group filter on top of IB filter
+    // Apply group filter
     ibFiltered = filterByActiveGroup(ibFiltered, 'login', 'positions')
     
     // Apply column filters (checkbox filters only — condition filters handled by API)
@@ -1395,7 +1372,7 @@ const PositionsPage = () => {
     })
     
     return { sortedPositions: ibFiltered, ibFilteredPositions: ibFiltered }
-  }, [deferredPositions, columnFilters, isAuthenticated, filterByActiveGroup, activeGroupFilters, filterByActiveIB, selectedIB, ibMT5Accounts])
+  }, [deferredPositions, columnFilters, isAuthenticated, filterByActiveGroup, activeGroupFilters])
 
   // Memoized summary statistics - use server-provided totals across ALL positions
   const summaryStats = useMemo(() => {
@@ -1641,7 +1618,6 @@ const PositionsPage = () => {
       { key: 'symbol', label: 'Symbol' },
       { key: 'netType', label: 'NET Type' },
       { key: 'netVolume', label: 'NET Volume' },
-      { key: 'avgPrice', label: 'Avg Price' },
       { key: 'totalProfit', label: 'Total Profit' },
       { key: 'loginCount', label: 'Logins' },
       { key: 'totalPositions', label: 'Positions' }
@@ -1652,13 +1628,12 @@ const PositionsPage = () => {
 
   // NET table dynamic columns: order, labels, and cell renderers
   const netColumnOrder = [
-    'symbol','netType','netVolume','avgPrice','totalProfit','totalStorage','totalCommission','loginCount','totalPositions','variantCount'
+    'symbol','netType','netVolume','totalProfit','totalStorage','totalCommission','loginCount','totalPositions','variantCount'
   ]
   const netColumnLabels = {
     symbol: 'Symbol',
     netType: 'NET Type',
     netVolume: 'NET Volume',
-    avgPrice: 'Avg Price',
     totalProfit: 'Total Profit',
     totalStorage: 'Total Storage',
     totalCommission: 'Total Commission',
@@ -2439,9 +2414,6 @@ const PositionsPage = () => {
 
             {/* Action Buttons - All on right side */}
             <div className="flex items-center gap-2">
-              {/* IB Filter Button */}
-              <IBSelector />
-              
               {/* Groups Dropdown */}
               <GroupSelector 
                 moduleName="positions" 
@@ -2457,34 +2429,18 @@ const PositionsPage = () => {
               
               {/* NET Position Toggle */}
               <button
-                onClick={() => { setShowNetPositions((v)=>{const nv=!v; if (nv) setShowClientNet(false); return nv}); }}
-                className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
+                onClick={() => { setShowNetPositions((v)=>!v) }}
+                className={`h-8 px-2.5 rounded-md border shadow-sm transition-all inline-flex items-center gap-1.5 text-xs font-medium ${
                   showNetPositions 
-                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
-                    : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
+                    ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' 
+                    : 'bg-white text-gray-700 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300'
                 }`}
                 title="Toggle NET Position View"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M10 14h7M13 18h4" />
                 </svg>
                 NET Position
-              </button>
-
-              {/* Client NET Toggle */}
-              <button
-                onClick={() => { setShowClientNet((v)=>{const nv=!v; if (nv) setShowNetPositions(false); return nv}); }}
-                className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
-                  showClientNet 
-                    ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' 
-                    : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
-                }`}
-                title="Toggle Client NET View"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-5m0 5l-5-5M7 4h10a2 2 0 012 2v6H5V6a2 2 0 012-2zm0 0V2m0 2v2" />
-                </svg>
-                Client Net
               </button>
 
               {/* Date Filter Button */}
@@ -2503,65 +2459,17 @@ const PositionsPage = () => {
                 {dateFilter ? `${dateFilter} Days` : 'Date Filter'}
               </button>
 
-              {/* Percentage View Dropdown */}
-              <div className="relative">
-                <button
-                  ref={displayButtonRef}
-                  onClick={() => setShowDisplayMenu(!showDisplayMenu)}
-                  className="h-8 px-2.5 rounded-md border border-[#E5E7EB] bg-white hover:bg-gray-50 shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium text-[#374151]"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  %
-                </button>
-                {showDisplayMenu && (
-                  <div
-                    ref={displayMenuRef}
-                    className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-2 z-50 w-56"
-                  >
-                    <div className="px-3 py-2 border-b border-[#F3F4F6]">
-                      <p className="text-xs font-semibold text-[#1F2937]">Display Mode</p>
-                    </div>
-                    <div className="px-3 py-2 space-y-2">
-                      <label className="flex items-center gap-2 text-sm text-[#374151] hover:bg-gray-50 p-2 rounded cursor-pointer transition-colors">
-                        <input
-                          type="radio"
-                          name="displayModeToggle"
-                          value="value"
-                          checked={displayMode === 'value'}
-                          onChange={(e) => { setDisplayMode(e.target.value); setShowDisplayMenu(false); }}
-                          className="w-3.5 h-3.5 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                        <span>Without Percentage</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-[#374151] hover:bg-gray-50 p-2 rounded cursor-pointer transition-colors">
-                        <input
-                          type="radio"
-                          name="displayModeToggle"
-                          value="percentage"
-                          checked={displayMode === 'percentage'}
-                          onChange={(e) => { setDisplayMode(e.target.value); setShowDisplayMenu(false); }}
-                          className="w-3.5 h-3.5 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                        <span>Show My Percentage</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-[#374151] hover:bg-gray-50 p-2 rounded cursor-pointer transition-colors">
-                        <input
-                          type="radio"
-                          name="displayModeToggle"
-                          value="both"
-                          checked={displayMode === 'both'}
-                          onChange={(e) => { setDisplayMode(e.target.value); setShowDisplayMenu(false); }}
-                          className="w-3.5 h-3.5 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                        <span>Both</span>
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Percentage Toggle */}
+              <button
+                onClick={() => setDisplayMode(displayMode === 'percentage' ? 'value' : 'percentage')}
+                className={`h-8 px-2.5 rounded-[12px] ${displayMode === 'percentage' ? 'bg-blue-600 border-blue-600' : 'bg-white border-[#E5E7EB]'} border shadow-sm flex items-center justify-center gap-1.5 hover:opacity-90 transition-all`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke={displayMode === 'percentage' ? '#ffffff' : '#4B4B4B'} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span className={`${displayMode === 'percentage' ? 'text-white' : 'text-[#4B4B4B]'} text-xs font-medium font-outfit`}>%</span>
+              </button>
 
               {/* Export CSV */}
               <button
@@ -2585,7 +2493,8 @@ const PositionsPage = () => {
                       limit: itemsPerPage,
                       sortBy: sortColumn || 'timeCreate',
                       sortOrder: sortDirection || 'desc',
-                      ...(searchQuery.trim() ? { search: searchQuery.trim() } : {})
+                      ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+                      ...(displayMode === 'percentage' ? { percentage: true } : {})
                     })
                     const data = response?.data?.positions || response?.positions || []
                     const total = response?.data?.total || response?.total || 0
@@ -2645,8 +2554,8 @@ const PositionsPage = () => {
               )}
             </div>
             
-            {/* Total Floating Profit - shown in 'value' mode or 'both' mode */}
-            {(displayMode === 'value' || displayMode === 'both') && (
+            {/* Total Floating Profit - shown in 'value' mode */}
+            {displayMode === 'value' && (
               <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                   <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating Profit</span>
@@ -2674,8 +2583,8 @@ const PositionsPage = () => {
               </div>
             )}
             
-            {/* Total Floating Profit Percentage - shown in 'percentage' mode or 'both' mode (matches normal card UI) */}
-            {(displayMode === 'percentage' || displayMode === 'both') && (
+            {/* Total Floating Profit Percentage - shown in 'percentage' mode */}
+            {displayMode === 'percentage' && (
               <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                   <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating Profit %</span>
@@ -3959,16 +3868,16 @@ const PositionsPage = () => {
                       {effectiveCols.position && renderHeaderCell('position', 'Position')}
                       {effectiveCols.symbol && renderHeaderCell('symbol', 'Symbol')}
                       {effectiveCols.action && renderHeaderCell('action', 'Action')}
-                      {effectiveCols.volume && renderHeaderCell('volume', 'Volume')}
-                      {effectiveCols.volumePercentage && renderHeaderCell('volume_percentage', 'Volume %')}
+                      {effectiveCols.volume && renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}
+                      {effectiveCols.volumePercentage && renderHeaderCell('volume', 'Volume %')}
                       {effectiveCols.priceOpen && renderHeaderCell('priceOpen', 'Open')}
                       {effectiveCols.priceCurrent && renderHeaderCell('priceCurrent', 'Current')}
                       {effectiveCols.sl && renderHeaderCell('priceSL', 'S/L')}
                       {effectiveCols.tp && renderHeaderCell('priceTP', 'T/P')}
-                      {effectiveCols.profit && renderHeaderCell('profit', 'Profit')}
-                      {effectiveCols.profitPercentage && renderHeaderCell('profit_percentage', 'Profit %')}
-                      {effectiveCols.storage && renderHeaderCell('storage', 'Storage')}
-                      {effectiveCols.storagePercentage && renderHeaderCell('storage_percentage', 'Storage %')}
+                      {effectiveCols.profit && renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}
+                      {effectiveCols.profitPercentage && renderHeaderCell('percentage', 'Profit %')}
+                      {effectiveCols.storage && renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}
+                      {effectiveCols.storagePercentage && renderHeaderCell('storage', 'Storage %')}
                       {effectiveCols.appliedPercentage && renderHeaderCell('applied_percentage', 'Applied %')}
                       {effectiveCols.reason && renderHeaderCell('reason', 'Reason')}
                       {effectiveCols.comment && renderHeaderCell('comment', 'Comment')}
@@ -4061,7 +3970,7 @@ const PositionsPage = () => {
                           )}
                           {effectiveCols.volumePercentage && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">
-                              {(p.volume_percentage != null && p.volume_percentage !== '') ? `${formatNumber(p.volume_percentage, 2)}%` : '-'}
+                              {(p.volume != null && p.volume !== '') ? formatNumber(p.volume, 2) : '-'}
                             </td>
                           )}
                           {effectiveCols.priceOpen && (
@@ -4090,9 +3999,9 @@ const PositionsPage = () => {
                           {effectiveCols.profitPercentage && (
                             <td className="px-2 py-1.5 text-sm whitespace-nowrap">
                               <span className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                (p.profit_percentage || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
-                                {(p.profit_percentage != null && p.profit_percentage !== '') ? `${formatNumber(p.profit_percentage, 2)}%` : '-'}
+                                {(p.profit != null && p.profit !== '') ? formatNumber(adjustValueForSymbol(p.profit, p.symbol, true), 2) : '-'}
                               </span>
                             </td>
                           )}
@@ -4101,7 +4010,7 @@ const PositionsPage = () => {
                           )}
                           {effectiveCols.storagePercentage && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">
-                              {(p.storage_percentage != null && p.storage_percentage !== '') ? `${formatNumber(p.storage_percentage, 2)}%` : '-'}
+                              {(p.storage != null && p.storage !== '') ? formatNumber(p.storage, 2) : '-'}
                             </td>
                           )}
                           {effectiveCols.appliedPercentage && (

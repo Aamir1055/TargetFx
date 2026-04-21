@@ -4,14 +4,12 @@ import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
-import IBFilterModal from './IBFilterModal'
 import GroupModal from './GroupModal'
 import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import TimeFilterModal from './TimeFilterModal'
 import DealsFilterModal from './DealsFilterModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useIB } from '../contexts/IBContext'
 import { useGroups } from '../contexts/GroupContext'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
@@ -39,7 +37,6 @@ export default function LiveDealingModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { positions: cachedPositions, clients, orders } = useData()
-  const { selectedIB, selectIB, clearIBSelection, filterByActiveIB, ibMT5Accounts } = useIB()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeCardIndex, setActiveCardIndex] = useState(0)
@@ -48,7 +45,6 @@ export default function LiveDealingModule() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false)
   const [isDealsFilterOpen, setIsDealsFilterOpen] = useState(false)
-  const [isIBFilterOpen, setIsIBFilterOpen] = useState(false)
   const [isGroupOpen, setIsGroupOpen] = useState(false)
   const [isLoginGroupsOpen, setIsLoginGroupsOpen] = useState(false)
   const [isLoginGroupModalOpen, setIsLoginGroupModalOpen] = useState(false)
@@ -78,8 +74,6 @@ export default function LiveDealingModule() {
   const [displayMode, setDisplayMode] = useState('value') // 'value' or 'percentage'
 
   // Pending change tracking for Customize View Apply
-  const [hasPendingIBChanges, setHasPendingIBChanges] = useState(false)
-  const [pendingIBDraft, setPendingIBDraft] = useState(null)
   const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
   const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const [hasPendingTimeChanges, setHasPendingTimeChanges] = useState(false)
@@ -106,7 +100,6 @@ export default function LiveDealingModule() {
   // Clear all filters on component mount (when navigating to this module)
   useEffect(() => {
     setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-    clearIBSelection()
     setActiveGroupFilter('livedealing', null)
     setSearchInput('')
     setTimeFilter('24h')
@@ -123,7 +116,6 @@ export default function LiveDealingModule() {
       setIsFilterOpen(false)
       setIsTimeFilterOpen(false)
       setIsDealsFilterOpen(false)
-      setIsIBFilterOpen(false)
       setIsLoginGroupsOpen(false)
       setIsLoginGroupModalOpen(false)
       setIsCustomizeOpen(true)
@@ -408,12 +400,11 @@ export default function LiveDealingModule() {
   const ibFilteredDeals = useMemo(() => {
     return applyCumulativeFilters(moduleFilteredDeals, {
       customizeFilters: filters,
-      filterByActiveIB,
       filterByActiveGroup,
       loginField: 'login',
       moduleName: 'livedealing'
     })
-  }, [moduleFilteredDeals, filters, filterByActiveIB, filterByActiveGroup, activeGroupFilters])
+  }, [moduleFilteredDeals, filters, filterByActiveGroup, activeGroupFilters])
 
   // Sort the filtered deals
   const sortedDeals = useMemo(() => {
@@ -855,9 +846,6 @@ export default function LiveDealingModule() {
                   {label:'Client Percentage', path:'/client-percentage', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 18L18 6" stroke="#404040"/><circle cx="8" cy="8" r="2" stroke="#404040"/><circle cx="16" cy="16" r="2" stroke="#404040"/></svg>
                   )},
-                  {label:'IB Commissions', path:'/ib-commissions', icon:(
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 17l10 5 10-5" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 12l10 5 10-5" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  )},
                   {label:'Settings', path:'/settings', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" stroke="#404040"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2" stroke="#404040"/></svg>
                   )},
@@ -906,7 +894,7 @@ export default function LiveDealingModule() {
               <button 
                 onClick={() => setIsCustomizeOpen(true)} 
                 className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative ${
-                  (timeFilter !== '24h' || moduleFilter !== 'both' || selectedIB || getActiveGroupFilter('livedealing'))
+                  (timeFilter !== '24h' || moduleFilter !== 'both' || getActiveGroupFilter('livedealing'))
                     ? 'bg-blue-50 border-blue-200' 
                     : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
                 }`}
@@ -919,7 +907,6 @@ export default function LiveDealingModule() {
                   const filterCount = [
                     timeFilter !== '24h',
                     moduleFilter !== 'both',
-                    selectedIB,
                     getActiveGroupFilter('livedealing')
                   ].filter(Boolean).length;
                   return filterCount > 0 ? (
@@ -1340,10 +1327,6 @@ export default function LiveDealingModule() {
           setIsCustomizeOpen(false)
           setIsTimeFilterOpen(true)
         }}
-        onIBFilterClick={() => {
-          setIsCustomizeOpen(false)
-          setIsIBFilterOpen(true)
-        }}
         onGroupsClick={() => {
           setIsCustomizeOpen(false)
           setIsLoginGroupsOpen(true)
@@ -1354,24 +1337,18 @@ export default function LiveDealingModule() {
         }}
         onReset={() => {
           setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-          clearIBSelection()
           setActiveGroupFilter('livedealing', null)
           setTimeFilter('24h')
           setModuleFilter('both')
-          setHasPendingIBChanges(false)
           setHasPendingGroupChanges(false)
           setHasPendingTimeChanges(false)
           setHasPendingDealsChanges(false)
-          setPendingIBDraft(null)
           setPendingGroupDraft(null)
           setPendingTimeDraft(null)
           setPendingDealsDraft(null)
         }}
         onApply={() => {
           // Apply any pending drafts
-          if (hasPendingIBChanges) {
-            if (pendingIBDraft) { selectIB(pendingIBDraft) } else { clearIBSelection() }
-          }
           if (hasPendingGroupChanges) {
             setActiveGroupFilter('livedealing', pendingGroupDraft ? pendingGroupDraft.name : null)
           }
@@ -1388,17 +1365,15 @@ export default function LiveDealingModule() {
             setModuleFilter(pendingDealsDraft)
           }
           setIsCustomizeOpen(false)
-          setHasPendingIBChanges(false)
           setHasPendingGroupChanges(false)
           setHasPendingTimeChanges(false)
           setHasPendingDealsChanges(false)
-          setPendingIBDraft(null)
           setPendingGroupDraft(null)
           setPendingTimeDraft(null)
           setPendingDealsDraft(null)
         }}
         hasPendingChanges={
-          hasPendingIBChanges || hasPendingGroupChanges || hasPendingTimeChanges || hasPendingDealsChanges
+          hasPendingGroupChanges || hasPendingTimeChanges || hasPendingDealsChanges
         }
       />
 
@@ -1472,31 +1447,6 @@ export default function LiveDealingModule() {
         filters={filters}
       />
 
-      {/* IB Filter Modal */}
-      <IBFilterModal
-        isOpen={isIBFilterOpen}
-        onClose={() => {
-          setIsIBFilterOpen(false)
-          setIsCustomizeOpen(true)
-        }}
-        onBack={() => {
-          setIsIBFilterOpen(false)
-          setIsCustomizeOpen(true)
-        }}
-        onSelectIB={(ib) => {
-          if (ib) {
-            selectIB(ib)
-          } else {
-            clearIBSelection()
-          }
-          setIsIBFilterOpen(false)
-        }}
-        currentSelectedIB={selectedIB}
-        onPendingChange={(hasPending, draft) => {
-          setHasPendingIBChanges(hasPending)
-          setPendingIBDraft(draft || null)
-        }}
-      />
       {/* Group Modal */}
       <GroupModal
         isOpen={isGroupOpen}

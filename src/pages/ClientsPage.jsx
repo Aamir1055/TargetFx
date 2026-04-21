@@ -10,7 +10,6 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import WebSocketIndicator from '../components/WebSocketIndicator'
 import GroupSelector from '../components/GroupSelector'
-import IBSelector from '../components/IBSelector'
 import GroupModal from '../components/GroupModal'
 import MobileClientsView from '../components/MobileClientsViewNew'
 // import ClientDashboardDesignC from '../components/dashboard/ClientDashboardDesignC'
@@ -2704,9 +2703,6 @@ const ClientsPage = () => {
                   setShowGroupModal(true)
                 }}
               />
-              
-              {/* IB Filter Button */}
-              <IBSelector />
               
               {/* Show Face Cards Toggle (moved before Columns button) */}
               {/* Show Face Cards Toggle (moved before Columns button) */}

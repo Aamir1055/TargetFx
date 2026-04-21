@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useGroups } from '../contexts/GroupContext'
-import { useIB } from '../contexts/IBContext'
 import { brokerAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
 import WebSocketIndicator from '../components/WebSocketIndicator'
@@ -9,7 +8,6 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
-import IBSelector from '../components/IBSelector'
 import PendingOrdersModule from '../components/PendingOrdersModule'
 
 const PendingOrdersPage = () => {
@@ -19,7 +17,6 @@ const PendingOrdersPage = () => {
   // Use cached data from DataContext - MUST be called before conditional return
   const { orders: cachedOrders, positions: cachedPositions, fetchOrders } = useData()
   const { filterByActiveGroup, activeGroupFilters } = useGroups()
-  const { filterByActiveIB, selectedIB, ibMT5Accounts } = useIB()
   
   // Server-side polled data
   const [polledOrders, setPolledOrders] = useState([])
@@ -1219,8 +1216,6 @@ const PendingOrdersPage = () => {
 
             {/* Action Buttons - All on right side */}
             <div className="flex items-center gap-2">
-                  <IBSelector />
-                  
                   <GroupSelector 
                     moduleName="pendingorders" 
                     onCreateClick={() => {

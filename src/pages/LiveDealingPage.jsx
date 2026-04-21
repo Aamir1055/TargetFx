@@ -3,7 +3,6 @@ import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
 import { useData } from '../contexts/DataContext'
 import { useGroups } from '../contexts/GroupContext'
-import { useIB } from '../contexts/IBContext'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
 import WebSocketIndicator from '../components/WebSocketIndicator'
@@ -11,7 +10,6 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
-import IBSelector from '../components/IBSelector'
 import LiveDealingModule from '../components/LiveDealingModule'
 
 const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
@@ -22,7 +20,6 @@ const LiveDealingPage = () => {
   
   const { positions: cachedPositions, orders: cachedOrders } = useData() // Get positions and orders from DataContext
   const { filterByActiveGroup, activeGroupFilters } = useGroups()
-  const { filterByActiveIB, selectedIB, ibMT5Accounts } = useIB()
   const getInitialSidebarOpen = () => {
     try {
       const v = localStorage.getItem('sidebarOpen')
@@ -1020,14 +1017,8 @@ const LiveDealingPage = () => {
   const moduleFiltered = filterByModule(trimmedDeals)
   const searchedDeals = searchDeals(moduleFiltered)
   
-  // Apply IB filter first (cumulative order: IB -> Group)
-  let ibFilteredDeals = filterByActiveIB(searchedDeals, 'login')
-  
-  // Apply group filter on top of IB filter
-  let groupFilteredDeals = filterByActiveGroup(ibFilteredDeals, 'login', 'livedealing')
-  
-  // Continue with groupFilteredDeals as ibFilteredDeals for consistency
-  ibFilteredDeals = groupFilteredDeals
+  // Apply group filter
+  let ibFilteredDeals = filterByActiveGroup(searchedDeals, 'login', 'livedealing')
   
   // Apply column filters
   Object.entries(columnFilters).forEach(([columnKey, values]) => {
@@ -1773,8 +1764,6 @@ const LiveDealingPage = () => {
 
             {/* Action Buttons - All on right side */}
             <div className="flex items-center gap-2">
-                  <IBSelector />
-                  
                   <GroupSelector 
                     moduleName="livedealing" 
                     onCreateClick={() => {
@@ -2185,7 +2174,7 @@ const LiveDealingPage = () => {
                 </div>
               </div>
             </div>
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto overflow-x-hidden flex-1">
               {/* Smooth fade animation for new deals */}
               <style>{`
                 @keyframes dealFadeOut {

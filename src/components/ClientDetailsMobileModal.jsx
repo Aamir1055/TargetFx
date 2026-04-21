@@ -1213,16 +1213,6 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               Positions ({filteredPositions.length})
             </button>
             <button
-              onClick={() => setActiveTab('netPositions')}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'netPositions'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Net Positions ({filteredNetPositions.length})
-            </button>
-            <button
               onClick={() => setActiveTab('deals')}
               className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'deals'
@@ -1231,6 +1221,26 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               }`}
             >
               Deals ({hasAppliedFilter ? totalDealsCount : 0})
+            </button>
+            <button
+              onClick={() => setActiveTab('funds')}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'funds'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Money Transactions
+            </button>
+            <button
+              onClick={() => setActiveTab('rules')}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'rules'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Rules
             </button>
           </div>
         </div>
@@ -1245,15 +1255,15 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               </svg>
               <input
                 type="text"
-                value={activeTab === 'positions' ? positionsSearch : activeTab === 'netPositions' ? netPositionsSearch : dealsSearch}
+                value={activeTab === 'positions' ? positionsSearch : activeTab === 'deals' ? dealsSearch : ''}
                 onChange={(e) => {
                   const value = e.target.value
                   if (activeTab === 'positions') setPositionsSearch(value)
-                  else if (activeTab === 'netPositions') setNetPositionsSearch(value)
-                  else setDealsSearch(value)
+                  else if (activeTab === 'deals') setDealsSearch(value)
                   setCurrentPage(1)
                 }}
-                placeholder="Search"
+                placeholder={activeTab === 'positions' || activeTab === 'deals' ? 'Search' : 'Search not required'}
+                disabled={activeTab !== 'positions' && activeTab !== 'deals'}
                 className="flex-1 min-w-0 text-[11px] text-[#000000] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit"
               />
             </div>
@@ -1269,8 +1279,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 <rect x="14" y="5" width="3" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
               </svg>
             </button>
-            {/* Pagination Buttons - Hidden for positions and netPositions tabs */}
-            {activeTab !== 'positions' && activeTab !== 'netPositions' && (
+            {/* Pagination Buttons - Visible for deals tab only */}
+            {activeTab === 'deals' && (
               <>
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -1282,20 +1292,14 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                   </svg>
                 </button>
                 <span className="text-[10px] font-semibold text-[#000000] font-outfit">
-                  {activeTab === 'netPositions' && `${currentPage} / ${Math.ceil(filteredNetPositions.length / itemsPerPage)}`}
-                  {activeTab === 'deals' && `${currentPage} / ${Math.ceil(totalDealsCount / itemsPerPage)}`}
+                  {`${currentPage} / ${Math.ceil(totalDealsCount / itemsPerPage)}`}
                 </span>
                 <button
                   onClick={() => setCurrentPage(prev => {
-                    const maxPage = activeTab === 'netPositions'
-                      ? Math.ceil(filteredNetPositions.length / itemsPerPage)
-                      : Math.ceil(totalDealsCount / itemsPerPage)
+                    const maxPage = Math.ceil(totalDealsCount / itemsPerPage)
                     return prev < maxPage ? prev + 1 : prev
                   })}
-                  disabled={
-                    (activeTab === 'netPositions' && currentPage >= Math.ceil(filteredNetPositions.length / itemsPerPage)) ||
-                    (activeTab === 'deals' && currentPage >= Math.ceil(totalDealsCount / itemsPerPage))
-                  }
+                  disabled={currentPage >= Math.ceil(totalDealsCount / itemsPerPage)}
                   className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
@@ -1414,7 +1418,6 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           ) : (
             <div className="bg-white relative min-w-full">
               {activeTab === 'positions' && renderPositions()}
-              {activeTab === 'netPositions' && renderNetPositions()}
               {activeTab === 'deals' && renderDeals()}
               
               {/* Money Transactions Tab */}
@@ -1648,31 +1651,6 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           </div>
         )}
 
-        {/* NET Position Face Cards (matching Positions tab styling) */}
-        {activeTab === 'netPositions' && (
-          <div className="px-4 py-3 bg-white border-t border-gray-200 flex-shrink-0">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Total NET Volume</p>
-                <p className="text-sm font-bold text-gray-900 truncate">
-                  {netStats.totalNetVolume.toFixed(2)}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Buy Floating</p>
-                <p className={`text-sm font-bold truncate ${netStats.buyFloating >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatNum(netStats.buyFloating)}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Sell Floating</p>
-                <p className={`text-sm font-bold truncate ${netStats.sellFloating >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatNum(netStats.sellFloating)}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Column Selector Dropdown */}
         {showColumnSelector && (
@@ -1715,35 +1693,6 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                           <span
                             className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${
                               positionColumns[key] ? 'translate-x-5' : 'translate-x-0.5'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {activeTab === 'netPositions' && (
-                  <div className="space-y-0.5">
-                    {Object.entries({
-                      symbol: 'Symbol',
-                      netType: 'Net Type',
-                      volume: 'Net Volume',
-                      avgPrice: 'Avg Open Price',
-                      profit: 'Profit',
-                      positions: 'Positions'
-                    }).map(([key, label]) => (
-                      <div key={key} className="flex items-center justify-between px-3 py-2.5 hover:bg-blue-50 rounded-md transition-colors">
-                        <span className="text-sm text-gray-700 font-medium">{label}</span>
-                        <button
-                          onClick={() => setNetPositionColumns(prev => ({ ...prev, [key]: !prev[key] }))}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                            netPositionColumns[key] ? 'bg-blue-500' : 'bg-gray-300'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${
-                              netPositionColumns[key] ? 'translate-x-5' : 'translate-x-0.5'
                             }`}
                           />
                         </button>

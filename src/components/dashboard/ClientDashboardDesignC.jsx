@@ -1,13 +1,11 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FilterModal from '../FilterModal'
-import IBFilterModal from '../IBFilterModal'
 import GroupModal from '../GroupModal'
 import LoginGroupsModal from '../LoginGroupsModal'
 import LoginGroupModal from '../LoginGroupModal'
 import ClientDetailsMobileModal from '../ClientDetailsMobileModal'
 import { useData } from '../../contexts/DataContext'
-import { useIB } from '../../contexts/IBContext'
 import { useGroups } from '../../contexts/GroupContext'
 import { brokerAPI } from '../../services/api'
 
@@ -23,7 +21,6 @@ export default function ClientDashboardDesignC() {
   // Use rawClients (unnormalized) to match desktop ClientsPage behavior
   // rawClients contains data without frontend USC normalization - backend handles USC
   const clients = rawClients.length > 0 ? rawClients : normalizedClients
-  const { selectedIB, ibMT5Accounts, selectIB, clearIBSelection } = useIB()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [commissionTotals, setCommissionTotals] = useState(null)
   const [activeCardIndex, setActiveCardIndex] = useState(0)
@@ -32,7 +29,6 @@ export default function ClientDashboardDesignC() {
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [showPercent, setShowPercent] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isIBFilterOpen, setIsIBFilterOpen] = useState(false)
   const [isGroupOpen, setIsGroupOpen] = useState(false)
   const [isLoginGroupsOpen, setIsLoginGroupsOpen] = useState(false)
   const [isLoginGroupModalOpen, setIsLoginGroupModalOpen] = useState(false)
@@ -202,13 +198,6 @@ export default function ClientDashboardDesignC() {
         return !(Number.isFinite(lifeDep) ? lifeDep !== 0 : false);
       });
     }
-    if (selectedIB && Array.isArray(ibMT5Accounts) && ibMT5Accounts.length > 0) {
-      const ibLoginSet = new Set(ibMT5Accounts.map(id => String(id)));
-      filtered = filtered.filter(c => {
-        const clientLogin = String(c.login || c.clientID || c.mqid || '');
-        return ibLoginSet.has(clientLogin);
-      });
-    }
 
     // Desktop-style search: filter by search input
     if (searchInput && searchInput.trim().length > 0) {
@@ -257,7 +246,7 @@ export default function ClientDashboardDesignC() {
     }
     
     return filtered
-  }, [clients, filters, lastWsReceiveAt, selectedIB, ibMT5Accounts, filterByActiveGroup, activeGroupFilters, sortColumn, sortDirection])
+  }, [clients, filters, lastWsReceiveAt, filterByActiveGroup, activeGroupFilters, sortColumn, sortDirection])
   const totalPages = Math.ceil((filteredClients?.length || 0) / itemsPerPage)
 
   // Export functions
@@ -496,11 +485,10 @@ export default function ClientDashboardDesignC() {
     console.log('📊 lastWsReceiveAt:', lastWsReceiveAt)
     
     // Always calculate from actual client data for real-time updates
-    // Use filteredClients if any filter is active (basic filters OR IB filter OR group filter)
+    // Use filteredClients if any filter is active (basic filters OR group filter)
     const hasBasicFilters = Object.values(filters).some(f => f)
-    const hasIBFilter = selectedIB && Array.isArray(ibMT5Accounts) && ibMT5Accounts.length > 0
     const hasGroupFilter = activeGroupFilters?.dashboard != null
-    const dataToUse = (hasBasicFilters || hasIBFilter || hasGroupFilter) ? filteredClients : clients
+    const dataToUse = (hasBasicFilters || hasGroupFilter) ? filteredClients : clients
     
     const calculateStats = () => {
       if (!Array.isArray(dataToUse) || dataToUse.length === 0) {
@@ -730,7 +718,7 @@ export default function ClientDashboardDesignC() {
       // Additional Calculated Metrics
       { label: 'Net Lifetime PnL', value: formatNum((stats?.lifetimePnL || 0) - (stats?.totalCommission || 0)), unit: 'USD' },
     ]
-  }, [clientStats, clients, filteredClients, filters, showPercent, lastWsReceiveAt, selectedIB, ibMT5Accounts, activeGroupFilters, commissionTotals])
+  }, [clientStats, clients, filteredClients, filters, showPercent, lastWsReceiveAt, activeGroupFilters, commissionTotals])
 
   // Initialize and reconcile saved card order whenever cards change
   useEffect(() => {
@@ -971,12 +959,6 @@ export default function ClientDashboardDesignC() {
                   </span>
                   <span className="text-[14px] text-[#111827]">Filter</span>
                 </button>
-                <button className="w-full flex items-center gap-3 py-3" onClick={() => { setIsCustomizeOpen(false); setIsIBFilterOpen(true); }}>
-                  <span className="w-9 h-9 rounded-lg bg-[#F5F7FB] flex items-center justify-center">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="#1F2937"/><path d="M4 20a8 8 0 0 1 16 0" stroke="#1F2937"/></svg>
-                  </span>
-                  <span className="text-[14px] text-[#111827]">IB Filter</span>
-                </button>
                 <button className="w-full flex items-center gap-3 py-3" onClick={() => { setIsCustomizeOpen(false); setIsLoginGroupsOpen(true); }}>
                   <span className="w-9 h-9 rounded-lg bg-[#F5F7FB] flex items-center justify-center">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M7 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="#1F2937"/><path d="M17 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="#1F2937"/><path d="M3 20c0-3.866 3.582-7 8-7s8 3.134 8 7" stroke="#1F2937"/></svg>
@@ -992,8 +974,6 @@ export default function ClientDashboardDesignC() {
                 onClick={() => {
                   // Clear all filters
                   setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-                  // Clear IB filter
-                  clearIBSelection()
                   // Clear group filter
                   setActiveGroupFilter('dashboard', null)
                 }}
@@ -1012,25 +992,6 @@ export default function ClientDashboardDesignC() {
         onClose={() => setIsFilterOpen(false)}
         onApply={(newFilters) => { setFilters(newFilters); }}
         filters={filters}
-      />
-      <IBFilterModal
-        isOpen={isIBFilterOpen}
-        onClose={() => setIsIBFilterOpen(false)}
-        currentSelectedIB={selectedIB}
-        onSelectIB={(ibData) => {
-          if (ibData === null) {
-            // Reset/clear the filter
-            clearIBSelection()
-          } else {
-            // Pass the complete IB object to selectIB
-            selectIB({
-              email: ibData.email,
-              name: ibData.name,
-              percentage: ibData.percentage
-            })
-          }
-          setIsIBFilterOpen(false)
-        }}
       />
       <GroupModal
         isOpen={isGroupOpen}

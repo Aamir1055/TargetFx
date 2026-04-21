@@ -4,7 +4,6 @@ import Sidebar from '../components/Sidebar'
 import WebSocketIndicator from '../components/WebSocketIndicator'
 import LoadingSpinner from '../components/LoadingSpinner'
 import GroupSelector from '../components/GroupSelector'
-import IBSelector from '../components/IBSelector'
 import GroupModal from '../components/GroupModal'
 
 /**
@@ -237,9 +236,6 @@ const TablePageLayout = ({
               <div className="flex items-center gap-2">
               {/* Groups Dropdown */}
               <GroupSelector onCreateClick={() => setShowGroupModal(true)} />
-              
-              {/* IB Filter Dropdown */}
-              <IBSelector />
               
               {/* Filter Button */}
               {renderFilterMenu && (

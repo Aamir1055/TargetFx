@@ -6,7 +6,6 @@ const CustomizeViewModal = ({
   onFilterClick,
   onDealsClick,
   onDateFilterClick,
-  onIBFilterClick,
   onGroupsClick,
   onReset,
   onApply,
@@ -16,9 +15,7 @@ const CustomizeViewModal = ({
 
   // Reset interaction state when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setHasInteracted(false);
-    }
+    setHasInteracted(false);
   }, [isOpen]);
 
   const handleOptionClick = (callback) => {
@@ -353,74 +350,6 @@ const CustomizeViewModal = ({
                   margin: '12px 0',
                 }}
               />
-            </>
-          )}
-
-          {/* IB Filter option */}
-          {onIBFilterClick && (
-            <>
-              <button
-                onClick={() => handleOptionClick(onIBFilterClick)}
-                style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              width: '100%',
-              padding: '10px 0',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              marginBottom: '12px',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                background: 'rgba(230, 238, 248, 0.44)',
-                borderRadius: '8px',
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path
-                  d="M9 9.75C11.0711 9.75 12.75 8.07107 12.75 6C12.75 3.92893 11.0711 2.25 9 2.25C6.92893 2.25 5.25 3.92893 5.25 6C5.25 8.07107 6.92893 9.75 9 9.75Z"
-                  stroke="#999999"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M3 15.75C3 12.8505 5.68629 10.5 9 10.5C12.3137 10.5 15 12.8505 15 15.75"
-                  stroke="#999999"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-            <span
-              style={{
-                fontFamily: 'Outfit, sans-serif',
-                fontWeight: 400,
-                fontSize: '16px',
-                lineHeight: '20px',
-                color: '#1B2D45',
-                textAlign: 'left',
-              }}
-            >
-              IB Filter
-            </span>
-          </button>
-
-          {/* Divider */}
-          <div
-            style={{
-              width: '100%',
-              height: '1px',
-              background: '#F2F2F7',
-              margin: '12px 0',
-            }}
-          />
             </>
           )}
 

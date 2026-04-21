@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { brokerAPI } from '../services/api'
 import { useGroups } from '../contexts/GroupContext'
-import { useIB } from '../contexts/IBContext'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
@@ -17,7 +16,6 @@ const ClientPercentagePage = () => {
   const [isMobile, setIsMobile] = useState(false)
   
   const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter } = useGroups()
-  const { filterByActiveIB, selectedIB, ibMT5Accounts } = useIB()
   const { positions: cachedPositions, orders: cachedOrders } = useData()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
@@ -527,14 +525,8 @@ const ClientPercentagePage = () => {
     // API handles search and sort, just apply filters here
     let filtered = clients
     
-    // Apply IB filter first (cumulative order: IB -> Group)
-    let ibFiltered = filterByActiveIB(filtered, 'client_login')
-    
-    // Apply group filter on top of IB filter
-    let groupFiltered = filterByActiveGroup(ibFiltered, 'client_login', 'clientpercentage')
-    
-    // Continue with groupFiltered as ibFiltered for consistency
-    ibFiltered = groupFiltered
+    // Apply group filter
+    let ibFiltered = filterByActiveGroup(filtered, 'client_login', 'clientpercentage')
     
     // Apply column filters
     Object.entries(columnFilters).forEach(([columnKey, values]) => {

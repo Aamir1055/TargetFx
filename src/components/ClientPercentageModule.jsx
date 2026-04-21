@@ -5,13 +5,11 @@ import { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
-import IBFilterModal from './IBFilterModal'
 import GroupModal from './GroupModal'
 import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import SetCustomPercentageModal from './SetCustomPercentageModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useIB } from '../contexts/IBContext'
 import { useGroups } from '../contexts/GroupContext'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
 
@@ -25,14 +23,12 @@ export default function ClientPercentageModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { positions: cachedPositions, clients: allClients, orders } = useData()
-  const { selectedIB, selectIB, clearIBSelection, filterByActiveIB, ibMT5Accounts } = useIB()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isIBFilterOpen, setIsIBFilterOpen] = useState(false)
   const [isGroupOpen, setIsGroupOpen] = useState(false)
   const [isLoginGroupsOpen, setIsLoginGroupsOpen] = useState(false)
   const [isLoginGroupModalOpen, setIsLoginGroupModalOpen] = useState(false)
@@ -40,8 +36,6 @@ export default function ClientPercentageModule() {
   const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
   const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
   const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
-  const [hasPendingIBChanges, setHasPendingIBChanges] = useState(false)
-  const [pendingIBDraft, setPendingIBDraft] = useState(null)
   const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
   const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const [selectedClientForDetails, setSelectedClientForDetails] = useState(null)
@@ -79,7 +73,6 @@ export default function ClientPercentageModule() {
 
   // Clear all filters on component mount (when navigating to this module)
   useEffect(() => {
-    clearIBSelection()
     setActiveGroupFilter('clientpercentage', null)
     setSearchInput('')
   }, [])
@@ -88,7 +81,6 @@ export default function ClientPercentageModule() {
   useEffect(() => {
     const handler = () => {
       setIsFilterOpen(false)
-      setIsIBFilterOpen(false)
       setIsLoginGroupsOpen(false)
       setIsLoginGroupModalOpen(false)
       setIsCustomizeOpen(true)
@@ -169,12 +161,11 @@ export default function ClientPercentageModule() {
   const ibFilteredData = useMemo(() => {
     return applyCumulativeFilters(percentageData, {
       customizeFilters: filters,
-      filterByActiveIB,
       filterByActiveGroup,
       loginField: 'login',
       moduleName: 'clientpercentage'
     })
-  }, [percentageData, filters, filterByActiveIB, filterByActiveGroup, activeGroupFilters])
+  }, [percentageData, filters, filterByActiveGroup, activeGroupFilters])
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -463,12 +454,6 @@ export default function ClientPercentageModule() {
   const handleModalApply = (type, value) => {
     if (type === 'filter') {
       setFilters(value)
-    } else if (type === 'ibfilter') {
-      if (value) {
-        selectIB(value)
-      } else {
-        clearIBSelection()
-      }
     }
   }
 
@@ -549,7 +534,7 @@ export default function ClientPercentageModule() {
                     setIsCustomizeOpen(true)
                   }} 
                   className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative ${
-                    (filters.hasFloating || filters.hasCredit || filters.noDeposit || selectedIB || getActiveGroupFilter('clientpercentage'))
+                    (filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('clientpercentage'))
                       ? 'bg-blue-50 border-blue-200' 
                       : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
                   }`}
@@ -563,7 +548,6 @@ export default function ClientPercentageModule() {
                       filters.hasFloating,
                       filters.hasCredit,
                       filters.noDeposit,
-                      selectedIB,
                       getActiveGroupFilter('clientpercentage')
                     ].filter(Boolean).length;
                     return filterCount > 0 ? (
@@ -894,44 +878,32 @@ export default function ClientPercentageModule() {
           setIsCustomizeOpen(false)
           setIsFilterOpen(true)
         }}
-        onIBFilterClick={() => {
-          setIsCustomizeOpen(false)
-          setIsIBFilterOpen(true)
-        }}
         onGroupsClick={() => {
           setIsCustomizeOpen(false)
           setIsLoginGroupsOpen(true)
         }}
         onReset={() => {
           setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-          clearIBSelection()
           setActiveGroupFilter('clientpercentage', null)
           setHasPendingFilterChanges(false)
-          setHasPendingIBChanges(false)
           setHasPendingGroupChanges(false)
           setPendingFilterDraft(null)
-          setPendingIBDraft(null)
           setPendingGroupDraft(null)
         }}
         onApply={() => {
           if (hasPendingFilterChanges) {
             setFilters(pendingFilterDraft || { hasFloating: false, hasCredit: false, noDeposit: false })
           }
-          if (hasPendingIBChanges) {
-            if (pendingIBDraft) { selectIB(pendingIBDraft) } else { clearIBSelection() }
-          }
           if (hasPendingGroupChanges) {
             setActiveGroupFilter('clientpercentage', pendingGroupDraft ? pendingGroupDraft.name : null)
           }
           setIsCustomizeOpen(false)
           setHasPendingFilterChanges(false)
-          setHasPendingIBChanges(false)
           setHasPendingGroupChanges(false)
           setPendingFilterDraft(null)
-          setPendingIBDraft(null)
           setPendingGroupDraft(null)
         }}
-        hasPendingChanges={hasPendingFilterChanges || hasPendingIBChanges || hasPendingGroupChanges}
+        hasPendingChanges={hasPendingFilterChanges || hasPendingGroupChanges}
       />
 
       {/* Filter Modal */}
@@ -946,25 +918,6 @@ export default function ClientPercentageModule() {
         onPendingChange={(hasPending, draft) => {
           setHasPendingFilterChanges(hasPending)
           setPendingFilterDraft(draft || null)
-        }}
-      />
-
-      {/* IB Filter Modal */}
-      <IBFilterModal
-        isOpen={isIBFilterOpen}
-        onClose={() => setIsIBFilterOpen(false)}
-        onSelectIB={(ib) => {
-          selectIB(ib)
-          setIsIBFilterOpen(false)
-        }}
-        onClearSelection={() => {
-          clearIBSelection()
-          setIsIBFilterOpen(false)
-        }}
-        currentSelectedIB={selectedIB}
-        onPendingChange={(hasPending, draft) => {
-          setHasPendingIBChanges(hasPending)
-          setPendingIBDraft(draft || null)
         }}
       />
 
@@ -1146,9 +1099,6 @@ export default function ClientPercentageModule() {
                   )},
                   {label:'Client Percentage', path:'/client-percentage', active:true, icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 18L18 6" stroke="#1A63BC"/><circle cx="8" cy="8" r="2" stroke="#1A63BC"/><circle cx="16" cy="16" r="2" stroke="#1A63BC"/></svg>
-                  )},
-                  {label:'IB Commissions', path:'/ib-commissions', icon:(
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 17l10 5 10-5" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 12l10 5 10-5" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   )},
                   {label:'Settings', path:'/settings', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" stroke="#404040"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2" stroke="#404040"/></svg>

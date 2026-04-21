@@ -3,12 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import FilterModal from './FilterModal'
 import CustomizeViewModal from './CustomizeViewModal'
-import IBFilterModal from './IBFilterModal'
 import GroupModal from './GroupModal'
 import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useIB } from '../contexts/IBContext'
 import { useGroups } from '../contexts/GroupContext'
 import { useData } from '../contexts/DataContext'
 import { brokerAPI } from '../services/api'
@@ -23,14 +21,12 @@ export default function Client2Module() {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { positions: cachedPositions, orders } = useData()
-  const { selectedIB, ibMT5Accounts, selectIB, clearIBSelection } = useIB()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [currentPage, setCurrentPage] = useState(1)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [showPercent, setShowPercent] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isIBFilterOpen, setIsIBFilterOpen] = useState(false)
   const [isGroupOpen, setIsGroupOpen] = useState(false)
   const [isLoginGroupsOpen, setIsLoginGroupsOpen] = useState(false)
   const [isLoginGroupModalOpen, setIsLoginGroupModalOpen] = useState(false)
@@ -45,10 +41,8 @@ export default function Client2Module() {
   const requestIdRef = useRef(0)
   const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
   const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
-  const [hasPendingIBChanges, setHasPendingIBChanges] = useState(false)
   const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
   const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
-  const [pendingIBDraft, setPendingIBDraft] = useState(null)
   const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const viewAllRef = useRef(null)
   const itemsPerPage = 12
@@ -95,7 +89,6 @@ export default function Client2Module() {
   // Clear all filters on component mount (when navigating to this module)
   useEffect(() => {
     setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-    clearIBSelection()
     setActiveGroupFilter('client2', null)
     setSearchInput('')
     setDebouncedSearchInput('')
@@ -114,7 +107,6 @@ export default function Client2Module() {
     const handler = () => {
       // Close any open child modals first
       setIsFilterOpen(false)
-      setIsIBFilterOpen(false)
       setIsLoginGroupsOpen(false)
       setIsLoginGroupModalOpen(false)
       // Open Customize menu
@@ -272,52 +264,6 @@ export default function Client2Module() {
         }
       }
 
-      // Add IB filter to payload if active
-      if (selectedIB && ibMT5Accounts && ibMT5Accounts.length > 0) {
-        console.log('[Client2] IB filter active:', selectedIB, 'with', ibMT5Accounts.length, 'accounts')
-        const ibAccountsSet = new Set(ibMT5Accounts.map(id => String(id)))
-        
-        if (payload.accountRangeMin !== undefined && payload.accountRangeMax !== undefined) {
-          // Range-based group + IB filter: Filter IB accounts by range
-          const rangeMin = parseInt(payload.accountRangeMin)
-          const rangeMax = parseInt(payload.accountRangeMax)
-          const beforeCount = ibMT5Accounts.length
-          payload.mt5Accounts = ibMT5Accounts
-            .filter(id => {
-              const numId = parseInt(String(id))
-              return numId >= rangeMin && numId <= rangeMax
-            })
-            .map(id => String(id))
-          console.log('[Client2] Range + IB intersection:', beforeCount, '→', payload.mt5Accounts.length, 'accounts')
-          // Remove range params since we're using explicit account list
-          delete payload.accountRangeMin
-          delete payload.accountRangeMax
-          
-          // If no intersection, force empty result by using impossible account
-          if (payload.mt5Accounts.length === 0) {
-            payload.mt5Accounts = ['0'] // Use impossible account ID to force empty result
-            console.log('[Client2] No intersection - forcing empty result')
-          }
-        } else if (groupAccountsSet) {
-          // Manual selection group + IB filter: Intersect both sets
-          const beforeCount = ibMT5Accounts.length
-          payload.mt5Accounts = ibMT5Accounts
-            .filter(id => groupAccountsSet.has(String(id)))
-            .map(id => String(id))
-          console.log('[Client2] Manual group + IB intersection:', beforeCount, '→', payload.mt5Accounts.length, 'accounts')
-          
-          // If no intersection, force empty result by using impossible account
-          if (payload.mt5Accounts.length === 0) {
-            payload.mt5Accounts = ['0'] // Use impossible account ID to force empty result
-            console.log('[Client2] No intersection - forcing empty result')
-          }
-        } else {
-          // Only IB filter, no group
-          payload.mt5Accounts = ibMT5Accounts.map(id => String(id))
-          console.log('[Client2] Only IB filter (no group):', payload.mt5Accounts.length, 'accounts')
-        }
-      }
-
       // Add sorting parameters to payload for server-side sorting
       if (sortColumn) {
         payload.sortBy = sortColumn
@@ -380,7 +326,7 @@ export default function Client2Module() {
         setIsLoading(false)
       }
     }
-  }, [showPercent, filters, selectedIB, ibMT5Accounts, getActiveGroupFilter, groups, currentPage, sortColumn, sortDirection, debouncedSearchInput])
+  }, [showPercent, filters, getActiveGroupFilter, groups, currentPage, sortColumn, sortDirection, debouncedSearchInput])
 
   // Fetch rebate totals from API
   const fetchRebateTotals = useCallback(async () => {
@@ -401,7 +347,7 @@ export default function Client2Module() {
   // Reset to page 1 when filters, search, or IB changes
   useEffect(() => {
     setCurrentPage(1)
-  }, [filters, debouncedSearchInput, selectedIB, getActiveGroupFilter('client2')])
+  }, [filters, debouncedSearchInput, getActiveGroupFilter('client2')])
 
   // Initial fetch and periodic refresh every 1 second (matching desktop)
   useEffect(() => {
@@ -430,87 +376,16 @@ export default function Client2Module() {
     // Use totalClients for count
     const clientCount = totalClients || 0
     
+    // Only show 6 face cards as requested
     return [
       { label: 'Total Clients', value: formatNum(clientCount), unit: 'Count', numericValue: clientCount },
-      { label: addPercent('Lifetime P&L'), value: formatNum(t.lifetimePnL || 0), unit: 'USD', numericValue: t.lifetimePnL || 0 },
-      { label: addPercent('NET Lifetime DW'), value: formatNum((t.lifetimeDeposit || 0) - (t.lifetimeWithdrawal || 0)), unit: 'USD', numericValue: (t.lifetimeDeposit || 0) - (t.lifetimeWithdrawal || 0) },
-      { label: 'Total Rebate', value: formatNum(rebateTotals.totalRebate || 0), unit: 'USD', numericValue: rebateTotals.totalRebate || 0 },
-      { label: addPercent('Assets'), value: formatNum(t.assets || 0), unit: 'USD', numericValue: t.assets || 0 },
       { label: addPercent('Balance'), value: formatNum(t.balance || 0), unit: 'USD', numericValue: t.balance || 0 },
-      { label: addPercent('Blocked Commission'), value: formatNum(t.blockedCommission || 0), unit: 'USD', numericValue: t.blockedCommission || 0 },
-      { label: addPercent('Blocked Profit'), value: formatNum(t.blockedProfit || 0), unit: 'USD', numericValue: t.blockedProfit || 0 },
-      { label: addPercent('Commission'), value: formatNum(t.commission || 0), unit: 'USD', numericValue: t.commission || 0 },
       { label: addPercent('Credit'), value: formatNum(t.credit || 0), unit: 'USD', numericValue: t.credit || 0 },
-      { label: addPercent('Daily Bonus In'), value: formatNum(t.dailyBonusIn || 0), unit: 'USD', numericValue: t.dailyBonusIn || 0 },
-      { label: addPercent('Daily Bonus Out'), value: formatNum(t.dailyBonusOut || 0), unit: 'USD', numericValue: t.dailyBonusOut || 0 },
-      { label: addPercent('Daily Credit In'), value: formatNum(t.dailyCreditIn || 0), unit: 'USD', numericValue: t.dailyCreditIn || 0 },
-      { label: addPercent('Daily Credit Out'), value: formatNum(t.dailyCreditOut || 0), unit: 'USD', numericValue: t.dailyCreditOut || 0 },
-      { label: addPercent('Daily Deposit'), value: formatNum(t.dailyDeposit || 0), unit: 'USD', numericValue: t.dailyDeposit || 0 },
-      { label: addPercent('Daily P&L'), value: formatNum(t.dailyPnL || 0), unit: 'USD', numericValue: t.dailyPnL || 0 },
-      { label: addPercent('Daily SO Compensation In'), value: formatNum(t.dailySOCompensationIn || 0), unit: 'USD', numericValue: t.dailySOCompensationIn || 0 },
-      { label: addPercent('Daily SO Compensation Out'), value: formatNum(t.dailySOCompensationOut || 0), unit: 'USD', numericValue: t.dailySOCompensationOut || 0 },
-      { label: addPercent('Daily Withdrawal'), value: formatNum(t.dailyWithdrawal || 0), unit: 'USD', numericValue: t.dailyWithdrawal || 0 },
-      { label: addPercent('Daily Net D/W'), value: formatNum((t.dailyDeposit || 0) - (t.dailyWithdrawal || 0)), unit: 'USD', numericValue: (t.dailyDeposit || 0) - (t.dailyWithdrawal || 0) },
-      { label: addPercent('NET Daily Bonus'), value: formatNum((t.dailyBonusIn || 0) - (t.dailyBonusOut || 0)), unit: 'USD', numericValue: (t.dailyBonusIn || 0) - (t.dailyBonusOut || 0) },
       { label: addPercent('Equity'), value: formatNum(t.equity || 0), unit: 'USD', numericValue: t.equity || 0 },
       { label: addPercent('Floating P/L'), value: formatNum(t.floating || 0), unit: 'USD', numericValue: t.floating || 0 },
-      { label: addPercent('Liabilities'), value: formatNum(t.liabilities || 0), unit: 'USD', numericValue: t.liabilities || 0 },
-      { label: addPercent('Lifetime Bonus In'), value: formatNum(t.lifetimeBonusIn || 0), unit: 'USD', numericValue: t.lifetimeBonusIn || 0 },
-      { label: addPercent('Lifetime Bonus Out'), value: formatNum(t.lifetimeBonusOut || 0), unit: 'USD', numericValue: t.lifetimeBonusOut || 0 },
-      { label: addPercent('Lifetime Credit In'), value: formatNum(t.lifetimeCreditIn || 0), unit: 'USD', numericValue: t.lifetimeCreditIn || 0 },
-      { label: addPercent('Lifetime Credit Out'), value: formatNum(t.lifetimeCreditOut || 0), unit: 'USD', numericValue: t.lifetimeCreditOut || 0 },
-      { label: addPercent('Lifetime Deposit'), value: formatNum(t.lifetimeDeposit || 0), unit: 'USD', numericValue: t.lifetimeDeposit || 0 },
-      { label: addPercent('Lifetime SO Compensation In'), value: formatNum(t.lifetimeSOCompensationIn || 0), unit: 'USD', numericValue: t.lifetimeSOCompensationIn || 0 },
-      { label: addPercent('Lifetime SO Compensation Out'), value: formatNum(t.lifetimeSOCompensationOut || 0), unit: 'USD', numericValue: t.lifetimeSOCompensationOut || 0 },
-      { label: addPercent('Lifetime Withdrawal'), value: formatNum(t.lifetimeWithdrawal || 0), unit: 'USD', numericValue: t.lifetimeWithdrawal || 0 },
-      { label: addPercent('Margin'), value: formatNum(t.margin || 0), unit: 'USD', numericValue: t.margin || 0 },
-      { label: addPercent('Margin Free'), value: formatNum(t.marginFree || 0), unit: 'USD', numericValue: t.marginFree || 0 },
-      { label: addPercent('Margin Initial'), value: formatNum(t.marginInitial || 0), unit: 'USD', numericValue: t.marginInitial || 0 },
-      { label: addPercent('Margin Level'), value: formatNum(t.marginLevel || 0), unit: showPercent ? 'USD' : '%', numericValue: t.marginLevel || 0 },
-      { label: addPercent('Margin Maintenance'), value: formatNum(t.marginMaintenance || 0), unit: 'USD', numericValue: t.marginMaintenance || 0 },
-      { label: addPercent('P&L'), value: formatNum(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0 },
-      { label: addPercent('Previous Equity'), value: formatNum(t.previousEquity || 0), unit: 'USD', numericValue: t.previousEquity || 0 },
-      { label: addPercent('Profit'), value: formatNum(t.profit || 0), unit: 'USD', numericValue: t.profit || 0 },
-      { label: addPercent('SO Equity'), value: formatNum(t.soEquity || 0), unit: 'USD', numericValue: t.soEquity || 0 },
-      { label: addPercent('SO Level'), value: formatNum(t.soLevel || 0), unit: showPercent ? 'USD' : '%', numericValue: t.soLevel || 0 },
-      { label: addPercent('SO Margin'), value: formatNum(t.soMargin || 0), unit: 'USD', numericValue: t.soMargin || 0 },
-      { label: addPercent('Storage'), value: formatNum(t.storage || 0), unit: 'USD', numericValue: t.storage || 0 },
-      { label: addPercent('This Month Bonus In'), value: formatNum(t.thisMonthBonusIn || 0), unit: 'USD', numericValue: t.thisMonthBonusIn || 0 },
-      { label: addPercent('This Month Bonus Out'), value: formatNum(t.thisMonthBonusOut || 0), unit: 'USD', numericValue: t.thisMonthBonusOut || 0 },
-      { label: addPercent('This Month Credit In'), value: formatNum(t.thisMonthCreditIn || 0), unit: 'USD', numericValue: t.thisMonthCreditIn || 0 },
-      { label: addPercent('This Month Credit Out'), value: formatNum(t.thisMonthCreditOut || 0), unit: 'USD', numericValue: t.thisMonthCreditOut || 0 },
-      { label: addPercent('This Month Deposit'), value: formatNum(t.thisMonthDeposit || 0), unit: 'USD', numericValue: t.thisMonthDeposit || 0 },
-      { label: addPercent('This Month P&L'), value: formatNum(t.thisMonthPnL || 0), unit: 'USD', numericValue: t.thisMonthPnL || 0 },
-      { label: addPercent('This Month SO Compensation In'), value: formatNum(t.thisMonthSOCompensationIn || 0), unit: 'USD', numericValue: t.thisMonthSOCompensationIn || 0 },
-      { label: addPercent('This Month SO Compensation Out'), value: formatNum(t.thisMonthSOCompensationOut || 0), unit: 'USD', numericValue: t.thisMonthSOCompensationOut || 0 },
-      { label: addPercent('This Month Withdrawal'), value: formatNum(t.thisMonthWithdrawal || 0), unit: 'USD', numericValue: t.thisMonthWithdrawal || 0 },
-      { label: addPercent('This Week Bonus In'), value: formatNum(t.thisWeekBonusIn || 0), unit: 'USD', numericValue: t.thisWeekBonusIn || 0 },
-      { label: addPercent('This Week Bonus Out'), value: formatNum(t.thisWeekBonusOut || 0), unit: 'USD', numericValue: t.thisWeekBonusOut || 0 },
-      { label: addPercent('This Week Credit In'), value: formatNum(t.thisWeekCreditIn || 0), unit: 'USD', numericValue: t.thisWeekCreditIn || 0 },
-      { label: addPercent('This Week Credit Out'), value: formatNum(t.thisWeekCreditOut || 0), unit: 'USD', numericValue: t.thisWeekCreditOut || 0 },
-      { label: addPercent('This Week Deposit'), value: formatNum(t.thisWeekDeposit || 0), unit: 'USD', numericValue: t.thisWeekDeposit || 0 },
-      { label: addPercent('This Week P&L'), value: formatNum(t.thisWeekPnL || 0), unit: 'USD', numericValue: t.thisWeekPnL || 0 },
-      { label: addPercent('This Week SO Compensation In'), value: formatNum(t.thisWeekSOCompensationIn || 0), unit: 'USD', numericValue: t.thisWeekSOCompensationIn || 0 },
-      { label: addPercent('This Week SO Compensation Out'), value: formatNum(t.thisWeekSOCompensationOut || 0), unit: 'USD', numericValue: t.thisWeekSOCompensationOut || 0 },
-      { label: addPercent('This Week Withdrawal'), value: formatNum(t.thisWeekWithdrawal || 0), unit: 'USD', numericValue: t.thisWeekWithdrawal || 0 },
-      { label: addPercent('NET Week Bonus'), value: formatNum((t.thisWeekBonusIn || 0) - (t.thisWeekBonusOut || 0)), unit: 'USD', numericValue: (t.thisWeekBonusIn || 0) - (t.thisWeekBonusOut || 0) },
-      { label: addPercent('NET Week DW'), value: formatNum((t.thisWeekDeposit || 0) - (t.thisWeekWithdrawal || 0)), unit: 'USD', numericValue: (t.thisWeekDeposit || 0) - (t.thisWeekWithdrawal || 0) },
-      { label: addPercent('NET Monthly Bonus'), value: formatNum((t.thisMonthBonusIn || 0) - (t.thisMonthBonusOut || 0)), unit: 'USD', numericValue: (t.thisMonthBonusIn || 0) - (t.thisMonthBonusOut || 0) },
-      { label: addPercent('NET Monthly DW'), value: formatNum((t.thisMonthDeposit || 0) - (t.thisMonthWithdrawal || 0)), unit: 'USD', numericValue: (t.thisMonthDeposit || 0) - (t.thisMonthWithdrawal || 0) },
-      { label: addPercent('NET Lifetime Bonus'), value: formatNum((t.lifetimeBonusIn || 0) - (t.lifetimeBonusOut || 0)), unit: 'USD', numericValue: (t.lifetimeBonusIn || 0) - (t.lifetimeBonusOut || 0) },
-      { label: addPercent('NET Credit'), value: formatNum((t.lifetimeCreditIn || 0) - (t.lifetimeCreditOut || 0)), unit: 'USD', numericValue: (t.lifetimeCreditIn || 0) - (t.lifetimeCreditOut || 0) },
-      { label: addPercent('Book PnL'), value: formatNum((t.lifetimePnL || 0) + (t.floating || 0)), unit: 'USD', numericValue: (t.lifetimePnL || 0) + (t.floating || 0) },
-      { label: addPercent('This Week Commission'), value: formatNum(t.thisWeekCommission || 0), unit: 'USD', numericValue: t.thisWeekCommission || 0 },
-      { label: addPercent('This Month Commission'), value: formatNum(t.thisMonthCommission || 0), unit: 'USD', numericValue: t.thisMonthCommission || 0 },
-      { label: addPercent('Lifetime Commission'), value: formatNum(t.lifetimeCommission || 0), unit: 'USD', numericValue: t.lifetimeCommission || 0 },
-      { label: addPercent('This Week Correction'), value: formatNum(t.thisWeekCorrection || 0), unit: 'USD', numericValue: t.thisWeekCorrection || 0 },
-      { label: addPercent('This Month Correction'), value: formatNum(t.thisMonthCorrection || 0), unit: 'USD', numericValue: t.thisMonthCorrection || 0 },
-      { label: addPercent('Lifetime Correction'), value: formatNum(t.lifetimeCorrection || 0), unit: 'USD', numericValue: t.lifetimeCorrection || 0 },
-      { label: addPercent('This Week Swap'), value: formatNum(t.thisWeekSwap || 0), unit: 'USD', numericValue: t.thisWeekSwap || 0 },
-      { label: addPercent('This Month Swap'), value: formatNum(t.thisMonthSwap || 0), unit: 'USD', numericValue: t.thisMonthSwap || 0 },
-      { label: addPercent('Lifetime Swap'), value: formatNum(t.lifetimeSwap || 0), unit: 'USD', numericValue: t.lifetimeSwap || 0 }
+      { label: addPercent('P&L'), value: formatNum(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0 }
     ]
-  }, [filteredClients, totals, rebateTotals, totalClients, filters, selectedIB, ibMT5Accounts, getActiveGroupFilter, debouncedSearchInput, showPercent])
+  }, [filteredClients, totals, rebateTotals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent])
 
   // Initialize and reconcile saved card order whenever cards change
   useEffect(() => {
@@ -788,39 +663,6 @@ export default function Client2Module() {
         }
       }
 
-      // Add IB filter
-      if (selectedIB && ibMT5Accounts && ibMT5Accounts.length > 0) {
-        const ibAccountsSet = new Set(ibMT5Accounts.map(id => String(id)))
-        
-        if (payload.accountRangeMin !== undefined && payload.accountRangeMax !== undefined) {
-          // Range-based group + IB filter: Filter IB accounts by range
-          const rangeMin = parseInt(payload.accountRangeMin)
-          const rangeMax = parseInt(payload.accountRangeMax)
-          payload.mt5Accounts = ibMT5Accounts
-            .filter(id => {
-              const numId = parseInt(String(id))
-              return numId >= rangeMin && numId <= rangeMax
-            })
-            .map(id => String(id))
-          delete payload.accountRangeMin
-          delete payload.accountRangeMax
-          if (payload.mt5Accounts.length === 0) {
-            payload.mt5Accounts = ['0']
-          }
-        } else if (groupAccountsSet) {
-          // Manual selection group + IB filter: Intersect both sets
-          payload.mt5Accounts = ibMT5Accounts
-            .filter(id => groupAccountsSet.has(String(id)))
-            .map(id => String(id))
-          if (payload.mt5Accounts.length === 0) {
-            payload.mt5Accounts = ['0']
-          }
-        } else {
-          // Only IB filter, no group
-          payload.mt5Accounts = ibMT5Accounts.map(id => String(id))
-        }
-      }
-
       // Fetch all data
       const response = await brokerAPI.searchClients(payload)
       const responseData = response?.data || {}
@@ -919,39 +761,6 @@ export default function Client2Module() {
             groupAccountsSet = new Set(activeGroup.loginIds.map(id => String(id)))
             payload.mt5Accounts = Array.from(groupAccountsSet)
           }
-        }
-      }
-
-      // Add IB filter
-      if (selectedIB && ibMT5Accounts && ibMT5Accounts.length > 0) {
-        const ibAccountsSet = new Set(ibMT5Accounts.map(id => String(id)))
-        
-        if (payload.accountRangeMin !== undefined && payload.accountRangeMax !== undefined) {
-          // Range-based group + IB filter: Filter IB accounts by range
-          const rangeMin = parseInt(payload.accountRangeMin)
-          const rangeMax = parseInt(payload.accountRangeMax)
-          payload.mt5Accounts = ibMT5Accounts
-            .filter(id => {
-              const numId = parseInt(String(id))
-              return numId >= rangeMin && numId <= rangeMax
-            })
-            .map(id => String(id))
-          delete payload.accountRangeMin
-          delete payload.accountRangeMax
-          if (payload.mt5Accounts.length === 0) {
-            payload.mt5Accounts = ['0']
-          }
-        } else if (groupAccountsSet) {
-          // Manual selection group + IB filter: Intersect both sets
-          payload.mt5Accounts = ibMT5Accounts
-            .filter(id => groupAccountsSet.has(String(id)))
-            .map(id => String(id))
-          if (payload.mt5Accounts.length === 0) {
-            payload.mt5Accounts = ['0']
-          }
-        } else {
-          // Only IB filter, no group
-          payload.mt5Accounts = ibMT5Accounts.map(id => String(id))
         }
       }
 
@@ -1209,9 +1018,6 @@ export default function Client2Module() {
                   {label:'Client Percentage', path:'/client-percentage', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 18L18 6" stroke="#404040"/><circle cx="8" cy="8" r="2" stroke="#404040"/><circle cx="16" cy="16" r="2" stroke="#404040"/></svg>
                   )},
-                  {label:'IB Commissions', path:'/ib-commissions', icon:(
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 17l10 5 10-5" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 12l10 5 10-5" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  )},
                   {label:'Settings', path:'/settings', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" stroke="#404040"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2" stroke="#404040"/></svg>
                   )},
@@ -1257,7 +1063,7 @@ export default function Client2Module() {
               <button 
                 onClick={() => setIsCustomizeOpen(true)} 
                 className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative ${
-                  (filters.hasFloating || filters.hasCredit || filters.noDeposit || selectedIB || getActiveGroupFilter('client2'))
+                  (filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('client2'))
                     ? 'bg-blue-50 border-blue-200' 
                     : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
                 }`}
@@ -1271,7 +1077,6 @@ export default function Client2Module() {
                     filters.hasFloating,
                     filters.hasCredit,
                     filters.noDeposit,
-                    selectedIB,
                     getActiveGroupFilter('client2')
                   ].filter(Boolean).length;
                   return filterCount > 0 ? (
@@ -1594,11 +1399,11 @@ export default function Client2Module() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
                     <p className="font-medium text-gray-700">
-                      {(filters.hasFloating || filters.hasCredit || filters.noDeposit || selectedIB || getActiveGroupFilter('client2') || searchInput.trim())
+                      {(filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('client2') || searchInput.trim())
                         ? 'No clients match the applied filters'
                         : 'No clients found'}
                     </p>
-                    {(filters.hasFloating || filters.hasCredit || filters.noDeposit || selectedIB || getActiveGroupFilter('client2') || searchInput.trim()) && (
+                    {(filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('client2') || searchInput.trim()) && (
                       <p className="text-sm text-gray-500 mt-1">Try adjusting your filters or search criteria</p>
                     )}
                   </div>
@@ -1735,10 +1540,6 @@ export default function Client2Module() {
           setIsCustomizeOpen(false)
           setIsFilterOpen(true)
         }}
-        onIBFilterClick={() => {
-          setIsCustomizeOpen(false)
-          setIsIBFilterOpen(true)
-        }}
         onGroupsClick={() => {
           setIsCustomizeOpen(false)
           setIsLoginGroupsOpen(true)
@@ -1747,35 +1548,24 @@ export default function Client2Module() {
           // Invalidate any in-flight requests from previous filter state
           requestIdRef.current++
           setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-          clearIBSelection()
           setActiveGroupFilter('client2', null)
           setHasPendingFilterChanges(false)
-          setHasPendingIBChanges(false)
           setPendingFilterDraft(null)
-          setPendingIBDraft(null)
+          setHasPendingGroupChanges(false)
+          setPendingGroupDraft(null)
         }}
         onApply={() => {
           // Apply any pending changes made in sub-modals
           if (hasPendingFilterChanges && pendingFilterDraft) {
             setFilters(pendingFilterDraft)
           }
-          if (hasPendingIBChanges) {
-            if (pendingIBDraft) {
-              // Selecting IB triggers mt5 fetch via IBContext effect
-              selectIB(pendingIBDraft)
-            } else {
-              clearIBSelection()
-            }
-          }
           setIsCustomizeOpen(false)
           setHasPendingFilterChanges(false)
-          setHasPendingIBChanges(false)
           setHasPendingGroupChanges(false)
           setPendingFilterDraft(null)
-          setPendingIBDraft(null)
           setPendingGroupDraft(null)
         }}
-        hasPendingChanges={hasPendingFilterChanges || hasPendingIBChanges || hasPendingGroupChanges}
+        hasPendingChanges={hasPendingFilterChanges || hasPendingGroupChanges}
       />
 
       {/* Filter Modal */}
@@ -1801,36 +1591,6 @@ export default function Client2Module() {
               } catch (e) {}
             }
             return draft || null
-          })
-        }}
-      />
-
-      {/* IB Filter Modal */}
-      <IBFilterModal
-        isOpen={isIBFilterOpen}
-        onClose={() => setIsIBFilterOpen(false)}
-        onSelectIB={(ib) => {
-          // Invalidate any in-flight requests from previous filter state
-          requestIdRef.current++
-          if (ib) {
-            selectIB(ib)
-          } else {
-            clearIBSelection()
-          }
-          setIsIBFilterOpen(false)
-          setHasPendingIBChanges(false)
-          setPendingIBDraft(null)
-        }}
-        currentSelectedIB={selectedIB}
-        onPendingChange={(hasPending, draft) => {
-          setHasPendingIBChanges(prev => (prev !== hasPending ? hasPending : prev))
-          setPendingIBDraft(prev => {
-            const next = draft || null
-            if (prev === next) return prev
-            try {
-              if (prev && next && JSON.stringify(prev) === JSON.stringify(next)) return prev
-            } catch (e) {}
-            return next
           })
         }}
       />

@@ -5,11 +5,9 @@ import Sidebar from '../components/Sidebar'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import Client2Module from '../components/Client2Module'
-import ClientDashboard from '../components/ClientDashboard'
 import { useData } from '../contexts/DataContext'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
-import IBSelector from '../components/IBSelector'
 import api, { brokerAPI } from '../services/api'
 import { useGroups } from '../contexts/GroupContext'
 import { useIB } from '../contexts/IBContext'
@@ -108,6 +106,8 @@ const Client2Page = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(50)
   const [totalPages, setTotalPages] = useState(1)
+  const [isPageChanging, setIsPageChanging] = useState(false)
+  const pageChangeTimeoutRef = useRef(null)
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
@@ -185,34 +185,9 @@ const Client2Page = () => {
   const lastChangeRef = useRef({})
   const STABLE_THRESHOLD_MS = 5000
 
-  // Define default face card order for Client2 (matching all available cards in the actual rendering)
+  // Define default face card order for Client2 — only 6 allowed cards
   const defaultClient2FaceCardOrder = [
-    'totalClients', 'assets', 'balance', 'blockedCommission', 'blockedProfit', 'commission', 'credit',
-    'dailyBonusIn', 'dailyBonusOut', 'dailyCreditIn', 'dailyCreditOut', 'dailyDeposit', 'dailyDepositPercent', 'dailyPnL',
-    'dailySOCompensationIn', 'dailySOCompensationOut', 'dailyWithdrawal', 'dailyWithdrawalPercent',
-    // New computed card: Daily Net D/W
-    'dailyNetDW',
-    'equity', 'floating', 'liabilities',
-    'lifetimeBonusIn', 'lifetimeBonusOut', 'lifetimeCreditIn', 'lifetimeCreditOut', 'lifetimeDeposit', 'lifetimePnL', 'lifetimePnLPercent',
-    'lifetimeSOCompensationIn', 'lifetimeSOCompensationOut', 'lifetimeWithdrawal',
-    // Lifetime Commission/Correction/Swap
-    'lifetimeCommission', 'lifetimeCorrection', 'lifetimeSwap',
-    'margin', 'marginFree', 'marginInitial', 'marginLevel', 'marginMaintenance',
-    'soEquity', 'soLevel', 'soMargin', 'pnl', 'previousEquity', 'profit', 'storage',
-    'thisMonthBonusIn', 'thisMonthBonusOut', 'thisMonthCreditIn', 'thisMonthCreditOut', 'thisMonthDeposit', 'thisMonthPnL',
-    'thisMonthSOCompensationIn', 'thisMonthSOCompensationOut', 'thisMonthWithdrawal',
-    // This Month Commission/Correction/Swap
-    'thisMonthCommission', 'thisMonthCorrection', 'thisMonthSwap',
-    'thisWeekBonusIn', 'thisWeekBonusOut', 'thisWeekCreditIn', 'thisWeekCreditOut', 'thisWeekDeposit', 'thisWeekPnL',
-    'thisWeekSOCompensationIn', 'thisWeekSOCompensationOut', 'thisWeekWithdrawal',
-    // This Week Commission/Correction/Swap
-    'thisWeekCommission', 'thisWeekCorrection', 'thisWeekSwap',
-    // New computed cards: NET Week/Monthly Bonus
-    'netWeekBonus', 'netMonthBonus',
-    // Remaining NET cards
-    'netDailyBonus', 'netLifetimeBonus', 'netWeekDW', 'netMonthDW', 'netLifetimeDW', 'netCredit',
-    'availableRebate', 'availableRebatePercent', 'totalRebate', 'totalRebatePercent',
-    'netLifetimePnL', 'netLifetimePnLPercent', 'bookPnL', 'bookPnLPercent'
+    'totalClients', 'balance', 'credit', 'equity', 'floating', 'pnl'
   ]
 
   const getInitialClient2FaceCardOrder = () => {
@@ -369,33 +344,35 @@ const Client2Page = () => {
         console.error('Failed to parse saved card visibility:', e)
       }
     }
-    // Default: show only 6 essential cards
+    // Default: show only the 6 allowed cards
     return {
       totalClients: true,
+      balance: true,
+      credit: true,
+      equity: true,
+      floating: true,
+      pnl: true,
+      // everything else hidden
       assets: false,
-      balance: false,
       blockedCommission: false,
       blockedProfit: false,
       commission: false,
-      credit: false,
       dailyBonusIn: false,
       dailyBonusOut: false,
       dailyCreditIn: false,
       dailyCreditOut: false,
-      dailyDeposit: true,  // Card 1
+      dailyDeposit: false,
       dailyPnL: false,
       dailySOCompensationIn: false,
       dailySOCompensationOut: false,
       dailyWithdrawal: false,
-      equity: true,  // Card 2
-      floating: true,  // Card 3
       liabilities: false,
       lifetimeBonusIn: false,
       lifetimeBonusOut: false,
       lifetimeCreditIn: false,
       lifetimeCreditOut: false,
-      lifetimeDeposit: true,  // Card 4
-      lifetimePnL: true,  // Card 5
+      lifetimeDeposit: false,
+      lifetimePnL: false,
       lifetimeSOCompensationIn: false,
       lifetimeSOCompensationOut: false,
       lifetimeWithdrawal: false,
@@ -407,7 +384,6 @@ const Client2Page = () => {
       soEquity: false,
       soLevel: false,
       soMargin: false,
-      pnl: true,  // Card 6
       previousEquity: false,
       profit: false,
       storage: false,
@@ -2661,10 +2637,27 @@ const Client2Page = () => {
 
   // Handle page change
   const handlePageChange = (newPage) => {
-    setCurrentPage(newPage)
-    // Trigger immediate fetch for the new page
-    // Don't wait for scroll; data fetch happens via useEffect dependency on currentPage
+    const nextPage = Math.min(Math.max(1, Number(newPage) || 1), Math.max(1, totalPages))
+    if (nextPage === currentPage) return
+
+    setIsPageChanging(true)
+    setCurrentPage(nextPage)
+
+    if (pageChangeTimeoutRef.current) {
+      clearTimeout(pageChangeTimeoutRef.current)
+    }
+    pageChangeTimeoutRef.current = setTimeout(() => {
+      setIsPageChanging(false)
+    }, 180)
   }
+
+  useEffect(() => {
+    return () => {
+      if (pageChangeTimeoutRef.current) {
+        clearTimeout(pageChangeTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Handle items per page change
   const handleItemsPerPageChange = (value) => {
@@ -3836,9 +3829,6 @@ const Client2Page = () => {
                   )}
                 </div>
 
-                {/* IB Filter Button */}
-                <IBSelector />
-
                 {/* Groups Button */}
                 <GroupSelector
                   onCreateClick={() => {
@@ -3943,81 +3933,12 @@ const Client2Page = () => {
                           onClick={() => {
                             // Determine the keys currently displayed in the menu and toggle only those
                             const baseLabels = {
-                              assets: 'Assets',
+                              totalClients: 'Total Clients',
                               balance: 'Balance',
-                              blockedCommission: 'Blocked Commission',
-                              blockedProfit: 'Blocked Profit',
-                              commission: 'Commission',
                               credit: 'Credit',
-                              dailyBonusIn: 'Daily Bonus In',
-                              dailyBonusOut: 'Daily Bonus Out',
-                              dailyCreditIn: 'Daily Credit In',
-                              dailyCreditOut: 'Daily Credit Out',
-                              dailyDeposit: 'Daily Deposit',
-                              dailyPnL: 'Daily P&L',
-                              dailySOCompensationIn: 'Daily SO Compensation In',
-                              dailySOCompensationOut: 'Daily SO Compensation Out',
-                              dailyWithdrawal: 'Daily Withdrawal',
-                              dailyNetDW: 'Daily Net D/W',
                               equity: 'Equity',
-                              floating: 'Floating',
-                              liabilities: 'Liabilities',
-                              lifetimeBonusIn: 'Lifetime Bonus In',
-                              lifetimeBonusOut: 'Lifetime Bonus Out',
-                              lifetimeCreditIn: 'Lifetime Credit In',
-                              lifetimeCreditOut: 'Lifetime Credit Out',
-                              lifetimeDeposit: 'Lifetime Deposit',
-                              lifetimePnL: 'Lifetime P&L',
-                              lifetimeSOCompensationIn: 'Lifetime SO Compensation In',
-                              lifetimeSOCompensationOut: 'Lifetime SO Compensation Out',
-                              lifetimeWithdrawal: 'Lifetime Withdrawal',
-                              margin: 'Margin',
-                              marginFree: 'Margin Free',
-                              marginInitial: 'Margin Initial',
-                              marginLevel: 'Margin Level',
-                              marginMaintenance: 'Margin Maintenance',
-                              soEquity: 'SO Equity',
-                              soLevel: 'SO Level',
-                              soMargin: 'SO Margin',
-                              pnl: 'P&L',
-                              previousEquity: 'Previous Equity',
-                              profit: 'Profit',
-                              storage: 'Storage',
-                              thisMonthBonusIn: 'This Month Bonus In',
-                              thisMonthBonusOut: 'This Month Bonus Out',
-                              thisMonthCreditIn: 'This Month Credit In',
-                              thisMonthCreditOut: 'This Month Credit Out',
-                              thisMonthDeposit: 'This Month Deposit',
-                              thisMonthPnL: 'This Month P&L',
-                              thisMonthSOCompensationIn: 'This Month SO Compensation In',
-                              thisMonthSOCompensationOut: 'This Month SO Compensation Out',
-                              thisMonthWithdrawal: 'This Month Withdrawal',
-                              thisWeekBonusIn: 'This Week Bonus In',
-                              thisWeekBonusOut: 'This Week Bonus Out',
-                              thisWeekCreditIn: 'This Week Credit In',
-                              thisWeekCreditOut: 'This Week Credit Out',
-                              thisWeekDeposit: 'This Week Deposit',
-                              thisWeekPnL: 'This Week P&L',
-                              thisWeekSOCompensationIn: 'This Week SO Compensation In',
-                              thisWeekSOCompensationOut: 'This Week SO Compensation Out',
-                              thisWeekWithdrawal: 'This Week Withdrawal',
-                              // NET cards
-                              netDailyBonus: 'NET Daily Bonus',
-                              netWeekBonus: 'NET Week Bonus',
-                              netWeekDW: 'NET Week DW',
-                              availableRebate: 'Available Rebate',
-                              availableRebatePercent: 'Available Rebate %',
-                              totalRebate: 'Total Rebate',
-                              totalRebatePercent: 'Total Rebate %',
-                              netMonthDW: 'NET Monthly DW',
-                              netMonthBonus: 'NET Monthly Bonus',
-                              netLifetimeBonus: 'NET Lifetime Bonus',
-                              netLifetimeDW: 'NET Lifetime DW',
-                              netCredit: 'NET Credit',
-                              netLifetimePnL: 'Net Lifetime PnL',
-                              netLifetimePnLPercent: 'Net Lifetime PnL %',
-                              bookPnL: 'Book PnL',
-                              bookPnLPercent: 'Book PnL %'
+                              floating: 'Floating PNL',
+                              pnl: 'P&L'
                             }
                             const baseItems = Object.entries(baseLabels).map(([key, label]) => [key, label])
                             // In % Mode we still filter base cards only; percent variants are no longer selectable
@@ -4036,28 +3957,13 @@ const Client2Page = () => {
                           {/* Determine button label based on displayed items only */}
                           {(() => {
                             const baseLabels = {
-                              assets: 'Assets', balance: 'Balance', blockedCommission: 'Blocked Commission', blockedProfit: 'Blocked Profit', commission: 'Commission', credit: 'Credit', dailyBonusIn: 'Daily Bonus In', dailyBonusOut: 'Daily Bonus Out', dailyCreditIn: 'Daily Credit In', dailyCreditOut: 'Daily Credit Out', dailyDeposit: 'Daily Deposit', dailyPnL: 'Daily P&L', dailySOCompensationIn: 'Daily SO Compensation In', dailySOCompensationOut: 'Daily SO Compensation Out', dailyWithdrawal: 'Daily Withdrawal', equity: 'Equity', floating: 'Floating', liabilities: 'Liabilities', lifetimeBonusIn: 'Lifetime Bonus In', lifetimeBonusOut: 'Lifetime Bonus Out', lifetimeCreditIn: 'Lifetime Credit In', lifetimeCreditOut: 'Lifetime Credit Out', lifetimeDeposit: 'Lifetime Deposit', lifetimePnL: 'Lifetime P&L', lifetimeSOCompensationIn: 'Lifetime SO Compensation In', lifetimeSOCompensationOut: 'Lifetime SO Compensation Out', lifetimeWithdrawal: 'Lifetime Withdrawal', margin: 'Margin', marginFree: 'Margin Free', marginInitial: 'Margin Initial', marginLevel: 'Margin Level', marginMaintenance: 'Margin Maintenance', soEquity: 'SO Equity', soLevel: 'SO Level', soMargin: 'SO Margin', pnl: 'P&L', previousEquity: 'Previous Equity', profit: 'Profit', storage: 'Storage', thisMonthBonusIn: 'This Month Bonus In', thisMonthBonusOut: 'This Month Bonus Out', thisMonthCreditIn: 'This Month Credit In', thisMonthCreditOut: 'This Month Credit Out', thisMonthDeposit: 'This Month Deposit', thisMonthPnL: 'This Month P&L', thisMonthSOCompensationIn: 'This Month SO Compensation In', thisMonthSOCompensationOut: 'This Month SO Compensation Out', thisMonthWithdrawal: 'This Month Withdrawal', thisWeekBonusIn: 'This Week Bonus In', thisWeekBonusOut: 'This Week Bonus Out', thisWeekCreditIn: 'This Week Credit In', thisWeekCreditOut: 'This Week Credit Out', thisWeekDeposit: 'This Week Deposit', thisWeekPnL: 'This Week P&L', thisWeekSOCompensationIn: 'This Week SO Compensation In', thisWeekSOCompensationOut: 'This Week SO Compensation Out', thisWeekWithdrawal: 'This Week Withdrawal', availableRebate: 'Available Rebate', totalRebate: 'Total Rebate', netLifetimePnL: 'Net Lifetime PnL', bookPnL: 'Book PnL'
+                              totalClients: 'Total Clients',
+                              balance: 'Balance',
+                              credit: 'Credit',
+                              equity: 'Equity',
+                              floating: 'Floating PNL',
+                              pnl: 'P&L'
                             }
-                            // Inject new Commission/Correction/Swap labels
-                            baseLabels.thisWeekCommission = 'This Week Commission'
-                            baseLabels.thisMonthCommission = 'This Month Commission'
-                            baseLabels.lifetimeCommission = 'Lifetime Commission'
-                            baseLabels.thisWeekCorrection = 'This Week Correction'
-                            baseLabels.thisMonthCorrection = 'This Month Correction'
-                            baseLabels.lifetimeCorrection = 'Lifetime Correction'
-                            baseLabels.thisWeekSwap = 'This Week Swap'
-                            baseLabels.thisMonthSwap = 'This Month Swap'
-                            baseLabels.lifetimeSwap = 'Lifetime Swap'
-                            // Inject new labels for net cards
-                            baseLabels.dailyNetDW = 'Daily Net D/W'
-                            baseLabels.netDailyBonus = 'NET Daily Bonus'
-                            baseLabels.netWeekBonus = 'NET Week Bonus'
-                            baseLabels.netWeekDW = 'NET Week DW'
-                            baseLabels.netMonthBonus = 'NET Monthly Bonus'
-                            baseLabels.netMonthDW = 'NET Monthly DW'
-                            baseLabels.netLifetimeBonus = 'NET Lifetime Bonus'
-                            baseLabels.netLifetimeDW = 'NET Lifetime DW'
-                            baseLabels.netCredit = 'NET Credit'
                             const baseItems = Object.entries(baseLabels).map(([key, label]) => [key, label])
                             const items = baseItems
                             const filteredItems = items.filter(([_, label]) =>
@@ -4082,86 +3988,11 @@ const Client2Page = () => {
                         {(() => {
                           const baseLabels = {
                             totalClients: 'Total Clients',
-                            assets: 'Assets',
                             balance: 'Balance',
-                            blockedCommission: 'Blocked Commission',
-                            blockedProfit: 'Blocked Profit',
-                            commission: 'Commission',
                             credit: 'Credit',
-                            dailyBonusIn: 'Daily Bonus In',
-                            dailyBonusOut: 'Daily Bonus Out',
-                            dailyCreditIn: 'Daily Credit In',
-                            dailyCreditOut: 'Daily Credit Out',
-                            dailyDeposit: 'Daily Deposit',
-                            dailyPnL: 'Daily P&L',
-                            dailySOCompensationIn: 'Daily SO Compensation In',
-                            dailySOCompensationOut: 'Daily SO Compensation Out',
-                            dailyWithdrawal: 'Daily Withdrawal',
-                            dailyNetDW: 'Daily Net D/W',
                             equity: 'Equity',
-                            floating: 'Floating',
-                            liabilities: 'Liabilities',
-                            lifetimeBonusIn: 'Lifetime Bonus In',
-                            lifetimeBonusOut: 'Lifetime Bonus Out',
-                            lifetimeCreditIn: 'Lifetime Credit In',
-                            lifetimeCreditOut: 'Lifetime Credit Out',
-                            lifetimeDeposit: 'Lifetime Deposit',
-                            lifetimePnL: 'Lifetime P&L',
-                            lifetimeSOCompensationIn: 'Lifetime SO Compensation In',
-                            lifetimeSOCompensationOut: 'Lifetime SO Compensation Out',
-                            lifetimeWithdrawal: 'Lifetime Withdrawal',
-                            lifetimeCommission: 'Lifetime Commission',
-                            lifetimeCorrection: 'Lifetime Correction',
-                            lifetimeSwap: 'Lifetime Swap',
-                            margin: 'Margin',
-                            marginFree: 'Margin Free',
-                            marginInitial: 'Margin Initial',
-                            marginLevel: 'Margin Level',
-                            marginMaintenance: 'Margin Maintenance',
-                            soEquity: 'SO Equity',
-                            soLevel: 'SO Level',
-                            soMargin: 'SO Margin',
-                            pnl: 'P&L',
-                            previousEquity: 'Previous Equity',
-                            profit: 'Profit',
-                            storage: 'Storage',
-                            thisMonthBonusIn: 'This Month Bonus In',
-                            thisMonthBonusOut: 'This Month Bonus Out',
-                            thisMonthCreditIn: 'This Month Credit In',
-                            thisMonthCreditOut: 'This Month Credit Out',
-                            thisMonthDeposit: 'This Month Deposit',
-                            thisMonthPnL: 'This Month P&L',
-                            thisMonthSOCompensationIn: 'This Month SO Compensation In',
-                            thisMonthSOCompensationOut: 'This Month SO Compensation Out',
-                            thisMonthWithdrawal: 'This Month Withdrawal',
-                            thisMonthCommission: 'This Month Commission',
-                            thisMonthCorrection: 'This Month Correction',
-                            thisMonthSwap: 'This Month Swap',
-                            thisWeekBonusIn: 'This Week Bonus In',
-                            thisWeekBonusOut: 'This Week Bonus Out',
-                            thisWeekCreditIn: 'This Week Credit In',
-                            thisWeekCreditOut: 'This Week Credit Out',
-                            thisWeekDeposit: 'This Week Deposit',
-                            thisWeekPnL: 'This Week P&L',
-                            thisWeekSOCompensationIn: 'This Week SO Compensation In',
-                            thisWeekSOCompensationOut: 'This Week SO Compensation Out',
-                            thisWeekWithdrawal: 'This Week Withdrawal',
-                            thisWeekCommission: 'This Week Commission',
-                            thisWeekCorrection: 'This Week Correction',
-                            thisWeekSwap: 'This Week Swap',
-                            // NET cards
-                            netDailyBonus: 'NET Daily Bonus',
-                            netWeekBonus: 'NET Week Bonus',
-                            netWeekDW: 'NET Week DW',
-                            availableRebate: 'Available Rebate',
-                            totalRebate: 'Total Rebate',
-                            netMonthDW: 'NET Monthly DW',
-                            netMonthBonus: 'NET Monthly Bonus',
-                            netLifetimeBonus: 'NET Lifetime Bonus',
-                            netLifetimeDW: 'NET Lifetime DW',
-                            netCredit: 'NET Credit',
-                            netLifetimePnL: 'Net Lifetime PnL',
-                            bookPnL: 'Book PnL'
+                            floating: 'Floating PNL',
+                            pnl: 'P&L'
                           }
                           // Build items based on toggle: only non-percent OR only percent
                           const baseItems = Object.entries(baseLabels).map(([key, label]) => [key, label])
@@ -4212,15 +4043,55 @@ const Client2Page = () => {
             </div>
           </div>
 
-          {/* New Dashboard Section - Shows with either normal or percentage totals */}
+          {/* 6 Face Cards - matching Positions module style */}
           {((totals && Object.keys(totals).length > 0) || (totalsPercent && Object.keys(totalsPercent).length > 0)) && (
             <div className="mb-6">
-              <ClientDashboard 
-                totals={cardFilterPercentMode ? totalsPercent : totals} 
-                clients={clients} 
-                totalClients={totalClients} 
-                rebateTotals={rebateTotals} 
-              />
+              {(() => {
+                const t = cardFilterPercentMode ? totalsPercent : totals
+                const pnlValue = Number(t?.pnl || 0)
+                const floatingValue = Number(t?.floating || 0)
+                const isLoadingCards = initialLoad || loading
+                const cards = [
+                  { key: 'totalClients', title: 'Total Clients', value: formatIndianNumber(totalClients || 0), unit: 'CLI', valueColor: 'text-[#000000]', skeletonW: 'w-14' },
+                  { key: 'balance', title: 'Balance', value: formatIndianNumber(Number(t?.balance || 0).toFixed(2)), unit: 'USD', valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  { key: 'credit', title: 'Credit', value: formatIndianNumber(Number(t?.credit || 0).toFixed(2)), unit: 'USD', valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  { key: 'equity', title: 'Equity', value: formatIndianNumber(Number(t?.equity || 0).toFixed(2)), unit: 'USD', valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  { key: 'floating', title: 'Floating PNL', value: (floatingValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(floatingValue).toFixed(2)), unit: 'USD', valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' },
+                  { key: 'pnl', title: 'P&L', value: (pnlValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(pnlValue).toFixed(2)), unit: 'USD', valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' }
+                ]
+                return (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {cards.map(card => (
+                      <div
+                        key={card.key}
+                        className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
+                          <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{card.title}</span>
+                          <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                            <img
+                              src={getCardIcon(card.title)}
+                              alt={card.title}
+                              style={{ width: '100%', height: '100%' }}
+                              onError={(e) => { e.target.style.display = 'none' }}
+                            />
+                          </div>
+                        </div>
+                        {isLoadingCards ? (
+                          <div className={`h-6 ${card.skeletonW} bg-gray-200 rounded animate-pulse`}></div>
+                        ) : (
+                          <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${card.valueColor}`}>
+                            <span>{card.value}</span>
+                            {card.unit && (
+                              <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">{card.unit}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
           )}
 
@@ -4524,18 +4395,6 @@ const Client2Page = () => {
                   }
                   .hide-scrollbar::-webkit-scrollbar {
                     display: none; /* Chrome, Safari, Opera */
-                  }
-                  
-                  /* Staggered fade-in animation for lazy loading */
-                  @keyframes fadeIn {
-                    from {
-                      opacity: 0;
-                      transform: translateY(10px);
-                    }
-                    to {
-                      opacity: 1;
-                      transform: translateY(0);
-                    }
                   }
                   
                   /* Shimmer effect for loading skeleton */
@@ -5459,7 +5318,7 @@ const Client2Page = () => {
                     </thead>
 
                     {/* YouTube-style Loading Progress Bar - Below table header */}
-                    {(loading || isRefreshing) && (
+                    {(loading || isRefreshing || isPageChanging) && (
                       <thead className="sticky z-40" style={{ top: '48px' }}>
                         <tr>
                           <th colSpan={visibleColumnsList.length} className="p-0" style={{ height: '3px' }}>
@@ -5484,13 +5343,22 @@ const Client2Page = () => {
                     )}
 
                     <tbody className="bg-white divide-y divide-slate-100 text-sm md:text-[15px]" key={`tbody-${animationKey}`}>
-                      {/* Loading state (match Live Dealing style) */}
-                      {(loading || initialLoad || isRefreshing) && sortedClients.length === 0 ? (
-                        <tr>
-                          <td colSpan={visibleColumnsList.length} className="px-4 py-12 text-center">
-                            <p className="text-sm text-gray-500">Loading clients...</p>
-                          </td>
-                        </tr>
+                      {(loading || initialLoad || isRefreshing || isPageChanging) ? (
+                        Array.from({ length: 8 }, (_, i) => (
+                          <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
+                            {visibleColumnsList.map((col) => (
+                              <td
+                                key={`${col.key}-${i}`}
+                                className={`${col.key === 'login' ? 'sticky left-0 bg-white z-10' : ''}`}
+                                style={{ height: '38px' }}
+                              >
+                                <div className="px-2">
+                                  <div className="h-3 w-full max-w-[80%] skeleton-shimmer" />
+                                </div>
+                              </td>
+                            ))}
+                          </tr>
+                        ))
                       ) : (!loading && !initialLoad && sortedClients.length === 0) ? (
                         <tr>
                           <td colSpan={visibleColumnsList.length} className="px-4 py-12 text-center">
@@ -5505,16 +5373,11 @@ const Client2Page = () => {
                         </tr>
                       ) : (
                         <>
-                          {/* Always show actual data rows with staggered fade-in */}
                           {/* Guard: filter out null/undefined clients */}
                           {(sortedClients || []).filter(client => client != null && client.login != null).map((client, idx) => (
                         <tr
                           key={`${client.login}-${animationKey}-${idx}`}
                           className={`hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}
-                          style={{
-                            opacity: 0,
-                            animation: `fadeIn 0.2s ease-out forwards ${idx * 20}ms`
-                          }}
                         >
                           {visibleColumnsList.map(col => {
                             // In percentage mode, use _percentage fields

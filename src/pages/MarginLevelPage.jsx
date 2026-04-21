@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useGroups } from '../contexts/GroupContext'
-import { useIB } from '../contexts/IBContext'
 import Sidebar from '../components/Sidebar'
 import WebSocketIndicator from '../components/WebSocketIndicator'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
-import IBSelector from '../components/IBSelector'
 import MarginLevelModule from '../components/MarginLevelModule'
 
 // Helpers
@@ -30,7 +28,6 @@ const MarginLevelPage = () => {
   // Use cached data from DataContext - MUST be called before conditional return
   const { accounts: cachedAccounts, positions: cachedPositions, orders: cachedOrders, fetchAccounts, loading, connectionState } = useData()
   const { filterByActiveGroup, activeGroupFilters } = useGroups()
-  const { filterByActiveIB, selectedIB, ibMT5Accounts } = useIB()
   
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
@@ -360,14 +357,8 @@ const MarginLevelPage = () => {
   
   const searchedAccounts = searchAccounts(filtered)
   
-  // Apply IB filter first (cumulative order: IB -> Group)
-  let ibFilteredAccounts = filterByActiveIB(searchedAccounts, 'login')
-  
-  // Apply group filter on top of IB filter
-  let groupFilteredAccounts = filterByActiveGroup(ibFilteredAccounts, 'login', 'marginlevel')
-  
-  // Continue with groupFilteredAccounts as ibFilteredAccounts for consistency
-  ibFilteredAccounts = groupFilteredAccounts
+  // Apply group filter
+  let ibFilteredAccounts = filterByActiveGroup(searchedAccounts, 'login', 'marginlevel')
   
   // Apply column filters
   Object.entries(columnFilters).forEach(([columnKey, values]) => {
@@ -873,8 +864,6 @@ const MarginLevelPage = () => {
 
             {/* Action Buttons - All on right side */}
             <div className="flex items-center gap-2">
-                  <IBSelector />
-                  
                   <GroupSelector 
                     moduleName="marginlevel" 
                     onCreateClick={() => {

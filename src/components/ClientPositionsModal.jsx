@@ -118,13 +118,25 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const dealStatsFilterRef = useRef(null)
   // Default visibility for aggregated deal stats face cards
   const defaultDealStatVisibility = {
+    totalCommission: true,
     totalDeals: true,
     totalVolume: true,
-    totalPnL: true,
-    totalCommission: true,
-    totalStorage: true,
-    winRate: true
+    averageProfitPerDeal: true,
+    averageVolumePerDeal: true,
+    buyDeals: true,
+    buyVolume: true,
+    losingDealCount: true,
+    losingDealSum: true,
+    losingDealsSum: true,
+    profitableDealCount: true,
+    profitableDealsSum: true,
+    profitDealSum: true,
+    profitDealsSum: true,
+    sellDeals: true,
+    sellVolume: true
   }
+  // Deal stat keys that should NEVER be shown (blacklist)
+  const blockedDealStatKeys = new Set(['totalPnL', 'totalStorage', 'winRate'])
   const [dealStatVisibility, setDealStatVisibility] = useState(() => {
     try {
       const saved = localStorage.getItem('positions_dealStats_visibility')
@@ -137,10 +149,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   // Visibility for fixed position & money cards
   const defaultFixedCardVisibility = {
     pf_totalPositions: true,
-    pf_totalVolume: false,
+    pf_totalVolume: true,
     pf_totalPL: true,
-    pf_lifetimePnL: true,
-    pf_bookPnL: true,
     pf_balance: true,
     pf_credit: true,
     pf_equity: true,
@@ -1618,16 +1628,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               Positions ({positions.length})
             </button>
             <button
-              onClick={() => setActiveTab('netpositions')}
-              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
-                activeTab === 'netpositions'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
-              }`}
-            >
-              NET Position ({netPositions.length})
-            </button>
-            <button
               onClick={() => setActiveTab('deals')}
               className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
                 activeTab === 'deals'
@@ -1636,6 +1636,26 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               }`}
             >
               Deals ({totalDealsCount || deals.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('funds')}
+              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+                activeTab === 'funds'
+                  ? 'border-blue-600 text-blue-600 bg-blue-50'
+                  : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
+              }`}
+            >
+              Money Transactions
+            </button>
+            <button
+              onClick={() => setActiveTab('rules')}
+              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+                activeTab === 'rules'
+                  ? 'border-blue-600 text-blue-600 bg-blue-50'
+                  : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
+              }`}
+            >
+              Rules
             </button>
           </div>
 
@@ -1710,8 +1730,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         ['pf_totalPositions','Total Positions'],
                         ['pf_totalVolume','Total Volume'],
                         ['pf_totalPL','Floating Profit'],
-                        ['pf_lifetimePnL','Lifetime PnL'],
-                        ['pf_bookPnL','Book PnL'],
                         ['pf_maxProfit','Max Profit'],
                         ['pf_maxLoss','Max Loss']
                       ].map(([key,label]) => (
@@ -1735,6 +1753,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       <div className="h-px bg-gray-200 my-2" />
                       <p className="text-[11px] font-semibold text-gray-700 uppercase mb-1">Deals Summary</p>
                       {(dealStats ? Object.keys({ ...dealStats }) : Object.keys(defaultDealStatVisibility))
+                        .filter(key => !blockedDealStatKeys.has(key))
                         .sort()
                         .map(key => (
                         <label key={key} className="flex items-center gap-2 py-1 px-1 hover:bg-gray-50 rounded cursor-pointer">
@@ -3574,12 +3593,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 if (fixedCardVisibility.pf_totalPL) {
                   row1.push({ label: 'Floating Profit', value: formatCurrency(totalPL), labelClass: totalPL >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(totalPL), accent: totalPL >= 0 ? 'border-emerald-400' : 'border-red-400' })
                 }
-                if (fixedCardVisibility.pf_lifetimePnL) {
-                  row1.push({ label: 'Lifetime PnL', value: formatCurrency(displayLifetime), labelClass: displayLifetime >= 0 ? 'text-teal-700' : 'text-orange-700', valueClass: getProfitColor(displayLifetime), accent: displayLifetime >= 0 ? 'border-teal-400' : 'border-orange-400' })
-                }
-                if (fixedCardVisibility.pf_bookPnL) {
-                  row1.push({ label: 'Book PnL', value: formatCurrency(displayBookPnL), labelClass: displayBookPnL >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(displayBookPnL), accent: displayBookPnL >= 0 ? 'border-emerald-400' : 'border-red-400' })
-                }
                 if (fixedCardVisibility.pf_balance) {
                   row1.push({ label: 'Balance', value: formatCurrency(clientData?.balance), labelClass: 'text-cyan-700', accent: 'border-cyan-300' })
                 }
@@ -3595,8 +3608,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 const visibleKeys = keys.filter(k => dealStatVisibility[k])
                 const baseKeys = visibleKeys.length ? visibleKeys : Object.keys(defaultDealStatVisibility)
                 // Filter out maxProfit and maxLoss from deals summary since they're already in position metrics
-                const filteredBaseKeys = baseKeys.filter(k => k !== 'maxProfit' && k !== 'maxLoss')
-                const preferredOrder = ['totalCommission','totalDeals','totalPnL','totalStorage','totalVolume','winRate']
+                // Also filter out blocked keys (totalPnL, totalStorage, winRate) per requirements
+                const filteredBaseKeys = baseKeys.filter(k => k !== 'maxProfit' && k !== 'maxLoss' && !blockedDealStatKeys.has(k))
+                const preferredOrder = ['totalCommission','totalDeals','totalVolume','averageProfitPerDeal','averageVolumePerDeal','buyDeals','buyVolume','losingDealCount','losingDealSum','losingDealsSum','profitableDealCount','profitableDealsSum','profitDealSum','profitDealsSum','sellDeals','sellVolume']
                 const toRender = [
                   ...preferredOrder.filter(k => filteredBaseKeys.includes(k)),
                   ...filteredBaseKeys.filter(k => !preferredOrder.includes(k))
@@ -3634,22 +3648,39 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
                 return (
                   <div className="space-y-2">
-                    <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${row1.length || 1}, minmax(0, 1fr))` }}>
-                      {row1.map((it, idx) => (
-                        <div key={`r1-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
-                          <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>
-                          <p className={`text-xs font-bold ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${row2.length || 1}, minmax(0, 1fr))` }}>
-                      {row2.map((it, idx) => (
-                        <div key={`r2-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
-                          <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>
-                          <p className={`text-xs font-bold ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
-                        </div>
-                      ))}
-                    </div>
+                    {(() => {
+                      const all = [...row1, ...row2]
+                      const total = all.length
+                      // Split into 2 rows: row1 uses ceil(total/2) cols, row2 uses the rest
+                      const r1Count = Math.ceil(total / 2)
+                      const r2Count = total - r1Count
+                      const firstHalf = all.slice(0, r1Count)
+                      const secondHalf = all.slice(r1Count)
+                      return (
+                        <>
+                          {firstHalf.length > 0 && (
+                            <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${r1Count}, minmax(0, 1fr))` }}>
+                              {firstHalf.map((it, idx) => (
+                                <div key={`fc1-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
+                                  <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>
+                                  <p className={`text-xs font-bold ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {secondHalf.length > 0 && (
+                            <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${r2Count}, minmax(0, 1fr))` }}>
+                              {secondHalf.map((it, idx) => (
+                                <div key={`fc2-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
+                                  <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>
+                                  <p className={`text-xs font-bold ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                     {dealStatsError && <p className="text-[11px] text-red-600">{dealStatsError}</p>}
                   </div>
                 )

@@ -49,10 +49,6 @@ const DashboardPage = () => {
 
   // Commission totals state
   const [commissionTotals, setCommissionTotals] = useState(null)
-  
-  // Top 10 IB Commissions state
-  const [topIBCommissions, setTopIBCommissions] = useState([])
-  const [ibCommissionsLoading, setIBCommissionsLoading] = useState(true)
 
   // Face card drag and drop - using same card system as ClientsPage (cards 1-50)
   const defaultFaceCardOrder = [1, 2, 3, 4, 5, 6, 8, 9, 14, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
@@ -202,35 +198,6 @@ const DashboardPage = () => {
 
     // Refresh every 10 seconds to keep data fresh
     const interval = setInterval(fetchClients, 10000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  // Fetch top 10 IB Commissions
-  useEffect(() => {
-    const fetchTopIBCommissions = async () => {
-      try {
-        setIBCommissionsLoading(true)
-        console.log('[Dashboard] Fetching Top 10 IB Commissions...')
-        // Fetch first page with 10 items, sorted by available_commission desc
-        const response = await brokerAPI.getIBCommissions(1, 10, '', 'available_commission', 'desc')
-        console.log('[Dashboard] Top IB Commissions Response:', response?.data)
-        
-        if (response?.status === 'success' && response?.data?.records) {
-          setTopIBCommissions(response.data.records)
-        }
-      } catch (err) {
-        console.error('[Dashboard] Failed to fetch top IB commissions:', err)
-      } finally {
-        setIBCommissionsLoading(false)
-      }
-    }
-
-    // Initial fetch
-    fetchTopIBCommissions()
-
-    // Refresh every hour (3600000 ms)
-    const interval = setInterval(fetchTopIBCommissions, 3600000)
 
     return () => clearInterval(interval)
   }, [])
@@ -492,20 +459,6 @@ const DashboardPage = () => {
       ])
   }, [positions])
 
-  // Get top 10 IB Commissions rows for table
-  const topIBCommissionsRows = useMemo(() => {
-    return topIBCommissions.map(ib => [
-      ib.id || '-',
-      ib.name || '-',
-      ib.email || '-',
-      `${parseFloat(ib.percentage || 0).toFixed(2)}%`,
-      formatCurrency(ib.total_commission || 0),
-      <span className="text-green-600 font-semibold">
-        {formatCurrency(ib.available_commission || 0)}
-      </span>
-    ])
-  }, [topIBCommissions])
-
   // Render mobile view
   if (isMobile) {
     return (
@@ -513,8 +466,6 @@ const DashboardPage = () => {
         faceCardTotals={faceCardTotals}
         getFaceCardConfig={getFaceCardConfig}
         faceCardOrder={faceCardOrder}
-        topIBCommissions={topIBCommissions}
-        ibCommissionsLoading={ibCommissionsLoading}
         topProfitableClients={topProfitableClients}
         recentPositions={recentPositions}
         connectionState={connectionState}
@@ -803,18 +754,6 @@ const DashboardPage = () => {
               onViewAll={() => navigate('/positions')}
               loading={false}
               emptyMessage="No positions data available"
-            />
-          </div>
-
-          {/* Top 10 IB Commissions Table */}
-          <div className="mb-6">
-            <MiniDataTable
-              title="Top 10 IB Commissions"
-              headers={['ID', 'Name', 'Email', 'Percentage', 'Total Commission', 'Available Commission']}
-              rows={topIBCommissionsRows}
-              onViewAll={() => navigate('/ib-commissions')}
-              loading={ibCommissionsLoading}
-              emptyMessage="No IB commission data available"
             />
           </div>
 

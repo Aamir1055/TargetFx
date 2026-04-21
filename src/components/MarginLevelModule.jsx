@@ -4,12 +4,10 @@ import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
-import IBFilterModal from './IBFilterModal'
 import GroupModal from './GroupModal'
 import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useIB } from '../contexts/IBContext'
 import { useGroups } from '../contexts/GroupContext'
 import { applyCumulativeFilters, applySearchFilter, applySorting } from '../utils/mobileFilters'
 
@@ -32,14 +30,12 @@ export default function MarginLevelModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { accounts, clients, loading, positions, orders } = useData()
-  const { selectedIB, selectIB, clearIBSelection, filterByActiveIB, ibMT5Accounts } = useIB()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isIBFilterOpen, setIsIBFilterOpen] = useState(false)
   const [isGroupOpen, setIsGroupOpen] = useState(false)
   const [isLoginGroupsOpen, setIsLoginGroupsOpen] = useState(false)
   const [isLoginGroupModalOpen, setIsLoginGroupModalOpen] = useState(false)
@@ -48,8 +44,6 @@ export default function MarginLevelModule() {
     // Pending apply tracking
     const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
     const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
-    const [hasPendingIBChanges, setHasPendingIBChanges] = useState(false)
-    const [pendingIBDraft, setPendingIBDraft] = useState(null)
     const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
     const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
@@ -57,6 +51,8 @@ export default function MarginLevelModule() {
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [isPageChanging, setIsPageChanging] = useState(false)
+  const pageChangeTimeoutRef = useRef(null)
   const itemsPerPage = 15
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
@@ -78,7 +74,6 @@ export default function MarginLevelModule() {
   // Clear all filters on component mount (when navigating to this module)
   useEffect(() => {
     setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-    clearIBSelection()
     setActiveGroupFilter('marginlevel', null)
     setSearchInput('')
   }, [])
@@ -87,7 +82,6 @@ export default function MarginLevelModule() {
   useEffect(() => {
     const handler = () => {
       setIsFilterOpen(false)
-      setIsIBFilterOpen(false)
       setIsLoginGroupsOpen(false)
       setIsLoginGroupModalOpen(false)
       setIsCustomizeOpen(true)
@@ -102,6 +96,30 @@ export default function MarginLevelModule() {
     }
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (pageChangeTimeoutRef.current) {
+        clearTimeout(pageChangeTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handlePageChange = (nextPage, maxPage) => {
+    const safeMaxPage = Math.max(1, maxPage)
+    const clampedPage = Math.min(safeMaxPage, Math.max(1, nextPage))
+    if (clampedPage === currentPage) return
+
+    setIsPageChanging(true)
+    setCurrentPage(clampedPage)
+
+    if (pageChangeTimeoutRef.current) {
+      clearTimeout(pageChangeTimeoutRef.current)
+    }
+    pageChangeTimeoutRef.current = setTimeout(() => {
+      setIsPageChanging(false)
+    }, 180)
+  }
+
   // First filter: margin level < 50% and exclude zero margin levels (same as desktop)
   const filteredByMarginLevel = useMemo(() => {
     return accounts.filter((a) => {
@@ -115,12 +133,11 @@ export default function MarginLevelModule() {
   const cumulativeFilteredAccounts = useMemo(() => {
     return applyCumulativeFilters(filteredByMarginLevel, {
       customizeFilters: filters,
-      filterByActiveIB,
       filterByActiveGroup,
       loginField: 'login',
       moduleName: 'marginlevel'
     })
-  }, [filteredByMarginLevel, filters, filterByActiveIB, filterByActiveGroup, activeGroupFilters])
+  }, [filteredByMarginLevel, filters, filterByActiveGroup, activeGroupFilters])
 
   // Apply search
   const searchedAccounts = useMemo(() => {
@@ -378,9 +395,6 @@ export default function MarginLevelModule() {
                   {label:'Client Percentage', path:'/client-percentage', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 18L18 6" stroke="#404040"/><circle cx="8" cy="8" r="2" stroke="#404040"/><circle cx="16" cy="16" r="2" stroke="#404040"/></svg>
                   )},
-                  {label:'IB Commissions', path:'/ib-commissions', icon:(
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 17l10 5 10-5" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 12l10 5 10-5" stroke="#404040" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  )},
                   {label:'Settings', path:'/settings', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" stroke="#404040"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2" stroke="#404040"/></svg>
                   )},
@@ -418,7 +432,7 @@ export default function MarginLevelModule() {
             <button 
               onClick={() => setIsCustomizeOpen(true)} 
               className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative ${
-                (filters.hasFloating || filters.hasCredit || filters.noDeposit || selectedIB || getActiveGroupFilter('marginlevel'))
+                (filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('marginlevel'))
                   ? 'bg-blue-50 border-blue-200' 
                   : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
               }`}
@@ -432,7 +446,6 @@ export default function MarginLevelModule() {
                   filters.hasFloating,
                   filters.hasCredit,
                   filters.noDeposit,
-                  selectedIB,
                   getActiveGroupFilter('marginlevel')
                 ].filter(Boolean).length;
                 return filterCount > 0 ? (
@@ -541,7 +554,7 @@ export default function MarginLevelModule() {
               </svg>
             </button>
             <button 
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              onClick={() => handlePageChange(currentPage - 1, Math.ceil(sortedAccounts.length / itemsPerPage))}
               disabled={currentPage === 1}
               className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -559,7 +572,7 @@ export default function MarginLevelModule() {
                   const n = Number(e.target.value)
                   const maxPage = Math.ceil(sortedAccounts.length / itemsPerPage)
                   if (!isNaN(n) && n >= 1 && n <= maxPage) {
-                    setCurrentPage(n)
+                    handlePageChange(n, maxPage)
                   }
                 }}
                 className="w-10 h-6 border border-[#ECECEC] rounded-[8px] text-center text-[10px]"
@@ -569,7 +582,7 @@ export default function MarginLevelModule() {
               <span>{Math.ceil(sortedAccounts.length / itemsPerPage)}</span>
             </div>
             <button 
-              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(sortedAccounts.length / itemsPerPage), prev + 1))}
+              onClick={() => handlePageChange(currentPage + 1, Math.ceil(sortedAccounts.length / itemsPerPage))}
               disabled={currentPage >= Math.ceil(sortedAccounts.length / itemsPerPage)}
               className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -630,7 +643,7 @@ export default function MarginLevelModule() {
                 </div>
 
                 {/* Table Rows */}
-                {loading && loading.clients && accounts.length === 0 ? (
+                {(loading && loading.clients && accounts.length === 0) || isPageChanging ? (
                   // YouTube-style skeleton loading (only on first load)
                   <>
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -805,44 +818,32 @@ export default function MarginLevelModule() {
           setIsCustomizeOpen(false)
           setIsFilterOpen(true)
         }}
-        onIBFilterClick={() => {
-          setIsCustomizeOpen(false)
-          setIsIBFilterOpen(true)
-        }}
         onGroupsClick={() => {
           setIsCustomizeOpen(false)
           setIsLoginGroupsOpen(true)
         }}
         onReset={() => {
           setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-          clearIBSelection()
           setActiveGroupFilter('marginlevel', null)
           setHasPendingFilterChanges(false)
-          setHasPendingIBChanges(false)
           setHasPendingGroupChanges(false)
           setPendingFilterDraft(null)
-          setPendingIBDraft(null)
           setPendingGroupDraft(null)
         }}
         onApply={() => {
           if (hasPendingFilterChanges && pendingFilterDraft) {
             setFilters(pendingFilterDraft)
           }
-          if (hasPendingIBChanges) {
-            if (pendingIBDraft) { selectIB(pendingIBDraft) } else { clearIBSelection() }
-          }
           if (hasPendingGroupChanges) {
             setActiveGroupFilter('marginlevel', pendingGroupDraft ? pendingGroupDraft.name : null)
           }
           setIsCustomizeOpen(false)
           setHasPendingFilterChanges(false)
-          setHasPendingIBChanges(false)
           setHasPendingGroupChanges(false)
           setPendingFilterDraft(null)
-          setPendingIBDraft(null)
           setPendingGroupDraft(null)
         }}
-        hasPendingChanges={hasPendingFilterChanges || hasPendingIBChanges || hasPendingGroupChanges}
+        hasPendingChanges={hasPendingFilterChanges || hasPendingGroupChanges}
       />
 
       {/* Filter Modal */}
@@ -859,25 +860,6 @@ export default function MarginLevelModule() {
         onPendingChange={(hasPending, draft) => {
           setHasPendingFilterChanges(hasPending)
           setPendingFilterDraft(draft || null)
-        }}
-      />
-
-      {/* IB Filter Modal */}
-      <IBFilterModal
-        isOpen={isIBFilterOpen}
-        onClose={() => setIsIBFilterOpen(false)}
-        onSelectIB={(ib) => {
-          if (ib) {
-            selectIB(ib)
-          } else {
-            clearIBSelection()
-          }
-          setIsIBFilterOpen(false)
-        }}
-        currentSelectedIB={selectedIB}
-        onPendingChange={(hasPending, draft) => {
-          setHasPendingIBChanges(hasPending)
-          setPendingIBDraft(draft || null)
         }}
       />
 
