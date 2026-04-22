@@ -97,7 +97,7 @@ export default function PositionModule() {
     netType: true,
     netVolume: true,
     avgPrice: true,
-    totalProfit: true,
+    totalProfit: false,
     totalStorage: false,
     totalCommission: false,
     totalPositions: true
@@ -982,59 +982,8 @@ export default function PositionModule() {
         </div>
 
         {/* Face Cards Carousel - Show NET face cards in NET view, regular in positions view */}
-        <div className="pb-2 pl-5">
-          <div 
-            ref={carouselRef}
-            className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4"
-          >
-            {((loading && loading.positions) || (showClientNet && isServerNetLoading)) ? (
-              <>
-                {[1, 2, 3, 4].map((i) => (
-                  <div 
-                    key={`skeleton-card-${i}`}
-                    style={{
-                      boxSizing: 'border-box',
-                      minWidth: '125px',
-                      width: '125px',
-                      height: '60px',
-                      background: '#FFFFFF',
-                      border: '1px solid #F2F2F7',
-                      boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                      borderRadius: '12px',
-                      padding: '8px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      scrollSnapAlign: 'start',
-                      flexShrink: 0,
-                      flex: 'none'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                      <div className="h-3 w-16 bg-gray-200 rounded animate-pulse"></div>
-                      <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
-                    </div>
-                    <div className="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              (showClientNet ? netFaceCards : cards).map((card, idx) => (
-                <div
-                  key={card.label}
-                  className={`min-w-[125px] w-[125px] h-[60px] bg-white border border-[#F2F2F7] shadow-[0px_0px_12px_rgba(75,75,75,0.05)] rounded-[12px] flex flex-col items-start justify-center px-4 snap-start ${activeCardIndex === idx ? 'ring-2 ring-blue-100' : ''}`}
-                  style={{ boxSizing: 'border-box' }}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <img src={getCardIcon(card.label)} alt={card.label} className="w-5 h-5" />
-                    <span className="text-[10px] text-[#666] font-medium font-outfit">{card.label}</span>
-                  </div>
-                  <div className={`text-[18px] font-bold font-outfit ${card.isProfit ? (card.profitValue >= 0 ? 'text-green-600' : 'text-red-600') : 'text-[#1A63BC]'}`}>{card.value}</div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <div className="pb-2 pl-0">
+        {/* Face Cards Carousel removed as requested */}
 
         {/* Search and navigation */}
         {!showClientNet && (
@@ -1977,6 +1926,7 @@ export default function PositionModule() {
         />
       )}
     </div>
-  )
+    </div>
+  );
 }
 
