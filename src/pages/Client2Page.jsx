@@ -593,15 +593,12 @@ const Client2Page = () => {
 
 
 
-  // All available columns
+  // All available columns (restricted to requested list)
   const allColumns = [
     { key: 'login', label: 'Login', type: 'integer', sticky: true },
     { key: 'name', label: 'Name', type: 'text' },
     { key: 'equity', label: 'Equity', type: 'float' },
     { key: 'profit', label: 'Floating Profit', type: 'float' },
-    { key: 'lifetimePnL', label: 'Lifetime PnL', type: 'float' },
-    { key: 'accountType', label: 'Account Type', type: 'text' },
-    { key: 'processorType', label: 'Processor Type', type: 'text' },
     { key: 'lastName', label: 'Last Name', type: 'text' },
     { key: 'middleName', label: 'Middle Name', type: 'text' },
     { key: 'email', label: 'Email', type: 'text' },
@@ -621,11 +618,7 @@ const Client2Page = () => {
     { key: 'margin', label: 'Margin', type: 'float' },
     { key: 'marginFree', label: 'Margin Free', type: 'float' },
     { key: 'marginLevel', label: 'Margin Level', type: 'float' },
-    { key: 'marginInitial', label: 'Margin Initial', type: 'float' },
-    { key: 'marginMaintenance', label: 'Margin Maintenance', type: 'float' },
     { key: 'leverage', label: 'Leverage', type: 'integer' },
-    { key: 'floating', label: 'Floating', type: 'float' },
-    { key: 'previousEquity', label: 'Previous Equity', type: 'float' },
     { key: 'currency', label: 'Currency', type: 'text' },
     { key: 'company', label: 'Company', type: 'text' },
     { key: 'comment', label: 'Comment', type: 'text' },
@@ -635,63 +628,7 @@ const Client2Page = () => {
     { key: 'userLastUpdate', label: 'User Last Update', type: 'integer' },
     { key: 'applied_percentage', label: 'Applied Percentage', type: 'float' },
     { key: 'applied_percentage_is_custom', label: 'Is Custom Percentage', type: 'text' },
-    { key: 'assets', label: 'Assets', type: 'float' },
-    { key: 'liabilities', label: 'Liabilities', type: 'float' },
-    { key: 'storage', label: 'Storage', type: 'float' },
-    { key: 'blockedCommission', label: 'Blocked Commission', type: 'float' },
-    { key: 'blockedProfit', label: 'Blocked Profit', type: 'float' },
-    { key: 'soEquity', label: 'SO Equity', type: 'float' },
-    { key: 'soLevel', label: 'SO Level', type: 'float' },
-    { key: 'soMargin', label: 'SO Margin', type: 'float' },
-    { key: 'dailyPnL', label: 'Daily PnL', type: 'float' },
-    { key: 'dailyDeposit', label: 'Daily Deposit', type: 'float' },
-    { key: 'dailyWithdrawal', label: 'Daily Withdrawal', type: 'float' },
-    { key: 'dailyCreditIn', label: 'Daily Credit In', type: 'float' },
-    { key: 'dailyCreditOut', label: 'Daily Credit Out', type: 'float' },
-    { key: 'dailyBonusIn', label: 'Daily Bonus In', type: 'float' },
-    { key: 'dailyBonusOut', label: 'Daily Bonus Out', type: 'float' },
-    { key: 'dailySOCompensationIn', label: 'Daily SO Compensation In', type: 'float' },
-    { key: 'dailySOCompensationOut', label: 'Daily SO Compensation Out', type: 'float' },
-    { key: 'thisWeekPnL', label: 'This Week PnL', type: 'float' },
-    { key: 'thisWeekPreviousEquity', label: 'This Week Previous Equity', type: 'float' },
-    { key: 'thisWeekDeposit', label: 'This Week Deposit', type: 'float' },
-    { key: 'thisWeekWithdrawal', label: 'This Week Withdrawal', type: 'float' },
-    { key: 'thisWeekCreditIn', label: 'This Week Credit In', type: 'float' },
-    { key: 'thisWeekCreditOut', label: 'This Week Credit Out', type: 'float' },
-    { key: 'thisWeekBonusIn', label: 'This Week Bonus In', type: 'float' },
-    { key: 'thisWeekBonusOut', label: 'This Week Bonus Out', type: 'float' },
-    { key: 'thisWeekSOCompensationIn', label: 'This Week SO Compensation In', type: 'float' },
-    { key: 'thisWeekSOCompensationOut', label: 'This Week SO Compensation Out', type: 'float' },
-    { key: 'thisMonthPnL', label: 'This Month PnL', type: 'float' },
-    { key: 'thisMonthPreviousEquity', label: 'This Month Previous Equity', type: 'float' },
-    { key: 'thisMonthDeposit', label: 'This Month Deposit', type: 'float' },
-    { key: 'thisMonthWithdrawal', label: 'This Month Withdrawal', type: 'float' },
-    { key: 'thisMonthCreditIn', label: 'This Month Credit In', type: 'float' },
-    { key: 'thisMonthCreditOut', label: 'This Month Credit Out', type: 'float' },
-    { key: 'thisMonthBonusIn', label: 'This Month Bonus In', type: 'float' },
-    { key: 'thisMonthBonusOut', label: 'This Month Bonus Out', type: 'float' },
-    { key: 'thisMonthSOCompensationIn', label: 'This Month SO Compensation In', type: 'float' },
-    { key: 'thisMonthSOCompensationOut', label: 'This Month SO Compensation Out', type: 'float' },
-    { key: 'lifetimeDeposit', label: 'Lifetime Deposit', type: 'float' },
-    { key: 'lifetimeWithdrawal', label: 'Lifetime Withdrawal', type: 'float' },
-    { key: 'lifetimeCreditIn', label: 'Lifetime Credit In', type: 'float' },
-    { key: 'lifetimeCreditOut', label: 'Lifetime Credit Out', type: 'float' },
-    { key: 'lifetimeBonusIn', label: 'Lifetime Bonus In', type: 'float' },
-    { key: 'lifetimeBonusOut', label: 'Lifetime Bonus Out', type: 'float' },
-    { key: 'lifetimeSOCompensationIn', label: 'Lifetime SO Compensation In', type: 'float' },
-    { key: 'lifetimeSOCompensationOut', label: 'Lifetime SO Compensation Out', type: 'float' },
-    // Commission columns (percentage values shown when % button is clicked)
-    { key: 'lifetimeCommission', label: 'Lifetime Commission', type: 'float' },
-    { key: 'thisMonthCommission', label: 'This Month Commission', type: 'float' },
-    { key: 'thisWeekCommission', label: 'This Week Commission', type: 'float' },
-    // Correction columns (percentage values shown when % button is clicked)
-    { key: 'lifetimeCorrection', label: 'Lifetime Correction', type: 'float' },
-    { key: 'thisMonthCorrection', label: 'This Month Correction', type: 'float' },
-    { key: 'thisWeekCorrection', label: 'This Week Correction', type: 'float' },
-    // Swap columns (percentage values shown when % button is clicked)
-    { key: 'lifetimeSwap', label: 'Lifetime Swap', type: 'float' },
-    { key: 'thisMonthSwap', label: 'This Month Swap', type: 'float' },
-    { key: 'thisWeekSwap', label: 'This Week Swap', type: 'float' }
+    { key: 'storage', label: 'Storage', type: 'float' }
   ]
 
   // Get visible columns list (moved here before being used in useEffect dependencies)
@@ -3450,11 +3387,11 @@ const Client2Page = () => {
       return formatIndianNumber(num.toFixed(2))
     }
 
-    // Format margin level as percentage
+    // Format margin level as plain number
     if (key === 'marginLevel') {
       const num = parseFloat(value)
       if (isNaN(num)) return '-'
-      return `${num.toFixed(2)}%`
+      return formatIndianNumber(num.toFixed(2))
     }
 
     // Format leverage
@@ -4052,12 +3989,12 @@ const Client2Page = () => {
                 const floatingValue = Number(t?.floating || 0)
                 const isLoadingCards = initialLoad || loading
                 const cards = [
-                  { key: 'totalClients', title: 'Total Clients', value: formatIndianNumber(totalClients || 0), unit: 'CLI', valueColor: 'text-[#000000]', skeletonW: 'w-14' },
-                  { key: 'balance', title: 'Balance', value: formatIndianNumber(Number(t?.balance || 0).toFixed(2)), unit: 'USD', valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  { key: 'credit', title: 'Credit', value: formatIndianNumber(Number(t?.credit || 0).toFixed(2)), unit: 'USD', valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  { key: 'equity', title: 'Equity', value: formatIndianNumber(Number(t?.equity || 0).toFixed(2)), unit: 'USD', valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  { key: 'floating', title: 'Floating PNL', value: (floatingValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(floatingValue).toFixed(2)), unit: 'USD', valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' },
-                  { key: 'pnl', title: 'P&L', value: (pnlValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(pnlValue).toFixed(2)), unit: 'USD', valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' }
+                  { key: 'totalClients', title: 'Total Clients', value: formatIndianNumber(totalClients || 0), valueColor: 'text-[#000000]', skeletonW: 'w-14' },
+                  { key: 'balance', title: 'Balance', value: formatIndianNumber(Number(t?.balance || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  { key: 'credit', title: 'Credit', value: formatIndianNumber(Number(t?.credit || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  { key: 'equity', title: 'Equity', value: formatIndianNumber(Number(t?.equity || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  { key: 'floating', title: 'Floating PNL', value: (floatingValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(floatingValue).toFixed(2)), valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' },
+                  { key: 'pnl', title: 'P&L', value: (pnlValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(pnlValue).toFixed(2)), valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' }
                 ]
                 return (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

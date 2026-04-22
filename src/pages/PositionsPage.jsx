@@ -41,7 +41,7 @@ const PositionsPage = () => {
   const [serverTotalPositions, setServerTotalPositions] = useState(0)
   const [hasFetchedPositions, setHasFetchedPositions] = useState(false)
   // Server-provided totals across ALL positions (not just current page)
-  const [serverTotals, setServerTotals] = useState({ profit: 0, storage: 0, volume: 0 })
+  const [serverTotals, setServerTotals] = useState({ profit: 0, storage: 0, volume: 0, uniqueLogins: 0 })
 
   // --- NET positions fetched via REST polling (1s) when NET tab is active ---
   const [polledNetPositions, setPolledNetPositions] = useState([])
@@ -269,6 +269,7 @@ const PositionsPage = () => {
   // Date filter states
   const [dateFilter, setDateFilter] = useState(null) // null, 3, 5, or 7 for days
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false)
+  const dateFilterRef = useRef(null)
   const [hasPendingDateChanges, setHasPendingDateChanges] = useState(false)
   const [pendingDateDraft, setPendingDateDraft] = useState(null)
   
@@ -331,14 +332,14 @@ const PositionsPage = () => {
       return allSymbols
     }
 
-    // For action column, always show all possible values
+    // For action column, use server-provided list (fallback to BUY/SELL)
     if (columnKey === 'action') {
-      const allActions = ['BUY', 'SELL']
+      const actions = allActions.length > 0 ? allActions : ['BUY', 'SELL']
       const searchQ = filterSearchQuery[columnKey]?.toLowerCase() || ''
       if (searchQ) {
-        return allActions.filter(a => a.toLowerCase().includes(searchQ))
+        return actions.filter(a => a.toLowerCase().includes(searchQ))
       }
-      return allActions
+      return actions
     }
 
     // For login column, use server-provided login list from API
@@ -605,6 +606,18 @@ const PositionsPage = () => {
     }).catch((err) => { console.warn('[Logins] Fetch error:', err?.message) })
   }
 
+  // Server-provided action list for column filter
+  const [allActions, setAllActions] = useState([])
+  const fetchActions = () => {
+    if (!isAuthenticated) return
+    brokerAPI.getPositionActions().then(res => {
+      const actions = res?.data?.actions || res?.data || []
+      if (Array.isArray(actions) && actions.length > 0) {
+        setAllActions(actions.map(a => String(a).toUpperCase()))
+      }
+    }).catch((err) => { console.warn('[Actions] Fetch error:', err?.message) })
+  }
+
   // Show loading skeleton when page changes
   useEffect(() => {
     if (currentPage !== prevPageRef.current) {
@@ -614,7 +627,7 @@ const PositionsPage = () => {
   }, [currentPage])
 
     useEffect(() => {
-    if (!isAuthenticated || showNetPositions || showClientNet) {
+    if (!isAuthenticated || isMobile || showNetPositions || showClientNet) {
       return
     }
 
@@ -728,11 +741,11 @@ const PositionsPage = () => {
         flashTimeouts.current.clear()
       } catch {}
     }
-  }, [isAuthenticated, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode])
+  }, [isAuthenticated, isMobile, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode])
 
   // REST polling for NET positions (netPosition: true) when NET tab is active
   useEffect(() => {
-    if (!isAuthenticated || !showNetPositions) {
+    if (!isAuthenticated || isMobile || !showNetPositions) {
       return
     }
 
@@ -816,11 +829,11 @@ const PositionsPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol])
+  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol])
 
   // REST polling for Client NET positions (clientNet: true) when Client NET tab is active
   useEffect(() => {
-    if (!isAuthenticated || !showClientNet) {
+    if (!isAuthenticated || isMobile || !showClientNet) {
       return
     }
 
@@ -898,7 +911,7 @@ const PositionsPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, showClientNet, clientNetCurrentPage, clientNetItemsPerPage, clientNetSortColumn, clientNetSortDirection, clientNetActiveSearch])
+  }, [isAuthenticated, isMobile, showClientNet, clientNetCurrentPage, clientNetItemsPerPage, clientNetSortColumn, clientNetSortDirection, clientNetActiveSearch])
 
   // Track position changes for flash indicators (polling updates)
   useEffect(() => { if (!isAuthenticated) return;
@@ -964,6 +977,9 @@ const PositionsPage = () => {
       if (clientNetColumnSelectorRef.current && !clientNetColumnSelectorRef.current.contains(event.target)) {
         setClientNetShowColumnSelector(false)
       }
+      if (dateFilterRef.current && !dateFilterRef.current.contains(event.target)) {
+        setIsDateFilterOpen(false)
+      }
     }
     const handleKeyDown = (event) => {
       if (!isMountedRef.current) return
@@ -973,10 +989,11 @@ const PositionsPage = () => {
         if (clientNetCardFilterOpen) setClientNetCardFilterOpen(false)
         if (netShowColumnSelector) setNetShowColumnSelector(false)
         if (clientNetShowColumnSelector) setClientNetShowColumnSelector(false)
+        if (isDateFilterOpen) setIsDateFilterOpen(false)
       }
     }
 
-    if (showColumnSelector || netCardFilterOpen || clientNetCardFilterOpen || netShowColumnSelector || clientNetShowColumnSelector) {
+    if (showColumnSelector || netCardFilterOpen || clientNetCardFilterOpen || netShowColumnSelector || clientNetShowColumnSelector || isDateFilterOpen) {
       document.addEventListener('mousedown', handleClickOutside, true)
       document.addEventListener('keydown', handleKeyDown)
       return () => {
@@ -984,7 +1001,7 @@ const PositionsPage = () => {
         document.removeEventListener('keydown', handleKeyDown)
       }
     }
-  }, [showColumnSelector, netCardFilterOpen, clientNetCardFilterOpen, netShowColumnSelector, clientNetShowColumnSelector, isAuthenticated])
+  }, [showColumnSelector, netCardFilterOpen, clientNetCardFilterOpen, netShowColumnSelector, clientNetShowColumnSelector, isDateFilterOpen, isAuthenticated])
 
   // Helper to get position key/id
   const getPosKey = (obj) => {
@@ -1380,15 +1397,17 @@ const PositionsPage = () => {
     // Invert profit to show broker perspective (client loss = broker gain)
     const totalFloatingProfit = -(serverTotals.profit || 0)
     const totalFloatingProfitPercentage = -ibFilteredPositions.reduce((sum, p) => sum + (p.profit_percentage || 0), 0)
-    const uniqueLogins = new Set(ibFilteredPositions.map(p => p.login)).size
+    const uniqueLogins = Number(serverTotals.uniqueLogins || 0)
     const uniqueSymbols = new Set(ibFilteredPositions.map(p => p.symbol)).size
-    
+    const totalVolume = Number(serverTotals.volume || 0)
+
     return {
       totalPositions,
       totalFloatingProfit,
       totalFloatingProfitPercentage,
       uniqueLogins,
-      uniqueSymbols
+      uniqueSymbols,
+      totalVolume
     }
   }, [ibFilteredPositions, serverTotalPositions, serverTotals])
   
@@ -1770,6 +1789,7 @@ const PositionsPage = () => {
                   setPendingColumnFilters(prev => ({ ...prev, [columnKey]: columnFilters[columnKey] || [] }))
                   if (columnKey === 'symbol') fetchSymbols()
                   if (columnKey === 'login') fetchLogins()
+                  if (columnKey === 'action') fetchActions()
                 }
               }}
               className={`p-1 rounded hover:bg-blue-800/50 transition-colors ${filterCount > 0 ? 'text-yellow-400' : 'text-white/70'}`}
@@ -2444,20 +2464,62 @@ const PositionsPage = () => {
               </button>
 
               {/* Date Filter Button */}
-              <button
-                onClick={() => setIsDateFilterOpen(true)}
-                className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
-                  dateFilter 
-                    ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700' 
-                    : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
-                }`}
-                title="Filter by Date Range"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {dateFilter ? `${dateFilter} Days` : 'Date Filter'}
-              </button>
+              <div className="relative" ref={dateFilterRef}>
+                <button
+                  onClick={() => setIsDateFilterOpen(v => !v)}
+                  className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
+                    dateFilter 
+                      ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700' 
+                      : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
+                  }`}
+                  title="Filter by Date Range"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  {dateFilter ? `${dateFilter} Days` : 'Date Filter'}
+                </button>
+
+                {isDateFilterOpen && (
+                  <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
+                    {[3, 5, 7].map(days => (
+                      <button
+                        key={days}
+                        onClick={() => {
+                          setDateFilter(days)
+                          setCurrentPage(1)
+                          setIsDateFilterOpen(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-blue-50 flex items-center justify-between ${
+                          dateFilter === days ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                        }`}
+                      >
+                        <span>{days} Days</span>
+                        {dateFilter === days && (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                    {dateFilter && (
+                      <>
+                        <div className="border-t border-gray-100 my-1" />
+                        <button
+                          onClick={() => {
+                            setDateFilter(null)
+                            setCurrentPage(1)
+                            setIsDateFilterOpen(false)
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                        >
+                          Clear filter
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Percentage Toggle */}
               <button
@@ -2636,11 +2698,11 @@ const PositionsPage = () => {
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Symbols</span>
+                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total Volume</span>
                 <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                   <img 
                     src={getCardIcon('Symbols')} 
-                    alt="Symbols"
+                    alt="Total Volume"
                     style={{ width: '100%', height: '100%' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
@@ -2652,8 +2714,7 @@ const PositionsPage = () => {
                 <div className="h-6 w-10 bg-gray-200 rounded animate-pulse" />
               ) : (
                 <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                  <span>{summaryStats.uniqueSymbols}</span>
-                  <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">SYM</span>
+                  <span>{formatIndianNumber(summaryStats.totalVolume, 2)}</span>
                 </div>
               )}
             </div>
@@ -4075,21 +4136,7 @@ const PositionsPage = () => {
         />
       )}
 
-      {/* Date Filter Modal */}
-      <DateFilterModal
-        isOpen={isDateFilterOpen}
-        onClose={() => setIsDateFilterOpen(false)}
-        onApply={(days) => {
-          setDateFilter(days)
-          setCurrentPage(1)
-          setIsDateFilterOpen(false)
-        }}
-        currentFilter={dateFilter}
-        onPendingChange={(pendingValue) => {
-          setPendingDateDraft(pendingValue)
-          setHasPendingDateChanges(pendingValue !== dateFilter)
-        }}
-      />
+      {/* Date Filter Dropdown is rendered inline near the button */}
     </div>
   )
 }

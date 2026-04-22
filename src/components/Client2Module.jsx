@@ -129,10 +129,12 @@ export default function Client2Module() {
   const [totalClients, setTotalClients] = useState(0)
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now())
   const [isLoading, setIsLoading] = useState(true)
-  // Visible columns state (restored)
+  // Visible columns state (mirrors desktop's 34-column list)
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
     name: true,
+    equity: true,
+    profit: true,
     lastName: false,
     middleName: false,
     email: false,
@@ -144,64 +146,25 @@ export default function Client2Module() {
     address: false,
     zipCode: false,
     clientID: false,
+    status: false,
+    leadSource: false,
+    leadCampaign: false,
     balance: false,
     credit: false,
-    equity: true,
     margin: false,
     marginFree: false,
     marginLevel: false,
-    marginInitial: false,
-    marginMaintenance: false,
-    marginLeverage: false,
     leverage: false,
-    profit: true,
-    pnl: false,
     currency: false,
-    currencyDigits: false,
-    applied_percentage: false,
-    applied_percentage_is_custom: false,
-    assets: false,
-    liabilities: false,
-    blockedCommission: false,
-    blockedProfit: false,
-    storage: false,
     company: false,
     comment: false,
-    color: false,
-    agent: false,
-    leadCampaign: false,
-    leadSource: false,
-    soActivation: false,
-    soEquity: false,
-    soLevel: false,
-    soMargin: false,
-    soTime: false,
-    status: false,
-    mqid: false,
-    language: false,
     registration: false,
     lastAccess: false,
-    lastUpdate: false,
     accountLastUpdate: false,
     userLastUpdate: false,
-    rights: false,
-    rightsMask: false,
-    dailyDeposit: false,
-    dailyWithdrawal: false,
-    lifetimePnL: true,
-    thisMonthPnL: false,
-    thisWeekPnL: false,
-    processorType: true,
-    accountType: true,
-    thisWeekCommission: false,
-    thisMonthCommission: false,
-    lifetimeCommission: false,
-    thisWeekCorrection: false,
-    thisMonthCorrection: false,
-    lifetimeCorrection: false,
-    thisWeekSwap: false,
-    thisMonthSwap: false,
-    lifetimeSwap: false
+    applied_percentage: false,
+    applied_percentage_is_custom: false,
+    storage: false
   })
 
   // Fetch clients data via API
@@ -282,6 +245,9 @@ export default function Client2Module() {
       // Ignore response if it's from an outdated request (stale data)
       if (currentRequestId !== requestIdRef.current) {
         console.log('[Client2Module] Ignoring stale response from request', currentRequestId, '(current:', requestIdRef.current, ')')
+        if (isInitialLoad) {
+          setIsLoading(false)
+        }
         return
       }
       
@@ -319,6 +285,9 @@ export default function Client2Module() {
       const isCanceled = error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED' || /aborted|canceled/i.test(error?.message || '')
       if (isCanceled) {
         console.log('[Client2Module] Request canceled (expected during rapid filtering)')
+        if (isInitialLoad) {
+          setIsLoading(false)
+        }
         return
       }
       console.error('Failed to fetch clients:', error)
@@ -825,6 +794,8 @@ export default function Client2Module() {
   const columnConfig = [
     { key: 'login', label: 'Login', width: '80px', sticky: true },
     { key: 'name', label: 'Name', width: '120px' },
+    { key: 'equity', label: 'Equity', width: '90px' },
+    { key: 'profit', label: 'Floating Profit', width: '110px' },
     { key: 'lastName', label: 'Last Name', width: '100px' },
     { key: 'middleName', label: 'Middle Name', width: '100px' },
     { key: 'email', label: 'Email', width: '140px' },
@@ -835,65 +806,26 @@ export default function Client2Module() {
     { key: 'state', label: 'State', width: '80px' },
     { key: 'address', label: 'Address', width: '140px' },
     { key: 'zipCode', label: 'Zip Code', width: '80px' },
-    { key: 'clientID', label: 'Client ID', width: '80px' },
+    { key: 'clientID', label: 'ID', width: '80px' },
+    { key: 'status', label: 'Status', width: '80px' },
+    { key: 'leadSource', label: 'Lead Source', width: '110px' },
+    { key: 'leadCampaign', label: 'Lead Campaign', width: '120px' },
     { key: 'balance', label: 'Balance', width: '90px' },
     { key: 'credit', label: 'Credit', width: '80px' },
-    { key: 'equity', label: 'Equity', width: '80px' },
     { key: 'margin', label: 'Margin', width: '80px' },
     { key: 'marginFree', label: 'Margin Free', width: '100px' },
-    { key: 'marginLevel', label: 'Margin Level', width: '100px' },
-    { key: 'marginInitial', label: 'Margin Initial', width: '110px' },
-    { key: 'marginMaintenance', label: 'Margin Maintenance', width: '140px' },
-    { key: 'marginLeverage', label: 'Margin Leverage', width: '120px' },
+    { key: 'marginLevel', label: 'Margin Level', width: '110px' },
     { key: 'leverage', label: 'Leverage', width: '80px' },
-    { key: 'profit', label: 'Floating Profit', width: '100px' },
-    { key: 'pnl', label: 'PNL', width: '80px' },
     { key: 'currency', label: 'Currency', width: '80px' },
-    { key: 'currencyDigits', label: 'Currency Digits', width: '110px' },
-    { key: 'applied_percentage', label: 'Applied %', width: '90px' },
-    { key: 'applied_percentage_is_custom', label: 'Custom %', width: '90px' },
-    { key: 'assets', label: 'Assets', width: '80px' },
-    { key: 'liabilities', label: 'Liabilities', width: '90px' },
-    { key: 'blockedCommission', label: 'Blocked Rebate', width: '120px' },
-    { key: 'blockedProfit', label: 'Blocked Profit', width: '120px' },
-    { key: 'storage', label: 'Storage', width: '80px' },
     { key: 'company', label: 'Company', width: '100px' },
     { key: 'comment', label: 'Comment', width: '120px' },
-    { key: 'color', label: 'Color', width: '70px' },
-    { key: 'agent', label: 'Agent', width: '80px' },
-    { key: 'leadCampaign', label: 'Lead Campaign', width: '120px' },
-    { key: 'leadSource', label: 'Lead Source', width: '100px' },
-    { key: 'soActivation', label: 'SO Activation', width: '110px' },
-    { key: 'soEquity', label: 'SO Equity', width: '90px' },
-    { key: 'soLevel', label: 'SO Level', width: '80px' },
-    { key: 'soMargin', label: 'SO Margin', width: '90px' },
-    { key: 'soTime', label: 'SO Time', width: '80px' },
-    { key: 'status', label: 'Status', width: '70px' },
-    { key: 'mqid', label: 'MQID', width: '80px' },
-    { key: 'language', label: 'Language', width: '80px' },
     { key: 'registration', label: 'Registration', width: '120px' },
     { key: 'lastAccess', label: 'Last Access', width: '120px' },
-    { key: 'lastUpdate', label: 'Last Update', width: '120px' },
     { key: 'accountLastUpdate', label: 'Account Last Update', width: '150px' },
     { key: 'userLastUpdate', label: 'User Last Update', width: '140px' },
-    { key: 'rights', label: 'Rights', width: '80px' },
-    { key: 'rightsMask', label: 'Rights Mask', width: '100px' },
-    { key: 'dailyDeposit', label: 'Daily Deposit', width: '100px' },
-    { key: 'dailyWithdrawal', label: 'Daily Withdrawal', width: '120px' },
-    { key: 'lifetimePnL', label: 'Lifetime PnL', width: '100px' },
-    { key: 'thisMonthPnL', label: 'This Month PnL', width: '110px' },
-    { key: 'thisWeekPnL', label: 'This Week PnL', width: '110px' },
-    { key: 'thisWeekCommission', label: 'This Week Commission', width: '140px' },
-    { key: 'thisMonthCommission', label: 'This Month Commission', width: '150px' },
-    { key: 'lifetimeCommission', label: 'Lifetime Commission', width: '140px' },
-    { key: 'thisWeekCorrection', label: 'This Week Correction', width: '140px' },
-    { key: 'thisMonthCorrection', label: 'This Month Correction', width: '150px' },
-    { key: 'lifetimeCorrection', label: 'Lifetime Correction', width: '140px' },
-    { key: 'thisWeekSwap', label: 'This Week Swap', width: '120px' },
-    { key: 'thisMonthSwap', label: 'This Month Swap', width: '130px' },
-    { key: 'lifetimeSwap', label: 'Lifetime Swap', width: '120px' },
-    { key: 'accountType', label: 'Account Type', width: '100px' },
-    { key: 'processorType', label: 'Processor Type', width: '120px' }
+    { key: 'applied_percentage', label: 'Applied Percentage', width: '120px' },
+    { key: 'applied_percentage_is_custom', label: 'Is Custom Percentage', width: '140px' },
+    { key: 'storage', label: 'Storage', width: '80px' }
   ]
 
   // Helper function to format value based on percentage mode  
@@ -1716,6 +1648,8 @@ export default function Client2Module() {
                   const filteredEntries = Object.entries({
                 'Login': 'login',
                 'Name': 'name',
+                'Equity': 'equity',
+                'Floating Profit': 'profit',
                 'Last Name': 'lastName',
                 'Middle Name': 'middleName',
                 'Email': 'email',
@@ -1726,55 +1660,26 @@ export default function Client2Module() {
                 'State': 'state',
                 'Address': 'address',
                 'Zip Code': 'zipCode',
-                'Client ID': 'clientID',
+                'ID': 'clientID',
+                'Status': 'status',
+                'Lead Source': 'leadSource',
+                'Lead Campaign': 'leadCampaign',
                 'Balance': 'balance',
                 'Credit': 'credit',
-                'Equity': 'equity',
                 'Margin': 'margin',
                 'Margin Free': 'marginFree',
                 'Margin Level': 'marginLevel',
-                'Margin Initial': 'marginInitial',
-                'Margin Maintenance': 'marginMaintenance',
-                'Margin Leverage': 'marginLeverage',
                 'Leverage': 'leverage',
-                'Profit': 'profit',
                 'Currency': 'currency',
-                'Currency Digits': 'currencyDigits',
-                'Applied Percentage': 'applied_percentage',
-                'Applied Percentage Custom': 'applied_percentage_is_custom',
-                'Assets': 'assets',
-                'Liabilities': 'liabilities',
-                'Blocked Commission': 'blockedCommission',
-                'Blocked Profit': 'blockedProfit',
-                'Storage': 'storage',
                 'Company': 'company',
                 'Comment': 'comment',
-                'Color': 'color',
-                'Agent': 'agent',
-                'Lead Campaign': 'leadCampaign',
-                'Lead Source': 'leadSource',
-                'SO Activation': 'soActivation',
-                'SO Equity': 'soEquity',
-                'SO Level': 'soLevel',
-                'SO Margin': 'soMargin',
-                'SO Time': 'soTime',
-                'Status': 'status',
-                'MQID': 'mqid',
-                'Language': 'language',
                 'Registration': 'registration',
                 'Last Access': 'lastAccess',
-                'Last Update': 'lastUpdate',
                 'Account Last Update': 'accountLastUpdate',
                 'User Last Update': 'userLastUpdate',
-                'Rights': 'rights',
-                'Rights Mask': 'rightsMask',
-                'Daily Deposit': 'dailyDeposit',
-                'Daily Withdrawal': 'dailyWithdrawal',
-                'Lifetime PnL': 'lifetimePnL',
-                'This Month PnL': 'thisMonthPnL',
-                'This Week PnL': 'thisWeekPnL',
-                'Processor Type': 'processorType',
-                'Account Type': 'accountType',
+                'Applied Percentage': 'applied_percentage',
+                'Is Custom Percentage': 'applied_percentage_is_custom',
+                'Storage': 'storage',
               }).filter(([label]) => 
                 !columnSearch || label.toLowerCase().includes(columnSearch.toLowerCase())
               );
@@ -1997,7 +1902,6 @@ export default function Client2Module() {
                       <span className={`text-xl font-bold ${card.numericValue > 0 ? 'text-[#16A34A]' : card.numericValue < 0 ? 'text-[#DC2626]' : 'text-black'}`}>
                         {card.value === '' || card.value === undefined ? '0.00' : card.value}
                       </span>
-                      <span className="text-gray-600 text-xs font-normal uppercase">{card.unit}</span>
                     </div>
                   </div>
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">

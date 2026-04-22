@@ -48,6 +48,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   
   // Search and filter states for positions
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [columnFilters, setColumnFilters] = useState({})
   const [showFilterDropdown, setShowFilterDropdown] = useState(null)
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
@@ -273,6 +274,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Update positions and orders when cache changes (WebSocket updates)
   useEffect(() => {
+    // When a search or sort is active, positions are loaded via API. Skip cache.
+    const apiActive = (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) || !!positionsSortColumn
+    if (apiActive) return
     if (allPositionsCache && allPositionsCache.length >= 0) {
       const clientPositions = allPositionsCache.filter(pos => pos.login === client.login)
       setPositions(clientPositions)
@@ -280,15 +284,89 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       // Calculate net positions grouped by symbol (including positions only)
       calculateNetPositions(clientPositions)
     }
-  }, [allPositionsCache, client.login])
+  }, [allPositionsCache, client.login, debouncedSearchQuery, positionsSortColumn])
 
   // Update orders when allOrdersCache changes
   useEffect(() => {
+    const apiActive = (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) || !!positionsSortColumn
+    if (apiActive) return
     if (allOrdersCache && allOrdersCache.length >= 0) {
       const clientOrders = allOrdersCache.filter(order => order.login === client.login)
       setOrders(clientOrders)
     }
-  }, [allOrdersCache, client.login])
+  }, [allOrdersCache, client.login, debouncedSearchQuery, positionsSortColumn])
+
+  // Manual search trigger (on Enter or search icon click)
+  const triggerPositionsSearch = () => {
+    setDebouncedSearchQuery(searchQuery.trim())
+    setShowSearchSuggestions(false)
+  }
+
+  // API-driven search and sort for positions + orders
+  useEffect(() => {
+    if (activeTab !== 'positions') return
+    const hasSearch = debouncedSearchQuery && debouncedSearchQuery.trim().length > 0
+    const hasSort = !!positionsSortColumn
+    if (!hasSearch && !hasSort) return
+
+    const sortMap = {
+      time: 'timeCreate',
+      position: 'position',
+      symbol: 'symbol',
+      action: 'action',
+      volume: 'volume',
+      priceOpen: 'priceOpen',
+      priceCurrent: 'priceCurrent',
+      sl: 'priceSL',
+      tp: 'priceTP',
+      profit: 'profit',
+      storage: 'storage',
+      commission: 'commission',
+      comment: 'comment'
+    }
+
+    let cancelled = false
+    const run = async () => {
+      try {
+        const params = {
+          mt5Accounts: [String(client.login)],
+          page: 1,
+          limit: 10000
+        }
+        if (hasSearch) params.search = debouncedSearchQuery.trim()
+        if (hasSort) {
+          params.sortBy = sortMap[positionsSortColumn] || positionsSortColumn
+          params.sortOrder = positionsSortDirection
+        }
+        const [posRes, ordRes] = await Promise.all([
+          brokerAPI.searchPositions(params).catch(() => null),
+          brokerAPI.searchOrders(params).catch(() => null)
+        ])
+        if (cancelled) return
+        const posList =
+          posRes?.data?.positions ||
+          posRes?.positions ||
+          posRes?.data?.data?.positions ||
+          (Array.isArray(posRes?.data) ? posRes.data : null) ||
+          []
+        const ordList =
+          ordRes?.data?.orders ||
+          ordRes?.orders ||
+          ordRes?.data?.data?.orders ||
+          (Array.isArray(ordRes?.data) ? ordRes.data : null) ||
+          []
+        if (Array.isArray(posList)) {
+          setPositions(posList)
+          calculateNetPositions(posList)
+        }
+        if (Array.isArray(ordList)) setOrders(ordList)
+      } catch {
+        // ignore
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [activeTab, debouncedSearchQuery, positionsSortColumn, positionsSortDirection, client.login])
 
   // Fetch aggregated deal stats for the client (GET endpoint per requirement)
   useEffect(() => {
@@ -1179,27 +1257,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Apply search and filters to positions and orders combined
   const filteredPositions = useMemo(() => {
-    // Combine positions and orders
+    // Search is handled server-side via API when active; combine positions + orders as-is
     let filtered = [...positions, ...orders]
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      // Strip # prefix if present for numeric field matching
-      const numericQuery = query.startsWith('#') ? query.slice(1) : query
-      
-      filtered = filtered.filter(item => {
-        return (
-          item.symbol?.toLowerCase().includes(query) ||
-          String(item.position || item.order).includes(numericQuery) ||
-          String(item.deal).includes(numericQuery) ||
-          getActionLabel(item.action).toLowerCase().includes(query) ||
-          String(item.volume).includes(query) ||
-          String(item.priceOpen || item.priceOrder).includes(query) ||
-          String(item.priceCurrent).includes(query) ||
-          item.comment?.toLowerCase().includes(query)
-        )
-      })
-    }
 
     Object.entries(columnFilters).forEach(([columnKey, selectedValues]) => {
       if (selectedValues && selectedValues.length > 0) {
@@ -1220,7 +1279,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     // Do not sort the combined list here; sorting happens per-section
 
     return filtered
-  }, [positions, orders, searchQuery, columnFilters, positionsSortColumn, positionsSortDirection])
+  }, [positions, orders, columnFilters])
 
   // Group filtered positions and orders separately
   const groupedDisplayData = useMemo(() => {
@@ -1934,7 +1993,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-              ) : positions.length === 0 ? (
+              ) : positions.length === 0 && !debouncedSearchQuery && !searchQuery ? (
                 <div className="text-center py-12">
                   <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1947,62 +2006,52 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   {/* Search Bar */}
                   <div className="mb-4 flex items-center gap-3">
                     <div className="relative flex-1" ref={searchRef}>
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => {
-                          setSearchQuery(e.target.value)
-                          setShowSearchSuggestions(true)
-                        }}
-                        onFocus={() => setShowSearchSuggestions(true)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            setShowSearchSuggestions(false)
-                          }
-                        }}
-                        placeholder="Search by symbol, position, type, volume..."
-                        className="w-full pl-9 pr-10 py-2 text-sm text-gray-700 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-400"
-                      />
-                      <svg 
-                        className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" 
-                        fill="none" 
-                        stroke="currentColor" 
+                      <svg
+                        className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                        fill="none"
+                        stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            triggerPositionsSearch()
+                          }
+                        }}
+                        placeholder="Search by symbol, position, type, volume..."
+                        className="w-full pl-9 pr-20 py-2 text-sm text-gray-700 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-400"
+                      />
                       {searchQuery && (
                         <button
                           onClick={() => {
                             setSearchQuery('')
-                            setShowSearchSuggestions(false)
+                            setDebouncedSearchQuery('')
                           }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-11 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          title="Clear"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
                       )}
-                      
-                      {/* Search Suggestions Dropdown */}
-                      {showSearchSuggestions && getPositionSearchSuggestions().length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-[60] max-h-40 overflow-y-auto">
-                          {getPositionSearchSuggestions().map((suggestion, index) => (
-                            <button
-                              key={index}
-                              onClick={() => {
-                                setSearchQuery(suggestion.value)
-                                setShowSearchSuggestions(false)
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center gap-2"
-                            >
-                              <span className="text-gray-700">{suggestion.value}</span>
-                              <span className="ml-auto text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{suggestion.type}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={triggerPositionsSearch}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        title="Search"
+                        aria-label="Search"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </button>
                     </div>
                     <div className="text-sm text-gray-600">
                       {displayedPositions.length} of {filteredPositions.length} positions
@@ -2020,6 +2069,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         <button
                           onClick={() => {
                             setSearchQuery('')
+                            setDebouncedSearchQuery('')
                             setColumnFilters({})
                           }}
                           className="mt-3 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium"
@@ -2042,48 +2092,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <div className="flex items-center gap-1.5">
                             Time
                             <SortIcon column="time" currentColumn={positionsSortColumn} direction={positionsSortDirection} />
-                            <div className="relative" ref={el => filterRefs.current['time'] = el}>
-                              <button
-                                onClick={() => setShowFilterDropdown(showFilterDropdown === 'time' ? null : 'time')}
-                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveFilterCount('time') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
-                                title="Filter"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                              </button>
-                              {getActiveFilterCount('time') > 0 && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
-                                  {getActiveFilterCount('time')}
-                                </span>
-                              )}
-                              {showFilterDropdown === 'time' && (
-                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-40 overflow-y-auto">
-                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-gray-700">Filter by Time</span>
-                                    {getActiveFilterCount('time') > 0 && (
-                                      <button
-                                        onClick={() => clearColumnFilter('time')}
-                                        className="text-xs text-blue-600 hover:text-blue-800"
-                                      >
-                                        Clear
-                                      </button>
-                                    )}
-                                  </div>
-                                  {getUniqueColumnValues('time').map(value => (
-                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={columnFilters.time?.includes(value) || false}
-                                        onChange={() => toggleColumnFilter('time', value)}
-                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      />
-                                      <span className="text-xs text-gray-700">{value}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
                           </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"
@@ -2116,48 +2124,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <div className="flex items-center gap-1.5">
                             Symbol
                             <SortIcon column="symbol" currentColumn={positionsSortColumn} direction={positionsSortDirection} />
-                            <div className="relative" ref={el => filterRefs.current['symbol'] = el}>
-                              <button
-                                onClick={() => setShowFilterDropdown(showFilterDropdown === 'symbol' ? null : 'symbol')}
-                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveFilterCount('symbol') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
-                                title="Filter"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                              </button>
-                              {getActiveFilterCount('symbol') > 0 && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
-                                  {getActiveFilterCount('symbol')}
-                                </span>
-                              )}
-                              {showFilterDropdown === 'symbol' && (
-                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-48 overflow-y-auto">
-                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-gray-700">Filter by Symbol</span>
-                                    {getActiveFilterCount('symbol') > 0 && (
-                                      <button
-                                        onClick={() => clearColumnFilter('symbol')}
-                                        className="text-xs text-blue-600 hover:text-blue-800"
-                                      >
-                                        Clear
-                                      </button>
-                                    )}
-                                  </div>
-                                  {getUniqueColumnValues('symbol').map(value => (
-                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={columnFilters.symbol?.includes(value) || false}
-                                        onChange={() => toggleColumnFilter('symbol', value)}
-                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      />
-                                      <span className="text-xs text-gray-700">{value}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
                           </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"
@@ -2174,48 +2140,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <div className="flex items-center gap-1.5">
                             Type
                             <SortIcon column="action" currentColumn={positionsSortColumn} direction={positionsSortDirection} />
-                            <div className="relative" ref={el => filterRefs.current['type'] = el}>
-                              <button
-                                onClick={() => setShowFilterDropdown(showFilterDropdown === 'type' ? null : 'type')}
-                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveFilterCount('type') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
-                                title="Filter"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                              </button>
-                              {getActiveFilterCount('type') > 0 && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
-                                  {getActiveFilterCount('type')}
-                                </span>
-                              )}
-                              {showFilterDropdown === 'type' && (
-                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-48 overflow-y-auto">
-                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-gray-700">Filter by Type</span>
-                                    {getActiveFilterCount('type') > 0 && (
-                                      <button
-                                        onClick={() => clearColumnFilter('type')}
-                                        className="text-xs text-blue-600 hover:text-blue-800"
-                                      >
-                                        Clear
-                                      </button>
-                                    )}
-                                  </div>
-                                  {getUniqueColumnValues('type').map(value => (
-                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={columnFilters.type?.includes(value) || false}
-                                        onChange={() => toggleColumnFilter('type', value)}
-                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      />
-                                      <span className="text-xs text-gray-700">{value}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
                           </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"

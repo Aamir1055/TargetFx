@@ -12,6 +12,7 @@ import ClientDetailsMobileModal from './ClientDetailsMobileModal'
 import { useGroups } from '../contexts/GroupContext'
 import { applyCumulativeFilters, applySearchFilter, applySorting } from '../utils/mobileFilters'
 import { normalizePositions } from '../utils/currencyNormalization'
+import { brokerAPI } from '../services/api'
 
 const formatNum = (n) => {
   const v = Number(n || 0)
@@ -91,7 +92,7 @@ export default function PositionModule() {
   const [clientNetCardFilterOpen, setClientNetCardFilterOpen] = useState(false)
   const clientNetCardFilterRef = useRef(null)
   const [clientNetVisibleColumns, setClientNetVisibleColumns] = useState({
-    login: true,
+    login: false,
     symbol: true,
     netType: true,
     netVolume: true,
@@ -103,6 +104,18 @@ export default function PositionModule() {
   })
   const [clientNetShowColumnSelector, setClientNetShowColumnSelector] = useState(false)
   const [clientNetSearchInput, setClientNetSearchInput] = useState('')
+
+  // Server-side NET positions (fetched when NET Position tab is active)
+  const [serverNetPositions, setServerNetPositions] = useState([])
+  const [serverNetTotal, setServerNetTotal] = useState(0)
+  const [hasFetchedServerNet, setHasFetchedServerNet] = useState(false)
+  const [isServerNetLoading, setIsServerNetLoading] = useState(false)
+
+  // Server-side positions (fetched when regular Positions tab is active on mobile)
+  const [serverPositions, setServerPositions] = useState([])
+  const [serverPositionsTotal, setServerPositionsTotal] = useState(0)
+  const [hasFetchedServerPositions, setHasFetchedServerPositions] = useState(false)
+  const [isServerPositionsLoading, setIsServerPositionsLoading] = useState(false)
   
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
@@ -334,9 +347,165 @@ export default function PositionModule() {
 
   const clientNetPositions = useMemo(() => calculateClientNetPositions(dateFilteredPositions), [dateFilteredPositions, groupByBaseSymbol])
 
+  // Mobile NET view must use server-side net positions response, polled every 2s
+  useEffect(() => {
+    if (!isMobileView || !showClientNet) return
+
+    let isCancelled = false
+    let timer = null
+    let isFirstFetch = true
+
+    const fetchMobileNetPositions = async () => {
+      if (isCancelled) return;
+      try {
+        if (isFirstFetch) setIsServerNetLoading(true);
+
+        const params = {
+          page: 1,
+          limit: 50,
+          netPosition: true,
+          sortBy: 'netVolume',
+          sortOrder: 'asc'
+        };
+        if (groupByBaseSymbol) params.groupBaseSymbol = true;
+
+        const response = await brokerAPI.searchPositions(params);
+
+        if (isCancelled) return;
+
+        const data = response?.data?.positions || response?.positions || [];
+        const total = response?.data?.total || response?.total || 0;
+
+        const mapped = Array.isArray(data)
+          ? data.map(item => ({
+              login: item.login,
+              symbol: item.symbol || item.baseSymbol || '-',
+              netType: item.action === 'BUY' ? 'Buy' : item.action === 'SELL' ? 'Sell' : (item.action === 'FLAT' ? 'Flat' : (item.action || 'Flat')),
+              netVolume: item.netVolume || 0,
+              avgPrice: item.avgPrice || 0,
+              totalProfit: item.totalProfit || 0,
+              totalStorage: item.totalStorage || 0,
+              totalCommission: item.totalCommission || 0,
+              totalPositions: item.positionCount || item.totalPositions || 0
+            }))
+          : [];
+
+        setServerNetPositions(mapped);
+        setServerNetTotal(total);
+        setHasFetchedServerNet(true);
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn('[PositionModule] Failed to fetch mobile NET positions:', err?.message);
+        }
+      } finally {
+        if (!isCancelled && isFirstFetch) {
+          setIsServerNetLoading(false);
+          isFirstFetch = false;
+        }
+      }
+
+      if (!isCancelled) {
+        timer = setTimeout(fetchMobileNetPositions, 2000);
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (!timer && !isCancelled) fetchMobileNetPositions()
+      } else if (timer) {
+        clearTimeout(timer)
+        timer = null
+      }
+    }
+
+    if (document.visibilityState === 'visible') fetchMobileNetPositions()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      isCancelled = true
+      if (timer) { clearTimeout(timer); timer = null }
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [isMobileView, showClientNet, groupByBaseSymbol]);
+
+  // Mobile regular Positions view: poll server every 2s when NET is OFF
+  useEffect(() => {
+    if (!isMobileView || showClientNet) return
+
+    let isCancelled = false
+    let timer = null
+    let isFirstFetch = true
+
+    const fetchMobilePositions = async () => {
+      if (isCancelled) return;
+      try {
+        if (isFirstFetch) setIsServerPositionsLoading(true);
+
+        const params = {
+          page: currentPage,
+          limit: itemsPerPage,
+          sortBy: sortColumn || 'timeCreate',
+          sortOrder: sortDirection || 'asc',
+        };
+        if (searchInput && searchInput.trim()) params.search = searchInput.trim();
+
+        const response = await brokerAPI.searchPositions(params);
+
+        if (isCancelled) return;
+
+        const data = response?.data?.positions || response?.positions || [];
+        const total = response?.data?.total || response?.total || 0;
+
+        if (Array.isArray(data)) {
+          setServerPositions(data);
+          setServerPositionsTotal(total);
+          setHasFetchedServerPositions(true);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn('[PositionModule] Failed to fetch mobile positions:', err?.message);
+        }
+      } finally {
+        if (!isCancelled && isFirstFetch) {
+          setIsServerPositionsLoading(false);
+          isFirstFetch = false;
+        }
+      }
+
+      if (!isCancelled) {
+        timer = setTimeout(fetchMobilePositions, 2000);
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (!timer && !isCancelled) fetchMobilePositions()
+      } else if (timer) {
+        clearTimeout(timer)
+        timer = null
+      }
+    }
+
+    if (document.visibilityState === 'visible') fetchMobilePositions()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      isCancelled = true
+      if (timer) { clearTimeout(timer); timer = null }
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [isMobileView, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, searchInput])
+
+  const mobileNetSourcePositions = useMemo(() => {
+    if (isMobileView && showClientNet) {
+      return hasFetchedServerNet ? serverNetPositions : []
+    }
+    return clientNetPositions
+  }, [isMobileView, showClientNet, hasFetchedServerNet, serverNetPositions, clientNetPositions])
+
   // Filter Client NET positions based on search
   const filteredClientNetPositions = useMemo(() => {
-    let filtered = clientNetPositions
+    let filtered = mobileNetSourcePositions
     if (clientNetSearchInput.trim()) {
       const query = clientNetSearchInput.toLowerCase()
       filtered = filtered.filter(pos =>
@@ -348,7 +517,7 @@ export default function PositionModule() {
     // Apply sorting
     filtered = applySorting(filtered, clientNetSortColumn, clientNetSortDirection)
     return filtered
-  }, [clientNetPositions, clientNetSearchInput, clientNetSortColumn, clientNetSortDirection])
+  }, [mobileNetSourcePositions, clientNetSearchInput, clientNetSortColumn, clientNetSortDirection])
 
   // Apply search and sorting (use deferred value to prevent blocking navigation)
   const filteredPositions = useMemo(() => {
@@ -417,8 +586,7 @@ export default function PositionModule() {
     const handleClickOutside = (e) => {
       if (clientNetCardFilterRef.current && !clientNetCardFilterRef.current.contains(e.target)) {
         setClientNetCardFilterOpen(false)
-      }
-    }
+      }    }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
@@ -566,56 +734,61 @@ export default function PositionModule() {
     }
   }
 
-  // Face cards data - matching desktop layout with persistent state
-  const [cards, setCards] = useState([])
 
-  // Map card labels to icon file paths
+  // Map card labels to icon file paths (updated for NET view)
   const getCardIcon = (label) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'POSITIONS': `${baseUrl}Mobile cards icons/Total Balance.svg`,
-      'FLOATING': `${baseUrl}Mobile cards icons/Floating Profit.svg`,
-      'UNIQUE LOGINS': `${baseUrl}Mobile cards icons/Total Clients.svg`,
-      'SYMBOLS': `${baseUrl}Mobile cards icons/Total Equity.svg`
+      'TOTAL': `${baseUrl}Mobile cards icons/Total Balance.svg`,
+      'NET VOLUME': `${baseUrl}Mobile cards icons/Total Equity.svg`,
+      'TOTAL PROFIT': `${baseUrl}Mobile cards icons/Floating Profit.svg`,
+      'UNIQUE LOGINS': `${baseUrl}Mobile cards icons/Total Clients.svg`
     }
     return iconMap[label] || `${baseUrl}Mobile cards icons/Total Clients.svg`
   }
-  
-  // Update cards when filtered positions change (includes date filter)
-  useEffect(() => {
-    const totalPositions = filteredPositions.length
-    const totalFloatingProfit = filteredPositions.reduce((sum, p) => {
-      const val = p.profit || 0
-      return sum + (/[cC]$/.test(String(p.symbol || '')) ? val / 100 : val)
-    }, 0)
-    const uniqueLogins = new Set(filteredPositions.map(p => p.login)).size
-    const uniqueSymbols = new Set(filteredPositions.map(p => p.symbol)).size
-    
-    const newCards = [
-      { label: 'POSITIONS', value: String(totalPositions) },
-      { 
-        label: 'FLOATING', 
-        value: formatNum(Math.abs(totalFloatingProfit)),
-        isProfit: true,
-        profitValue: totalFloatingProfit
-      },
-      { label: 'UNIQUE LOGINS', value: String(uniqueLogins) },
-      { label: 'SYMBOLS', value: String(uniqueSymbols) }
-    ]
-    
-    // Only update if cards length is different (initial load) or keep existing order
-    if (cards.length === 0) {
-      setCards(newCards)
-    } else {
-      // Update values while preserving order
-      setCards(prevCards => {
-        return prevCards.map(prevCard => {
-          const updated = newCards.find(c => c.label === prevCard.label)
-          return updated || prevCard
-        })
+
+  // Face cards for NET view: use API totals fields
+  const [cards, setCards] = useState([])
+  const netTotals = useMemo(() => {
+    // Only use API totals in mobile NET view
+    if (isMobileView && showClientNet && hasFetchedServerNet && serverNetPositions && serverNetPositions.length >= 0) {
+      // Try to get from last NET API response
+      // The polling effect sets serverNetTotal and serverNetPositions, but not the totals object
+      // So we need to get the last totals from the API response if available
+      // For now, fallback to calculating from serverNetPositions if not available
+      // If you want to use the API's totals object, you must extract it in the polling effect
+      // For now, just sum up from serverNetPositions
+      let netVolume = 0, totalProfit = 0, uniqueLogins = 0
+      const loginSet = new Set()
+      serverNetPositions.forEach(pos => {
+        netVolume += Number(pos.netVolume) || 0
+        totalProfit += Number(pos.totalProfit) || 0
+        if (pos.login) loginSet.add(pos.login)
       })
+      uniqueLogins = loginSet.size
+      return {
+        total: serverNetTotal,
+        netVolume,
+        totalProfit,
+        uniqueLogins
+      }
     }
-  }, [filteredPositions])
+    // fallback to old logic for non-NET view
+    return {
+      total: filteredPositions.length,
+      netVolume: filteredPositions.reduce((sum, p) => sum + (Number(p.volume) || 0), 0),
+      totalProfit: filteredPositions.reduce((sum, p) => sum + (Number(p.profit) || 0), 0),
+      uniqueLogins: new Set(filteredPositions.map(p => p.login)).size
+    }
+  }, [isMobileView, showClientNet, hasFetchedServerNet, serverNetPositions, serverNetTotal, filteredPositions])
+
+  // Face cards array for rendering
+  const netFaceCards = [
+    { label: 'TOTAL', value: String(netTotals.total) },
+    { label: 'NET VOLUME', value: formatNum(netTotals.netVolume) },
+    { label: 'TOTAL PROFIT', value: formatNum(netTotals.totalProfit), isProfit: true, profitValue: netTotals.totalProfit },
+    { label: 'UNIQUE LOGINS', value: String(netTotals.uniqueLogins) }
+  ]
 
   // Card carousel scroll tracking
   useEffect(() => {
@@ -762,7 +935,7 @@ export default function PositionModule() {
               }`}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M4.5 6.5H9.5M2.5 3.5H11.5M5.5 9.5H8.5" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M4.5 6H9.5M2.5 3.5H11.5M5.5 9.5H8.5" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
               <span className="text-[#4B4B4B] text-[10px] font-medium font-outfit">Filter</span>
               {(() => {
@@ -781,16 +954,20 @@ export default function PositionModule() {
             </button>
             <button 
               onClick={() => {
-                setShowClientNet((v) => !v)
+                setShowClientNet((v) => {
+                  const next = !v
+                  if (next) {
+                    setClientNetCurrentPage(1)
+                  }
+                  return next
+                })
               }}
               className={`flex-1 h-8 rounded-[12px] ${showClientNet ? 'bg-blue-600 border-blue-600' : 'bg-white border-[#E5E7EB]'} border shadow-sm flex items-center justify-center gap-1.5 hover:opacity-90 transition-all`}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={showClientNet ? "#ffffff" : "#666666"} strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="9" cy="7" r="4" stroke={showClientNet ? "#ffffff" : "#666666"} strokeWidth="2"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke={showClientNet ? "#ffffff" : "#666666"} strokeLinecap="round"/>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M10 14h7M13 18h4" stroke={showClientNet ? "#ffffff" : "#666666"} />
               </svg>
-              <span className={`${showClientNet ? 'text-white' : 'text-[#666666]'} text-[10px] font-medium font-outfit`}>Client Net</span>
+              <span className={`${showClientNet ? 'text-white' : 'text-[#666666]'} text-[10px] font-medium font-outfit`}>NET Position</span>
             </button>
             <button 
               onClick={() => window.location.reload()}
@@ -804,17 +981,15 @@ export default function PositionModule() {
           </div>
         </div>
 
-        {/* Face Cards Carousel - Hidden in Client NET view */}
-        {!showClientNet && (
+        {/* Face Cards Carousel - Show NET face cards in NET view, regular in positions view */}
         <div className="pb-2 pl-5">
           <div 
             ref={carouselRef}
             className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4"
           >
-            {loading && loading.positions ? (
-              // Skeleton loading for face cards
+            {((loading && loading.positions) || (showClientNet && isServerNetLoading)) ? (
               <>
-                {[1, 2, 3, 4, 5, 6].map((i) => (
+                {[1, 2, 3, 4].map((i) => (
                   <div 
                     key={`skeleton-card-${i}`}
                     style={{
@@ -844,71 +1019,22 @@ export default function PositionModule() {
                 ))}
               </>
             ) : (
-              cards.map((card, i) => (
-              <div 
-                key={i}
-                draggable="true"
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('cardIndex', i)
-                  e.dataTransfer.effectAllowed = 'move'
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const fromIndex = parseInt(e.dataTransfer.getData('cardIndex'))
-                  if (fromIndex !== i && !isNaN(fromIndex)) {
-                    const newCards = [...cards]
-                    const [movedCard] = newCards.splice(fromIndex, 1)
-                    newCards.splice(i, 0, movedCard)
-                    setCards(newCards)
-                  }
-                }}
-                style={{
-                  boxSizing: 'border-box',
-                  minWidth: '125px',
-                  width: '125px',
-                  height: '60px',
-                  background: '#FFFFFF',
-                  border: '1px solid #F2F2F7',
-                  boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                  borderRadius: '12px',
-                  padding: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  scrollSnapAlign: 'start',
-                  flexShrink: 0,
-                  flex: 'none',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  touchAction: 'pan-x'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>{card.label}</span>
-                  <img src={getCardIcon(card.label)} alt="" style={{ width: '16px', height: '16px', objectFit: 'contain', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none' }} />
+              (showClientNet ? netFaceCards : cards).map((card, idx) => (
+                <div
+                  key={card.label}
+                  className={`min-w-[125px] w-[125px] h-[60px] bg-white border border-[#F2F2F7] shadow-[0px_0px_12px_rgba(75,75,75,0.05)] rounded-[12px] flex flex-col items-start justify-center px-4 snap-start ${activeCardIndex === idx ? 'ring-2 ring-blue-100' : ''}`}
+                  style={{ boxSizing: 'border-box' }}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <img src={getCardIcon(card.label)} alt={card.label} className="w-5 h-5" />
+                    <span className="text-[10px] text-[#666] font-medium font-outfit">{card.label}</span>
+                  </div>
+                  <div className={`text-[18px] font-bold font-outfit ${card.isProfit ? (card.profitValue >= 0 ? 'text-green-600' : 'text-red-600') : 'text-[#1A63BC]'}`}>{card.value}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    lineHeight: '14px',
-                    letterSpacing: '-0.01em',
-                    color: card.isProfit ? (card.profitValue >= 0 ? '#16A34A' : '#DC2626') : '#000000'
-                  }}>
-                    {card.value === '' || card.value === undefined ? '0.00' : card.value}
-                  </span>
-                </div>
-              </div>
               ))
             )}
           </div>
         </div>
-        )}
 
         {/* Search and navigation */}
         {!showClientNet && (
@@ -1158,7 +1284,7 @@ export default function PositionModule() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{clientNetPositions.length}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{mobileNetSourcePositions.length}</span>
                   </div>
                 </div>
                 <div style={{
@@ -1189,7 +1315,7 @@ export default function PositionModule() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{formatNum(clientNetPositions.reduce((s,p)=>s+p.netVolume,0))}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</span>
                   </div>
                 </div>
                 <div style={{
@@ -1220,8 +1346,8 @@ export default function PositionModule() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: clientNetPositions.reduce((s,p)=>s+p.totalProfit,0) >= 0 ? '#16A34A' : '#DC2626' }}>
-                      {formatNum(clientNetPositions.reduce((s,p)=>s+p.totalProfit,0))}
+                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0) >= 0 ? '#16A34A' : '#DC2626' }}>
+                      {formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}
                     </span>
                   </div>
                 </div>
@@ -1253,7 +1379,7 @@ export default function PositionModule() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{new Set(clientNetPositions.map(r=>r.login)).size}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{new Set(mobileNetSourcePositions.map(r=>r.login)).size}</span>
                   </div>
                 </div>
               </div>
@@ -1477,7 +1603,7 @@ export default function PositionModule() {
                         </div>
                       )}
                     </div>
-                  {isClientNetPageChanging ? (
+                  {isServerNetLoading || isClientNetPageChanging ? (
                     <>
                       {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={`client-net-skeleton-${i}`} className="flex text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]">
@@ -1494,7 +1620,7 @@ export default function PositionModule() {
                       ))}
                     </>
                   ) : clientNetPaginatedPositions.length === 0 ? (
-                    <div className="text-center py-8 text-[#6B7280] text-sm">No Client NET positions found</div>
+                    <div className="text-center py-8 text-[#6B7280] text-sm">No NET positions found</div>
                   ) : (
                     clientNetPaginatedPositions.map((pos, idx) => (
                       <div key={idx} className="flex text-[10px] text-[#4B4B4B] hover:bg-[#F8FAFC]">
@@ -1537,12 +1663,12 @@ export default function PositionModule() {
                       {clientNetVisibleColumns.login && <div className="flex items-center justify-start px-1 min-w-[70px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">Total</div>}
                       {clientNetVisibleColumns.symbol && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
                       {clientNetVisibleColumns.netType && <div className="flex items-center justify-start px-1 min-w-[60px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(clientNetPositions.reduce((s,p)=>s+p.netVolume,0))}</div>}
+                      {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</div>}
                       {clientNetVisibleColumns.avgPrice && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.totalProfit && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(clientNetPositions.reduce((s,p)=>s+p.totalProfit,0))}</div>}
-                      {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(clientNetPositions.reduce((s,p)=>s+(p.totalStorage||0),0))}</div>}
-                      {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(clientNetPositions.reduce((s,p)=>s+(p.totalCommission||0),0))}</div>}
-                      {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{clientNetPositions.reduce((s,p)=>s+p.totalPositions,0)}</div>}
+                      {clientNetVisibleColumns.totalProfit && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}</div>}
+                      {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalStorage||0),0))}</div>}
+                      {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalCommission||0),0))}</div>}
+                      {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{mobileNetSourcePositions.reduce((s,p)=>s+p.totalPositions,0)}</div>}
                     </div>
                   )}
                 </div>

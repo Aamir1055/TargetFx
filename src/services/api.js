@@ -391,6 +391,12 @@ export const brokerAPI = {
     const response = await api.get('/api/broker/positions/logins')
     return response.data
   },
+
+  // Get all position actions (for column-level filter)
+  getPositionActions: async () => {
+    const response = await api.get('/api/broker/positions/actions')
+    return response.data
+  },
   
   // Get all pending orders
   getOrders: async () => {
