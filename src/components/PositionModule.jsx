@@ -1443,49 +1443,40 @@ export default function PositionModule() {
               </div>
             </div>
 
-            {/* Controls with Search */}
-            <div className="flex items-center gap-2 pb-3 px-4 pr-8">
-                {/* Search Bar */}
-                <div className="h-[36px] w-[155px] bg-white border border-gray-300 rounded-lg px-2 flex items-center gap-1 flex-shrink-0">
-                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            {/* Controls with Search - SYMMETRICAL with regular Positions tab */}
+            <div className="pb-3 px-4">
+              <div className="flex items-center gap-1">
+                <div className="flex-1 min-w-0 h-[32px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] px-2 flex items-center gap-1.5">
+                  <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="flex-shrink-0">
+                    <circle cx="8" cy="8" r="6.5" stroke="#4B4B4B" strokeWidth="1.5"/>
+                    <path d="M13 13L16 16" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
-                  <input
-                    type="text"
-                    placeholder="Search"
+                  <input 
+                    placeholder="Search" 
                     value={clientNetSearchInput}
                     onChange={(e) => setClientNetSearchInput(e.target.value)}
-                    className="flex-1 text-[11px] text-gray-700 placeholder-gray-400 outline-none bg-transparent w-full"
+                    className="flex-1 min-w-0 text-[11px] text-[#000000] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit"
                   />
                 </div>
-
-                {/* Group Base Symbols */}
-                <button
-                  onClick={() => setGroupByBaseSymbol(v => !v)}
-                  className={`h-[36px] px-2 rounded-lg border text-[10px] font-medium flex items-center gap-1 flex-shrink-0 ${groupByBaseSymbol ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-blue-200'}`}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M10 14h7M13 18h4"/></svg>
-                  Base
-                </button>
-
-                {/* Columns */}
-                <div className="flex-shrink-0">
-                  <button onClick={() => setClientNetShowColumnSelector(true)} className="h-[36px] w-[36px] rounded-lg border border-purple-200 bg-white flex items-center justify-center text-gray-700">
-                    <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-                  </button>
-                </div>
-
-                {/* Pagination */}
-                <button
-                  onClick={() => handleClientNetPageChange(clientNetCurrentPage - 1, clientNetTotalPages)}
-                  disabled={clientNetCurrentPage === 1}
-                  className={`w-5 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${clientNetCurrentPage === 1 ? 'text-gray-300 bg-gray-100' : 'text-gray-700 bg-white border border-gray-300'}`}
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <button 
+                  onClick={() => setClientNetShowColumnSelector(true)}
+                  className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50">
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                    <rect x="3" y="5" width="4" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
+                    <rect x="8.5" y="5" width="4" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
+                    <rect x="14" y="5" width="3" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
                   </svg>
                 </button>
-                <div className="text-[10px] font-medium text-gray-700 flex items-center gap-1">
+                <button 
+                  onClick={() => handleClientNetPageChange(clientNetCurrentPage - 1, clientNetTotalPages)}
+                  disabled={clientNetCurrentPage === 1}
+                  className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                    <path d="M12 14L8 10L12 6" stroke="#4B4B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                <div className="px-2 text-[10px] font-medium text-[#4B4B4B] flex items-center gap-1">
                   <input
                     type="number"
                     min={1}
@@ -1497,25 +1488,26 @@ export default function PositionModule() {
                         handleClientNetPageChange(n, clientNetTotalPages)
                       }
                     }}
-                    className="w-10 h-6 border border-gray-300 rounded-lg text-center text-[10px]"
+                    className="w-10 h-6 border border-[#ECECEC] rounded-[8px] text-center text-[10px]"
                     aria-label="Current page"
                   />
-                  <span className="text-gray-400">/</span>
+                  <span className="text-[#9CA3AF]">/</span>
                   <span>{clientNetTotalPages}</span>
                 </div>
-                <button
+                <button 
                   onClick={() => handleClientNetPageChange(clientNetCurrentPage + 1, clientNetTotalPages)}
                   disabled={clientNetCurrentPage === clientNetTotalPages}
-                  className={`w-5 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${clientNetCurrentPage === clientNetTotalPages ? 'text-gray-300 bg-gray-100' : 'text-gray-700 bg-white border border-gray-300'}`}
+                  className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                    <path d="M8 6L12 10L8 14" stroke="#4B4B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
+              </div>
             </div>
 
-            {/* Client NET Table */}
-            <div className="pt-3">
+            {/* Client NET Table - FIXED GRID ALIGNMENT */}
+            <div className="pt-0">
               <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden">
                 {/* Table - single scroll container */}
                 <div className="overflow-x-auto overflow-y-auto scrollbar-hide" style={{
@@ -1523,157 +1515,188 @@ export default function PositionModule() {
                   paddingBottom: '8px',
                   maxHeight: 'calc(100vh - 350px)'
                 }}>
-                    {/* Header - Sticky */}
-                    <div className="flex bg-blue-500 text-white text-[10px] font-semibold h-[28px] sticky top-0 z-20">
-                      {clientNetVisibleColumns.login && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[70px] flex-shrink-0 bg-blue-500 sticky left-0 z-30 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('login'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('login'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          Login
-                          {clientNetSortColumn === 'login' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      {clientNetVisibleColumns.symbol && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-blue-500 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('symbol'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('symbol'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          Symbol
-                          {clientNetSortColumn === 'symbol' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      {clientNetVisibleColumns.netType && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[60px] flex-shrink-0 bg-blue-500 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('netType'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('netType'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          Type
-                          {clientNetSortColumn === 'netType' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      {clientNetVisibleColumns.netVolume && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-blue-500 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('netVolume'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('netVolume'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          NET Vol
-                          {clientNetSortColumn === 'netVolume' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      {clientNetVisibleColumns.avgPrice && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-blue-500 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('avgPrice'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('avgPrice'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          Avg Price
-                          {clientNetSortColumn === 'avgPrice' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      {clientNetVisibleColumns.totalProfit && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-blue-500 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalProfit'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalProfit'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          P/L
-                          {clientNetSortColumn === 'totalProfit' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      {clientNetVisibleColumns.totalStorage && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-blue-500 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalStorage'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalStorage'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          Storage
-                          {clientNetSortColumn === 'totalStorage' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      {clientNetVisibleColumns.totalCommission && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-blue-500 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalCommission'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalCommission'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          Comm
-                          {clientNetSortColumn === 'totalCommission' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      {clientNetVisibleColumns.totalPositions && (
-                        <div 
-                          className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-blue-500 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalPositions'); }}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalPositions'); }}
-                          style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                        >
-                          Positions
-                          {clientNetSortColumn === 'totalPositions' && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                              <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  {/* Header - Sticky */}
+                  <div
+                    className="grid bg-blue-500 text-white text-[10px] font-semibold h-[28px] sticky top-0 z-20"
+                    style={{
+                      gridTemplateColumns: [
+                        clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
+                        clientNetVisibleColumns.symbol ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
+                        clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalProfit ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalPositions ? 'minmax(80px, 1fr)' : ''
+                      ].filter(Boolean).join(' '),
+                      gap: '0px',
+                      columnGap: '0px'
+                    }}
+                  >
+                    {clientNetVisibleColumns.login && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer sticky left-0 z-30 bg-blue-500"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('login'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('login'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Login
+                        {clientNetSortColumn === 'login' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.symbol && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('symbol'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('symbol'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Symbol
+                        {clientNetSortColumn === 'symbol' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.netType && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('netType'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('netType'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Type
+                        {clientNetSortColumn === 'netType' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.netVolume && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('netVolume'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('netVolume'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        NET Vol
+                        {clientNetSortColumn === 'netVolume' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.avgPrice && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('avgPrice'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('avgPrice'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Avg Price
+                        {clientNetSortColumn === 'avgPrice' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.totalProfit && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalProfit'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalProfit'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        P/L
+                        {clientNetSortColumn === 'totalProfit' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.totalStorage && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalStorage'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalStorage'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Storage
+                        {clientNetSortColumn === 'totalStorage' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.totalCommission && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalCommission'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalCommission'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Comm
+                        {clientNetSortColumn === 'totalCommission' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.totalPositions && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalPositions'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalPositions'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Positions
+                        {clientNetSortColumn === 'totalPositions' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Table Rows */}
                   {isServerNetLoading || isClientNetPageChanging ? (
                     <>
                       {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={`client-net-skeleton-${i}`} className="flex text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]">
-                          {clientNetVisibleColumns.login && <div className="h-[40px] min-w-[70px] flex-shrink-0 bg-white sticky left-0 z-10 border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[60%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.symbol && <div className="h-[40px] min-w-[80px] flex-shrink-0 bg-white border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.netType && <div className="h-[40px] min-w-[60px] flex-shrink-0 bg-white border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.netVolume && <div className="h-[40px] min-w-[80px] flex-shrink-0 bg-white border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.avgPrice && <div className="h-[40px] min-w-[80px] flex-shrink-0 bg-white border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.totalProfit && <div className="h-[40px] min-w-[80px] flex-shrink-0 bg-white border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.totalStorage && <div className="h-[40px] min-w-[80px] flex-shrink-0 bg-white border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.totalCommission && <div className="h-[40px] min-w-[80px] flex-shrink-0 bg-white border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.totalPositions && <div className="h-[40px] min-w-[80px] flex-shrink-0 bg-white border-b border-[#E1E1E1] px-1 flex items-center"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                        <div key={`client-net-skeleton-${i}`} className="grid text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]" style={{
+                          gridTemplateColumns: [
+                            clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
+                            clientNetVisibleColumns.symbol ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
+                            clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.totalProfit ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.totalPositions ? 'minmax(80px, 1fr)' : ''
+                          ].filter(Boolean).join(' ')
+                        }}>
+                          {clientNetVisibleColumns.login && <div className="h-[40px] flex items-center px-1 bg-white sticky left-0 z-10 border-b border-[#E1E1E1]"><div className="h-3 w-[60%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.symbol && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.netType && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.netVolume && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.avgPrice && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.totalProfit && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.totalStorage && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.totalCommission && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.totalPositions && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                         </div>
                       ))}
                     </>
@@ -1681,10 +1704,22 @@ export default function PositionModule() {
                     <div className="text-center py-8 text-[#6B7280] text-sm">No NET positions found</div>
                   ) : (
                     clientNetPaginatedPositions.map((pos, idx) => (
-                      <div key={idx} className="flex text-[10px] text-[#4B4B4B] hover:bg-[#F8FAFC]">
+                      <div key={idx} className="grid text-[10px] text-[#4B4B4B] hover:bg-[#F8FAFC]" style={{
+                        gridTemplateColumns: [
+                          clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
+                          clientNetVisibleColumns.symbol ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
+                          clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.totalProfit ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.totalPositions ? 'minmax(80px, 1fr)' : ''
+                        ].filter(Boolean).join(' ')
+                      }}>
                         {clientNetVisibleColumns.login && (
-                          <div 
-                            className="flex items-center justify-start px-1 h-[40px] min-w-[70px] flex-shrink-0 font-semibold bg-white text-[#1A63BC] cursor-pointer hover:underline sticky left-0 z-10 border-b border-[#E1E1E1]"
+                          <div
+                            className="flex items-center justify-start px-1 h-[40px] font-semibold bg-white text-[#1A63BC] cursor-pointer hover:underline sticky left-0 z-10 border-b border-[#E1E1E1]"
                             style={{boxShadow: '2px 0 4px rgba(0,0,0,0.05)'}}
                             onClick={() => {
                               const fullClient = clients.find(c => String(c.login) === String(pos.login))
@@ -1699,34 +1734,46 @@ export default function PositionModule() {
                             {pos.login}
                           </div>
                         )}
-                        {clientNetVisibleColumns.symbol && <div className="flex items-center justify-start px-1 h-[40px] min-w-[80px] flex-shrink-0 font-semibold bg-white text-black border-b border-[#E1E1E1]">{pos.symbol}</div>}
-                        {clientNetVisibleColumns.netType && <div className={`flex items-center justify-start px-1 h-[40px] min-w-[60px] flex-shrink-0 font-semibold bg-white border-b border-[#E1E1E1] ${
+                        {clientNetVisibleColumns.symbol && <div className="flex items-center justify-start px-1 h-[40px] font-semibold bg-white text-black border-b border-[#E1E1E1]">{pos.symbol}</div>}
+                        {clientNetVisibleColumns.netType && <div className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
                           pos.netType === 'Buy' ? 'text-green-600' : 'text-red-600'
                         }`}>{pos.netType}</div>}
-                        {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 h-[40px] min-w-[80px] flex-shrink-0 bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.netVolume)}</div>}
-                        {clientNetVisibleColumns.avgPrice && <div className="flex items-center justify-start px-1 h-[40px] min-w-[80px] flex-shrink-0 bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.avgPrice)}</div>}
-                        {clientNetVisibleColumns.totalProfit && <div className={`flex items-center justify-start px-1 h-[40px] min-w-[80px] flex-shrink-0 font-semibold bg-white border-b border-[#E1E1E1] ${
+                        {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.netVolume)}</div>}
+                        {clientNetVisibleColumns.avgPrice && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.avgPrice)}</div>}
+                        {clientNetVisibleColumns.totalProfit && <div className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
                           pos.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}>{formatNum(pos.totalProfit)}</div>}
-                        {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 h-[40px] min-w-[80px] flex-shrink-0 bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.totalStorage || 0)}</div>}
-                        {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 h-[40px] min-w-[80px] flex-shrink-0 bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.totalCommission || 0)}</div>}
-                        {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 h-[40px] min-w-[80px] flex-shrink-0 bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{pos.totalPositions}</div>}
+                        {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.totalStorage || 0)}</div>}
+                        {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.totalCommission || 0)}</div>}
+                        {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{pos.totalPositions}</div>}
                       </div>
                     ))
                   )}
 
                   {/* Footer */}
                   {clientNetPaginatedPositions.length > 0 && (
-                    <div className="flex bg-[#EFF4FB] text-[#1A63BC] text-[10px] font-semibold h-[38px]">
-                      {clientNetVisibleColumns.login && <div className="flex items-center justify-start px-1 min-w-[70px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">Total</div>}
-                      {clientNetVisibleColumns.symbol && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.netType && <div className="flex items-center justify-start px-1 min-w-[60px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</div>}
-                      {clientNetVisibleColumns.avgPrice && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.totalProfit && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}</div>}
-                      {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalStorage||0),0))}</div>}
-                      {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalCommission||0),0))}</div>}
-                      {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 min-w-[80px] flex-shrink-0 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{mobileNetSourcePositions.reduce((s,p)=>s+p.totalPositions,0)}</div>}
+                    <div className="grid bg-[#EFF4FB] text-[#1A63BC] text-[10px] font-semibold h-[38px]" style={{
+                      gridTemplateColumns: [
+                        clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
+                        clientNetVisibleColumns.symbol ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
+                        clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalProfit ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalPositions ? 'minmax(80px, 1fr)' : ''
+                      ].filter(Boolean).join(' ')
+                    }}>
+                      {clientNetVisibleColumns.login && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">Total</div>}
+                      {clientNetVisibleColumns.symbol && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
+                      {clientNetVisibleColumns.netType && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
+                      {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</div>}
+                      {clientNetVisibleColumns.avgPrice && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
+                      {clientNetVisibleColumns.totalProfit && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}</div>}
+                      {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalStorage||0),0))}</div>}
+                      {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalCommission||0),0))}</div>}
+                      {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{mobileNetSourcePositions.reduce((s,p)=>s+p.totalPositions,0)}</div>}
                     </div>
                   )}
                 </div>
