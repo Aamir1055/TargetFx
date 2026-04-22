@@ -970,6 +970,18 @@ export default function PositionModule() {
               </svg>
               <span className={`${showClientNet ? 'text-white' : 'text-[#666666]'} text-[10px] font-medium font-outfit`}>NET Position</span>
             </button>
+            {/* Group Base toggle for NET Position */}
+            {showClientNet && (
+              <button
+                onClick={() => setGroupByBaseSymbol(v => !v)}
+                className={`h-8 px-3 rounded-[12px] border ml-1 shadow-sm flex items-center justify-center gap-1.5 transition-all text-[10px] font-medium font-outfit ${groupByBaseSymbol ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-[#666666] border-[#E5E7EB]'}`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 6h16M7 10h10M10 14h7M13 18h4" stroke={groupByBaseSymbol ? '#fff' : '#666'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Group Base
+              </button>
+            )}
             <button 
               onClick={() => window.location.reload()}
               disabled={loading.positions}
@@ -1010,7 +1022,7 @@ export default function PositionModule() {
                 touchAction: 'pan-x'
               }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Positions</span>
+                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Net Positions</span>
                   <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Balance.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
                   </div>
@@ -1342,7 +1354,7 @@ export default function PositionModule() {
             {/* Face Cards Carousel - API-driven values */}
             <div className="pb-2 pl-5">
               <div className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4">
-                {/* Total Symbols */}
+                {/* Net Position */}
                 <div style={{
                   boxSizing: 'border-box',
                   minWidth: '125px',
@@ -1365,13 +1377,13 @@ export default function PositionModule() {
                   touchAction: 'pan-x'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                    <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Symbols</span>
+                    <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Net Position</span>
                     <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Equity.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.totalSymbols !== undefined ? netTotals.totalSymbols : [...new Set(mobileNetSourcePositions.map(r=>r.symbol))].length}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.total !== undefined ? Number(netTotals.total).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}</span>
                   </div>
                 </div>
                 {/* Total Net Volume */}
@@ -1512,8 +1524,10 @@ export default function PositionModule() {
                 {/* Table - single scroll container */}
                 <div className="overflow-x-auto overflow-y-auto scrollbar-hide" style={{
                   paddingRight: '8px',
-                  paddingBottom: '8px',
-                  maxHeight: 'calc(100vh - 350px)'
+                  paddingBottom: '0px',
+                  maxHeight: 'calc(100vh - 350px)',
+                  minHeight: 0,
+                  overflowY: 'auto'
                 }}>
                   {/* Header - Sticky */}
                   <div
@@ -1521,7 +1535,7 @@ export default function PositionModule() {
                     style={{
                       gridTemplateColumns: [
                         clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
-                        clientNetVisibleColumns.symbol ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                         clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                         clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                         clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
@@ -1656,7 +1670,7 @@ export default function PositionModule() {
                     )}
                     {clientNetVisibleColumns.totalPositions && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer"
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalPositions'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalPositions'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
@@ -1678,7 +1692,7 @@ export default function PositionModule() {
                         <div key={`client-net-skeleton-${i}`} className="grid text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]" style={{
                           gridTemplateColumns: [
                             clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
-                            clientNetVisibleColumns.symbol ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                             clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                             clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                             clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
@@ -1707,7 +1721,7 @@ export default function PositionModule() {
                       <div key={idx} className="grid text-[10px] text-[#4B4B4B] hover:bg-[#F8FAFC]" style={{
                         gridTemplateColumns: [
                           clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
-                          clientNetVisibleColumns.symbol ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                           clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                           clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                           clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
@@ -1755,7 +1769,7 @@ export default function PositionModule() {
                     <div className="grid bg-[#EFF4FB] text-[#1A63BC] text-[10px] font-semibold h-[38px]" style={{
                       gridTemplateColumns: [
                         clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
-                        clientNetVisibleColumns.symbol ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                         clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                         clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                         clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
