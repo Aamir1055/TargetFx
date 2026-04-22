@@ -3981,7 +3981,7 @@ const Client2Page = () => {
           </div>
 
           {/* 6 Face Cards - matching Positions module style */}
-          {((totals && Object.keys(totals).length > 0) || (totalsPercent && Object.keys(totalsPercent).length > 0)) && (
+          {showFaceCards && ((totals && Object.keys(totals).length > 0) || (totalsPercent && Object.keys(totalsPercent).length > 0)) && (
             <div className="mb-6">
               {(() => {
                 const t = cardFilterPercentMode ? totalsPercent : totals

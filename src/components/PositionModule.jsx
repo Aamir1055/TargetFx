@@ -1384,6 +1384,7 @@ export default function PositionModule() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
                     <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.total !== undefined ? Number(netTotals.total).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}</span>
+                    
                   </div>
                 </div>
                 {/* Total Net Volume */}
