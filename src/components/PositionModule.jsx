@@ -981,9 +981,144 @@ export default function PositionModule() {
           </div>
         </div>
 
-        {/* Face Cards Carousel - Show NET face cards in NET view, regular in positions view */}
-        <div className="pb-2 pl-0">
-        {/* Face Cards Carousel removed as requested */}
+
+        {/* Face Cards Carousel - Show in both NET and regular positions view on mobile */}
+        {isMobileView && !showClientNet && (
+          <div className="pb-2 pl-5">
+            <div className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4">
+              {/* Total Positions */}
+              <div style={{
+                boxSizing: 'border-box',
+                minWidth: '125px',
+                width: '125px',
+                height: '60px',
+                background: '#FFFFFF',
+                border: '1px solid #F2F2F7',
+                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
+                borderRadius: '12px',
+                padding: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                scrollSnapAlign: 'start',
+                flexShrink: 0,
+                flex: 'none',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                touchAction: 'pan-x'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Positions</span>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Balance.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.total !== undefined ? netTotals.total : 0}</span>
+                </div>
+              </div>
+              {/* Net Volume */}
+              <div style={{
+                boxSizing: 'border-box',
+                minWidth: '125px',
+                width: '125px',
+                height: '60px',
+                background: '#FFFFFF',
+                border: '1px solid #F2F2F7',
+                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
+                borderRadius: '12px',
+                padding: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                scrollSnapAlign: 'start',
+                flexShrink: 0,
+                flex: 'none',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                touchAction: 'pan-x'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Net Volume</span>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Equity.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.netVolume !== undefined ? formatNum(netTotals.netVolume) : '0.00'}</span>
+                </div>
+              </div>
+              {/* Total Profit */}
+              <div style={{
+                boxSizing: 'border-box',
+                minWidth: '125px',
+                width: '125px',
+                height: '60px',
+                background: '#FFFFFF',
+                border: '1px solid #F2F2F7',
+                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
+                borderRadius: '12px',
+                padding: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                scrollSnapAlign: 'start',
+                flexShrink: 0,
+                flex: 'none',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                touchAction: 'pan-x'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Profit</span>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Floating Profit.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: netTotals?.totalProfit >= 0 ? '#16A34A' : '#DC2626' }}>
+                    {netTotals?.totalProfit !== undefined ? formatNum(netTotals.totalProfit) : '0.00'}
+                  </span>
+                </div>
+              </div>
+              {/* Unique Logins */}
+              <div style={{
+                boxSizing: 'border-box',
+                minWidth: '125px',
+                width: '125px',
+                height: '60px',
+                background: '#FFFFFF',
+                border: '1px solid #F2F2F7',
+                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
+                borderRadius: '12px',
+                padding: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                scrollSnapAlign: 'start',
+                flexShrink: 0,
+                flex: 'none',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                touchAction: 'pan-x'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Unique Logins</span>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Clients.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.uniqueLogins !== undefined ? netTotals.uniqueLogins : 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Search and navigation */}
         {!showClientNet && (
@@ -1200,12 +1335,13 @@ export default function PositionModule() {
         )}
 
         {/* Client NET View */}
+
         {showClientNet && isMobileView && (
           <div className="bg-[#F5F7FA] flex flex-col h-full">
-            {/* Face Cards Carousel - Only 3 cards for mobile NET view */}
+            {/* Face Cards Carousel - API-driven values */}
             <div className="pb-2 pl-5">
               <div className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4">
-                {/* Net Symbols */}
+                {/* Total Symbols */}
                 <div style={{
                   boxSizing: 'border-box',
                   minWidth: '125px',
@@ -1228,13 +1364,13 @@ export default function PositionModule() {
                   touchAction: 'pan-x'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                    <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Net Symbols</span>
+                    <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Symbols</span>
                     <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Equity.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{[...new Set(mobileNetSourcePositions.map(r=>r.symbol))].length}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.totalSymbols !== undefined ? netTotals.totalSymbols : [...new Set(mobileNetSourcePositions.map(r=>r.symbol))].length}</span>
                   </div>
                 </div>
                 {/* Total Net Volume */}
@@ -1266,7 +1402,7 @@ export default function PositionModule() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.netVolume !== undefined ? formatNum(netTotals.netVolume) : formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</span>
                   </div>
                 </div>
                 {/* Total Net P/L */}
@@ -1298,8 +1434,8 @@ export default function PositionModule() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0) >= 0 ? '#16A34A' : '#DC2626' }}>
-                      {formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}
+                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: netTotals?.totalProfit >= 0 ? '#16A34A' : '#DC2626' }}>
+                      {netTotals?.totalProfit !== undefined ? formatNum(netTotals.totalProfit) : formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}
                     </span>
                   </div>
                 </div>
@@ -1897,7 +2033,6 @@ export default function PositionModule() {
           allOrdersCache={orders}
         />
       )}
-    </div>
     </div>
   );
 }
