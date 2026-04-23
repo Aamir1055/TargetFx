@@ -3931,30 +3931,77 @@ const Client2Page = () => {
                             floating: 'Floating PNL',
                             pnl: 'P&L'
                           }
-                          // Build items based on toggle: only non-percent OR only percent
-                          const baseItems = Object.entries(baseLabels).map(([key, label]) => [key, label])
-                          // Always show base items only; % view uses these as the source of which cards are shown
-                          return baseItems
-                            .filter(([key, label]) =>
-                              cardFilterSearchQuery === '' ||
-                              label.toLowerCase().includes(cardFilterSearchQuery.toLowerCase())
-                            )
-                            .map(([key, label]) => (
-                              <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                                <input
-                                  type="checkbox"
-                                  checked={cardVisibility[key] !== false}
-                                  onChange={(e) => {
-                                    setCardVisibility(prev => ({
-                                      ...prev,
-                                      [key]: e.target.checked
-                                    }))
-                                  }}
-                                  className="w-4 h-4 text-pink-600 border-gray-300 rounded focus:ring-pink-500"
-                                />
-                                <span className="text-sm text-gray-700">{label}</span>
-                              </label>
-                            ))
+                          // Use faceCardOrder for ordering
+                          const baseItems = (faceCardOrder || Object.keys(baseLabels)).map(key => [key, baseLabels[key]]).filter(([key, label]) => label)
+                          // Filter by search
+                          const filteredItems = baseItems.filter(([key, label]) =>
+                            cardFilterSearchQuery === '' ||
+                            label.toLowerCase().includes(cardFilterSearchQuery.toLowerCase())
+                          )
+                          // Drag-and-drop handlers
+                          const handleDragStart = (e, key) => {
+                            setDraggedCardKey(key)
+                            e.dataTransfer.effectAllowed = 'move'
+                          }
+                          const handleDragOver = (e, key) => {
+                            e.preventDefault()
+                            setDragOverCardKey(key)
+                          }
+                          const handleDrop = (e, key) => {
+                            e.preventDefault()
+                            if (draggedCardKey && draggedCardKey !== key) {
+                              const oldIndex = faceCardOrder.indexOf(draggedCardKey)
+                              const newIndex = faceCardOrder.indexOf(key)
+                              if (oldIndex !== -1 && newIndex !== -1) {
+                                const newOrder = [...faceCardOrder]
+                                newOrder.splice(oldIndex, 1)
+                                newOrder.splice(newIndex, 0, draggedCardKey)
+                                setFaceCardOrder(newOrder)
+                                localStorage.setItem('client2FaceCardOrder', JSON.stringify(newOrder))
+                              }
+                            }
+                            setDraggedCardKey(null)
+                            setDragOverCardKey(null)
+                          }
+                          const handleDragEnd = () => {
+                            setDraggedCardKey(null)
+                            setDragOverCardKey(null)
+                          }
+                          return filteredItems.map(([key, label]) => (
+                            <div
+                              key={key}
+                              className={`flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded ${dragOverCardKey === key ? 'bg-pink-100' : ''}`}
+                              draggable
+                              onDragStart={e => handleDragStart(e, key)}
+                              onDragOver={e => handleDragOver(e, key)}
+                              onDrop={e => handleDrop(e, key)}
+                              onDragEnd={handleDragEnd}
+                            >
+                              {/* Burger menu icon */}
+                              <span className="flex items-center mr-2 cursor-grab text-gray-400" title="Drag to reorder">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                  <circle cx="5" cy="6" r="1.5" fill="#9CA3AF" />
+                                  <circle cx="5" cy="10" r="1.5" fill="#9CA3AF" />
+                                  <circle cx="5" cy="14" r="1.5" fill="#9CA3AF" />
+                                  <circle cx="11" cy="6" r="1.5" fill="#9CA3AF" />
+                                  <circle cx="11" cy="10" r="1.5" fill="#9CA3AF" />
+                                  <circle cx="11" cy="14" r="1.5" fill="#9CA3AF" />
+                                </svg>
+                              </span>
+                              <input
+                                type="checkbox"
+                                checked={cardVisibility[key] !== false}
+                                onChange={e => {
+                                  setCardVisibility(prev => ({
+                                    ...prev,
+                                    [key]: e.target.checked
+                                  }))
+                                }}
+                                className="w-4 h-4 text-pink-600 border-gray-300 rounded focus:ring-pink-500"
+                              />
+                              <span className="text-sm text-gray-700">{label}</span>
+                            </div>
+                          ))
                         })()}
                       </div>
                     </div>
@@ -3988,46 +4035,52 @@ const Client2Page = () => {
                 const pnlValue = Number(t?.pnl || 0)
                 const floatingValue = Number(t?.floating || 0)
                 const isLoadingCards = initialLoad || loading
-                const cards = [
-                  { key: 'totalClients', title: 'Total Clients', value: formatIndianNumber(totalClients || 0), valueColor: 'text-[#000000]', skeletonW: 'w-14' },
-                  { key: 'balance', title: 'Balance', value: formatIndianNumber(Number(t?.balance || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  { key: 'credit', title: 'Credit', value: formatIndianNumber(Number(t?.credit || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  { key: 'equity', title: 'Equity', value: formatIndianNumber(Number(t?.equity || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  { key: 'floating', title: 'Floating PNL', value: (floatingValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(floatingValue).toFixed(2)), valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' },
-                  { key: 'pnl', title: 'P&L', value: (pnlValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(pnlValue).toFixed(2)), valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' }
-                ]
+                // Card definitions by key
+                const cardDefs = {
+                  totalClients: { title: 'Total Clients', value: formatIndianNumber(totalClients || 0), valueColor: 'text-[#000000]', skeletonW: 'w-14' },
+                  balance: { title: 'Balance', value: formatIndianNumber(Number(t?.balance || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  credit: { title: 'Credit', value: formatIndianNumber(Number(t?.credit || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  equity: { title: 'Equity', value: formatIndianNumber(Number(t?.equity || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  floating: { title: 'Floating PNL', value: (floatingValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(floatingValue).toFixed(2)), valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' },
+                  pnl: { title: 'P&L', value: (pnlValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(pnlValue).toFixed(2)), valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' }
+                }
+                // Only show cards that are in faceCardOrder and visible
+                const visibleOrderedKeys = (faceCardOrder || Object.keys(cardDefs)).filter(key => cardVisibility[key] !== false && cardDefs[key])
                 return (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {cards.map(card => (
-                      <div
-                        key={card.key}
-                        className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                          <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">
-                            {card.title}{cardFilterPercentMode && card.title !== 'Total Clients' ? <span style={{marginLeft: 2}}>%</span> : null}
-                          </span>
-                          <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
-                            <img
-                              src={getCardIcon(card.title)}
-                              alt={card.title}
-                              style={{ width: '100%', height: '100%' }}
-                              onError={(e) => { e.target.style.display = 'none' }}
-                            />
+                    {visibleOrderedKeys.map(key => {
+                      const card = cardDefs[key]
+                      return (
+                        <div
+                          key={key}
+                          className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
+                            <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">
+                              {card.title}{cardFilterPercentMode && card.title !== 'Total Clients' ? <span style={{marginLeft: 2}}>%</span> : null}
+                            </span>
+                            <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                              <img
+                                src={getCardIcon(card.title)}
+                                alt={card.title}
+                                style={{ width: '100%', height: '100%' }}
+                                onError={(e) => { e.target.style.display = 'none' }}
+                              />
+                            </div>
                           </div>
+                          {isLoadingCards ? (
+                            <div className={`h-6 ${card.skeletonW} bg-gray-200 rounded animate-pulse`}></div>
+                          ) : (
+                            <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${card.valueColor}`}>
+                              <span>{card.value}</span>
+                              {card.unit && (
+                                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">{card.unit}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        {isLoadingCards ? (
-                          <div className={`h-6 ${card.skeletonW} bg-gray-200 rounded animate-pulse`}></div>
-                        ) : (
-                          <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${card.valueColor}`}>
-                            <span>{card.value}</span>
-                            {card.unit && (
-                              <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">{card.unit}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )
               })()}
