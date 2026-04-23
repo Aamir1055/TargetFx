@@ -63,10 +63,10 @@ const ClientPercentagePage = () => {
 
   const allColumns = [
     { key: 'login', label: 'Client Login', sticky: true },
-    { key: 'updatedAt', label: 'Last Updated' },
     { key: 'percentage', label: 'Percentage' },
     { key: 'type', label: 'Type' },
     { key: 'comment', label: 'Comment' },
+    { key: 'updatedAt', label: 'Last Updated' }, // moved before Actions
     { key: 'actions', label: 'Actions' },
   ]
 
@@ -1409,7 +1409,6 @@ const ClientPercentagePage = () => {
                 <thead className="bg-blue-600 sticky top-0 z-10" style={{ backgroundColor: '#2563eb' }}>
                   <tr>
                     {visibleColumns.login && renderHeaderCell('client_login', 'Client Login', 'client_login')}
-                    {visibleColumns.updatedAt && renderHeaderCell('updated_at', 'Last Updated', 'updated_at')}
                     {visibleColumns.percentage && renderHeaderCell('percentage', 'Percentage')}
                     {visibleColumns.type && renderHeaderCell('is_custom', 'Type', 'is_custom')}
                     {visibleColumns.comment && (
@@ -1417,6 +1416,7 @@ const ClientPercentagePage = () => {
                         Comment
                       </th>
                     )}
+                    {visibleColumns.updatedAt && renderHeaderCell('updated_at', 'Last Updated', 'updated_at')}
                     {visibleColumns.actions && (
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb' }}>
                         Actions
@@ -1497,11 +1497,6 @@ const ClientPercentagePage = () => {
                           {client.client_login}
                         </td>
                       )}
-                      {visibleColumns.updatedAt && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {client.updated_at ? new Date(client.updated_at).toLocaleDateString('en-GB') : '-'}
-                        </td>
-                      )}
                       {visibleColumns.percentage && (
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span className={`px-2 py-1 rounded text-sm font-semibold ${
@@ -1517,7 +1512,7 @@ const ClientPercentagePage = () => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             client.is_custom 
-                              ? 'bg-blue-100 text-blue-800' 
+                              ? 'bg-blue-100 text-blue-800'
                               : 'bg-gray-100 text-gray-600'
                           }`}>
                             {client.is_custom ? 'Custom' : 'Default'}
@@ -1527,6 +1522,11 @@ const ClientPercentagePage = () => {
                       {visibleColumns.comment && (
                         <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">
                           {client.comment || '-'}
+                        </td>
+                      )}
+                      {visibleColumns.updatedAt && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {client.updated_at ? new Date(client.updated_at).toLocaleDateString('en-GB') : '-'}
                         </td>
                       )}
                       {visibleColumns.actions && (
