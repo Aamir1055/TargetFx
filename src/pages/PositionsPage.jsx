@@ -2534,10 +2534,6 @@ const PositionsPage = () => {
                 >
                   <span className={`absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${displayMode === 'percentage' ? 'translate-x-4' : ''}`}></span>
                   <span className="sr-only">Toggle percentage view</span>
-                  <svg className={`absolute right-1 top-1 w-4 h-4 transition-colors duration-300 ${displayMode === 'percentage' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" strokeWidth="2" />
-                    <text x="12" y="16" textAnchor="middle" fontSize="12" fill={displayMode === 'percentage' ? '#fff' : '#2563eb'} fontFamily="Arial">%</text>
-                  </svg>
                 </button>
               </div>
 
