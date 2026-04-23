@@ -1176,7 +1176,9 @@ export default function Client2Module() {
                       color: card.numericValue > 0 ? '#16A34A' : card.numericValue < 0 ? '#DC2626' : '#000000'
                     }}>
                       {card.value === '' || card.value === undefined ? '0.00' : card.value}
-                  </span>
+                      {/* Show % symbol if percentage mode is active and card label contains % */}
+                      {showPercent && card.label.endsWith(' %') && <span style={{marginLeft: 2}}>%</span>}
+                    </span>
                 </div>
               </div>
             ))}
