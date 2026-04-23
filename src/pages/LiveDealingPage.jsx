@@ -2250,36 +2250,14 @@ const LiveDealingPage = () => {
                 ) : displayedDeals.length === 0 ? (
                   <tr>
                     <td colSpan={Object.values(visibleColumns).filter(v => v).length} className="px-6 py-12 text-center">
-                      <div className="text-6xl mb-4">⚡</div>
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {deals.length === 0 ? 'No deals yet' : 'No matching deals found'}
+                        No deals yet
                       </h3>
-                      <p className="text-sm text-gray-500 mb-4">
-                        {deals.length === 0 
-                          ? 'Waiting for live trades...' 
-                          : 'Try adjusting your filters or search query'
-                        }
+                      <p className="text-sm text-gray-500">
+                        Waiting for live trades...
                       </p>
-                        {deals.length === 0 && (
-                          <div className="text-xs text-gray-400">
-                            <p className="mb-1">
-                              <span className="inline-flex items-center gap-1">
-                                <span className={connectionState === 'connected' ? 'text-green-600' : 'text-red-600'}>●</span>
-                                Real-time via WebSocket (DEAL_ADDED events)
-                              </span>
-                            </p>
-                            <p>
-                              <span className="inline-flex items-center gap-1">
-                                {connectionState === 'connected' ? '✅ Connected & Live' : '❌ Disconnected'}
-                              </span>
-                            </p>
-                            <p className="mt-2">
-                              ✅ Ready! New deals will appear automatically when trades are executed.
-                            </p>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
+                    </td>
+                  </tr>
                   ) : (
                     displayedDeals.map((deal, index) => (
                     <tr 
