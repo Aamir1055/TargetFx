@@ -2521,17 +2521,25 @@ const PositionsPage = () => {
                 )}
               </div>
 
-              {/* Percentage Toggle */}
-              <button
-                onClick={() => setDisplayMode(displayMode === 'percentage' ? 'value' : 'percentage')}
-                className={`h-8 px-2.5 rounded-[12px] ${displayMode === 'percentage' ? 'bg-blue-600 border-blue-600' : 'bg-white border-[#E5E7EB]'} border shadow-sm flex items-center justify-center gap-1.5 hover:opacity-90 transition-all`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke={displayMode === 'percentage' ? '#ffffff' : '#4B4B4B'} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                <span className={`${displayMode === 'percentage' ? 'text-white' : 'text-[#4B4B4B]'} text-xs font-medium font-outfit`}>%</span>
-              </button>
+
+              {/* Percentage Toggle Switch */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-[#4B4B4B]">%</span>
+                <button
+                  onClick={() => setDisplayMode(displayMode === 'percentage' ? 'value' : 'percentage')}
+                  className={`relative w-10 h-6 flex items-center rounded-full transition-colors duration-300 focus:outline-none border ${displayMode === 'percentage' ? 'bg-blue-600 border-blue-600' : 'bg-gray-200 border-gray-300'}`}
+                  aria-pressed={displayMode === 'percentage'}
+                  title="Toggle percentage view"
+                  style={{ minWidth: '40px' }}
+                >
+                  <span className={`absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${displayMode === 'percentage' ? 'translate-x-4' : ''}`}></span>
+                  <span className="sr-only">Toggle percentage view</span>
+                  <svg className={`absolute right-1 top-1 w-4 h-4 transition-colors duration-300 ${displayMode === 'percentage' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                    <text x="12" y="16" textAnchor="middle" fontSize="12" fill={displayMode === 'percentage' ? '#fff' : '#2563eb'} fontFamily="Arial">%</text>
+                  </svg>
+                </button>
+              </div>
 
               {/* Export CSV */}
               <button

@@ -1230,6 +1230,8 @@ export default function ClientDashboardDesignC() {
                     </svg>
                   )}
                   {card.value === '' || card.value === undefined ? '0.00' : card.value}
+                  {/* Show % symbol if percentage mode is active and card.unit is '%' */}
+                  {showPercent && card.unit === '%' && <span style={{marginLeft: 2}}>%</span>}
                 </span>
                 <span className="text-[#4B4B4B] text-[7px] font-normal leading-[9px] uppercase">{card.unit}</span>
               </div>
