@@ -3921,32 +3921,32 @@ const PositionsPage = () => {
               scrollbarColor: '#CBD5E0 #F7FAFC',
               maxHeight: '55vh'
             }}>
-              <table className="w-full divide-y divide-gray-200">
+              <table className="w-full divide-y divide-gray-200 border border-gray-200">
                   <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
-                    <tr>
+                    <tr className="divide-x divide-gray-200">
                       {(() => {
                         const effectiveCols = getEffectiveVisibleColumns()
                         return (
                           <>
-                      {effectiveCols.time && renderHeaderCell('timeUpdate', 'Time', 'timeUpdate')}
-                      {effectiveCols.login && renderHeaderCell('login', 'Login')}
-                      {effectiveCols.position && renderHeaderCell('position', 'Position')}
-                      {effectiveCols.symbol && renderHeaderCell('symbol', 'Symbol')}
-                      {effectiveCols.action && renderHeaderCell('action', 'Action')}
-                      {effectiveCols.volume && renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}
-                      {effectiveCols.volumePercentage && renderHeaderCell('volume', 'Volume %')}
-                      {effectiveCols.priceOpen && renderHeaderCell('priceOpen', 'Open')}
-                      {effectiveCols.priceCurrent && renderHeaderCell('priceCurrent', 'Current')}
-                      {effectiveCols.sl && renderHeaderCell('priceSL', 'S/L')}
-                      {effectiveCols.tp && renderHeaderCell('priceTP', 'T/P')}
-                      {effectiveCols.profit && renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}
-                      {effectiveCols.profitPercentage && renderHeaderCell('percentage', 'Profit %')}
-                      {effectiveCols.storage && renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}
-                      {effectiveCols.storagePercentage && renderHeaderCell('storage', 'Storage %')}
-                      {effectiveCols.appliedPercentage && renderHeaderCell('applied_percentage', 'Applied %')}
-                      {effectiveCols.reason && renderHeaderCell('reason', 'Reason')}
-                      {effectiveCols.comment && renderHeaderCell('comment', 'Comment')}
-                      {effectiveCols.commission && renderHeaderCell('commission', 'Commission')}
+                          {effectiveCols.time && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('timeUpdate', 'Time', 'timeUpdate')}</th>}
+                          {effectiveCols.login && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('login', 'Login')}</th>}
+                          {effectiveCols.position && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('position', 'Position')}</th>}
+                          {effectiveCols.symbol && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('symbol', 'Symbol')}</th>}
+                          {effectiveCols.action && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('action', 'Action')}</th>}
+                          {effectiveCols.volume && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}</th>}
+                          {effectiveCols.volumePercentage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('volume', 'Volume %')}</th>}
+                          {effectiveCols.priceOpen && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('priceOpen', 'Open')}</th>}
+                          {effectiveCols.priceCurrent && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('priceCurrent', 'Current')}</th>}
+                          {effectiveCols.sl && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('priceSL', 'S/L')}</th>}
+                          {effectiveCols.tp && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('priceTP', 'T/P')}</th>}
+                          {effectiveCols.profit && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}</th>}
+                          {effectiveCols.profitPercentage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('percentage', 'Profit %')}</th>}
+                          {effectiveCols.storage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}</th>}
+                          {effectiveCols.storagePercentage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('storage', 'Storage %')}</th>}
+                          {effectiveCols.appliedPercentage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('applied_percentage', 'Applied %')}</th>}
+                          {effectiveCols.reason && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('reason', 'Reason')}</th>}
+                          {effectiveCols.comment && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('comment', 'Comment')}</th>}
+                          {effectiveCols.commission && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('commission', 'Commission')}</th>}
                           </>
                         )
                       })()}
@@ -4001,13 +4001,13 @@ const PositionsPage = () => {
                       const effectiveCols = getEffectiveVisibleColumns()
                       const rowClass = 'hover:bg-blue-50'
                       return (
-                        <tr key={p.position} className={`${rowClass} transition-all duration-300`}>
+                        <tr key={p.position} className={`${rowClass} transition-all duration-300 divide-x divide-gray-200`}>
                           {effectiveCols.time && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">{formatTime(p.timeUpdate || p.timeCreate)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{formatTime(p.timeUpdate || p.timeCreate)}</td>
                           )}
                           {effectiveCols.login && (
                             <td 
-                              className="px-2 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap cursor-pointer hover:underline"
+                              className="px-2 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap cursor-pointer hover:underline border-r border-gray-200 last:border-r-0"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setSelectedLogin(p.login)
@@ -4018,42 +4018,42 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.position && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">{p.position}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.position}</td>
                           )}
                           {effectiveCols.symbol && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">{p.symbol}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.symbol}</td>
                           )}
                           {effectiveCols.action && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap">
+                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0">
                               <span className={`px-1.5 py-0.5 rounded text-[12px] font-semibold ${getActionChipClasses(p.action)}`}>
                                 {getActionLabel(p.action)}
                               </span>
                             </td>
                           )}
                           {effectiveCols.volume && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(adjustValueForSymbol(p.volume, p.symbol), 2)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(adjustValueForSymbol(p.volume, p.symbol), 2)}</td>
                           )}
                           {effectiveCols.volumePercentage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
                               {(p.volume != null && p.volume !== '') ? formatNumber(p.volume, 2) : '-'}
                             </td>
                           )}
                           {effectiveCols.priceOpen && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(p.priceOpen, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(p.priceOpen, 5)}</td>
                           )}
                           {effectiveCols.priceCurrent && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
                               {formatNumber(p.priceCurrent, 5)}
                             </td>
                           )}
                           {effectiveCols.sl && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(p.priceSL, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(p.priceSL, 5)}</td>
                           )}
                           {effectiveCols.tp && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(p.priceTP, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(p.priceTP, 5)}</td>
                           )}
                           {effectiveCols.profit && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap">
+                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0">
                               <span className={`px-2 py-0.5 text-xs font-medium rounded transition-all duration-300 ${
                                 (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
@@ -4062,7 +4062,7 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.profitPercentage && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap">
+                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0">
                               <span className={`px-2 py-0.5 text-xs font-medium rounded ${
                                 (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
@@ -4071,20 +4071,20 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.storage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(adjustValueForSymbol(p.storage, p.symbol, true), 2)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(adjustValueForSymbol(p.storage, p.symbol, true), 2)}</td>
                           )}
                           {effectiveCols.storagePercentage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
                               {(p.storage != null && p.storage !== '') ? formatNumber(p.storage, 2) : '-'}
                             </td>
                           )}
                           {effectiveCols.appliedPercentage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
                               {(p.applied_percentage != null && p.applied_percentage !== '') ? `${formatNumber(p.applied_percentage, 2)}%` : '-'}
                             </td>
                           )}
                           {effectiveCols.reason && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">
                               <span className={`px-2 py-0.5 text-xs rounded ${
                                 p.reason === 'DEALER' ? 'bg-blue-100 text-blue-800' :
                                 p.reason === 'EXPERT' ? 'bg-purple-100 text-purple-800' :
@@ -4095,12 +4095,12 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.comment && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 max-w-xs truncate" title={p.comment}>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 max-w-xs truncate border-r border-gray-200 last:border-r-0" title={p.comment}>
                               {p.comment || '-'}
                             </td>
                           )}
                           {effectiveCols.commission && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(adjustValueForSymbol(p.commission, p.symbol, true), 2)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(adjustValueForSymbol(p.commission, p.symbol, true), 2)}</td>
                           )}
                         </tr>
                       )
