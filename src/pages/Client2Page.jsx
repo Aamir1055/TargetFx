@@ -4426,10 +4426,12 @@ const Client2Page = () => {
                 `}</style>
 
                   {/* Table */}
-                  <table ref={tableRef} className="divide-y divide-slate-200" style={{
+                  <table ref={tableRef} className="border-separate" style={{
                     tableLayout: 'fixed',
                     width: `${totalTableWidth}px`,
-                    minWidth: '100%'
+                    minWidth: '100%',
+                    borderSpacing: 0,
+                    borderCollapse: 'separate'
                   }}>
                     <colgroup>
                       {visibleColumnsList.map(col => (
@@ -4447,7 +4449,7 @@ const Client2Page = () => {
                             <th
                               key={col.key}
                               ref={(el) => { if (!headerRefs.current) headerRefs.current = {}; headerRefs.current[col.key] = el }}
-                              className={`px-2 py-2 text-left text-xs font-bold text-white uppercase tracking-wider bg-blue-600 hover:bg-blue-700 transition-all select-none relative ${isDragging ? 'opacity-50' : ''
+                              className={`px-2 py-2 text-left text-xs font-bold text-white uppercase tracking-wider bg-blue-600 hover:bg-blue-700 transition-all select-none relative border-r border-slate-200 ${isDragging ? 'opacity-50' : ''
                                 } ${isDragOver ? 'border-l-4 border-yellow-400' : ''} ${isResizing ? 'bg-blue-700 ring-2 ring-yellow-400' : ''}`}
                               onDragOver={(e) => handleColumnDragOver(e, col.key)}
                               onDragLeave={handleColumnDragLeave}
@@ -4458,6 +4460,7 @@ const Client2Page = () => {
                                 backgroundColor: '#2563eb',
                                 position: 'sticky',
                                 top: 0,
+                                borderRight: '1px solid #e5e7eb',
                                 ...(col.key === 'login' && { left: 0, zIndex: 51, paddingLeft: '4px' })
                               }}
                             >
@@ -5334,7 +5337,7 @@ const Client2Page = () => {
                       </thead>
                     )}
 
-                    <tbody className="bg-white divide-y divide-slate-100 text-sm md:text-[15px]" key={`tbody-${animationKey}`}>
+                    <tbody className="bg-white text-sm md:text-[15px]" key={`tbody-${animationKey}`}>
                       {(loading || initialLoad || isRefreshing || isPageChanging) ? (
                         Array.from({ length: 8 }, (_, i) => (
                           <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
@@ -5370,6 +5373,7 @@ const Client2Page = () => {
                         <tr
                           key={`${client.login}-${animationKey}-${idx}`}
                           className={`hover:bg-blue-50 hover:shadow-sm transition-all duration-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}
+                          style={{ borderBottom: '2px solid #cbd5e1' }}
                         >
                           {visibleColumnsList.map(col => {
                             // In percentage mode, use _percentage fields
@@ -5429,12 +5433,13 @@ const Client2Page = () => {
                             return (
                               <td
                                 key={col.key}
-                                className={`px-2 py-1.5 text-sm md:text-[15px] ${getValueColorClass(col.key, rawValue) || 'text-gray-700'}`}
+                                className={`px-2 py-1.5 text-sm md:text-[15px] border-r border-slate-200 ${getValueColorClass(col.key, rawValue) || 'text-gray-700'}`}
                                 data-col={col.key}
                                 style={{
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
+                                  whiteSpace: 'nowrap',
+                                  borderRight: '1px solid #e5e7eb'
                                 }}
                                 title={cellValue}
                               >
