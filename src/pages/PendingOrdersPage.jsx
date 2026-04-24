@@ -1445,9 +1445,9 @@ const PendingOrdersPage = () => {
             </div>
 
             <div className="overflow-y-auto flex-1">
-              <table className="w-full divide-y divide-gray-200">
+              <table className="w-full">
                   <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
-                    <tr>
+                    <tr className="divide-x divide-blue-400">
                       {visibleColumns.time && renderHeaderCell('timeSetup', 'Time', 'timeSetup')}
                       {visibleColumns.login && renderHeaderCell('login', 'Login')}
                       {visibleColumns.order && renderHeaderCell('order', 'Order')}
@@ -1461,7 +1461,7 @@ const PendingOrdersPage = () => {
                       {visibleColumns.tp && renderHeaderCell('priceTP', 'TP', 'tp')}
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
+                  <tbody className="bg-white">
                     {isPageLoading ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1] border-l-2 border-l-[#E1E1E1]">

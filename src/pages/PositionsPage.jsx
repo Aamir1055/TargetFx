@@ -2984,7 +2984,7 @@ const PositionsPage = () => {
                       <p className="text-gray-500 text-sm">No NET positions available</p>
                     </div>
                   ) : (
-                    <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1200px' }}>
+                    <table className="w-full" style={{ minWidth: '1200px' }}>
                       <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
                         <tr>
                           {netVisibleColumns.symbol && (
@@ -3215,7 +3215,7 @@ const PositionsPage = () => {
                         </thead>
                       )}
 
-                      <tbody className="bg-white divide-y divide-gray-100 text-sm">
+                      <tbody className="bg-white text-sm">
                         {netDisplayedPositions.map((netPos, idx) => (
                           <Fragment key={netPos.symbol || idx}>
                           <tr className="hover:bg-blue-50 transition-all duration-300">
@@ -3563,7 +3563,7 @@ const PositionsPage = () => {
                       <p className="text-gray-500 text-sm">No Client NET data</p>
                     </div>
                   ) : (<>
-                    <table className="w-full divide-y divide-gray-200">
+                    <table className="w-full">
                       <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 30, backgroundColor: '#2563eb' }}>
                         <tr>
                           {clientNetVisibleColumns.login && (
@@ -3728,7 +3728,7 @@ const PositionsPage = () => {
                         </thead>
                       )}
 
-                      <tbody className="bg-white divide-y divide-gray-100 text-sm">
+                      <tbody className="bg-white text-sm">
                         {clientNetDisplayedPositions.map((row, idx) => {
                           const key = `${row.login}|${row.symbol}`
                           return (
@@ -3921,7 +3921,7 @@ const PositionsPage = () => {
               scrollbarColor: '#CBD5E0 #F7FAFC',
               maxHeight: '55vh'
             }}>
-              <table className="w-full divide-y divide-gray-200 border border-gray-200">
+              <table className="w-full border border-gray-200">
                   <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
                     <tr className="divide-x divide-gray-200">
                       {(() => {
@@ -3978,7 +3978,7 @@ const PositionsPage = () => {
                     </thead>
                   )}
 
-                  <tbody className="bg-white divide-y divide-gray-100">
+                  <tbody className="bg-white">
                     {isPageLoading ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">

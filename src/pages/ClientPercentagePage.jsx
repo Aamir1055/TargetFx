@@ -1407,7 +1407,7 @@ const ClientPercentagePage = () => {
               <div className="overflow-y-auto flex-1">
                 <table className="min-w-full divide-y text-xs border-separate border-spacing-0" style={{ borderCollapse: 'separate', borderColor: '#e5e7eb' }}>
                 <thead className="bg-blue-600 sticky top-0 z-10" style={{ backgroundColor: '#2563eb' }}>
-                  <tr>
+                  <tr className="divide-x divide-blue-400">
                     {visibleColumns.login && renderHeaderCell('client_login', 'Client Login', 'client_login')}
                     {visibleColumns.percentage && renderHeaderCell('percentage', 'Percentage')}
                     {visibleColumns.type && renderHeaderCell('is_custom', 'Type', 'is_custom')}

@@ -2178,7 +2178,7 @@ const LiveDealingPage = () => {
               `}</style>
               <table className="min-w-full divide-y text-xs border-separate border-spacing-0" style={{ borderCollapse: 'separate', borderColor: '#888888' }}>
               <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
-                <tr>
+                <tr className="divide-x divide-blue-400">
                   {visibleColumns.time && renderHeaderCell('time', 'Time')}
                   {visibleColumns.deal && renderHeaderCell('deal', 'Deal')}
                   {visibleColumns.login && renderHeaderCell('login', 'Login')}
