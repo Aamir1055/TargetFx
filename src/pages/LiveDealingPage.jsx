@@ -2248,6 +2248,7 @@ const LiveDealingPage = () => {
                     <tr 
                       key={deal.id} 
                       className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${newDealIds.has(deal.id) ? 'new-deal-blink' : ''}`}
+                      style={{ borderLeft: '3px solid #e5e7eb' }}
                     >
                       {visibleColumns.time && (
                         <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
