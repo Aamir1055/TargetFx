@@ -4655,109 +4655,62 @@ const Client2Page = () => {
                                                 </button>
                                               </div>
 
-                                              {/* Number Filter Operators */}
+                                              {/* Number Filter Condition/Operator - Stacked Vertically */}
                                               <div className="px-3 py-2 border-b border-gray-200">
-                                                <button
-                                                  onClick={() => {
-                                                    const btn = document.getElementById(`number-filter-btn-${columnKey}`)
-                                                    const menu = document.getElementById(`number-filter-menu-${columnKey}`)
-                                                    if (menu) {
-                                                      menu.classList.toggle('hidden')
-                                                    }
-                                                  }}
-                                                  id={`number-filter-btn-${col.key}`}
-                                                  className={`w-full flex items-center justify-between px-2 py-1.5 text-xs rounded border ${hasNumberFilter ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'} hover:bg-gray-100`}
-                                                >
-                                                  <span className="text-gray-700 font-medium">Number Filters</span>
-                                                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                  </svg>
-                                                </button>
-
-                                                {/* Number Filter Submenu */}
-                                                <div
-                                                  id={`number-filter-menu-${columnKey}`}
-                                                  className="hidden mt-2 bg-gray-50 border border-gray-300 rounded-md p-3"
-                                                  onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <div className="p-3 space-y-3">
-                                                      {/* Operator Dropdown */}
-                                                      <div>
-                                                        <label className="block text-xs font-medium text-gray-700 mb-1">CONDITION</label>
-                                                        <select
-                                                          value={tempFilter.operator}
-                                                          onChange={(e) => updateNumericFilterTemp(columnKey, 'operator', e.target.value)}
-                                                          className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
-                                                        >
-                                                          <option value="equal">Equal...</option>
-                                                          <option value="not_equal">Not Equal...</option>
-                                                          <option value="less_than">Less Than...</option>
-                                                          <option value="less_than_equal">Less Than Or Equal...</option>
-                                                          <option value="greater_than">Greater Than...</option>
-                                                          <option value="greater_than_equal">Greater Than Or Equal...</option>
-                                                          <option value="between">Between...</option>
-                                                        </select>
-                                                      </div>
-
-                                                      {/* Value Input(s) */}
-                                                      <div>
-                                                        <label className="block text-xs font-medium text-gray-700 mb-1">VALUE</label>
-                                                        <input
-                                                          type="number"
-                                                          step="any"
-                                                          placeholder="Enter value"
-                                                          value={tempFilter.value1}
-                                                          onChange={(e) => updateNumericFilterTemp(columnKey, 'value1', e.target.value)}
-                                                          onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                              e.preventDefault()
-                                                              applyNumberFilter(columnKey)
-                                                              const menu = document.getElementById(`number-filter-menu-${columnKey}`)
-                                                              if (menu) menu.classList.add('hidden')
-                                                            }
-                                                          }}
-                                                          className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
-                                                        />
-                                                      </div>
-
-                                                      {/* Second Value for Between */}
-                                                      {tempFilter.operator === 'between' && (
-                                                        <div>
-                                                          <label className="block text-xs font-medium text-gray-700 mb-1">AND</label>
-                                                          <input
-                                                            type="number"
-                                                            step="any"
-                                                            placeholder="Enter value"
-                                                            value={tempFilter.value2}
-                                                            onChange={(e) => updateNumericFilterTemp(columnKey, 'value2', e.target.value)}
-                                                            onKeyDown={(e) => {
-                                                              if (e.key === 'Enter') {
-                                                                e.preventDefault()
-                                                                applyNumberFilter(columnKey)
-                                                                const menu = document.getElementById(`number-filter-menu-${columnKey}`)
-                                                                if (menu) menu.classList.add('hidden')
-                                                              }
-                                                            }}
-                                                            className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
-                                                          />
-                                                        </div>
-                                                      )}
-
-                                                      {/* Apply Button */}
-                                                      <div className="flex gap-2 pt-2 border-t border-gray-200">
-                                                        <button
-                                                          onClick={() => {
-                                                            applyNumberFilter(columnKey)
-                                                            const menu = document.getElementById(`number-filter-menu-${columnKey}`)
-                                                            if (menu) menu.classList.add('hidden')
-                                                          }}
-                                                          className="w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
-                                                        >
-                                                          OK
-                                                        </button>
-                                                      </div>
-                                                    </div>
+                                                <div className="mb-2">
+                                                  <label className="block text-xs font-medium text-gray-700 mb-1">CONDITION</label>
+                                                  <select
+                                                    value={tempFilter.operator}
+                                                    onChange={(e) => updateNumericFilterTemp(columnKey, 'operator', e.target.value)}
+                                                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                                                  >
+                                                    <option value="equal">Equal...</option>
+                                                    <option value="not_equal">Not Equal...</option>
+                                                    <option value="less_than">Less Than...</option>
+                                                    <option value="less_than_equal">Less Than Or Equal...</option>
+                                                    <option value="greater_than">Greater Than...</option>
+                                                    <option value="greater_than_equal">Greater Than Or Equal...</option>
+                                                    <option value="between">Between...</option>
+                                                  </select>
+                                                </div>
+                                                <div className="mb-2">
+                                                  <label className="block text-xs font-medium text-gray-700 mb-1">VALUE</label>
+                                                  <input
+                                                    type="number"
+                                                    step="any"
+                                                    placeholder="Enter value"
+                                                    value={tempFilter.value1}
+                                                    onChange={(e) => updateNumericFilterTemp(columnKey, 'value1', e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Enter') {
+                                                        e.preventDefault()
+                                                        applyNumberFilter(columnKey)
+                                                        setShowFilterDropdown(null)
+                                                      }
+                                                    }}
+                                                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                                                  />
+                                                </div>
+                                                {tempFilter.operator === 'between' && (
+                                                  <div className="mb-2">
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">AND</label>
+                                                    <input
+                                                      type="number"
+                                                      step="any"
+                                                      placeholder="Enter value"
+                                                      value={tempFilter.value2}
+                                                      onChange={(e) => updateNumericFilterTemp(columnKey, 'value2', e.target.value)}
+                                                      onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                          e.preventDefault()
+                                                          applyNumberFilter(columnKey)
+                                                          setShowFilterDropdown(null)
+                                                        }
+                                                      }}
+                                                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                                                    />
                                                   </div>
+                                                )}
                                               </div>
 
                                               {/* Checkbox Value List - Also for numeric columns */}
