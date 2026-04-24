@@ -1047,7 +1047,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       'balance': 'Balance',
       'credit': 'Credit',
       'deposit': 'Deposit',
-      'withdrawal': 'Withdrawal'
+      'withdrawal': 'Withdrawal',
+      'agent': 'Agent',
+      'agent daily': 'Agent Daily',
+      'agent monthly': 'Agent Monthly'
     }
     
     // Try lowercase string match if numeric doesn't work
@@ -3645,7 +3648,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
           {activeTab === 'deals' && displayedDeals.length > 0 && (
             (() => {
-              const totalDeals = displayedDeals.length
+              const totalDeals = totalDealsCount || displayedDeals.length
               const totalVolume = displayedDeals.reduce((sum, d) => sum + (d.volume || 0), 0)
               const totalCommission = displayedDeals.reduce((sum, d) => sum + (d.commission || 0), 0)
               const totalProfit = displayedDeals.reduce((sum, d) => sum + (d.profit || 0), 0)

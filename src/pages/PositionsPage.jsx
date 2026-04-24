@@ -1747,7 +1747,7 @@ const PositionsPage = () => {
     const actualSortKey = sortKey || columnKey
     
     return (
-      <th className="px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider transition-all select-none group">
+      <th className="px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider transition-all select-none group border-r border-gray-200 last:border-r-0">
         <div className="flex items-center gap-1 justify-between">
           <div 
             className="flex items-center gap-1 cursor-pointer flex-1 text-white"
@@ -3928,25 +3928,25 @@ const PositionsPage = () => {
                         const effectiveCols = getEffectiveVisibleColumns()
                         return (
                           <>
-                          {effectiveCols.time && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('timeUpdate', 'Time', 'timeUpdate')}</th>}
-                          {effectiveCols.login && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('login', 'Login')}</th>}
-                          {effectiveCols.position && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('position', 'Position')}</th>}
-                          {effectiveCols.symbol && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('symbol', 'Symbol')}</th>}
-                          {effectiveCols.action && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('action', 'Action')}</th>}
-                          {effectiveCols.volume && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}</th>}
-                          {effectiveCols.volumePercentage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('volume', 'Volume %')}</th>}
-                          {effectiveCols.priceOpen && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('priceOpen', 'Open')}</th>}
-                          {effectiveCols.priceCurrent && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('priceCurrent', 'Current')}</th>}
-                          {effectiveCols.sl && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('priceSL', 'S/L')}</th>}
-                          {effectiveCols.tp && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('priceTP', 'T/P')}</th>}
-                          {effectiveCols.profit && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}</th>}
-                          {effectiveCols.profitPercentage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('percentage', 'Profit %')}</th>}
-                          {effectiveCols.storage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}</th>}
-                          {effectiveCols.storagePercentage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('storage', 'Storage %')}</th>}
-                          {effectiveCols.appliedPercentage && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('applied_percentage', 'Applied %')}</th>}
-                          {effectiveCols.reason && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('reason', 'Reason')}</th>}
-                          {effectiveCols.comment && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('comment', 'Comment')}</th>}
-                          {effectiveCols.commission && <th className="border-r border-gray-200 last:border-r-0">{renderHeaderCell('commission', 'Commission')}</th>}
+                          {effectiveCols.time && renderHeaderCell('timeUpdate', 'Time', 'timeUpdate')}
+                          {effectiveCols.login && renderHeaderCell('login', 'Login')}
+                          {effectiveCols.position && renderHeaderCell('position', 'Position')}
+                          {effectiveCols.symbol && renderHeaderCell('symbol', 'Symbol')}
+                          {effectiveCols.action && renderHeaderCell('action', 'Action')}
+                          {effectiveCols.volume && renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}
+                          {effectiveCols.volumePercentage && renderHeaderCell('volume', 'Volume %')}
+                          {effectiveCols.priceOpen && renderHeaderCell('priceOpen', 'Open')}
+                          {effectiveCols.priceCurrent && renderHeaderCell('priceCurrent', 'Current')}
+                          {effectiveCols.sl && renderHeaderCell('priceSL', 'S/L')}
+                          {effectiveCols.tp && renderHeaderCell('priceTP', 'T/P')}
+                          {effectiveCols.profit && renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}
+                          {effectiveCols.profitPercentage && renderHeaderCell('percentage', 'Profit %')}
+                          {effectiveCols.storage && renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}
+                          {effectiveCols.storagePercentage && renderHeaderCell('storage', 'Storage %')}
+                          {effectiveCols.appliedPercentage && renderHeaderCell('applied_percentage', 'Applied %')}
+                          {effectiveCols.reason && renderHeaderCell('reason', 'Reason')}
+                          {effectiveCols.comment && renderHeaderCell('comment', 'Comment')}
+                          {effectiveCols.commission && renderHeaderCell('commission', 'Commission')}
                           </>
                         )
                       })()}
