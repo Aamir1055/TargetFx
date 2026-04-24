@@ -54,6 +54,7 @@ const ClientPercentagePage = () => {
   const columnSelectorRef = useRef(null)
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
+    clientName: true,
     percentage: true,
     type: true,
     comment: true,
@@ -63,10 +64,11 @@ const ClientPercentagePage = () => {
 
   const allColumns = [
     { key: 'login', label: 'Client Login', sticky: true },
+    { key: 'clientName', label: 'Client Name' },
     { key: 'percentage', label: 'Percentage' },
     { key: 'type', label: 'Type' },
     { key: 'comment', label: 'Comment' },
-    { key: 'updatedAt', label: 'Last Updated' }, // moved before Actions
+    { key: 'updatedAt', label: 'Last Updated' },
     { key: 'actions', label: 'Actions' },
   ]
 
@@ -1558,6 +1560,11 @@ const ClientPercentagePage = () => {
                       />
                     </th>
                     {visibleColumns.login && renderHeaderCell('client_login', 'Client Login', 'client_login')}
+                    {visibleColumns.clientName && (
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb', minWidth: '120px', maxWidth: '180px', width: '150px' }}>
+                        Client Name
+                      </th>
+                    )}
                     {visibleColumns.percentage && renderHeaderCell('percentage', 'Percentage')}
                     {visibleColumns.type && renderHeaderCell('is_custom', 'Type', 'is_custom')}
                     {visibleColumns.comment && (
@@ -1653,6 +1660,11 @@ const ClientPercentagePage = () => {
                           title="Click to view login details"
                         >
                           {client.client_login}
+                        </td>
+                      )}
+                      {visibleColumns.clientName && (
+                        <td className="px-4 py-3 text-sm text-gray-700 break-words" style={{ borderRight: '1px solid #e5e7eb', minWidth: '120px', maxWidth: '180px', width: '150px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                          {client.client_name || '-'}
                         </td>
                       )}
                       {visibleColumns.percentage && (
