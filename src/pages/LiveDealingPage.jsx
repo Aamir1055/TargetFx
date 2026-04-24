@@ -105,11 +105,6 @@ const LiveDealingPage = () => {
       profit: true,
       commission: true,
       storage: true,
-      appliedPercentage: true,
-      volumePercentage: true,
-      profitPercentage: true,
-      commissionPercentage: true,
-      storagePercentage: true,
       entry: true,
       order: false,
       position: false,
@@ -142,11 +137,6 @@ const LiveDealingPage = () => {
     { key: 'profit', label: 'Profit' },
     { key: 'commission', label: 'Commission' },
     { key: 'storage', label: 'Storage' },
-    { key: 'appliedPercentage', label: 'Applied %' },
-    { key: 'volumePercentage', label: 'Volume %' },
-    { key: 'profitPercentage', label: 'Profit %' },
-    { key: 'commissionPercentage', label: 'Commission %' },
-    { key: 'storagePercentage', label: 'Storage %' },
     { key: 'entry', label: 'Entry' },
     { key: 'order', label: 'Order' },
     { key: 'position', label: 'Position' },
@@ -2187,7 +2177,7 @@ const LiveDealingPage = () => {
                   animation: dealFadeOut 6s ease-out forwards !important;
                 }
               `}</style>
-              <table className="min-w-full divide-y divide-gray-200 text-xs">
+              <table className="min-w-full divide-y divide-gray-200 text-xs border-separate border-spacing-0" style={{ borderCollapse: 'separate' }}>
               <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
                 <tr>
                   {visibleColumns.time && renderHeaderCell('time', 'Time')}
@@ -2195,16 +2185,11 @@ const LiveDealingPage = () => {
                   {visibleColumns.login && renderHeaderCell('login', 'Login')}
                   {visibleColumns.action && renderHeaderCell('action', 'Action')}
                   {visibleColumns.symbol && renderHeaderCell('symbol', 'Symbol')}
-                  {visibleColumns.volume && (displayMode === 'value' || displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}
-                  {visibleColumns.volumePercentage && (displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('volumePercentage', 'Volume %')}
+                  {visibleColumns.volume && renderHeaderCell('volume', 'Volume')}
                   {visibleColumns.price && renderHeaderCell('price', 'Price')}
-                  {visibleColumns.profit && (displayMode === 'value' || displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}
-                  {visibleColumns.profitPercentage && (displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('profitPercentage', 'Profit %')}
-                  {visibleColumns.commission && (displayMode === 'value' || displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('commission', displayMode === 'percentage' ? 'Commission %' : 'Commission')}
-                  {visibleColumns.commissionPercentage && (displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('commissionPercentage', 'Commission %')}
-                  {visibleColumns.storage && (displayMode === 'value' || displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}
-                  {visibleColumns.storagePercentage && (displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('storagePercentage', 'Storage %')}
-                  {visibleColumns.appliedPercentage && (displayMode === 'percentage' || displayMode === 'both') && renderHeaderCell('appliedPercentage', 'Applied %')}
+                  {visibleColumns.profit && renderHeaderCell('profit', 'Profit')}
+                  {visibleColumns.commission && renderHeaderCell('commission', 'Commission')}
+                  {visibleColumns.storage && renderHeaderCell('storage', 'Storage')}
                   {visibleColumns.entry && renderHeaderCell('entry', 'Entry')}
                   {visibleColumns.order && renderHeaderCell('order', 'Order')}
                   {visibleColumns.position && renderHeaderCell('position', 'Position')}
@@ -2265,18 +2250,19 @@ const LiveDealingPage = () => {
                       className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${newDealIds.has(deal.id) ? 'new-deal-blink' : ''}`}
                     >
                       {visibleColumns.time && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {formatTime(deal.time)}
                         </td>
                       )}
                       {visibleColumns.deal && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {deal.rawData?.deal || deal.id}
                         </td>
                       )}
                       {visibleColumns.login && (
                         <td 
                           className="px-3 py-2.5 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                          style={{ borderRight: '1px solid #e5e7eb' }}
                           onClick={(e) => {
                             e.stopPropagation()
                             setSelectedLogin(deal.login)
@@ -2287,7 +2273,7 @@ const LiveDealingPage = () => {
                         </td>
                       )}
                       {visibleColumns.action && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                             deal.rawData?.action === 'BUY' 
                               ? 'bg-green-100 text-green-800' 
@@ -2298,94 +2284,49 @@ const LiveDealingPage = () => {
                         </td>
                       )}
                       {visibleColumns.symbol && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {deal.rawData?.symbol || '-'}
                         </td>
                       )}
-                      {visibleColumns.volume && (displayMode === 'value' || displayMode === 'percentage' || displayMode === 'both') && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {displayMode === 'percentage'
-                            ? (deal.rawData?.volume_percentage != null
-                                ? formatIndianNumber(deal.rawData.volume_percentage, 2)
-                                : '0.00')
-                            : formatIndianNumber(deal.rawData?.volume, 2)}
-                        </td>
-                      )}
-                      {visibleColumns.volumePercentage && (displayMode === 'percentage' || displayMode === 'both') && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {deal.rawData?.volume_percentage != null ? formatIndianNumber(deal.rawData.volume_percentage, 2) : '0.00'}
+                      {visibleColumns.volume && (
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
+                          {formatIndianNumber(deal.rawData?.volume, 2)}
                         </td>
                       )}
                       {visibleColumns.price && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {formatIndianNumber(deal.rawData?.price, 5)}
                         </td>
                       )}
-                      {visibleColumns.profit && (displayMode === 'value' || displayMode === 'percentage' || displayMode === 'both') && (
+                      {visibleColumns.profit && (
                         <td className={`px-3 py-2.5 whitespace-nowrap text-sm ${
                           (deal.rawData?.profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {displayMode === 'percentage'
-                            ? (deal.rawData?.profit_percentage != null
-                                ? formatIndianNumber(deal.rawData.profit_percentage, 2)
-                                : '0.00')
-                            : formatIndianNumber(deal.rawData?.profit, 2)}
+                        }`} style={{ borderRight: '1px solid #e5e7eb' }}>
+                          {formatIndianNumber(deal.rawData?.profit, 2)}
                         </td>
                       )}
-                      {visibleColumns.profitPercentage && (displayMode === 'percentage' || displayMode === 'both') && (
-                        <td className={`px-3 py-2.5 whitespace-nowrap text-sm ${
-                          (deal.rawData?.profit_percentage || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {deal.rawData?.profit_percentage != null ? formatIndianNumber(deal.rawData.profit_percentage, 2) : '0.00'}
+                      {visibleColumns.commission && (
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
+                          {formatIndianNumber(deal.rawData?.commission, 2)}
                         </td>
                       )}
-                      {visibleColumns.commission && (displayMode === 'value' || displayMode === 'percentage' || displayMode === 'both') && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {displayMode === 'percentage'
-                            ? (deal.rawData?.commission_percentage != null
-                                ? formatIndianNumber(deal.rawData.commission_percentage, 2)
-                                : '0.00')
-                            : formatIndianNumber(deal.rawData?.commission, 2)}
-                        </td>
-                      )}
-                      {visibleColumns.commissionPercentage && (displayMode === 'percentage' || displayMode === 'both') && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {deal.rawData?.commission_percentage != null ? formatIndianNumber(deal.rawData.commission_percentage, 2) : '0.00'}
-                        </td>
-                      )}
-                      {visibleColumns.storage && (displayMode === 'value' || displayMode === 'percentage' || displayMode === 'both') && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {displayMode === 'percentage'
-                            ? (deal.rawData?.storage_percentage != null
-                                ? formatIndianNumber(deal.rawData.storage_percentage, 2)
-                                : '0.00')
-                            : formatIndianNumber(deal.rawData?.storage, 2)}
-                        </td>
-                      )}
-                      {visibleColumns.storagePercentage && (displayMode === 'percentage' || displayMode === 'both') && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {deal.rawData?.storage_percentage != null ? formatIndianNumber(deal.rawData.storage_percentage, 2) : '0.00'}
-                        </td>
-                      )}
-                      {visibleColumns.appliedPercentage && (displayMode === 'percentage' || displayMode === 'both') && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          <span className={deal.rawData?.applied_percentage_is_custom ? 'text-blue-600 font-semibold' : ''}>
-                            {deal.rawData?.applied_percentage != null ? formatIndianNumber(deal.rawData.applied_percentage, 1) : '0.0'}
-                          </span>
+                      {visibleColumns.storage && (
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
+                          {formatIndianNumber(deal.rawData?.storage, 2)}
                         </td>
                       )}
                       {visibleColumns.entry && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {deal.rawData?.entry || 0}
                         </td>
                       )}
                       {visibleColumns.order && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {deal.rawData?.order || '-'}
                         </td>
                       )}
                       {visibleColumns.position && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {deal.rawData?.position || '-'}
                         </td>
                       )}
