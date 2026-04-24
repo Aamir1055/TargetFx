@@ -1927,228 +1927,142 @@ const PositionsPage = () => {
                   </button>
                 </div>
 
-                {/* Number Filters (only for numeric columns) */}
-                {!isStringColumn(columnKey) && (
-                <div className="border-b border-slate-200 py-1" style={{ overflow: 'visible' }}>
-                  <div className="px-2 py-1 relative group text-[11px]" style={{ overflow: 'visible' }}>
-                    <button
-                      ref={el => {
-                        if (!numberFilterButtonRefs.current) numberFilterButtonRefs.current = {}
-                        numberFilterButtonRefs.current[columnKey] = el
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (showNumberFilterDropdown === columnKey) {
-                          setShowNumberFilterDropdown(null)
-                        } else {
-                          setShowNumberFilterDropdown(columnKey)
-                          setCustomFilterColumn(columnKey)
-                          // Restore existing filter values if any
-                          const existing = columnFilters[`${columnKey}_number`]
-                          if (existing) {
-                            setCustomFilterType(existing.type || 'equal')
-                            setCustomFilterValue1(existing.value1 != null ? String(existing.value1) : '')
-                            setCustomFilterValue2(existing.value2 != null ? String(existing.value2) : '')
+                {/* CONDITION and VALUE for all columns (always visible, stacked vertically) */}
+                <div className="border-b border-slate-200 py-1 px-3">
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">CONDITION</label>
+                    <select
+                      value={customFilterType}
+                      onChange={(e) => setCustomFilterType(e.target.value)}
+                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                    >
+                      {/* Numeric column operators */}
+                      {!isStringColumn(columnKey) ? (
+                        <>
+                          <option value="equal">Equal...</option>
+                          <option value="notEqual">Not Equal...</option>
+                          <option value="lessThan">Less Than...</option>
+                          <option value="lessThanOrEqual">Less Than Or Equal...</option>
+                          <option value="greaterThan">Greater Than...</option>
+                          <option value="greaterThanOrEqual">Greater Than Or Equal...</option>
+                          <option value="between">Between...</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="equal">Equal...</option>
+                          <option value="notEqual">Not Equal...</option>
+                          <option value="startsWith">Starts With...</option>
+                          <option value="endsWith">Ends With...</option>
+                          <option value="contains">Contains...</option>
+                          <option value="doesNotContain">Does Not Contain...</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">VALUE</label>
+                    <input
+                      type={!isStringColumn(columnKey) && columnKey === 'timeUpdate' ? 'datetime-local' : (isStringColumn(columnKey) ? 'text' : 'number')}
+                      step={!isStringColumn(columnKey) && columnKey === 'timeUpdate' ? '1' : 'any'}
+                      placeholder={!isStringColumn(columnKey) && columnKey === 'timeUpdate' ? 'Select date and time' : 'Enter value'}
+                      value={!isStringColumn(columnKey) && columnKey === 'timeUpdate' && customFilterValue1 ? 
+                        (() => {
+                          const timestamp = Number(customFilterValue1)
+                          if (isNaN(timestamp)) return customFilterValue1
+                          const date = new Date(timestamp * 1000)
+                          const year = date.getFullYear()
+                          const month = String(date.getMonth() + 1).padStart(2, '0')
+                          const day = String(date.getDate()).padStart(2, '0')
+                          const hours = String(date.getHours()).padStart(2, '0')
+                          const minutes = String(date.getMinutes()).padStart(2, '0')
+                          const seconds = String(date.getSeconds()).padStart(2, '0')
+                          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+                        })() 
+                        : customFilterValue1
+                      }
+                      onChange={(e) => {
+                        if (!isStringColumn(columnKey) && columnKey === 'timeUpdate') {
+                          const dateValue = e.target.value
+                          if (dateValue) {
+                            const timestamp = Math.floor(new Date(dateValue).getTime() / 1000)
+                            setCustomFilterValue1(String(timestamp))
                           } else {
-                            setCustomFilterType('equal')
                             setCustomFilterValue1('')
-                            setCustomFilterValue2('')
                           }
+                        } else {
+                          setCustomFilterValue1(e.target.value)
                         }
                       }}
-                      className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 hover:border-slate-400 transition-all"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          if (customFilterType === 'between' && !customFilterValue2) return
+                          applyCustomNumberFilter()
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                      style={{ fontWeight: 400 }}
+                    />
+                  </div>
+                  {customFilterType === 'between' && !isStringColumn(columnKey) && (
+                    <div className="mb-2">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">AND</label>
+                      <input
+                        type={columnKey === 'timeUpdate' ? 'datetime-local' : 'number'}
+                        step={columnKey === 'timeUpdate' ? '1' : 'any'}
+                        placeholder={columnKey === 'timeUpdate' ? 'Select date and time' : 'Enter value'}
+                        value={columnKey === 'timeUpdate' && customFilterValue2 ? 
+                          (() => {
+                            const timestamp = Number(customFilterValue2)
+                            if (isNaN(timestamp)) return customFilterValue2
+                            const date = new Date(timestamp * 1000)
+                            const year = date.getFullYear()
+                            const month = String(date.getMonth() + 1).padStart(2, '0')
+                            const day = String(date.getDate()).padStart(2, '0')
+                            const hours = String(date.getHours()).padStart(2, '0')
+                            const minutes = String(date.getMinutes()).padStart(2, '0')
+                            const seconds = String(date.getSeconds()).padStart(2, '0')
+                            return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+                          })() 
+                          : customFilterValue2
+                        }
+                        onChange={(e) => {
+                          if (columnKey === 'timeUpdate') {
+                            const dateValue = e.target.value
+                            if (dateValue) {
+                              const timestamp = Math.floor(new Date(dateValue).getTime() / 1000)
+                              setCustomFilterValue2(String(timestamp))
+                            } else {
+                              setCustomFilterValue2('')
+                            }
+                          } else {
+                            setCustomFilterValue2(e.target.value)
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            if (!customFilterValue1 || !customFilterValue2) return
+                            applyCustomNumberFilter()
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                        style={{ fontWeight: 400 }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-2 border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        applyCustomNumberFilter()
+                      }}
+                      disabled={!customFilterValue1 || (customFilterType === 'between' && !customFilterValue2)}
+                      className="w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                      <span>Number Filters</span>
-                      <svg 
-                        className="w-3.5 h-3.5 text-slate-500 transition-transform" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24" 
-                        strokeWidth={2.5}
-                        style={{
-                          transform: (() => {
-                            const rect = numberFilterButtonRefs.current?.[columnKey]?.getBoundingClientRect()
-                            if (!rect) return 'none'
-                            const dropdownWidth = 256
-                            const offset = 8
-                            const wouldOverflow = rect.right + offset + dropdownWidth > window.innerWidth
-                            return wouldOverflow ? 'rotate(180deg)' : 'none'
-                          })()
-                        }}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
+                      OK
                     </button>
-
-                    {/* Custom Filter Form - Appears directly when clicking Number Filters */}
-                    {showNumberFilterDropdown === columnKey && (
-                      <div
-                        data-number-filter
-                        className="absolute top-0 w-64 bg-white border-2 border-gray-300 rounded-lg shadow-xl"
-                        style={{
-                          left: (() => {
-                            const rect = numberFilterButtonRefs.current?.[columnKey]?.getBoundingClientRect()
-                            if (!rect) return 'calc(100% + 8px)'
-                            const dropdownWidth = 256 // 16rem in pixels
-                            const offset = 8
-                            const wouldOverflow = rect.right + offset + dropdownWidth > window.innerWidth
-                            return wouldOverflow ? 'auto' : 'calc(100% + 8px)'
-                          })(),
-                          right: (() => {
-                            const rect = numberFilterButtonRefs.current?.[columnKey]?.getBoundingClientRect()
-                            if (!rect) return 'auto'
-                            const dropdownWidth = 256
-                            const offset = 8
-                            const wouldOverflow = rect.right + offset + dropdownWidth > window.innerWidth
-                            return wouldOverflow ? 'calc(100% + 8px)' : 'auto'
-                          })(),
-                          zIndex: 10000001
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="p-3 space-y-3">
-                          {/* Operator Dropdown */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">CONDITION</label>
-                            <select
-                              value={customFilterType}
-                              onChange={(e) => setCustomFilterType(e.target.value)}
-                              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
-                            >
-                              <option value="equal">Equal...</option>
-                              <option value="notEqual">Not Equal...</option>
-                              <option value="lessThan">Less Than...</option>
-                              <option value="lessThanOrEqual">Less Than Or Equal...</option>
-                              <option value="greaterThan">Greater Than...</option>
-                              <option value="greaterThanOrEqual">Greater Than Or Equal...</option>
-                              <option value="between">Between...</option>
-                            </select>
-                          </div>
-
-                          {/* Value Input(s) */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">VALUE</label>
-                            <input
-                              type={columnKey === 'timeUpdate' ? 'datetime-local' : 'number'}
-                              step={columnKey === 'timeUpdate' ? '1' : 'any'}
-                              placeholder={columnKey === 'timeUpdate' ? 'Select date and time' : 'Enter value'}
-                              value={columnKey === 'timeUpdate' && customFilterValue1 ? 
-                                (() => {
-                                  // Convert Unix timestamp to datetime-local format (YYYY-MM-DDTHH:mm:ss)
-                                  const timestamp = Number(customFilterValue1)
-                                  if (isNaN(timestamp)) return customFilterValue1
-                                  const date = new Date(timestamp * 1000) // Convert to milliseconds
-                                  const year = date.getFullYear()
-                                  const month = String(date.getMonth() + 1).padStart(2, '0')
-                                  const day = String(date.getDate()).padStart(2, '0')
-                                  const hours = String(date.getHours()).padStart(2, '0')
-                                  const minutes = String(date.getMinutes()).padStart(2, '0')
-                                  const seconds = String(date.getSeconds()).padStart(2, '0')
-                                  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
-                                })() 
-                                : customFilterValue1
-                              }
-                              onChange={(e) => {
-                                if (columnKey === 'timeUpdate') {
-                                  // Convert datetime-local to Unix timestamp
-                                  const dateValue = e.target.value
-                                  if (dateValue) {
-                                    const timestamp = Math.floor(new Date(dateValue).getTime() / 1000)
-                                    setCustomFilterValue1(String(timestamp))
-                                  } else {
-                                    setCustomFilterValue1('')
-                                  }
-                                } else {
-                                  setCustomFilterValue1(e.target.value)
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault()
-                                  if (customFilterType === 'between' && !customFilterValue2) return
-                                  applyCustomNumberFilter()
-                                  setShowNumberFilterDropdown(null)
-                                  setShowCustomFilterModal(false)
-                                }
-                              }}
-                              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
-                              style={{ fontWeight: 400 }}
-                            />
-                          </div>
-
-                          {/* Second Value for Between */}
-                          {customFilterType === 'between' && (
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">AND</label>
-                              <input
-                                type={columnKey === 'timeUpdate' ? 'datetime-local' : 'number'}
-                                step={columnKey === 'timeUpdate' ? '1' : 'any'}
-                                placeholder={columnKey === 'timeUpdate' ? 'Select date and time' : 'Enter value'}
-                                value={columnKey === 'timeUpdate' && customFilterValue2 ? 
-                                  (() => {
-                                    // Convert Unix timestamp to datetime-local format (YYYY-MM-DDTHH:mm:ss)
-                                    const timestamp = Number(customFilterValue2)
-                                    if (isNaN(timestamp)) return customFilterValue2
-                                    const date = new Date(timestamp * 1000) // Convert to milliseconds
-                                    const year = date.getFullYear()
-                                    const month = String(date.getMonth() + 1).padStart(2, '0')
-                                    const day = String(date.getDate()).padStart(2, '0')
-                                    const hours = String(date.getHours()).padStart(2, '0')
-                                    const minutes = String(date.getMinutes()).padStart(2, '0')
-                                    const seconds = String(date.getSeconds()).padStart(2, '0')
-                                    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
-                                  })() 
-                                  : customFilterValue2
-                                }
-                                onChange={(e) => {
-                                  if (columnKey === 'timeUpdate') {
-                                    // Convert datetime-local to Unix timestamp
-                                    const dateValue = e.target.value
-                                    if (dateValue) {
-                                      const timestamp = Math.floor(new Date(dateValue).getTime() / 1000)
-                                      setCustomFilterValue2(String(timestamp))
-                                    } else {
-                                      setCustomFilterValue2('')
-                                    }
-                                  } else {
-                                    setCustomFilterValue2(e.target.value)
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault()
-                                    if (!customFilterValue1 || !customFilterValue2) return
-                                    applyCustomNumberFilter()
-                                    setShowNumberFilterDropdown(null)
-                                    setShowCustomFilterModal(false)
-                                  }
-                                }}
-                                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
-                                style={{ fontWeight: 400 }}
-                              />
-                            </div>
-                          )}
-
-                          {/* Apply Button */}
-                          <div className="flex gap-2 pt-2 border-t border-gray-200">
-                            <button
-                              onClick={() => {
-                                applyCustomNumberFilter()
-                                setShowNumberFilterDropdown(null)
-                                setShowCustomFilterModal(false)
-                              }}
-                              disabled={!customFilterValue1 || (customFilterType === 'between' && !customFilterValue2)}
-                              className="w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                            >
-                              OK
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
-                )}
 
                 {/* Text Filters (only for string columns) */}
                 {isStringColumn(columnKey) && (
