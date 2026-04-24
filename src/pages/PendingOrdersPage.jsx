@@ -1464,10 +1464,14 @@ const PendingOrdersPage = () => {
                   <tbody className="bg-white divide-y divide-gray-100">
                     {isPageLoading ? (
                       Array.from({ length: 8 }, (_, i) => (
-                        <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
+                        <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1] border-l-2 border-l-[#E1E1E1]">
                           {Object.values(visibleColumns).map((visible, colIdx) => (
                             visible ? (
-                              <td key={colIdx} className="px-2" style={{ height: '38px' }}>
+                              <td
+                                key={colIdx}
+                                className={`px-2${colIdx !== 0 ? ' border-l border-[#E1E1E1]' : ''}`}
+                                style={{ height: '38px' }}
+                              >
                                 <div className="h-3 w-full max-w-[80%] bg-gray-200 rounded animate-pulse" />
                               </td>
                             ) : null
@@ -1475,7 +1479,7 @@ const PendingOrdersPage = () => {
                         </tr>
                       ))
                     ) : displayedOrders.length === 0 ? (
-                      <tr>
+                      <tr className="border-l-2 border-l-[#E1E1E1]">
                         <td colSpan={Object.values(visibleColumns).filter(Boolean).length} className="px-4 py-12 text-center text-gray-500">
                           No pending orders
                         </td>
@@ -1487,86 +1491,91 @@ const PendingOrdersPage = () => {
                       const slDelta = flash?.slDelta
                       const tpDelta = flash?.tpDelta
                       return (
-                        <tr key={id ?? index} className={`hover:bg-blue-50 transition-colors`}>
-                          {visibleColumns.time && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">{formatTime(o.timeSetup || o.timeUpdate || o.timeCreate || o.updated_at)}</td>
-                          )}
-                          {visibleColumns.login && (
-                            <td 
-                              className="px-2 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap cursor-pointer hover:underline"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setSelectedLogin(o.login)
-                              }}
-                              title="Click to view login details"
-                            >
-                              {o.login}
-                            </td>
-                          )}
-                          {visibleColumns.order && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">{id}</td>
-                          )}
-                          {visibleColumns.symbol && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">{o.symbol}</td>
-                          )}
-                          {visibleColumns.type && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${getTypeBadgeClasses(o.type)}`}>
-                                {o.type ?? '-'}
-                              </span>
-                            </td>
-                          )}
-                          {visibleColumns.state && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap">
-                              <span className={`px-2 py-0.5 rounded-full font-medium ${getStateBadgeClasses(o.state)}`}>
-                                {o.state ?? '-'}
-                              </span>
-                            </td>
-                          )}
-                          {visibleColumns.volume && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">{formatNumber(o.volumeCurrent ?? o.volume ?? o.volumeInitial, 3)}</td>
-                          )}
-                          {visibleColumns.priceOrder && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">
-                              <div className="flex items-center gap-1">
-                                {formatNumber(o.priceOrder ?? o.price ?? o.priceOpen ?? o.priceOpenExact ?? o.open_price, 3)}
-                                {priceDelta !== undefined && priceDelta !== 0 ? (
-                                  <span className={`ml-1 text-[11px] font-medium ${priceDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {priceDelta > 0 ? '▲' : '▼'} {Math.abs(priceDelta).toFixed(3)}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </td>
-                          )}
-                          {visibleColumns.priceCurrent && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">{formatNumber(o.priceTrigger ?? o.trigger ?? 0, 3)}</td>
-                          )}
-                          {visibleColumns.sl && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">
-                              <div className="flex items-center gap-1">
-                                {formatNumber(o.priceSL ?? o.sl ?? o.stop_loss, 3)}
-                                {slDelta !== undefined && slDelta !== 0 ? (
-                                  <span className={`ml-1 text-[11px] font-medium ${slDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {slDelta > 0 ? '▲' : '▼'} {Math.abs(slDelta).toFixed(3)}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </td>
-                          )}
-                          {visibleColumns.tp && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap">
-                              <div className="flex items-center gap-1">
-                                {formatNumber(o.priceTP ?? o.tp ?? o.take_profit, 3)}
-                                {tpDelta !== undefined && tpDelta !== 0 ? (
-                                  <span className={`ml-1 text-[11px] font-medium ${tpDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {tpDelta > 0 ? '▲' : '▼'} {Math.abs(tpDelta).toFixed(3)}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </td>
-                          )}
+                        <tr key={id ?? index} className={`hover:bg-blue-50 transition-colors border-l-2 border-l-[#E1E1E1]`}>
+                          {Object.entries(visibleColumns).map(([colKey, visible], colIdx) => {
+                            if (!visible) return null;
+                            // Cell content logic
+                            let cellContent = null;
+                            if (colKey === 'time') {
+                              cellContent = formatTime(o.timeSetup || o.timeUpdate || o.timeCreate || o.updated_at);
+                            } else if (colKey === 'login') {
+                              cellContent = (
+                                <span
+                                  className="text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap cursor-pointer hover:underline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedLogin(o.login);
+                                  }}
+                                  title="Click to view login details"
+                                >
+                                  {o.login}
+                                </span>
+                              );
+                            } else if (colKey === 'order') {
+                              cellContent = id;
+                            } else if (colKey === 'symbol') {
+                              cellContent = o.symbol;
+                            } else if (colKey === 'type') {
+                              cellContent = (
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${getTypeBadgeClasses(o.type)}`}>
+                                  {o.type ?? '-'}
+                                </span>
+                              );
+                            } else if (colKey === 'state') {
+                              cellContent = (
+                                <span className={`px-2 py-0.5 rounded-full font-medium ${getStateBadgeClasses(o.state)}`}>
+                                  {o.state ?? '-'}
+                                </span>
+                              );
+                            } else if (colKey === 'volume') {
+                              cellContent = formatNumber(o.volumeCurrent ?? o.volume ?? o.volumeInitial, 3);
+                            } else if (colKey === 'priceOrder') {
+                              cellContent = (
+                                <div className="flex items-center gap-1">
+                                  {formatNumber(o.priceOrder ?? o.price ?? o.priceOpen ?? o.priceOpenExact ?? o.open_price, 3)}
+                                  {priceDelta !== undefined && priceDelta !== 0 ? (
+                                    <span className={`ml-1 text-[11px] font-medium ${priceDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {priceDelta > 0 ? '▲' : '▼'} {Math.abs(priceDelta).toFixed(3)}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              );
+                            } else if (colKey === 'priceCurrent') {
+                              cellContent = formatNumber(o.priceTrigger ?? o.trigger ?? 0, 3);
+                            } else if (colKey === 'sl') {
+                              cellContent = (
+                                <div className="flex items-center gap-1">
+                                  {formatNumber(o.priceSL ?? o.sl ?? o.stop_loss, 3)}
+                                  {slDelta !== undefined && slDelta !== 0 ? (
+                                    <span className={`ml-1 text-[11px] font-medium ${slDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {slDelta > 0 ? '▲' : '▼'} {Math.abs(slDelta).toFixed(3)}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              );
+                            } else if (colKey === 'tp') {
+                              cellContent = (
+                                <div className="flex items-center gap-1">
+                                  {formatNumber(o.priceTP ?? o.tp ?? o.take_profit, 3)}
+                                  {tpDelta !== undefined && tpDelta !== 0 ? (
+                                    <span className={`ml-1 text-[11px] font-medium ${tpDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {tpDelta > 0 ? '▲' : '▼'} {Math.abs(tpDelta).toFixed(3)}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              );
+                            }
+                            return (
+                              <td
+                                key={colKey}
+                                className={`px-2 py-1.5 text-sm${colIdx !== 0 ? ' border-l border-[#E1E1E1]' : ''} ${colKey === 'login' ? 'text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap cursor-pointer hover:underline' : colKey === 'type' ? '' : colKey === 'state' ? '' : 'text-gray-900 whitespace-nowrap'}`}
+                              >
+                                {cellContent}
+                              </td>
+                            );
+                          })}
                         </tr>
-                      )
+                      );
                     })}
                   </tbody>
                 </table>

@@ -1405,7 +1405,7 @@ const ClientPercentagePage = () => {
               </div>
 
               <div className="overflow-y-auto flex-1">
-                <table className="min-w-full divide-y divide-[#E5E7EB]">
+                <table className="min-w-full divide-y text-xs border-separate border-spacing-0" style={{ borderCollapse: 'separate', borderColor: '#e5e7eb' }}>
                 <thead className="bg-blue-600 sticky top-0 z-10" style={{ backgroundColor: '#2563eb' }}>
                   <tr>
                     {visibleColumns.login && renderHeaderCell('client_login', 'Client Login', 'client_login')}
@@ -1491,6 +1491,7 @@ const ClientPercentagePage = () => {
                       {visibleColumns.login && (
                         <td 
                           className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                          style={{ borderRight: '1px solid #e5e7eb' }}
                           onClick={() => setSelectedLogin(client.client_login)}
                           title="Click to view login details"
                         >
@@ -1498,7 +1499,7 @@ const ClientPercentagePage = () => {
                         </td>
                       )}
                       {visibleColumns.percentage && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
                           <span className={`px-2 py-1 rounded text-sm font-semibold ${
                             client.is_custom 
                               ? 'bg-green-100 text-green-800' 
@@ -1509,7 +1510,7 @@ const ClientPercentagePage = () => {
                         </td>
                       )}
                       {visibleColumns.type && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             client.is_custom 
                               ? 'bg-blue-100 text-blue-800'
@@ -1520,12 +1521,12 @@ const ClientPercentagePage = () => {
                         </td>
                       )}
                       {visibleColumns.comment && (
-                        <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">
+                        <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {client.comment || '-'}
                         </td>
                       )}
                       {visibleColumns.updatedAt && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>
                           {client.updated_at ? new Date(client.updated_at).toLocaleDateString('en-GB') : '-'}
                         </td>
                       )}
