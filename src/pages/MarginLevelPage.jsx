@@ -1272,7 +1272,7 @@ const MarginLevelPage = () => {
                     {displayedAccounts.map((a, idx) => {
                       const ml = getMarginLevelPercent(a)
                       return (
-                        <tr key={a.login ?? idx} className={`hover:bg-blue-50 transition-colors`}>
+                        <tr key={a.login ?? idx} className={`hover:bg-blue-50 transition-colors border-l-2 border-l-[#E1E1E1]`}>
                           <td 
                             className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap cursor-pointer hover:underline"
                             onClick={(e) => {

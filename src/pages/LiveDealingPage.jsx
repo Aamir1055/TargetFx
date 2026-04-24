@@ -376,19 +376,18 @@ const LiveDealingPage = () => {
     localStorage.setItem('liveDealingPageVisibleColumns', JSON.stringify(visibleColumns))
   }, [visibleColumns])
 
-  // Refetch deals when time filter changes
+  // Refetch deals when time filter or pagination changes
   useEffect(() => {
     // Skip on initial mount
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
     }
-    
     if (hasInitialLoad.current) {
-      console.log('[LiveDealing] ⏰ Time filter changed to:', timeFilter)
+      console.log('[LiveDealing] ⏰ Time filter or page changed:', timeFilter, currentPage, itemsPerPage)
       fetchAllDealsOnce()
     }
-  }, [timeFilter, appliedFromDate, appliedToDate])
+  }, [timeFilter, appliedFromDate, appliedToDate, currentPage, itemsPerPage])
   
   // Close filter menu when clicking outside
   useEffect(() => {
