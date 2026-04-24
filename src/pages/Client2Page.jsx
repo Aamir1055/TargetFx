@@ -5362,14 +5362,15 @@ const Client2Page = () => {
                               return (
                                 <td
                                   key={col.key}
-                                  className="px-1 py-1.5 text-sm md:text-[15px] font-medium text-blue-600 hover:text-blue-700 cursor-pointer hover:underline transition-all bg-white"
+                                  className="px-1 py-1.5 text-sm md:text-[15px] font-medium text-blue-600 hover:text-blue-700 cursor-pointer hover:underline transition-all bg-white border-r border-slate-200"
                                   style={{
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
                                     position: 'sticky',
                                     left: 0,
-                                    zIndex: 10
+                                    zIndex: 10,
+                                    borderRight: '1px solid #e5e7eb'
                                   }}
                                   onClick={(e) => {
                                     e.stopPropagation()

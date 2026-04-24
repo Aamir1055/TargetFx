@@ -542,6 +542,12 @@ export const brokerAPI = {
     return response.data
   },
 
+  // Bulk update client percentages
+  bulkUpdateClientPercentages: async (clients) => {
+    const response = await api.put('/api/broker/clients/percentages/bulk', { clients })
+    return response.data
+  },
+
   // Get available rules
   getAvailableRules: async () => {
     const response = await api.get('/api/broker/rules')
