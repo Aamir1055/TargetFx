@@ -2177,7 +2177,7 @@ const LiveDealingPage = () => {
                   animation: dealFadeOut 6s ease-out forwards !important;
                 }
               `}</style>
-              <table className="min-w-full divide-y divide-gray-200 text-xs border-separate border-spacing-0" style={{ borderCollapse: 'separate' }}>
+              <table className="min-w-full divide-y text-xs border-separate border-spacing-0" style={{ borderCollapse: 'separate', borderColor: '#888888' }}>
               <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
                 <tr>
                   {visibleColumns.time && renderHeaderCell('time', 'Time')}
@@ -2222,7 +2222,7 @@ const LiveDealingPage = () => {
                 </thead>
               )}
 
-              <tbody className="bg-white divide-y-2 divide-gray-200 text-sm">
+              <tbody className="bg-white divide-y-2 text-sm" style={{ borderColor: '#888888' }}>
                 {loading ? (
                   // Show empty state while loading to avoid layout shift
                   <tr>
