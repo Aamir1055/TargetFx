@@ -592,8 +592,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       
       // Fetch deals from API with specific date range and pagination
       const response = await brokerAPI.getClientDeals(client.login, fromTimestamp, toTimestamp, itemsLimit, offset)
-      const clientDeals = response.data?.deals || []
-      const total = response.data?.total || response.total || clientDeals.length
+      const clientDeals = response?.deals ?? response?.data?.deals ?? []
+      const total = response?.total ?? response?.count ?? response?.data?.total ?? response?.data?.count ?? clientDeals.length
       
       setDeals(clientDeals)
       setAllDeals(clientDeals)
@@ -3648,7 +3648,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
           {activeTab === 'deals' && displayedDeals.length > 0 && (
             (() => {
-              const totalDeals = totalDealsCount || displayedDeals.length
+              const totalDeals = totalDealsCount > 0 ? totalDealsCount : allDeals.length
               const totalVolume = displayedDeals.reduce((sum, d) => sum + (d.volume || 0), 0)
               const totalCommission = displayedDeals.reduce((sum, d) => sum + (d.commission || 0), 0)
               const totalProfit = displayedDeals.reduce((sum, d) => sum + (d.profit || 0), 0)
