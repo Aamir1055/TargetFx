@@ -436,19 +436,28 @@ const ClientPercentagePage = () => {
 
   // Helper function to render sortable table header (no column filter)
   const renderHeaderCell = (columnKey, label, sortKey = null) => {
-    const actualSortKey = sortKey || columnKey
+    if (!sortKey) {
+      return (
+        <th
+          className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider select-none border-b border-blue-500"
+          style={{ backgroundColor: '#2563eb' }}
+        >
+          <span>{label}</span>
+        </th>
+      )
+    }
     return (
       <th
         className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider hover:bg-blue-700 transition-colors select-none group border-b border-blue-500 cursor-pointer"
         style={{ backgroundColor: '#2563eb' }}
         onClick={() => {
-          setSortColumn(actualSortKey)
-          setSortDirection(prev => sortColumn === actualSortKey && prev === 'asc' ? 'desc' : 'asc')
+          setSortColumn(sortKey)
+          setSortDirection(prev => sortColumn === sortKey && prev === 'asc' ? 'desc' : 'asc')
         }}
       >
         <div className="flex items-center gap-1 text-white">
           <span>{label}</span>
-          {getSortIcon(actualSortKey)}
+          {getSortIcon(sortKey)}
         </div>
       </th>
     )
@@ -795,14 +804,14 @@ const ClientPercentagePage = () => {
                     </th>
                     {visibleColumns.login && renderHeaderCell('client_login', 'Client Login', 'client_login')}
                     {visibleColumns.clientName && renderHeaderCell('client_name', 'Client Name', 'client_name')}
-                    {visibleColumns.percentage && renderHeaderCell('percentage', 'Percentage')}
-                    {visibleColumns.type && renderHeaderCell('is_custom', 'Type', 'is_custom')}
+                    {visibleColumns.percentage && renderHeaderCell('percentage', 'Percentage', 'percentage')}
+                    {visibleColumns.type && renderHeaderCell('is_custom', 'Type')}
                     {visibleColumns.comment && (
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb' }}>
                         Comment
                       </th>
                     )}
-                    {visibleColumns.updatedAt && renderHeaderCell('updated_at', 'Last Updated', 'updated_at')}
+                    {visibleColumns.updatedAt && renderHeaderCell('updated_at', 'Last Updated')}
                     {visibleColumns.actions && (
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb' }}>
                         Actions
