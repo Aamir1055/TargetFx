@@ -2209,20 +2209,20 @@ const PositionsPage = () => {
                 }}
               />
               
-              {/* NET Position Toggle */}
+              {/* Client NET Toggle */}
               <button
-                onClick={() => { setShowNetPositions((v)=>!v) }}
-                className={`h-8 px-2.5 rounded-md border shadow-sm transition-all inline-flex items-center gap-1.5 text-xs font-medium ${
-                  showNetPositions 
+                onClick={() => { setShowClientNet((v)=>!v) }}
+                className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
+                  showClientNet 
                     ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' 
-                    : 'bg-white text-gray-700 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300'
+                    : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
                 }`}
-                title="Toggle NET Position View"
+                title="Toggle Client NET View"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M10 14h7M13 18h4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-5m0 5l-5-5M7 4h10a2 2 0 012 2v6H5V6a2 2 0 012-2zm0 0V2m0 2v2" />
                 </svg>
-                NET Position
+                Client Net
               </button>
 
               {/* Date Filter Button */}
