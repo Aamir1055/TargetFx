@@ -109,7 +109,7 @@ const PendingOrdersPage = () => {
   const [customFilterOperator, setCustomFilterOperator] = useState('AND')
 
   // Define string columns that should show text filters instead of number filters
-  const stringColumns = ['symbol', 'type', 'state', 'login']
+  const stringColumns = ['symbol', 'type', 'state']
   const isStringColumn = (key) => stringColumns.includes(key)
 
   // Column filter helper functions
@@ -125,11 +125,11 @@ const PendingOrdersPage = () => {
       const values = allLogins.length > 0 ? allLogins : []
       return searchQuery ? values.filter(v => String(v).toLowerCase().includes(searchQuery)) : values
     }
-    // For type column, use hardcoded values
+    // For type column, use API-fetched values
     if (columnKey === 'type') {
-      const typeValues = ['BUY_LIMIT', 'SELL_LIMIT', 'BUY_STOP', 'SELL_STOP', 'BUY_STOP_LIMIT', 'SELL_STOP_LIMIT']
       const searchQuery = filterSearchQuery[columnKey]?.toLowerCase() || ''
-      return searchQuery ? typeValues.filter(v => v.toLowerCase().includes(searchQuery)) : typeValues
+      const values = allTypes.length > 0 ? allTypes : []
+      return searchQuery ? values.filter(v => String(v).toLowerCase().includes(searchQuery)) : values
     }
     return []
   }
@@ -292,6 +292,14 @@ const PendingOrdersPage = () => {
       const logins = res?.data?.logins || res?.data || []
       if (Array.isArray(logins)) setAllLogins(logins.sort((a, b) => a - b))
     }).catch((err) => { console.warn('[OrderLogins] Fetch error:', err?.message) })
+  }
+
+  const [allTypes, setAllTypes] = useState([])
+  const fetchTypes = () => {
+    brokerAPI.getOrderTypes().then(res => {
+      const types = res?.data?.types || res?.data || []
+      if (Array.isArray(types)) setAllTypes(types)
+    }).catch((err) => { console.warn('[OrderTypes] Fetch error:', err?.message) })
   }
 
   // REST polling with server-side search, sort, filter, pagination
@@ -599,6 +607,7 @@ const PendingOrdersPage = () => {
                   setPendingColumnFilters(prev => ({ ...prev, [columnKey]: columnFilters[columnKey] || [] }))
                   if (columnKey === 'symbol') fetchSymbols()
                   if (columnKey === 'login') fetchLogins()
+                  if (columnKey === 'type') fetchTypes()
                 }
               }}
               className={`p-1 rounded hover:bg-blue-800/50 transition-colors ${filterCount > 0 ? 'text-yellow-400' : 'text-white/70'}`}

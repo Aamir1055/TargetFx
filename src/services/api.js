@@ -421,6 +421,12 @@ export const brokerAPI = {
     const response = await api.get('/api/broker/orders/logins')
     return response.data
   },
+
+  // Get all order types (for column-level filter)
+  getOrderTypes: async () => {
+    const response = await api.get('/api/broker/orders/types')
+    return response.data
+  },
   
   // Get client deals with pagination support
   getClientDeals: async (login, from, to, limit = 1000, offset = 0) => {
