@@ -615,14 +615,7 @@ const ClientPercentagePage = () => {
           </div>
 
           {/* Table */}
-          {clients.length === 0 && !loading ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <div className="text-6xl mb-4">📊</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No client data found</h3>
-              <p className="text-sm text-gray-500">Client percentage data will appear here</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-[#E5E7EB] overflow-hidden flex flex-col flex-1">
+          <div className="bg-white rounded-lg shadow-sm border border-[#E5E7EB] overflow-hidden flex flex-col flex-1">
               {/* Search and Controls Bar - Inside table container */}
               <div className="border-b border-[#E5E7EB] p-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -865,17 +858,16 @@ const ClientPercentagePage = () => {
                           </div>
                           <button
                             onClick={() => {
-                              setColumnFilters({})
-                              setFilterSearchQuery({})
+                              setSearchInput('')
                               setSearchQuery('')
-                              setShowSuggestions(false)
+                              setCurrentPage(1)
                             }}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-sm hover:shadow-md text-sm font-semibold"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
-                            Clear All Filters
+                            Clear Search
                           </button>
                         </div>
                       </td>
@@ -958,7 +950,6 @@ const ClientPercentagePage = () => {
               </table>
               </div>
             </div>
-          )}
         </div>
       </main>
 
