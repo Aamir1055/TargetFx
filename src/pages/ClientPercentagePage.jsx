@@ -139,9 +139,7 @@ const ClientPercentagePage = () => {
   useEffect(() => {
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
     if (!isAuthenticated || unauthorized || hidden) return
-    if (currentPage > 1) {
-      fetchAllClientPercentages(currentPage)
-    }
+    fetchAllClientPercentages(currentPage)
   }, [currentPage, isAuthenticated, unauthorized])
 
   useEffect(() => {
@@ -165,7 +163,7 @@ const ClientPercentagePage = () => {
       const params = { 
         page, 
         page_size: itemsPerPage,
-        sort_by: sortColumn === 'client_login' ? 'login' : sortColumn,
+        sort_by: sortColumn === 'client_login' ? 'login' : sortColumn === 'client_name' ? 'name' : sortColumn,
         sort_order: sortDirection
       }
       
@@ -380,28 +378,8 @@ const ClientPercentagePage = () => {
   }
 
   const sortedClients = () => {
-    // API handles search and sort, just apply group filter here
-    let filtered = clients
-    
-    // Apply group filter
-    let ibFiltered = filterByActiveGroup(filtered, 'client_login', 'clientpercentage')
-    
-    return [...ibFiltered].sort((a, b) => {
-      let aVal = a[sortColumn]
-      let bVal = b[sortColumn]
-      
-      // Handle nulls
-      if (aVal === null || aVal === undefined) aVal = ''
-      if (bVal === null || bVal === undefined) bVal = ''
-      
-      // Convert to string for comparison
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase()
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase()
-      
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
-      return 0
-    })
+    // API handles search and sort — preserve server order, just apply group filter
+    return filterByActiveGroup(clients, 'client_login', 'clientpercentage')
   }
 
   // Pagination
