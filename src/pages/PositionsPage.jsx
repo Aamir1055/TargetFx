@@ -762,6 +762,7 @@ const PositionsPage = () => {
           sortBy: netSortColumn || 'netVolume',
           sortOrder: netSortDirection || 'desc'
         }
+        if (displayMode === 'percentage') params.percentage = true
         if (groupByBaseSymbol) params.groupBaseSymbol = true
         if (netActiveSearch.trim()) params.search = netActiveSearch.trim()
 
@@ -829,7 +830,7 @@ const PositionsPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol])
+  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode])
 
   // REST polling for Client NET positions — COMMENTED OUT (replaced by NET Position using showNetPositions)
   /* useEffect(() => {
@@ -2283,19 +2284,19 @@ const PositionsPage = () => {
 
 
               {/* Percentage Toggle Switch */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-[#4B4B4B]">%</span>
-                <button
-                  onClick={() => setDisplayMode(displayMode === 'percentage' ? 'value' : 'percentage')}
-                  className={`relative w-10 h-6 flex items-center rounded-full transition-colors duration-300 focus:outline-none border ${displayMode === 'percentage' ? 'bg-blue-600 border-blue-600' : 'bg-gray-200 border-gray-300'}`}
-                  aria-pressed={displayMode === 'percentage'}
-                  title="Toggle percentage view"
-                  style={{ minWidth: '40px' }}
+              <button
+                role="switch"
+                aria-pressed={displayMode === 'percentage'}
+                onClick={() => setDisplayMode(displayMode === 'percentage' ? 'value' : 'percentage')}
+                title="Toggle percentage view"
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${displayMode === 'percentage' ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <span
+                  className={`pointer-events-none inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow-md ring-0 transition duration-300 ease-in-out ${displayMode === 'percentage' ? 'translate-x-5' : 'translate-x-0'}`}
                 >
-                  <span className={`absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${displayMode === 'percentage' ? 'translate-x-4' : ''}`}></span>
-                  <span className="sr-only">Toggle percentage view</span>
-                </button>
-              </div>
+                  <span className={`text-[9px] font-bold ${displayMode === 'percentage' ? 'text-blue-600' : 'text-gray-500'}`}>%</span>
+                </span>
+              </button>
 
               {/* Export CSV */}
               <button

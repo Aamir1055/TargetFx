@@ -624,8 +624,8 @@ const Client2Page = () => {
     { key: 'comment', label: 'Comment', type: 'text' },
     { key: 'registration', label: 'Registration', type: 'date' },
     { key: 'lastAccess', label: 'Last Access', type: 'date' },
-    { key: 'accountLastUpdate', label: 'Account Last Update', type: 'integer' },
-    { key: 'userLastUpdate', label: 'User Last Update', type: 'integer' },
+    { key: 'accountLastUpdate', label: 'Account Last Update', type: 'timestamp' },
+    { key: 'userLastUpdate', label: 'User Last Update', type: 'timestamp' },
     { key: 'applied_percentage', label: 'Applied Percentage', type: 'float' },
     { key: 'applied_percentage_is_custom', label: 'Is Custom Percentage', type: 'text' },
     { key: 'storage', label: 'Storage', type: 'float' }
@@ -3224,7 +3224,7 @@ const Client2Page = () => {
         setLoading(true)
         const payload = {
           page: 1,
-          limit: 100000 // Large limit to get all records
+          limit: totalClients > 0 ? totalClients : 1000000 // Use actual total count, fallback to 1M
         }
 
         // Add search query if present
@@ -3285,9 +3285,50 @@ const Client2Page = () => {
           }
         }
 
-        console.log('[Client2Page] Fetching all data with payload:', payload)
-        const response = await brokerAPI.searchClients(payload)
-        const allRows = response?.data?.data?.clients || response?.data?.clients || []
+        // Tell the API to return percentage values when percentage mode is active
+        if (percentModeActive) {
+          payload.percentage = true
+        }
+
+        const batchSize = 10000
+        const CONCURRENCY_LIMIT = 5 // max parallel requests at once
+
+        // Page 1 first — drives all subsequent logic
+        const firstResp = await brokerAPI.searchClients({ ...payload, page: 1, limit: batchSize })
+        const firstData = firstResp?.data?.data ?? firstResp?.data ?? firstResp
+        const firstRows = firstData?.clients ?? []
+        const totalPageCount = Number(firstData?.pages ?? 0)
+
+        if (!totalPageCount) {
+          console.warn('[Client2Page] API did not return a page count — export may be incomplete')
+        }
+
+        const pageCount = totalPageCount || 1
+        console.log('[Client2Page] API reports', pageCount, 'page(s) — fetching remaining in parallel')
+
+        let allRows = [...firstRows]
+
+        if (pageCount > 1) {
+          const remainingPages = Array.from({ length: pageCount - 1 }, (_, i) => i + 2)
+
+          // Chunked parallel fetch to avoid hammering the server
+          for (let i = 0; i < remainingPages.length; i += CONCURRENCY_LIMIT) {
+            const chunk = remainingPages.slice(i, i + CONCURRENCY_LIMIT)
+            const chunkResults = await Promise.all(
+              chunk.map(p =>
+                brokerAPI.searchClients({ ...payload, page: p, limit: batchSize }).then(res => {
+                  const d = res?.data?.data ?? res?.data ?? res
+                  return d?.clients ?? []
+                })
+              )
+            )
+            chunkResults.forEach(rows => allRows.push(...rows))
+            console.log(`[Client2Page] Fetched pages ${chunk[0]}–${chunk.at(-1)}, total so far: ${allRows.length}`)
+          }
+        }
+
+        console.log('[Client2Page] Final row count:', allRows.length)
+
         setLoading(false)
 
         console.log('[Client2Page] Export dataset fetched:', allRows?.length, 'rows')
@@ -3302,13 +3343,60 @@ const Client2Page = () => {
 
         console.log('[Client2Page] Exporting', columns.length, 'columns for', allRows.length, 'rows')
 
+        // Fields that have a _percentage variant returned by the API in percentage mode
+        // Using Set for O(1) lookups — called for every cell of every row
+        const fieldsWithPercentage = new Set([
+          'balance', 'credit', 'equity', 'margin', 'marginFree', 'marginInitial', 'marginMaintenance',
+          'profit', 'floating', 'pnl', 'previousEquity', 'assets', 'liabilities', 'storage',
+          'blockedCommission', 'blockedProfit', 'dailyDeposit', 'dailyWithdrawal', 'dailyCreditIn',
+          'dailyCreditOut', 'dailyBonusIn', 'dailyBonusOut', 'dailySOCompensationIn', 'dailySOCompensationOut',
+          'thisWeekPnL', 'thisWeekDeposit', 'thisWeekWithdrawal', 'thisWeekCreditIn', 'thisWeekCreditOut',
+          'thisWeekBonusIn', 'thisWeekBonusOut', 'thisWeekSOCompensationIn', 'thisWeekSOCompensationOut',
+          'thisWeekCommission', 'thisWeekCorrection', 'thisWeekSwap',
+          'thisMonthPnL', 'thisMonthDeposit', 'thisMonthWithdrawal', 'thisMonthCreditIn', 'thisMonthCreditOut',
+          'thisMonthBonusIn', 'thisMonthBonusOut', 'thisMonthSOCompensationIn', 'thisMonthSOCompensationOut',
+          'thisMonthCommission', 'thisMonthCorrection', 'thisMonthSwap',
+          'lifetimePnL', 'lifetimeDeposit', 'lifetimeWithdrawal', 'lifetimeCreditIn', 'lifetimeCreditOut',
+          'lifetimeBonusIn', 'lifetimeBonusOut', 'lifetimeSOCompensationIn', 'lifetimeSOCompensationOut',
+          'lifetimeCommission', 'lifetimeCorrection', 'lifetimeSwap'
+        ])
+
         // Create worksheet data with headers and rows
         const worksheetData = [
-          columns.map(col => col.label), // Header row
+          columns.map(col => {
+            // Append % to header label when percentage mode is active for that field
+            if (percentModeActive && fieldsWithPercentage.has(col.key)) {
+              return `${col.label} %`
+            }
+            return col.label
+          }),
           ...(allRows || []).filter(client => client != null).map(client => {
             return columns.map(col => {
-              let value = client[col.key]
+              // In percentage mode, read the _percentage variant for eligible fields
+              const isPercentField = percentModeActive && fieldsWithPercentage.has(col.key)
+              const fieldKey = isPercentField ? `${col.key}_percentage` : col.key
+              let value = client[fieldKey] ?? client[col.key]
               if (value === null || value === undefined || value === '') return ''
+              // Format epoch ms timestamps — driven by column type so new date fields work automatically
+              if (col.type === 'timestamp') {
+                const ts = parseInt(value)
+                if (!isNaN(ts) && ts > 0) {
+                  const d = new Date(ts)
+                  const day = String(d.getDate()).padStart(2, '0')
+                  const month = String(d.getMonth() + 1).padStart(2, '0')
+                  const year = d.getFullYear()
+                  const hours = String(d.getHours()).padStart(2, '0')
+                  const mins = String(d.getMinutes()).padStart(2, '0')
+                  const secs = String(d.getSeconds()).padStart(2, '0')
+                  return `${day}/${month}/${year} ${hours}:${mins}:${secs}`
+                }
+                return ''
+              }
+              // Format percentage values — plain number, no % sign in Excel
+              if (isPercentField) {
+                const num = Number(value)
+                return isNaN(num) ? value : parseFloat(num.toFixed(2))
+              }
               return value
             })
           })
@@ -3780,31 +3868,26 @@ const Client2Page = () => {
                 />
 
                 {/* Percentage Toggle */}
-                <div className="flex items-center gap-1.5">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-gray-500 flex-shrink-0">
-                    <path d="M4 12L12 4M4.5 6.5C5.32843 6.5 6 5.82843 6 5C6 4.17157 5.32843 3.5 4.5 3.5C3.67157 3.5 3 4.17157 3 5C3 5.82843 3.67157 6.5 4.5 6.5ZM11.5 12.5C12.3284 12.5 13 11.8284 13 11C13 10.1716 12.3284 9.5 11.5 9.5C10.6716 9.5 10 10.1716 10 11C10 11.8284 10.6716 12.5 11.5 12.5Z"
-                      stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                    />
-                  </svg>
-                  <button
-                    role="switch"
-                    aria-checked={cardFilterPercentMode}
-                    onClick={() => {
-                      setCardFilterPercentMode(v => !v)
-                      fetchClients(false)
-                    }}
-                    title="Toggle percentage mode"
-                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      cardFilterPercentMode ? 'bg-blue-600' : 'bg-gray-300'
+                <button
+                  role="switch"
+                  aria-checked={cardFilterPercentMode}
+                  onClick={() => {
+                    setCardFilterPercentMode(v => !v)
+                    fetchClients(false)
+                  }}
+                  title="Toggle percentage mode"
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
+                    cardFilterPercentMode ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow-md ring-0 transition duration-300 ease-in-out ${
+                      cardFilterPercentMode ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        cardFilterPercentMode ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
+                    <span className={`text-[9px] font-bold ${cardFilterPercentMode ? 'text-blue-600' : 'text-gray-500'}`}>%</span>
+                  </span>
+                </button>
 
                 {/* Download Button */}
                 <div className="relative" ref={exportMenuRef}>
