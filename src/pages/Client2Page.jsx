@@ -3779,32 +3779,27 @@ const Client2Page = () => {
                   moduleName="client2"
                 />
 
-                {/* Percentage Toggle */}
-                <div className="flex items-center gap-1.5">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-gray-500 flex-shrink-0">
-                    <path d="M4 12L12 4M4.5 6.5C5.32843 6.5 6 5.82843 6 5C6 4.17157 5.32843 3.5 4.5 3.5C3.67157 3.5 3 4.17157 3 5C3 5.82843 3.67157 6.5 4.5 6.5ZM11.5 12.5C12.3284 12.5 13 11.8284 13 11C13 10.1716 12.3284 9.5 11.5 9.5C10.6716 9.5 10 10.1716 10 11C10 11.8284 10.6716 12.5 11.5 12.5Z"
-                      stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                {/* Percentage Toggle Button */}
+                <button
+                  onClick={() => {
+                    setCardFilterPercentMode(v => !v)
+                    // Immediately refetch clients so table reflects percentage mode
+                    fetchClients(false)
+                  }}
+                  className={`h-8 w-8 rounded-md border border-[#E5E7EB] shadow-sm flex items-center justify-center transition-colors ${
+                    cardFilterPercentMode ? 'bg-blue-50 border-blue-400' : 'bg-white hover:bg-gray-50'
+                  }`}
+                  title="Toggle percentage mode"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 12L12 4M4.5 6.5C5.32843 6.5 6 5.82843 6 5C6 4.17157 5.32843 3.5 4.5 3.5C3.67157 3.5 3 4.17157 3 5C3 5.82843 3.67157 6.5 4.5 6.5ZM11.5 12.5C12.3284 12.5 13 11.8284 13 11C13 10.1716 12.3284 9.5 11.5 9.5C10.6716 9.5 10 10.1716 10 11C10 11.8284 10.6716 12.5 11.5 12.5Z" 
+                      stroke={cardFilterPercentMode ? '#2563EB' : '#4B5563'} 
+                      strokeWidth="1.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
                     />
                   </svg>
-                  <button
-                    role="switch"
-                    aria-checked={cardFilterPercentMode}
-                    onClick={() => {
-                      setCardFilterPercentMode(v => !v)
-                      fetchClients(false)
-                    }}
-                    title="Toggle percentage mode"
-                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      cardFilterPercentMode ? 'bg-blue-600' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        cardFilterPercentMode ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
+                </button>
 
                 {/* Download Button */}
                 <div className="relative" ref={exportMenuRef}>
