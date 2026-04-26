@@ -627,7 +627,7 @@ const PositionsPage = () => {
   }, [currentPage])
 
     useEffect(() => {
-    if (!isAuthenticated || isMobile || showNetPositions || showClientNet) {
+    if (!isAuthenticated || isMobile || showNetPositions) {
       return
     }
 
@@ -831,8 +831,8 @@ const PositionsPage = () => {
     }
   }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol])
 
-  // REST polling for Client NET positions (clientNet: true) when Client NET tab is active
-  useEffect(() => {
+  // REST polling for Client NET positions — COMMENTED OUT (replaced by NET Position using showNetPositions)
+  /* useEffect(() => {
     if (!isAuthenticated || isMobile || !showClientNet) {
       return
     }
@@ -846,9 +846,9 @@ const PositionsPage = () => {
         const params = {
           page: clientNetCurrentPage,
           limit: clientNetItemsPerPage === 'All' ? 10000 : clientNetItemsPerPage,
-          clientNet: true,
-          sortBy: clientNetSortColumn || 'login',
-          sortOrder: clientNetSortDirection || 'asc'
+          netPosition: true,
+          sortBy: clientNetSortColumn || 'netVolume',
+          sortOrder: clientNetSortDirection || 'desc'
         }
         if (clientNetActiveSearch.trim()) params.search = clientNetActiveSearch.trim()
 
@@ -859,14 +859,12 @@ const PositionsPage = () => {
         const totals = response?.data?.totals || response?.totals || null
         if (Array.isArray(data)) {
           if (totals) {
-            // Map API field names (netVolume, totalProfit, totalStorage) to our state field names
             setServerClientNetTotals({
               volume: totals.netVolume ?? totals.volume ?? 0,
               profit: totals.totalProfit ?? totals.profit ?? 0,
               storage: totals.totalStorage ?? totals.storage ?? 0
             })
           }
-          // Map API fields to UI field names
           const mapped = data.map(item => ({
             login: item.login,
             symbol: item.symbol,
@@ -911,7 +909,7 @@ const PositionsPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, isMobile, showClientNet, clientNetCurrentPage, clientNetItemsPerPage, clientNetSortColumn, clientNetSortDirection, clientNetActiveSearch])
+  }, [isAuthenticated, isMobile, showClientNet, clientNetCurrentPage, clientNetItemsPerPage, clientNetSortColumn, clientNetSortDirection, clientNetActiveSearch]) */
 
   // Track position changes for flash indicators (polling updates)
   useEffect(() => { if (!isAuthenticated) return;
@@ -2209,20 +2207,20 @@ const PositionsPage = () => {
                 }}
               />
               
-              {/* Client NET Toggle */}
+              {/* NET Position Toggle */}
               <button
-                onClick={() => { setShowClientNet((v)=>!v) }}
+                onClick={() => { setShowNetPositions((v)=>!v) }}
                 className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
-                  showClientNet 
+                  showNetPositions 
                     ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' 
                     : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
                 }`}
-                title="Toggle Client NET View"
+                title="Toggle NET Position View"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-5m0 5l-5-5M7 4h10a2 2 0 012 2v6H5V6a2 2 0 012-2zm0 0V2m0 2v2" />
                 </svg>
-                Client Net
+                NET Position
               </button>
 
               {/* Date Filter Button */}
