@@ -283,6 +283,8 @@ const PositionsPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(() => isMobile ? 12 : 25)
   const [isPageLoading, setIsPageLoading] = useState(false)
   const prevPageRef = useRef(currentPage)
+  const [isNetPageLoading, setIsNetPageLoading] = useState(false)
+  const prevNetPageRef = useRef(1)
   
   // NET positions toggle and grouping
   const [showNetPositions, setShowNetPositions] = useState(false)
@@ -623,6 +625,14 @@ const PositionsPage = () => {
     }
   }, [currentPage])
 
+  // Show loading skeleton when NET page changes
+  useEffect(() => {
+    if (netCurrentPage !== prevNetPageRef.current) {
+      setIsNetPageLoading(true)
+      prevNetPageRef.current = netCurrentPage
+    }
+  }, [netCurrentPage])
+
     useEffect(() => {
     if (!isAuthenticated || isMobile || showNetPositions) {
       return
@@ -803,6 +813,7 @@ const PositionsPage = () => {
           setPolledNetPositions(mapped)
           setServerTotalNetPositions(total)
           setHasFetchedNetPositions(true)
+          setIsNetPageLoading(false)
         }
       } catch (err) {
         if (!isCancelled) console.warn('[NET Positions] Polling error:', err?.message)
@@ -2608,6 +2619,7 @@ const PositionsPage = () => {
                   <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                       <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">NET Symbols</span>
+                      {(isInitialNetLoading || isNetPageLoading || isExporting) && <div className="h-3 w-10 skeleton-shimmer-pos rounded" />}
                       <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                         <img 
                           src={getCardIcon('NET Symbols')} 
@@ -2618,8 +2630,7 @@ const PositionsPage = () => {
                       </div>
                     </div>
                     <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                      <span>{serverTotalNetPositions}</span>
-                      <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">SYM</span>
+                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-16 skeleton-shimmer-pos rounded" /> : <><span>{serverTotalNetPositions}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">SYM</span></>}
                     </div>
                   </div>
                 )}
@@ -2637,8 +2648,7 @@ const PositionsPage = () => {
                       </div>
                     </div>
                     <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                      <span>{formatNumber(serverNetTotals.volume || 0,2)}</span>
-                      <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span>
+                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-24 skeleton-shimmer-pos rounded" /> : <><span>{formatNumber(serverNetTotals.volume || 0,2)}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span></>}
                     </div>
                   </div>
                 )}
@@ -2668,8 +2678,7 @@ const PositionsPage = () => {
                           <polygon points="5,0 10,10 0,10" fill="#DC2626"/>
                         </svg>
                       )}
-                      <span>{formatNumber(serverNetTotals.profit || 0,2)}</span>
-                      <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">USD</span>
+                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-24 skeleton-shimmer-pos rounded" /> : <><span>{formatNumber(serverNetTotals.profit || 0,2)}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">USD</span></>}
                     </div>
                   </div>
                 )}
@@ -2851,7 +2860,7 @@ const PositionsPage = () => {
                       background: #374151;
                     }
                   `}</style>
-                  {netDisplayedPositions.length === 0 && !isInitialNetLoading ? (
+                  {netDisplayedPositions.length === 0 && !isInitialNetLoading && !isNetPageLoading && !isExporting ? (
                     <div className="text-center py-12">
                       <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0" />
@@ -3066,7 +3075,7 @@ const PositionsPage = () => {
                       </thead>
 
                       {/* YouTube-style Loading Progress Bar */}
-                      {isInitialNetLoading && (
+                      {(isInitialNetLoading || isNetPageLoading || isExporting) && (
                         <thead className="sticky z-40" style={{ top: '48px' }}>
                           <tr>
                             <th colSpan={Object.values(netVisibleColumns).filter(v => v).length} className="p-0" style={{ height: '3px' }}>
@@ -3082,6 +3091,16 @@ const PositionsPage = () => {
                                     background: #2563eb;
                                     animation: shimmerSlide 0.9s linear infinite;
                                   }
+                                  @keyframes shimmerPos {
+                                    0% { background-position: -1000px 0; }
+                                    100% { background-position: 1000px 0; }
+                                  }
+                                  .skeleton-shimmer-pos {
+                                    background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 20%, #f0f0f0 40%, #f0f0f0 100%);
+                                    background-size: 1000px 100%;
+                                    animation: shimmerPos 1.5s ease-in-out infinite;
+                                    border-radius: 4px;
+                                  }
                                 `}</style>
                                 <div className="shimmer-loading-bar absolute top-0 left-0 h-full" />
                               </div>
@@ -3091,7 +3110,19 @@ const PositionsPage = () => {
                       )}
 
                       <tbody className="bg-white text-sm">
-                        {netDisplayedPositions.map((netPos, idx) => (
+                        {(isInitialNetLoading || isNetPageLoading || isExporting) ? (
+                          Array.from({ length: 8 }, (_, i) => (
+                            <tr key={`net-skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
+                              {Object.entries(netVisibleColumns).map(([col, visible]) =>
+                                visible ? (
+                                  <td key={col} className="px-2" style={{ height: '38px' }}>
+                                    <div className="h-3 w-full max-w-[80%] skeleton-shimmer-pos" />
+                                  </td>
+                                ) : null
+                              )}
+                            </tr>
+                          ))
+                        ) : netDisplayedPositions.map((netPos, idx) => (
                           <Fragment key={netPos.symbol || idx}>
                           <tr className="hover:bg-blue-50 transition-all duration-300">
                             {netVisibleColumns.symbol && (
