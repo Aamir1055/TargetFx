@@ -170,6 +170,7 @@ const PositionsPage = () => {
     position: false,
     time: true,
     login: true,
+    name: true,
     action: true,
     symbol: true,
     volume: true,
@@ -191,6 +192,7 @@ const PositionsPage = () => {
   const allColumns = [
     { key: 'position', label: 'Position' },
     { key: 'login', label: 'Login', sticky: true },
+    { key: 'name', label: 'Name' },
     { key: 'action', label: 'Action' },
     { key: 'symbol', label: 'Symbol' },
     { key: 'volume', label: 'Volume' },
@@ -1667,6 +1669,7 @@ const PositionsPage = () => {
       const columnDefs = [
         { key: 'time',             label: 'Time',        get: p => formatTime(p.timeUpdate || p.timeCreate) },
         { key: 'login',            label: 'Login',       get: p => p.login },
+        { key: 'name',             label: 'Name',        get: p => p.name },
         { key: 'position',         label: 'Position',    get: p => p.position },
         { key: 'symbol',           label: 'Symbol',      get: p => p.symbol },
         { key: 'action',           label: 'Action',      get: p => p.action },
@@ -3836,6 +3839,7 @@ const PositionsPage = () => {
                           <>
                           {effectiveCols.time && renderHeaderCell('timeUpdate', 'Time', 'timeUpdate')}
                           {effectiveCols.login && renderHeaderCell('login', 'Login')}
+                          {effectiveCols.name && renderHeaderCell('name', 'Name')}
                           {effectiveCols.position && renderHeaderCell('position', 'Position')}
                           {effectiveCols.symbol && renderHeaderCell('symbol', 'Symbol')}
                           {effectiveCols.action && renderHeaderCell('action', 'Action')}
@@ -3932,6 +3936,9 @@ const PositionsPage = () => {
                             >
                               {p.login}
                             </td>
+                          )}
+                          {effectiveCols.name && (
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.name ?? '-'}</td>
                           )}
                           {effectiveCols.position && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.position}</td>
