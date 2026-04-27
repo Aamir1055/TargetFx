@@ -2289,7 +2289,7 @@ const PositionsPage = () => {
                 aria-pressed={displayMode === 'percentage'}
                 onClick={() => setDisplayMode(displayMode === 'percentage' ? 'value' : 'percentage')}
                 title="Toggle percentage view"
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${displayMode === 'percentage' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-300 ease-in-out focus:outline-none ${displayMode === 'percentage' ? 'bg-blue-600' : 'bg-gray-200'}`}
               >
                 <span
                   className={`pointer-events-none inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow-md ring-0 transition duration-300 ease-in-out ${displayMode === 'percentage' ? 'translate-x-5' : 'translate-x-0'}`}

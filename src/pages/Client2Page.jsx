@@ -3876,7 +3876,7 @@ const Client2Page = () => {
                     fetchClients(false)
                   }}
                   title="Toggle percentage mode"
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-300 ease-in-out focus:outline-none ${
                     cardFilterPercentMode ? 'bg-blue-600' : 'bg-gray-200'
                   }`}
                 >
