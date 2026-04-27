@@ -2802,7 +2802,7 @@ const PositionsPage = () => {
                               onClick={() => handleNetSort('netVolume')}
                             >
                               <div className="flex items-center gap-1">
-                                <span>NET Volume</span>
+                                <span>{displayMode === 'percentage' ? 'NET Volume %' : 'NET Volume'}</span>
                                 {netSortColumn === 'netVolume' ? (
                                   <svg className={`w-3 h-3 transition-transform ${netSortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -2840,7 +2840,7 @@ const PositionsPage = () => {
                               onClick={() => handleNetSort('totalProfit')}
                             >
                               <div className="flex items-center gap-1">
-                                <span>Total Profit</span>
+                                <span>{displayMode === 'percentage' ? 'Total Profit %' : 'Total Profit'}</span>
                                 {netSortColumn === 'totalProfit' ? (
                                   <svg className={`w-3 h-3 transition-transform ${netSortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -2859,7 +2859,7 @@ const PositionsPage = () => {
                               onClick={() => handleNetSort('totalStorage')}
                             >
                               <div className="flex items-center gap-1">
-                                <span>Total Storage</span>
+                                <span>{displayMode === 'percentage' ? 'Total Storage %' : 'Total Storage'}</span>
                                 {netSortColumn === 'totalStorage' ? (
                                   <svg className={`w-3 h-3 transition-transform ${netSortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -2878,7 +2878,7 @@ const PositionsPage = () => {
                               onClick={() => handleNetSort('totalCommission')}
                             >
                               <div className="flex items-center gap-1">
-                                <span>Total Commission</span>
+                                <span>{displayMode === 'percentage' ? 'Total Commission %' : 'Total Commission'}</span>
                                 {netSortColumn === 'totalCommission' ? (
                                   <svg className={`w-3 h-3 transition-transform ${netSortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
