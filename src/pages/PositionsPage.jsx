@@ -253,7 +253,7 @@ const PositionsPage = () => {
   }
 
   // Define string columns that should not show number filters
-  const stringColumns = ['symbol', 'action', 'reason', 'comment', 'login']
+  const stringColumns = ['symbol', 'action', 'reason', 'comment', 'login', 'name']
   const isStringColumn = (key) => stringColumns.includes(key)
 
   // Column filter states
@@ -1596,12 +1596,12 @@ const PositionsPage = () => {
     }
     if (displayMode === 'percentage') params.percentage = true
     const exportSearch = (activeSearch || searchQuery).trim()
-    if (exportSearch) params.search = exportSearch
     if (dateFilter) {
       const now = Math.floor(Date.now() / 1000)
       params.dateFrom = now - dateFilter * 24 * 60 * 60
       params.dateTo = now
     }
+
     const apiFilterTypeMap = {
       startsWith: 'starts_with', endsWith: 'ends_with', contains: 'contain',
       doesNotContain: 'does_not_contain', equal: 'equal', notEqual: 'not_equal',
@@ -1627,6 +1627,9 @@ const PositionsPage = () => {
       apiFilters.push({ field: 'action', operator: 'in', value: columnFilters['action'] })
     if (Array.isArray(columnFilters['login']) && columnFilters['login'].length > 0)
       apiFilters.push({ field: 'login', operator: 'in', value: columnFilters['login'].map(Number) })
+
+    if (exportSearch) params.search = exportSearch
+
     if (apiFilters.length > 0) params.filters = apiFilters
     return params
   }
@@ -2751,9 +2754,9 @@ const PositionsPage = () => {
                       </div>
                       
                       {/* Export - icon only */}
-                      <button onClick={handleExportNetPositions} className="p-2 rounded-lg border border-green-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all text-gray-700 shadow-sm" title="Export NET positions to CSV">
+                      {/* <button onClick={handleExportNetPositions} className="p-2 rounded-lg border border-green-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all text-gray-700 shadow-sm" title="Export NET positions to CSV">
                         <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
-                      </button>
+                      </button> */}
                       
                       {/* Group Base Symbols toggle */}
                       <button
