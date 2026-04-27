@@ -28,10 +28,10 @@ const DashboardPage = () => {
   const getInitialSidebarOpen = () => {
     try {
       const v = localStorage.getItem('sidebarOpen')
-      if (v === null) return false // collapsed by default
+      if (v === null) return true // open by default
       return JSON.parse(v)
     } catch {
-      return false
+      return true
     }
   }
   const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarOpen)

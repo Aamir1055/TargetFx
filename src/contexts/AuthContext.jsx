@@ -128,6 +128,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
     localStorage.setItem('user_data', JSON.stringify(data.broker))
+    // Reset sidebar to open on every login
+    localStorage.setItem('sidebarOpen', JSON.stringify(true))
     
     // Update state
     setUser(data.broker)

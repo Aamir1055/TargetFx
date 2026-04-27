@@ -23,9 +23,9 @@ const LiveDealingPage = () => {
   const getInitialSidebarOpen = () => {
     try {
       const v = localStorage.getItem('sidebarOpen')
-      if (v === null) return false
+      if (v === null) return true
       return JSON.parse(v)
-    } catch { return false }
+    } catch { return true }
   }
   const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarOpen)
   const [selectedLogin, setSelectedLogin] = useState(null) // For login details modal

@@ -9,9 +9,9 @@ const GraphicalAnalyticsPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
       const v = localStorage.getItem('sidebarOpen')
-      return v ? JSON.parse(v) : false
+      return v !== null ? JSON.parse(v) : true
     } catch {
-      return false
+      return true
     }
   })
   const { user } = useAuth()

@@ -86,9 +86,9 @@ const PositionsPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
       const v = localStorage.getItem('sidebarOpen')
-      return v ? JSON.parse(v) : false
+      return v !== null ? JSON.parse(v) : true
     } catch {
-      return false
+      return true
     }
   })
   const [netShowColumnSelector, setNetShowColumnSelector] = useState(false)
@@ -119,8 +119,7 @@ const PositionsPage = () => {
   const [netCardsVisible, setNetCardsVisible] = useState({
     netSymbols: true,
     totalNetVolume: true,
-    totalNetPL: true,
-    totalLogins: true
+    totalNetPL: true
   })
   // NET positions column selector ref
   const netColumnSelectorRef = useRef(null)
@@ -1577,58 +1576,116 @@ const PositionsPage = () => {
     }
   }
 
-  const handleExportPositions = () => {
-    const effectiveCols = getEffectiveVisibleColumns()
-    const order = [
-      'time','login','position','symbol','action','volume','volumePercentage','priceOpen','priceCurrent','sl','tp','profit','profitPercentage','storage','storagePercentage','appliedPercentage','reason','comment','commission'
-    ]
-    const labelMap = {
-      time: 'Time',
-      login: 'Login',
-      position: 'Position',
-      symbol: 'Symbol',
-      action: 'Action',
-      volume: 'Volume',
-      volumePercentage: 'Volume %',
-      priceOpen: 'Open',
-      priceCurrent: 'Current',
-      sl: 'S/L',
-      tp: 'T/P',
-      profit: 'Profit',
-      profitPercentage: 'Profit %',
-      storage: 'Storage',
-      storagePercentage: 'Storage %',
-      appliedPercentage: 'Applied %',
-      reason: 'Reason',
-      comment: 'Comment',
-      commission: 'Commission'
+  const [isExporting, setIsExporting] = useState(false)
+
+  const buildPositionParams = () => {
+    const params = {
+      sortBy: sortColumn || 'timeCreate',
+      sortOrder: sortDirection || 'desc'
     }
-    const accessors = {
-      time: (p) => formatTime(p.timeUpdate || p.timeCreate),
-      login: (p) => p.login,
-      position: (p) => p.position,
-      symbol: (p) => p.symbol,
-      action: (p) => p.action,
-      volume: (p) => p.volume,
-      volumePercentage: (p) => p.volume_percentage,
-      priceOpen: (p) => p.priceOpen,
-      priceCurrent: (p) => p.priceCurrent,
-      sl: (p) => p.priceSL,
-      tp: (p) => p.priceTP,
-      profit: (p) => p.profit,
-      profitPercentage: (p) => p.profit_percentage,
-      storage: (p) => p.storage,
-      storagePercentage: (p) => p.storage_percentage,
-      appliedPercentage: (p) => p.applied_percentage,
-      reason: (p) => p.reason,
-      comment: (p) => p.comment,
-      commission: (p) => p.commission
+    if (displayMode === 'percentage') params.percentage = true
+    if (activeSearch.trim()) params.search = activeSearch.trim()
+    if (dateFilter) {
+      const now = Math.floor(Date.now() / 1000)
+      params.dateFrom = now - dateFilter * 24 * 60 * 60
+      params.dateTo = now
     }
-    const headers = order
-      .filter(k => effectiveCols[k])
-      .map(k => ({ key: k, label: labelMap[k], accessor: accessors[k] }))
-    const csv = toCSV(sortedPositions, headers)
-    downloadFile(`positions_${Date.now()}.csv`, csv)
+    const apiFilterTypeMap = {
+      startsWith: 'starts_with', endsWith: 'ends_with', contains: 'contain',
+      doesNotContain: 'does_not_contain', equal: 'equal', notEqual: 'not_equal',
+      lessThan: 'less_than', lessThanOrEqual: 'less_than_or_equal',
+      greaterThan: 'greater_than', greaterThanOrEqual: 'greater_than_or_equal'
+    }
+    const apiFilters = []
+    Object.entries(columnFilters).forEach(([key, config]) => {
+      if (!key.endsWith('_number') || !config) return
+      const field = key.replace('_number', '')
+      const operator = apiFilterTypeMap[config.type]
+      if (!operator) return
+      if (config.type === 'between' && config.value2 != null) {
+        apiFilters.push({ field, operator: 'greater_than_or_equal', value: String(config.value1) })
+        apiFilters.push({ field, operator: 'less_than_or_equal', value: String(config.value2) })
+      } else {
+        apiFilters.push({ field, operator, value: String(config.value1) })
+      }
+    })
+    if (Array.isArray(columnFilters['symbol']) && columnFilters['symbol'].length > 0)
+      apiFilters.push({ field: 'symbol', operator: 'in', value: columnFilters['symbol'] })
+    if (Array.isArray(columnFilters['action']) && columnFilters['action'].length > 0)
+      apiFilters.push({ field: 'action', operator: 'in', value: columnFilters['action'] })
+    if (Array.isArray(columnFilters['login']) && columnFilters['login'].length > 0)
+      apiFilters.push({ field: 'login', operator: 'in', value: columnFilters['login'].map(Number) })
+    if (apiFilters.length > 0) params.filters = apiFilters
+    return params
+  }
+
+  const handleExportPositions = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    try {
+      const EXPORT_LIMIT = 1000
+      const CONCURRENCY = 5
+      const baseParams = buildPositionParams()
+
+      // Fetch page 1 to get total count and API-reported page count
+      const first = await brokerAPI.searchPositions({ ...baseParams, page: 1, limit: EXPORT_LIMIT })
+      const firstData = first?.data?.positions ?? first?.positions ?? []
+      const total = first?.data?.total ?? first?.total ?? 0
+      const apiPages = first?.data?.pages ?? first?.pages ?? 0
+      const totalPages = apiPages || Math.ceil(total / EXPORT_LIMIT)
+
+      if (!total && !apiPages) {
+        console.warn('[Positions Export] No total/pages from API — export may be incomplete')
+      }
+
+      let allPositions = [...firstData]
+
+      // Fetch remaining pages in parallel chunks
+      for (let start = 2; start <= totalPages; start += CONCURRENCY) {
+        const chunk = []
+        for (let p = start; p < start + CONCURRENCY && p <= totalPages; p++) {
+          chunk.push(brokerAPI.searchPositions({ ...baseParams, page: p, limit: EXPORT_LIMIT }))
+        }
+        const results = await Promise.all(chunk)
+        results.forEach(res => {
+          const rows = res?.data?.positions ?? res?.positions ?? []
+          allPositions = allPositions.concat(rows)
+        })
+      }
+
+      const effectiveCols = getEffectiveVisibleColumns()
+      const columnDefs = [
+        { key: 'time',             label: 'Time',        get: p => formatTime(p.timeUpdate || p.timeCreate) },
+        { key: 'login',            label: 'Login',       get: p => p.login },
+        { key: 'position',         label: 'Position',    get: p => p.position },
+        { key: 'symbol',           label: 'Symbol',      get: p => p.symbol },
+        { key: 'action',           label: 'Action',      get: p => p.action },
+        { key: 'volume',           label: 'Volume',      get: p => p.volume },
+        { key: 'volumePercentage', label: 'Volume %',    get: p => p.volume_percentage },
+        { key: 'priceOpen',        label: 'Open',        get: p => p.priceOpen },
+        { key: 'priceCurrent',     label: 'Current',     get: p => p.priceCurrent },
+        { key: 'sl',               label: 'S/L',         get: p => p.priceSL },
+        { key: 'tp',               label: 'T/P',         get: p => p.priceTP },
+        { key: 'profit',           label: 'Profit',      get: p => p.profit },
+        { key: 'profitPercentage', label: 'Profit %',    get: p => p.profit_percentage },
+        { key: 'storage',          label: 'Storage',     get: p => p.storage },
+        { key: 'storagePercentage',label: 'Storage %',   get: p => p.storage_percentage },
+        { key: 'appliedPercentage',label: 'Applied %',   get: p => p.applied_percentage },
+        { key: 'reason',           label: 'Reason',      get: p => p.reason },
+        { key: 'comment',          label: 'Comment',     get: p => p.comment },
+        { key: 'commission',       label: 'Commission',  get: p => p.commission },
+      ]
+      const headers = columnDefs
+        .filter(col => effectiveCols[col.key])
+        .map(col => ({ key: col.key, label: col.label, accessor: col.get }))
+      const csv = toCSV(allPositions, headers)
+      downloadFile(`positions_${Date.now()}.csv`, csv)
+    } catch (e) {
+      console.error('Export failed:', e)
+      alert('Export failed. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const handleExportNetPositions = () => {
@@ -2301,12 +2358,14 @@ const PositionsPage = () => {
               {/* Export CSV */}
               <button
                 onClick={handleExportPositions}
-                className="h-8 w-8 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
-                title="Export current positions to CSV"
+                disabled={isExporting}
+                className="h-8 w-8 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                title={isExporting ? 'Exporting all positions...' : 'Export all positions to CSV'}
               >
-                <svg className="w-4 h-4 text-[#374151]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/>
-                </svg>
+                {isExporting
+                  ? <svg className="w-4 h-4 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                  : <svg className="w-4 h-4 text-[#374151]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
+                }
               </button>
               
               <button
