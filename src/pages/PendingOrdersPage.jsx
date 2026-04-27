@@ -59,11 +59,12 @@ const PendingOrdersPage = () => {
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const columnSelectorRef = useRef(null)
   const [visibleColumns, setVisibleColumns] = useState({
-    order: true,
     time: true,
     login: true,
-    type: true,
+    name: true,
+    order: true,
     symbol: true,
+    type: true,
     volume: true,
     priceOrder: true,
     priceCurrent: true,
@@ -72,11 +73,12 @@ const PendingOrdersPage = () => {
   })
 
   const allColumns = [
-    { key: 'order', label: 'Order' },
     { key: 'time', label: 'Time' },
     { key: 'login', label: 'Login', sticky: true },
-    { key: 'type', label: 'Type' },
+    { key: 'name', label: 'Name' },
+    { key: 'order', label: 'Order' },
     { key: 'symbol', label: 'Symbol' },
+    { key: 'type', label: 'Type' },
     { key: 'volume', label: 'Volume' },
     { key: 'priceOrder', label: 'Price Order' },
     { key: 'priceCurrent', label: 'Price Current' },
@@ -109,7 +111,7 @@ const PendingOrdersPage = () => {
   const [customFilterOperator, setCustomFilterOperator] = useState('AND')
 
   // Define string columns that should show text filters instead of number filters
-  const stringColumns = ['symbol', 'type', 'state']
+  const stringColumns = ['symbol', 'type', 'state', 'name']
   const isStringColumn = (key) => stringColumns.includes(key)
 
   // Column filter helper functions
@@ -1234,6 +1236,7 @@ const PendingOrdersPage = () => {
                     <tr className="divide-x divide-blue-400">
                       {visibleColumns.time && renderHeaderCell('timeSetup', 'Time', 'timeSetup')}
                       {visibleColumns.login && renderHeaderCell('login', 'Login')}
+                      {visibleColumns.name && renderHeaderCell('name', 'Name')}
                       {visibleColumns.order && renderHeaderCell('order', 'Order')}
                       {visibleColumns.symbol && renderHeaderCell('symbol', 'Symbol')}
                       {visibleColumns.type && renderHeaderCell('type', 'Type')}
@@ -1297,6 +1300,8 @@ const PendingOrdersPage = () => {
                               );
                             } else if (colKey === 'order') {
                               cellContent = id;
+                            } else if (colKey === 'name') {
+                              cellContent = o.name ?? '-';
                             } else if (colKey === 'symbol') {
                               cellContent = o.symbol;
                             } else if (colKey === 'type') {

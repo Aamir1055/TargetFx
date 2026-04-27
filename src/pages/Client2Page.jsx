@@ -141,6 +141,16 @@ const Client2Page = () => {
   // Card filter mode: show only percentage cards or only non-percentage cards
   const [cardFilterPercentMode, setCardFilterPercentMode] = useState(false) // Do not persist; always start disabled
   const [showFaceCards, setShowFaceCards] = useState(true)
+  // Display mode for monetary fields: 'compact' (e.g. 2.57Cr) or 'full' (e.g. 2,57,14,191.16)
+  const [displayMode, setDisplayMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('client2DisplayMode')
+      return saved === 'full' ? 'full' : 'compact'
+    } catch { return 'compact' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('client2DisplayMode', displayMode) } catch {}
+  }, [displayMode])
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSorting, setIsSorting] = useState(false)
@@ -3471,6 +3481,10 @@ const Client2Page = () => {
       'dailyPnL', 'thisWeekPnL', 'thisMonthPnL', 'lifetimePnL'].includes(key)) {
       const num = parseFloat(value)
       if (isNaN(num)) return '-'
+      // Compact display for the toggle-eligible fields
+      if (displayMode === 'compact' && compactNumberFields.has(key)) {
+        return formatCompactIndian(num)
+      }
       // Don't append % to values, it's shown in header
       return formatIndianNumber(num.toFixed(2))
     }
@@ -3585,6 +3599,23 @@ const Client2Page = () => {
     const result = (isNegative ? '-' : '') + formatted
     return decimalPart ? `${result}.${decimalPart}` : result
   }
+
+  // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
+  const formatCompactIndian = (num) => {
+    const n = Number(num)
+    if (!isFinite(n)) return '0'
+    const abs = Math.abs(n)
+    const sign = n < 0 ? '-' : ''
+    if (abs >= 1e7) return `${sign}${(abs / 1e7).toFixed(2)}Cr`
+    if (abs >= 1e5) return `${sign}${(abs / 1e5).toFixed(2)}L`
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
+    return `${sign}${abs.toFixed(2)}`
+  }
+
+  // Fields that participate in the Compact/Full display toggle
+  const compactNumberFields = new Set([
+    'balance', 'credit', 'equity', 'margin', 'marginFree', 'profit', 'floating'
+  ])
 
   // Percentage mode: just append a percent sign to the normal formatted number
   const formatPercentageValue = (value) => {
@@ -4097,6 +4128,23 @@ const Client2Page = () => {
                 )}
               </div>
 
+              {/* Compact / Full display mode toggle */}
+              <button
+                type="button"
+                onClick={() => setDisplayMode(m => m === 'compact' ? 'full' : 'compact')}
+                className="h-8 px-2.5 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors"
+                title={displayMode === 'compact' ? 'Switch to full numbers' : 'Switch to compact numbers'}
+              >
+                <span className="text-xs font-medium text-[#374151]">
+                  {displayMode === 'compact' ? 'Compact' : 'Full'}
+                </span>
+                <div className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${displayMode === 'full' ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform ${displayMode === 'full' ? 'translate-x-4' : 'translate-x-0.5'}`}
+                  />
+                </div>
+              </button>
+
               {/* Cards Toggle Button with Switch */}
               <button
                 onClick={() => setShowFaceCards(v => !v)}
@@ -4123,14 +4171,35 @@ const Client2Page = () => {
                 const pnlValue = Number(t?.pnl || 0)
                 const floatingValue = Number(t?.floating || 0)
                 const isLoadingCards = initialLoad || loading
+                const isCompact = displayMode === 'compact'
+                // Helpers: produce a (display, full) pair for a numeric monetary value
+                const buildMoney = (raw) => {
+                  const n = Number(raw || 0)
+                  const full = formatIndianNumber(n.toFixed(2))
+                  const display = isCompact ? formatCompactIndian(n) : full
+                  return { display, full }
+                }
+                const buildSignedMoney = (raw) => {
+                  const n = Number(raw || 0)
+                  const sign = n < 0 ? '-' : ''
+                  const abs = Math.abs(n)
+                  const full = sign + formatIndianNumber(abs.toFixed(2))
+                  const display = isCompact ? (sign + formatCompactIndian(abs)) : full
+                  return { display, full }
+                }
+                const balanceM = buildMoney(t?.balance)
+                const creditM = buildMoney(t?.credit)
+                const equityM = buildMoney(t?.equity)
+                const floatingM = buildSignedMoney(floatingValue)
+                const pnlM = buildSignedMoney(pnlValue)
                 // Card definitions by key
                 const cardDefs = {
                   totalClients: { title: 'Total Clients', value: formatIndianNumber(totalClients || 0), valueColor: 'text-[#000000]', skeletonW: 'w-14' },
-                  balance: { title: 'Balance', value: formatIndianNumber(Number(t?.balance || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  credit: { title: 'Credit', value: formatIndianNumber(Number(t?.credit || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  equity: { title: 'Equity', value: formatIndianNumber(Number(t?.equity || 0).toFixed(2)), valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  floating: { title: 'Floating PNL', value: (floatingValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(floatingValue).toFixed(2)), valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' },
-                  pnl: { title: 'P&L', value: (pnlValue < 0 ? '-' : '') + formatIndianNumber(Math.abs(pnlValue).toFixed(2)), valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' }
+                  balance: { title: 'Balance', value: balanceM.display, fullValue: balanceM.full, valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  credit: { title: 'Credit', value: creditM.display, fullValue: creditM.full, valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  equity: { title: 'Equity', value: equityM.display, fullValue: equityM.full, valueColor: 'text-[#000000]', skeletonW: 'w-20' },
+                  floating: { title: 'Floating PNL', value: floatingM.display, fullValue: floatingM.full, valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' },
+                  pnl: { title: 'P&L', value: pnlM.display, fullValue: pnlM.full, valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' }
                 }
                 // Only show cards that are in faceCardOrder and visible
                 const visibleOrderedKeys = (faceCardOrder || Object.keys(cardDefs)).filter(key => cardVisibility[key] !== false && cardDefs[key])
@@ -4160,7 +4229,7 @@ const Client2Page = () => {
                             <div className={`h-6 ${card.skeletonW} bg-gray-200 rounded animate-pulse`}></div>
                           ) : (
                             <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${card.valueColor}`}>
-                              <span>{card.value}</span>
+                              <span title={isCompact && card.fullValue ? card.fullValue : undefined}>{card.value}</span>
                               {card.unit && (
                                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">{card.unit}</span>
                               )}
@@ -5380,6 +5449,11 @@ const Client2Page = () => {
                             }
                             const isPercentageField = percentModeActive && fieldsWithPercentage.includes(col.key)
                             const cellValue = formatValue(col.key, rawValue, isPercentageField)
+                            // In compact mode, show the full Indian-formatted number as a tooltip
+                            const isCompactCell = displayMode === 'compact' && compactNumberFields.has(col.key)
+                            const cellTitle = isCompactCell && rawValue !== null && rawValue !== undefined && rawValue !== ''
+                              ? formatIndianNumber(Number(rawValue).toFixed(2))
+                              : cellValue
 
                             // Special handling for login column - make it blue and sticky
                             if (col.key === 'login') {
@@ -5419,7 +5493,7 @@ const Client2Page = () => {
                                   whiteSpace: 'nowrap',
                                   borderRight: '1px solid #e5e7eb'
                                 }}
-                                title={cellValue}
+                                title={cellTitle}
                               >
                                 {/* Chip formatting for processorType and accountType */}
                                 {col.key === 'processorType' ? (
