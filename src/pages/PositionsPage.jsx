@@ -2463,7 +2463,7 @@ const PositionsPage = () => {
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total Volume</span>
+                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total Volume %' : 'Total Volume'}</span>
                 <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                   <img 
                     src={getCardIcon('Symbols')} 
@@ -2512,7 +2512,7 @@ const PositionsPage = () => {
                 {netCardsVisible.totalNetVolume && (
                   <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total NET Volume</span>
+                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total NET Volume %' : 'Total NET Volume'}</span>
                       <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                         <img 
                           src={getCardIcon('Total NET Volume')} 
@@ -2531,7 +2531,7 @@ const PositionsPage = () => {
                 {netCardsVisible.totalNetPL && (
                   <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total NET P/L</span>
+                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total NET P/L %' : 'Total NET P/L'}</span>
                       <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                         <img 
                           src={getCardIcon('Total NET P/L')} 
@@ -3089,7 +3089,7 @@ const PositionsPage = () => {
                 {clientNetCardsVisible.totalNetVolume && (
                   <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total NET Volume</span>
+                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total NET Volume %' : 'Total NET Volume'}</span>
                       <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                         <img 
                           src={getCardIcon('Total NET Volume')} 
@@ -3107,7 +3107,7 @@ const PositionsPage = () => {
                 {clientNetCardsVisible.totalNetPL && (
                   <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total NET P/L</span>
+                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total NET P/L %' : 'Total NET P/L'}</span>
                       <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                         <img 
                           src={getCardIcon('Total NET P/L')} 
