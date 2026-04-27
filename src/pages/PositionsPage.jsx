@@ -100,10 +100,8 @@ const PositionsPage = () => {
     netVolume: true,
     totalProfit: true,
     totalStorage: false,
-    totalCommission: false,
     loginCount: true,
     totalPositions: true,
-    variantCount: false
   })
   const toggleNetColumn = (col) => setNetVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }))
   // NET Position sorting
@@ -1584,7 +1582,8 @@ const PositionsPage = () => {
       sortOrder: sortDirection || 'desc'
     }
     if (displayMode === 'percentage') params.percentage = true
-    if (activeSearch.trim()) params.search = activeSearch.trim()
+    const exportSearch = (activeSearch || searchQuery).trim()
+    if (exportSearch) params.search = exportSearch
     if (dateFilter) {
       const now = Math.floor(Date.now() / 1000)
       params.dateFrom = now - dateFilter * 24 * 60 * 60
@@ -1661,15 +1660,15 @@ const PositionsPage = () => {
         { key: 'symbol',           label: 'Symbol',      get: p => p.symbol },
         { key: 'action',           label: 'Action',      get: p => p.action },
         { key: 'volume',           label: 'Volume',      get: p => p.volume },
-        { key: 'volumePercentage', label: 'Volume %',    get: p => p.volume_percentage },
+        { key: 'volumePercentage', label: 'Volume %',    get: p => p.volume },
         { key: 'priceOpen',        label: 'Open',        get: p => p.priceOpen },
         { key: 'priceCurrent',     label: 'Current',     get: p => p.priceCurrent },
         { key: 'sl',               label: 'S/L',         get: p => p.priceSL },
         { key: 'tp',               label: 'T/P',         get: p => p.priceTP },
         { key: 'profit',           label: 'Profit',      get: p => p.profit },
-        { key: 'profitPercentage', label: 'Profit %',    get: p => p.profit_percentage },
+        { key: 'profitPercentage', label: 'Profit %',    get: p => p.profit },
         { key: 'storage',          label: 'Storage',     get: p => p.storage },
-        { key: 'storagePercentage',label: 'Storage %',   get: p => p.storage_percentage },
+        { key: 'storagePercentage',label: 'Storage %',   get: p => p.storage },
         { key: 'appliedPercentage',label: 'Applied %',   get: p => p.applied_percentage },
         { key: 'reason',           label: 'Reason',      get: p => p.reason },
         { key: 'comment',          label: 'Comment',     get: p => p.comment },
@@ -1688,22 +1687,83 @@ const PositionsPage = () => {
     }
   }
 
-  const handleExportNetPositions = () => {
-    const headers = [
-      { key: 'symbol', label: 'Symbol' },
-      { key: 'netType', label: 'NET Type' },
-      { key: 'netVolume', label: 'NET Volume' },
-      { key: 'totalProfit', label: 'Total Profit' },
-      { key: 'loginCount', label: 'Logins' },
-      { key: 'totalPositions', label: 'Positions' }
-    ]
-    const csv = toCSV(netFilteredPositions, headers)
-    downloadFile(`net_positions_${Date.now()}.csv`, csv)
+  const handleExportNetPositions = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    try {
+      const EXPORT_LIMIT = 1000
+      const CONCURRENCY = 5
+      const baseParams = {
+        netPosition: true,
+        sortBy: netSortColumn || 'netVolume',
+        sortOrder: netSortDirection || 'desc',
+      }
+      if (displayMode === 'percentage') baseParams.percentage = true
+      if (groupByBaseSymbol) baseParams.groupBaseSymbol = true
+      const exportSearch = (netActiveSearch || netSearchQuery).trim()
+      if (exportSearch) baseParams.search = exportSearch
+
+      const ACTION_LABEL = { BUY: 'Buy', SELL: 'Sell', FLAT: 'Flat' }
+      const mapItems = (data) => data.map(item => ({
+        symbol: item.symbol || item.baseSymbol,
+        netType: ACTION_LABEL[item.action] ?? item.action ?? 'Flat',
+        netVolume: item.netVolume ?? 0,
+        totalProfit: item.totalProfit ?? 0,
+        totalStorage: item.totalStorage ?? 0,
+        totalCommission: item.totalCommission ?? 0,
+        loginCount: item.clientCount ?? 0,
+        totalPositions: item.positionCount ?? 0,
+      }))
+
+      // Fetch page 1 to get total/pages
+      const first = await brokerAPI.searchPositions({ ...baseParams, page: 1, limit: EXPORT_LIMIT })
+      const firstData = first?.data?.positions ?? first?.positions ?? []
+      const total = first?.data?.total ?? first?.total ?? 0
+      const apiPages = first?.data?.pages ?? first?.pages ?? 0
+      const totalPages = apiPages || Math.ceil(total / EXPORT_LIMIT)
+
+      if (!total && !apiPages) {
+        console.warn('[NET Export] No total/pages from API — export may be incomplete')
+      }
+
+      let allRows = mapItems(firstData)
+
+      for (let start = 2; start <= totalPages; start += CONCURRENCY) {
+        const chunk = []
+        for (let p = start; p < start + CONCURRENCY && p <= totalPages; p++) {
+          chunk.push(brokerAPI.searchPositions({ ...baseParams, page: p, limit: EXPORT_LIMIT }))
+        }
+        const results = await Promise.all(chunk)
+        results.forEach(res => {
+          const rows = res?.data?.positions ?? res?.positions ?? []
+          allRows = allRows.concat(mapItems(rows))
+        })
+      }
+
+      const pct = displayMode === 'percentage'
+      const allNetHeaders = [
+        { key: 'symbol',         label: 'Symbol',                                   accessor: r => r.symbol },
+        { key: 'netType',        label: 'NET Type',                                 accessor: r => r.netType },
+        { key: 'netVolume',      label: pct ? 'NET Volume %'    : 'NET Volume',     accessor: r => r.netVolume },
+        { key: 'totalProfit',    label: pct ? 'Total Profit %'  : 'Total Profit',   accessor: r => r.totalProfit },
+        { key: 'totalStorage',   label: pct ? 'Total Storage %' : 'Total Storage',  accessor: r => r.totalStorage },
+        { key: 'loginCount',     label: 'Logins',                                   accessor: r => r.loginCount },
+        { key: 'totalPositions', label: 'Positions',                                accessor: r => r.totalPositions },
+      ]
+      const headers = allNetHeaders.filter(h => netVisibleColumns[h.key])
+      const csv = toCSV(allRows, headers)
+      downloadFile(`net_positions_${Date.now()}.csv`, csv)
+    } catch (e) {
+      console.error('NET Export failed:', e)
+      alert('Export failed. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   // NET table dynamic columns: order, labels, and cell renderers
   const netColumnOrder = [
-    'symbol','netType','netVolume','totalProfit','totalStorage','totalCommission','loginCount','totalPositions','variantCount'
+    'symbol','netType','netVolume','totalProfit','totalStorage','loginCount','totalPositions'
   ]
   const netColumnLabels = {
     symbol: 'Symbol',
@@ -1711,10 +1771,8 @@ const PositionsPage = () => {
     netVolume: 'NET Volume',
     totalProfit: 'Total Profit',
     totalStorage: 'Total Storage',
-    totalCommission: 'Total Commission',
     loginCount: 'Logins',
     totalPositions: 'Positions',
-    variantCount: 'Variant Count'
   }
   const renderNetCell = (key, netPos) => {
     switch (key) {
@@ -2357,15 +2415,12 @@ const PositionsPage = () => {
 
               {/* Export CSV */}
               <button
-                onClick={handleExportPositions}
+                onClick={showNetPositions ? handleExportNetPositions : handleExportPositions}
                 disabled={isExporting}
                 className="h-8 w-8 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                title={isExporting ? 'Exporting all positions...' : 'Export all positions to CSV'}
+                title={isExporting ? 'Exporting...' : showNetPositions ? 'Export all NET positions to CSV' : 'Export all positions to CSV'}
               >
-                {isExporting
-                  ? <svg className="w-4 h-4 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                  : <svg className="w-4 h-4 text-[#374151]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
-                }
+                <svg className="w-4 h-4 text-[#374151]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
               </button>
               
               <button
@@ -3774,7 +3829,7 @@ const PositionsPage = () => {
                   </thead>
 
                   {/* YouTube-style Loading Progress Bar */}
-                  {isInitialPositionsLoading && (
+                  {(isInitialPositionsLoading || isExporting || isPageLoading) && (
                     <thead className="sticky z-40" style={{ top: '48px' }}>
                       <tr>
                         <th colSpan={Object.values(getEffectiveVisibleColumns()).filter(v => v).length} className="p-0" style={{ height: '3px' }}>
@@ -3790,6 +3845,16 @@ const PositionsPage = () => {
                                 background: #2563eb;
                                 animation: shimmerSlidePos 0.9s linear infinite;
                               }
+                              @keyframes shimmerPos {
+                                0% { background-position: -1000px 0; }
+                                100% { background-position: 1000px 0; }
+                              }
+                              .skeleton-shimmer-pos {
+                                background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 20%, #f0f0f0 40%, #f0f0f0 100%);
+                                background-size: 1000px 100%;
+                                animation: shimmerPos 1.5s ease-in-out infinite;
+                                border-radius: 4px;
+                              }
                             `}</style>
                             <div className="shimmer-loading-bar-pos absolute top-0 left-0 h-full" />
                           </div>
@@ -3799,13 +3864,13 @@ const PositionsPage = () => {
                   )}
 
                   <tbody className="bg-white">
-                    {isPageLoading ? (
+                    {(isPageLoading || isInitialPositionsLoading || isExporting) ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
                           {Object.values(getEffectiveVisibleColumns()).map((visible, colIdx) => (
                             visible ? (
                               <td key={colIdx} className="px-2" style={{ height: '38px' }}>
-                                <div className="h-3 w-full max-w-[80%] bg-gray-200 rounded animate-pulse" />
+                                <div className="h-3 w-full max-w-[80%] skeleton-shimmer-pos" />
                               </td>
                             ) : null
                           ))}
