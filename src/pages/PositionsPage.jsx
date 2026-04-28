@@ -215,8 +215,8 @@ const PositionsPage = () => {
     { key: 'action', label: 'Action' },
     { key: 'symbol', label: 'Symbol' },
     { key: 'volume', label: 'Volume' },
-    { key: 'priceOpen', label: 'Price Open' },
-    { key: 'priceCurrent', label: 'Price Current' },
+    { key: 'priceOpen', label: 'Open Price' },
+    { key: 'priceCurrent', label: 'Current Price' },
     { key: 'sl', label: 'S/L' },
     { key: 'tp', label: 'T/P' },
     { key: 'profit', label: 'Profit' },
@@ -1738,8 +1738,8 @@ const PositionsPage = () => {
         { key: 'action',           label: 'Action',      get: p => p.action },
         { key: 'volume',           label: 'Volume',      get: p => p.volume },
         { key: 'volumePercentage', label: 'Volume %',    get: p => p.volume },
-        { key: 'priceOpen',        label: 'Open',        get: p => p.priceOpen },
-        { key: 'priceCurrent',     label: 'Current',     get: p => p.priceCurrent },
+        { key: 'priceOpen',        label: 'Open Price',    get: p => p.priceOpen },
+        { key: 'priceCurrent',     label: 'Current Price', get: p => p.priceCurrent },
         { key: 'sl',               label: 'S/L',         get: p => p.priceSL },
         { key: 'tp',               label: 'T/P',         get: p => p.priceTP },
         { key: 'profit',           label: 'Profit',      get: p => p.profit },
@@ -2647,7 +2647,7 @@ const PositionsPage = () => {
                 <div className="h-6 w-12 bg-gray-200 rounded animate-pulse" />
               ) : (
                 <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                  <span>{summaryStats.uniqueLogins}</span>
+                  <span title={numericMode === 'compact' ? String(summaryStats.uniqueLogins) : undefined}>{numericMode === 'compact' ? fmtPrice(summaryStats.uniqueLogins, 0) : summaryStats.uniqueLogins}</span>
                   <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ACCT</span>
                 </div>
               )}
@@ -3908,8 +3908,8 @@ const PositionsPage = () => {
                           {effectiveCols.action && renderHeaderCell('action', 'Action')}
                           {effectiveCols.volume && renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}
                           {effectiveCols.volumePercentage && renderHeaderCell('volume', 'Volume %')}
-                          {effectiveCols.priceOpen && renderHeaderCell('priceOpen', 'Open')}
-                          {effectiveCols.priceCurrent && renderHeaderCell('priceCurrent', 'Current')}
+                          {effectiveCols.priceOpen && renderHeaderCell('priceOpen', 'Open Price')}
+                          {effectiveCols.priceCurrent && renderHeaderCell('priceCurrent', 'Current Price')}
                           {effectiveCols.sl && renderHeaderCell('priceSL', 'S/L')}
                           {effectiveCols.tp && renderHeaderCell('priceTP', 'T/P')}
                           {effectiveCols.profit && renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}
