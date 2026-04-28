@@ -17,6 +17,25 @@ const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
 const LiveDealingPage = () => {
   // Detect mobile device
   const [isMobile, setIsMobile] = useState(false)
+  // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
+  const [numericMode, setNumericMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('globalDisplayMode')
+      return saved === 'full' ? 'full' : 'compact'
+    } catch { return 'compact' }
+  })
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
   
   const { positions: cachedPositions, orders: cachedOrders } = useData() // Get positions and orders from DataContext
   const { filterByActiveGroup, activeGroupFilters } = useGroups()
@@ -810,6 +829,52 @@ const LiveDealingPage = () => {
     const formatted = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + (otherNumbers ? ',' : '') + lastThree
     
     return decimal ? `${formatted}.${decimal}` : formatted
+  }
+
+  // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
+  const formatCompactIndian = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return '0'
+    const abs = Math.abs(num)
+    const sign = num < 0 ? '-' : ''
+    if (abs >= 1e7) return `${sign}${(abs / 1e7).toFixed(2)}Cr`
+    if (abs >= 1e5) return `${sign}${(abs / 1e5).toFixed(2)}L`
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
+    return `${sign}${abs.toFixed(2)}`
+  }
+  // Money/volume formatter that honors compact mode
+  const fmtMoney = (n, digits = 2) => {
+    if (n === null || n === undefined || n === '') return '-'
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact') return formatCompactIndian(num)
+    return formatIndianNumber(num, digits)
+  }
+  const fmtMoneyFull = (n, digits = 2) => {
+    if (n === null || n === undefined || n === '') return '-'
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    return formatIndianNumber(num, digits)
+  }
+  // Price formatter: only compact when |value| >= 1000
+  const fmtPrice = (n, digits = 5) => {
+    if (n === null || n === undefined || n === '') return '-'
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
+    return formatIndianNumber(num, digits)
+  }
+  const fmtPriceFull = (n, digits = 5) => {
+    if (n === null || n === undefined || n === '') return '-'
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    return formatIndianNumber(num, digits)
+  }
+  // Count formatter: compacts when value >= 1000
+  const fmtCount = (n) => {
+    const num = Number(n) || 0
+    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
+    return formatIndianNumber(num, 0)
   }
 
   // Get card icon path based on card title
@@ -1796,7 +1861,7 @@ const LiveDealingPage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{formatIndianNumber(sortedDeals.length, 0)}</span>
+                <span title={numericMode === 'compact' ? formatIndianNumber(sortedDeals.length, 0) : undefined}>{fmtCount(sortedDeals.length)}</span>
                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">DEAL</span>
               </div>
               {searchQuery && (
@@ -1842,7 +1907,7 @@ const LiveDealingPage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{formatIndianNumber(new Set(sortedDeals.map(d => d.login)).size, 0)}</span>
+                <span title={numericMode === 'compact' ? formatIndianNumber(new Set(sortedDeals.map(d => d.login)).size, 0) : undefined}>{fmtCount(new Set(sortedDeals.map(d => d.login)).size)}</span>
                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ACCT</span>
               </div>
               {searchQuery && (
@@ -1864,7 +1929,7 @@ const LiveDealingPage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{formatIndianNumber(new Set(sortedDeals.map(d => d.symbol)).size, 0)}</span>
+                <span title={numericMode === 'compact' ? formatIndianNumber(new Set(sortedDeals.map(d => d.symbol)).size, 0) : undefined}>{fmtCount(new Set(sortedDeals.map(d => d.symbol)).size)}</span>
                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">SYM</span>
               </div>
               {searchQuery && (
@@ -2147,30 +2212,30 @@ const LiveDealingPage = () => {
                         </td>
                       )}
                       {visibleColumns.volume && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {formatIndianNumber(deal.rawData?.volume, 2)}
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.volume, 2) : undefined}>
+                          {fmtMoney(deal.rawData?.volume, 2)}
                         </td>
                       )}
                       {visibleColumns.price && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {formatIndianNumber(deal.rawData?.price, 5)}
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtPriceFull(deal.rawData?.price, 5) : undefined}>
+                          {fmtPrice(deal.rawData?.price, 5)}
                         </td>
                       )}
                       {visibleColumns.profit && (
                         <td className={`px-3 py-2.5 whitespace-nowrap text-sm ${
                           (deal.rawData?.profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`} style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {formatIndianNumber(deal.rawData?.profit, 2)}
+                        }`} style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.profit, 2) : undefined}>
+                          {fmtMoney(deal.rawData?.profit, 2)}
                         </td>
                       )}
                       {visibleColumns.commission && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {formatIndianNumber(deal.rawData?.commission, 2)}
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.commission, 2) : undefined}>
+                          {fmtMoney(deal.rawData?.commission, 2)}
                         </td>
                       )}
                       {visibleColumns.storage && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {formatIndianNumber(deal.rawData?.storage, 2)}
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.storage, 2) : undefined}>
+                          {fmtMoney(deal.rawData?.storage, 2)}
                         </td>
                       )}
                       {visibleColumns.entry && (

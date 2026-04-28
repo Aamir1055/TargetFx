@@ -24,6 +24,25 @@ const getMarginLevelPercent = (obj) => {
 const MarginLevelPage = () => {
   // Detect mobile device
   const [isMobile, setIsMobile] = useState(false)
+  // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
+  const [numericMode, setNumericMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('globalDisplayMode')
+      return saved === 'full' ? 'full' : 'compact'
+    } catch { return 'compact' }
+  })
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
 
   // Use cached data from DataContext - MUST be called before conditional return
   const { accounts: cachedAccounts, positions: cachedPositions, orders: cachedOrders, fetchAccounts, loading, connectionState } = useData()
@@ -460,6 +479,29 @@ const MarginLevelPage = () => {
     const num = Number(n)
     if (Number.isNaN(num)) return '-'
     return num.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  }
+
+  // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
+  const formatCompactIndian = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return '0'
+    const abs = Math.abs(num)
+    const sign = num < 0 ? '-' : ''
+    if (abs >= 1e7) return `${sign}${(abs / 1e7).toFixed(2)}Cr`
+    if (abs >= 1e5) return `${sign}${(abs / 1e5).toFixed(2)}L`
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
+    return `${sign}${abs.toFixed(2)}`
+  }
+  const fmtMoney = (n, digits = 2) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact') return formatCompactIndian(num)
+    return formatNumber(num, digits)
+  }
+  const fmtMoneyFull = (n, digits = 2) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    return formatNumber(num, digits)
   }
 
   // Get card icon path based on card title
@@ -899,7 +941,7 @@ const MarginLevelPage = () => {
                 <div className="h-6 w-12 bg-gray-200 rounded animate-pulse" />
               ) : (
                 <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                  <span>{filtered.length}</span>
+                  <span title={numericMode === 'compact' ? String(filtered.length) : undefined}>{numericMode === 'compact' ? fmtMoney(filtered.length, 0).replace(/\.00$/, '') : filtered.length}</span>
                   <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ACCT</span>
                 </div>
               )}
@@ -945,7 +987,7 @@ const MarginLevelPage = () => {
                 <div className="h-6 w-12 bg-gray-200 rounded animate-pulse" />
               ) : (
                 <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                  <span>{new Set(filtered.map(o=>o.login)).size}</span>
+                  <span title={numericMode === 'compact' ? String(new Set(filtered.map(o=>o.login)).size) : undefined}>{numericMode === 'compact' ? fmtMoney(new Set(filtered.map(o=>o.login)).size, 0).replace(/\.00$/, '') : new Set(filtered.map(o=>o.login)).size}</span>
                   <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ACCT</span>
                 </div>
               )}
@@ -1284,9 +1326,9 @@ const MarginLevelPage = () => {
                             {a.login}
                           </td>
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{a.name || '-'}</td>
-                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{formatNumber(a.equity, 2)}</td>
-                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{formatNumber(a.margin, 2)}</td>
-                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{formatNumber(a.marginFree ?? a.margin_free, 2)}</td>
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(a.equity, 2) : undefined}>{fmtMoney(a.equity, 2)}</td>
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(a.margin, 2) : undefined}>{fmtMoney(a.margin, 2)}</td>
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(a.marginFree ?? a.margin_free, 2) : undefined}>{fmtMoney(a.marginFree ?? a.margin_free, 2)}</td>
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
                             <span className={`px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-800`}>
                               {formatNumber(ml, 2)}%

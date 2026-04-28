@@ -21,7 +21,26 @@ const PendingOrdersPage = () => {
   // Server-side polled data
   const [polledOrders, setPolledOrders] = useState([])
   const [serverTotalOrders, setServerTotalOrders] = useState(0)
-  const [serverTotals, setServerTotals] = useState({ volumeCurrent: 0, volumeInitial: 0 })
+  const [serverTotals, setServerTotals] = useState({ volumeCurrent: 0, volumeInitial: 0, uniqueLogins: 0 })
+  // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
+  const [numericMode, setNumericMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('globalDisplayMode')
+      return saved === 'full' ? 'full' : 'compact'
+    } catch { return 'compact' }
+  })
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
   const [hasFetchedOrders, setHasFetchedOrders] = useState(false)
   const [isPageLoading, setIsPageLoading] = useState(false)
   const prevPageRef = useRef(1)
@@ -80,8 +99,8 @@ const PendingOrdersPage = () => {
     { key: 'symbol', label: 'Symbol' },
     { key: 'type', label: 'Type' },
     { key: 'volume', label: 'Volume' },
-    { key: 'priceOrder', label: 'Price Order' },
-    { key: 'priceCurrent', label: 'Price Current' },
+    { key: 'priceOrder', label: 'Price' },
+    { key: 'priceCurrent', label: 'Trigger' },
     { key: 'sl', label: 'S/L' },
     { key: 'tp', label: 'T/P' }
   ]
@@ -413,6 +432,42 @@ const PendingOrdersPage = () => {
     const num = Number(n)
     if (Number.isNaN(num)) return '-'
     return num.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  }
+
+  // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
+  const formatCompactIndian = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return '0'
+    const abs = Math.abs(num)
+    const sign = num < 0 ? '-' : ''
+    if (abs >= 1e7) return `${sign}${(abs / 1e7).toFixed(2)}Cr`
+    if (abs >= 1e5) return `${sign}${(abs / 1e5).toFixed(2)}L`
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
+    return `${sign}${abs.toFixed(2)}`
+  }
+  // Volume/qty formatter (compact when global mode is compact)
+  const fmtMoney = (n, digits = 2) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact') return formatCompactIndian(num)
+    return formatNumber(num, digits)
+  }
+  const fmtMoneyFull = (n, digits = 2) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    return formatNumber(num, digits)
+  }
+  // Price formatter: only compact when |value| >= 1000
+  const fmtPrice = (n, digits = 3) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
+    return formatNumber(num, digits)
+  }
+  const fmtPriceFull = (n, digits = 3) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    return formatNumber(num, digits)
   }
 
   // Color mapping for order `type` column
@@ -1028,7 +1083,7 @@ const PendingOrdersPage = () => {
         </div>
 
           {/* Summary Cards - Client2 Face Card Design */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total Orders</span>
@@ -1044,8 +1099,27 @@ const PendingOrdersPage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{serverTotalOrders}</span>
+                <span title={numericMode === 'compact' ? String(serverTotalOrders) : undefined}>{numericMode === 'compact' ? fmtPrice(serverTotalOrders, 0) : serverTotalOrders}</span>
                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ORD</span>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
+              <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
+                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Unique Logins</span>
+                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                  <img 
+                    src={getCardIcon('Unique Logins')} 
+                    alt="Unique Logins"
+                    style={{ width: '100%', height: '100%' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
+                <span title={numericMode === 'compact' ? String(Number(serverTotals.uniqueLogins || 0)) : undefined}>{numericMode === 'compact' ? fmtPrice(Number(serverTotals.uniqueLogins || 0), 0) : Number(serverTotals.uniqueLogins || 0)}</span>
+                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ACCT</span>
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -1063,7 +1137,7 @@ const PendingOrdersPage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{formatNumber(serverTotals.volumeCurrent, 2)}</span>
+                <span title={numericMode === 'compact' ? fmtMoneyFull(serverTotals.volumeCurrent, 2) : undefined}>{fmtMoney(serverTotals.volumeCurrent, 2)}</span>
                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span>
               </div>
             </div>
@@ -1082,7 +1156,7 @@ const PendingOrdersPage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{formatNumber(serverTotals.volumeInitial, 2)}</span>
+                <span title={numericMode === 'compact' ? fmtMoneyFull(serverTotals.volumeInitial, 2) : undefined}>{fmtMoney(serverTotals.volumeInitial, 2)}</span>
                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span>
               </div>
             </div>
@@ -1317,11 +1391,15 @@ const PendingOrdersPage = () => {
                                 </span>
                               );
                             } else if (colKey === 'volume') {
-                              cellContent = formatNumber(o.volumeCurrent ?? o.volume ?? o.volumeInitial, 3);
+                              const volRaw = o.volumeCurrent ?? o.volume ?? o.volumeInitial;
+                              cellContent = (
+                                <span title={numericMode === 'compact' ? fmtMoneyFull(volRaw, 3) : undefined}>{fmtMoney(volRaw, 3)}</span>
+                              );
                             } else if (colKey === 'priceOrder') {
+                              const priceRaw = o.priceOrder ?? o.price ?? o.priceOpen ?? o.priceOpenExact ?? o.open_price;
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  {formatNumber(o.priceOrder ?? o.price ?? o.priceOpen ?? o.priceOpenExact ?? o.open_price, 3)}
+                                  <span title={numericMode === 'compact' ? fmtPriceFull(priceRaw, 3) : undefined}>{fmtPrice(priceRaw, 3)}</span>
                                   {priceDelta !== undefined && priceDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${priceDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                       {priceDelta > 0 ? '▲' : '▼'} {Math.abs(priceDelta).toFixed(3)}
@@ -1330,11 +1408,15 @@ const PendingOrdersPage = () => {
                                 </div>
                               );
                             } else if (colKey === 'priceCurrent') {
-                              cellContent = formatNumber(o.priceTrigger ?? o.trigger ?? 0, 3);
+                              const trigRaw = o.priceTrigger ?? o.trigger ?? 0;
+                              cellContent = (
+                                <span title={numericMode === 'compact' ? fmtPriceFull(trigRaw, 3) : undefined}>{fmtPrice(trigRaw, 3)}</span>
+                              );
                             } else if (colKey === 'sl') {
+                              const slRaw = o.priceSL ?? o.sl ?? o.stop_loss;
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  {formatNumber(o.priceSL ?? o.sl ?? o.stop_loss, 3)}
+                                  <span title={numericMode === 'compact' ? fmtPriceFull(slRaw, 3) : undefined}>{fmtPrice(slRaw, 3)}</span>
                                   {slDelta !== undefined && slDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${slDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                       {slDelta > 0 ? '▲' : '▼'} {Math.abs(slDelta).toFixed(3)}
@@ -1343,9 +1425,10 @@ const PendingOrdersPage = () => {
                                 </div>
                               );
                             } else if (colKey === 'tp') {
+                              const tpRaw = o.priceTP ?? o.tp ?? o.take_profit;
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  {formatNumber(o.priceTP ?? o.tp ?? o.take_profit, 3)}
+                                  <span title={numericMode === 'compact' ? fmtPriceFull(tpRaw, 3) : undefined}>{fmtPrice(tpRaw, 3)}</span>
                                   {tpDelta !== undefined && tpDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${tpDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                       {tpDelta > 0 ? '▲' : '▼'} {Math.abs(tpDelta).toFixed(3)}

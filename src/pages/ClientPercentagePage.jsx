@@ -14,6 +14,41 @@ import ClientPercentageModule from '../components/ClientPercentageModule'
 const ClientPercentagePage = () => {
   // Detect mobile device
   const [isMobile, setIsMobile] = useState(false)
+  // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
+  const [numericMode, setNumericMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('globalDisplayMode')
+      return saved === 'full' ? 'full' : 'compact'
+    } catch { return 'compact' }
+  })
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
+  // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
+  const formatCompactIndian = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return '0'
+    const abs = Math.abs(num)
+    const sign = num < 0 ? '-' : ''
+    if (abs >= 1e7) return `${sign}${(abs / 1e7).toFixed(2)}Cr`
+    if (abs >= 1e5) return `${sign}${(abs / 1e5).toFixed(2)}L`
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
+    return `${sign}${Math.round(abs)}`
+  }
+  const fmtCount = (n) => {
+    const num = Number(n) || 0
+    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
+    return String(num)
+  }
   
   const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter } = useGroups()
   const { positions: cachedPositions, orders: cachedOrders } = useData()
@@ -576,7 +611,7 @@ const ClientPercentagePage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{stats.total_custom}</span>
+                <span title={numericMode === 'compact' ? String(stats.total_custom) : undefined}>{fmtCount(stats.total_custom)}</span>
                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">CUST</span>
               </div>
             </div>
@@ -592,7 +627,7 @@ const ClientPercentagePage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{stats.total_default}</span>
+                <span title={numericMode === 'compact' ? String(stats.total_default) : undefined}>{fmtCount(stats.total_default)}</span>
                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">DEF</span>
               </div>
             </div>
