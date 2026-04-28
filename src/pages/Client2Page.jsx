@@ -259,16 +259,16 @@ const Client2Page = () => {
       const scrollY = window.scrollY || document.documentElement.scrollTop || 0
       const scrollX = window.scrollX || document.documentElement.scrollLeft || 0
       const panelWidth = 300
-      const gap = 8
+      const gap = 6
       const viewportH = window.innerHeight || document.documentElement.clientHeight || 800
-      const lift = Math.min(400, Math.round(viewportH * 0.5))
-      let top = rect.top + scrollY - lift + Math.round(rect.height / 2)
-      top = Math.max(scrollY + 10, Math.min(top, scrollY + viewportH - 10))
-      let left = rect.right + scrollX + gap
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth
-      if (left + panelWidth > scrollX + viewportWidth) {
-        left = rect.left + scrollX - panelWidth - gap
+      let top = rect.bottom + scrollY + gap
+      let left = rect.left + scrollX
+      if (left + panelWidth > scrollX + viewportWidth - 8) {
+        left = scrollX + viewportWidth - panelWidth - 8
       }
+      if (left < scrollX + 8) left = scrollX + 8
+      top = Math.min(top, scrollY + viewportH - 10)
       setColumnSelectorPos({ top, left })
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -4299,19 +4299,19 @@ const Client2Page = () => {
                         const scrollY = window.scrollY || document.documentElement.scrollTop || 0
                         const scrollX = window.scrollX || document.documentElement.scrollLeft || 0
                         const panelWidth = 300
-                        const gap = 8
-                        // Aim to open higher so more values are visible without scrolling
+                        const gap = 6
                         const viewportH = window.innerHeight || document.documentElement.clientHeight || 800
-                        const lift = Math.min(400, Math.round(viewportH * 0.5))
-                        let top = rect.top + scrollY - lift + Math.round(rect.height / 2)
-                        // Keep within viewport vertically
-                        top = Math.max(scrollY + 10, Math.min(top, scrollY + viewportH - 10))
-                        let left = rect.right + scrollX + gap
                         const viewportWidth = window.innerWidth || document.documentElement.clientWidth
-                        // If overflow on the right, place to the left of the button
-                        if (left + panelWidth > scrollX + viewportWidth) {
-                          left = rect.left + scrollX - panelWidth - gap
+                        // Open directly below the button, left-aligned to it (extends to the right)
+                        let top = rect.bottom + scrollY + gap
+                        let left = rect.left + scrollX
+                        // Keep within viewport horizontally
+                        if (left + panelWidth > scrollX + viewportWidth - 8) {
+                          left = scrollX + viewportWidth - panelWidth - 8
                         }
+                        if (left < scrollX + 8) left = scrollX + 8
+                        // Keep within viewport vertically
+                        top = Math.min(top, scrollY + viewportH - 10)
                         setColumnSelectorPos({ top, left })
                         setShowColumnSelector(v => !v)
                       }}
@@ -4319,8 +4319,12 @@ const Client2Page = () => {
                       title="Show/Hide Columns"
                     >
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <rect x="2" y="3" width="4" height="10" rx="1" stroke="#4B5563" strokeWidth="1.2"/>
-                        <rect x="8" y="3" width="6" height="10" rx="1" stroke="#4B5563" strokeWidth="1.2"/>
+                        <line x1="2" y1="4" x2="14" y2="4" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="6" cy="4" r="1.5" fill="white" stroke="#4B5563" strokeWidth="1.5"/>
+                        <line x1="2" y1="8" x2="14" y2="8" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="11" cy="8" r="1.5" fill="white" stroke="#4B5563" strokeWidth="1.5"/>
+                        <line x1="2" y1="12" x2="14" y2="12" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="7" cy="12" r="1.5" fill="white" stroke="#4B5563" strokeWidth="1.5"/>
                       </svg>
                     </button>
                   </div>

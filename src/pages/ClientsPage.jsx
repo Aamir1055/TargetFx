@@ -3195,12 +3195,17 @@ const ClientsPage = () => {
                   className="p-2 rounded-lg border border-[#E5E7EB] bg-white hover:bg-gray-50 transition-all shadow-sm h-9 w-9"
                   title="Show/Hide Columns"
                 >
-                  <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10M4 18h10" />
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-gray-700">
+                    <line x1="2" y1="4" x2="14" y2="4" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="6" cy="4" r="1.5" fill="white" stroke="#4B5563" strokeWidth="1.5"/>
+                    <line x1="2" y1="8" x2="14" y2="8" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="11" cy="8" r="1.5" fill="white" stroke="#4B5563" strokeWidth="1.5"/>
+                    <line x1="2" y1="12" x2="14" y2="12" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="7" cy="12" r="1.5" fill="white" stroke="#4B5563" strokeWidth="1.5"/>
                   </svg>
                 </button>
                 {showColumnSelector && (
-                  <div className="absolute bottom-full left-0 mb-2 bg-amber-50 rounded-lg shadow-xl border-2 border-amber-200 py-2 flex flex-col" style={{ 
+                  <div className="absolute top-full left-0 mt-2 bg-amber-50 rounded-lg shadow-xl border-2 border-amber-200 py-2 flex flex-col" style={{ 
                     width: '300px',
                     maxHeight: '50vh',
                     zIndex: 20000000
@@ -3276,7 +3281,7 @@ const ClientsPage = () => {
             
             {/* Right Side: Page Navigation + Zoom Controls */}
             <div className="flex items-center gap-3">
-              <PageSizeSelect value={itemsPerPage} onChange={handleItemsPerPageChange} />
+              <PageSizeSelect value={itemsPerPage} onChange={handleItemsPerPageChange} menuZIndex={9999} />
               {/* Previous button */}
               <button 
                 onClick={() => handlePageChange(currentPage - 1)}
