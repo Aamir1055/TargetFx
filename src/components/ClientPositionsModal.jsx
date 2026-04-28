@@ -7,6 +7,26 @@ import { formatTime } from '../utils/dateFormatter'
 const CLIENT_DEALS_FETCH_LIMIT = 1000
 
 const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCache, allOrdersCache = [], onCacheUpdate }) => {
+  // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
+  const [numericMode, setNumericMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('globalDisplayMode')
+      return saved === 'full' ? 'full' : 'compact'
+    } catch { return 'compact' }
+  })
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
+
   const [activeTab, setActiveTab] = useState('positions')
   const [positions, setPositions] = useState([])
   const [orders, setOrders] = useState([])
@@ -406,11 +426,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   const formatStatValue = (key, value) => {
     const n = Number(value || 0)
-    if (['totalPnL','totalCommission','totalStorage'].includes(key)) return formatCurrency(n)
+    if (['totalPnL','totalCommission','totalStorage'].includes(key)) return fmtMoney(n)
     if (key === 'winRate') return `${n.toFixed(2)}%`
-    if (key.toLowerCase().includes('volume')) return n.toFixed(2)
+    if (key.toLowerCase().includes('volume')) return fmtVolume(n)
     if (Number.isInteger(value)) return `${n}`
-    return n.toFixed(2)
+    return fmtMoney(n)
   }
   
   // Styling for deal stats cards based on metric and value
@@ -728,6 +748,47 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })
+  }
+
+  // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
+  const formatCompactIndian = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return '0'
+    const abs = Math.abs(num)
+    const sign = num < 0 ? '-' : ''
+    if (abs >= 1e7) return `${sign}${(abs / 1e7).toFixed(2)}Cr`
+    if (abs >= 1e5) return `${sign}${(abs / 1e5).toFixed(2)}L`
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
+    return `${sign}${abs.toFixed(2)}`
+  }
+  // Money: compact-aware (profit, storage, commission, balance, equity …)
+  const fmtMoney = (n) => {
+    const num = parseFloat(n || 0)
+    if (numericMode === 'compact') return formatCompactIndian(num)
+    return formatCurrency(num)
+  }
+  const fmtMoneyFull = (n) => formatCurrency(parseFloat(n || 0))
+  // Volume: compact when ≥ 1000
+  const fmtVolume = (n, digits = 2) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
+    return num.toFixed(digits)
+  }
+  const fmtVolumeFull = (n, digits = 2) => {
+    const num = Number(n)
+    return Number.isNaN(num) ? '-' : num.toFixed(digits)
+  }
+  // Price: compact only when ≥ 1000 (small forex prices untouched)
+  const fmtPrice = (n, digits = 5) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
+    return num.toFixed(digits)
+  }
+  const fmtPriceFull = (n, digits = 5) => {
+    const num = Number(n)
+    return Number.isNaN(num) ? '-' : num.toFixed(digits)
   }
 
   // Sorting handler for positions
@@ -2330,43 +2391,43 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                               </td>
                               )}
                               {positionsVisibleColumns.volume && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                                {position.volume}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtVolumeFull(position.volume) : undefined}>
+                                {fmtVolume(position.volume)}
                               </td>
                               )}
                               {positionsVisibleColumns.priceOpen && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                                {typeof position.priceOpen === 'number' ? position.priceOpen.toFixed(5) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(position.priceOpen) : undefined}>
+                                {typeof position.priceOpen === 'number' ? fmtPrice(position.priceOpen) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.priceCurrent && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                                {typeof position.priceCurrent === 'number' ? position.priceCurrent.toFixed(5) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(position.priceCurrent) : undefined}>
+                                {typeof position.priceCurrent === 'number' ? fmtPrice(position.priceCurrent) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.sl && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                                {position.priceSL > 0 ? position.priceSL.toFixed(5) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(position.priceSL) : undefined}>
+                                {position.priceSL > 0 ? fmtPrice(position.priceSL) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.tp && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                                {position.priceTP > 0 ? position.priceTP.toFixed(5) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(position.priceTP) : undefined}>
+                                {position.priceTP > 0 ? fmtPrice(position.priceTP) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.profit && (
-                              <td className={`px-3 py-2 text-sm font-semibold whitespace-nowrap ${getProfitColor(position.profit)}`}>
-                                {formatCurrency(position.profit)}
+                              <td className={`px-3 py-2 text-sm font-semibold whitespace-nowrap ${getProfitColor(position.profit)}`} title={numericMode === 'compact' ? fmtMoneyFull(position.profit) : undefined}>
+                                {fmtMoney(position.profit)}
                               </td>
                               )}
                               {positionsVisibleColumns.storage && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                                {typeof position.storage === 'number' ? formatCurrency(position.storage) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(position.storage) : undefined}>
+                                {typeof position.storage === 'number' ? fmtMoney(position.storage) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.commission && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                                {typeof position.commission === 'number' ? formatCurrency(position.commission) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(position.commission) : undefined}>
+                                {typeof position.commission === 'number' ? fmtMoney(position.commission) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.comment && (
@@ -3258,20 +3319,20 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                               {getDealActionLabel(deal.action)}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                            {deal.volume > 0 ? deal.volume.toFixed(2) : '-'}
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtVolumeFull(deal.volume) : undefined}>
+                            {deal.volume > 0 ? fmtVolume(deal.volume) : '-'}
                           </td>
-                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                            {deal.price > 0 ? deal.price.toFixed(5) : '-'}
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(deal.price) : undefined}>
+                            {deal.price > 0 ? fmtPrice(deal.price) : '-'}
                           </td>
-                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                            {formatCurrency(deal.commission)}
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(deal.commission) : undefined}>
+                            {fmtMoney(deal.commission)}
                           </td>
-                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
-                            {formatCurrency(deal.storage)}
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(deal.storage) : undefined}>
+                            {fmtMoney(deal.storage)}
                           </td>
-                          <td className={`px-3 py-2 text-sm font-semibold whitespace-nowrap ${getProfitColor(deal.profit)}`}>
-                            {formatCurrency(deal.profit)}
+                          <td className={`px-3 py-2 text-sm font-semibold whitespace-nowrap ${getProfitColor(deal.profit)}`} title={numericMode === 'compact' ? fmtMoneyFull(deal.profit) : undefined}>
+                            {fmtMoney(deal.profit)}
                           </td>
                           <td className="px-3 py-2 text-sm text-gray-500 whitespace-nowrap max-w-xs truncate">
                             {deal.comment || '-'}
@@ -3515,19 +3576,19 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 }
                 if (fixedCardVisibility.pf_totalVolume) {
                   const vol = positions.reduce((sum, p) => sum + (p.volume || 0), 0)
-                  row1.push({ label: 'Total Volume', value: vol.toFixed(2), labelClass: 'text-indigo-700', accent: 'border-indigo-300' })
+                  row1.push({ label: 'Total Volume', value: fmtVolume(vol), labelClass: 'text-indigo-700', accent: 'border-indigo-300' })
                 }
                 if (fixedCardVisibility.pf_totalPL) {
-                  row1.push({ label: 'Floating Profit', value: formatCurrency(totalPL), labelClass: totalPL >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(totalPL), accent: totalPL >= 0 ? 'border-emerald-400' : 'border-red-400' })
+                  row1.push({ label: 'Floating Profit', value: fmtMoney(totalPL), labelClass: totalPL >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(totalPL), accent: totalPL >= 0 ? 'border-emerald-400' : 'border-red-400' })
                 }
                 if (fixedCardVisibility.pf_balance) {
-                  row1.push({ label: 'Balance', value: formatCurrency(clientData?.balance), labelClass: 'text-cyan-700', accent: 'border-cyan-300' })
+                  row1.push({ label: 'Balance', value: fmtMoney(clientData?.balance), labelClass: 'text-cyan-700', accent: 'border-cyan-300' })
                 }
                 if (fixedCardVisibility.pf_credit) {
-                  row1.push({ label: 'Credit', value: formatCurrency(clientData?.credit), labelClass: 'text-violet-700', accent: 'border-violet-300' })
+                  row1.push({ label: 'Credit', value: fmtMoney(clientData?.credit), labelClass: 'text-violet-700', accent: 'border-violet-300' })
                 }
                 if (fixedCardVisibility.pf_equity) {
-                  row1.push({ label: 'Equity', value: formatCurrency(clientData?.equity), labelClass: 'text-green-700', accent: 'border-green-300' })
+                  row1.push({ label: 'Equity', value: fmtMoney(clientData?.equity), labelClass: 'text-green-700', accent: 'border-green-300' })
                 }
 
                 // Build second row: Deals Summary (six face cards from GET stats)
@@ -3562,12 +3623,12 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   if (fixedCardVisibility.pf_maxProfit) {
                     const profits = positions.map(p => p.profit || 0)
                     const maxProfit = profits.length > 0 ? Math.max(...profits) : 0
-                    row2.push({ label: 'Max Profit', value: formatCurrency(maxProfit), labelClass: maxProfit >= 0 ? 'text-emerald-700' : 'text-gray-700', valueClass: getProfitColor(maxProfit), accent: maxProfit >= 0 ? 'border-emerald-400' : 'border-gray-300' })
+                    row2.push({ label: 'Max Profit', value: fmtMoney(maxProfit), labelClass: maxProfit >= 0 ? 'text-emerald-700' : 'text-gray-700', valueClass: getProfitColor(maxProfit), accent: maxProfit >= 0 ? 'border-emerald-400' : 'border-gray-300' })
                   }
                   if (fixedCardVisibility.pf_maxLoss) {
                     const profits = positions.map(p => p.profit || 0)
                     const maxLoss = profits.length > 0 ? Math.min(...profits) : 0
-                    row2.push({ label: 'Max Loss', value: formatCurrency(maxLoss), labelClass: maxLoss < 0 ? 'text-red-700' : 'text-gray-700', valueClass: getProfitColor(maxLoss), accent: maxLoss < 0 ? 'border-red-400' : 'border-gray-300' })
+                    row2.push({ label: 'Max Loss', value: fmtMoney(maxLoss), labelClass: maxLoss < 0 ? 'text-red-700' : 'text-gray-700', valueClass: getProfitColor(maxLoss), accent: maxLoss < 0 ? 'border-red-400' : 'border-gray-300' })
                   }
                 }
 
@@ -3627,9 +3688,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               }, 0)
               const row = []
               if (netCardVisibility.net_symbols) row.push({ label: 'NET Symbols', value: String(netPositions.length), labelClass: 'text-purple-700', accent: 'border-purple-300' })
-              if (netCardVisibility.net_totalVolume) row.push({ label: 'Total NET Volume', value: totalNetVolume.toFixed(2), labelClass: 'text-indigo-700', accent: 'border-indigo-300' })
-              if (netCardVisibility.net_buyPL) row.push({ label: 'Buy Floating Profit', value: formatCurrency(buyTotal), labelClass: buyTotal >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(buyTotal), accent: buyTotal >= 0 ? 'border-emerald-400' : 'border-red-400' })
-              if (netCardVisibility.net_sellPL) row.push({ label: 'Sell Floating Profit', value: formatCurrency(sellTotal), labelClass: sellTotal >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(sellTotal), accent: sellTotal >= 0 ? 'border-emerald-400' : 'border-red-400' })
+              if (netCardVisibility.net_totalVolume) row.push({ label: 'Total NET Volume', value: fmtVolume(totalNetVolume), labelClass: 'text-indigo-700', accent: 'border-indigo-300' })
+              if (netCardVisibility.net_buyPL) row.push({ label: 'Buy Floating Profit', value: fmtMoney(buyTotal), labelClass: buyTotal >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(buyTotal), accent: buyTotal >= 0 ? 'border-emerald-400' : 'border-red-400' })
+              if (netCardVisibility.net_sellPL) row.push({ label: 'Sell Floating Profit', value: fmtMoney(sellTotal), labelClass: sellTotal >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(sellTotal), accent: sellTotal >= 0 ? 'border-emerald-400' : 'border-red-400' })
               if (!row.length) return null
               return (
                 <div className="space-y-2">
@@ -3654,9 +3715,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               const totalProfit = displayedDeals.reduce((sum, d) => sum + (d.profit || 0), 0)
               const row = [
                 { label: 'Total Deals', value: String(totalDeals), labelClass: 'text-blue-700', valueClass: 'text-blue-900', accent: 'border-blue-300' },
-                { label: 'Total Volume', value: totalVolume.toFixed(2), labelClass: 'text-indigo-700', valueClass: 'text-indigo-900', accent: 'border-indigo-300' },
-                { label: 'Total Commission', value: formatCurrency(totalCommission), labelClass: 'text-amber-700', valueClass: 'text-amber-900', accent: 'border-amber-400' },
-                { label: 'Floating Profit', value: formatCurrency(totalProfit), labelClass: totalProfit >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(totalProfit), accent: totalProfit >= 0 ? 'border-emerald-400' : 'border-red-400' }
+                { label: 'Total Volume', value: fmtVolume(totalVolume), labelClass: 'text-indigo-700', valueClass: 'text-indigo-900', accent: 'border-indigo-300' },
+                { label: 'Total Commission', value: fmtMoney(totalCommission), labelClass: 'text-amber-700', valueClass: 'text-amber-900', accent: 'border-amber-400' },
+                { label: 'Floating Profit', value: fmtMoney(totalProfit), labelClass: totalProfit >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(totalProfit), accent: totalProfit >= 0 ? 'border-emerald-400' : 'border-red-400' }
               ]
               return (
                 <div className="space-y-2">

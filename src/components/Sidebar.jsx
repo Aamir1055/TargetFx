@@ -152,28 +152,22 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
 
           {/* Global Compact / Full numeric display mode (applies across all pages) */}
           {isOpen && (
-            <div className="px-4 pt-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Display</span>
-                <div
-                  className="inline-flex items-center rounded-md bg-white border border-slate-200 shadow-sm overflow-hidden h-7"
-                  title="Switch between compact (e.g. 2.57Cr) and full numeric display"
+            <div className="px-3 pt-3">
+              <div className="flex items-center bg-[#F3F4F6] rounded-md p-0.5 w-full">
+                <button
+                  type="button"
+                  onClick={() => changeDisplayMode('compact')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-sm text-[11px] font-medium transition-colors ${displayMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => changeDisplayMode('compact')}
-                    className={`h-full px-2 text-[11px] font-medium transition-colors ${displayMode === 'compact' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    Compact
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => changeDisplayMode('full')}
-                    className={`h-full px-2 text-[11px] font-medium border-l border-slate-200 transition-colors ${displayMode === 'full' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    Full
-                  </button>
-                </div>
+                  Compact
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeDisplayMode('full')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-sm text-[11px] font-medium transition-colors ${displayMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                >
+                  Full
+                </button>
               </div>
             </div>
           )}
