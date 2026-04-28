@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import * as XLSX from 'xlsx'
 import Sidebar from '../components/Sidebar'
+import PageSizeSelect from '../components/PageSizeSelect'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import Client2Module from '../components/Client2Module'
@@ -4329,18 +4330,8 @@ const Client2Page = () => {
                 <div className="flex items-center gap-3">
                   {/* Pagination */}
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 mr-1">
-                      <span className="text-xs text-[#6B7280]">Rows</span>
-                      <select
-                        value={itemsPerPage}
-                        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                        className="h-8 px-2 pr-6 text-sm border border-[#E5E7EB] rounded-lg bg-white text-[#374151] focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                      >
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                        <option value={150}>150</option>
-                      </select>
+                    <div className="mr-1">
+                      <PageSizeSelect value={itemsPerPage} onChange={handleItemsPerPageChange} />
                     </div>
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}

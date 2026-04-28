@@ -5,6 +5,7 @@ import { useData } from '../contexts/DataContext'
 import { useGroups } from '../contexts/GroupContext'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
+import PageSizeSelect from '../components/PageSizeSelect'
 import WebSocketIndicator from '../components/WebSocketIndicator'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
@@ -2009,19 +2010,7 @@ const LiveDealingPage = () => {
 
                 {/* Right Side - Pagination */}
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-[#6B7280]">Rows</span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                      className="h-8 px-2 pr-6 text-sm border border-[#E5E7EB] rounded-lg bg-white text-[#374151] focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                      <option value={150}>150</option>
-                    </select>
-                  </div>
+                  <PageSizeSelect value={itemsPerPage} onChange={handleItemsPerPageChange} />
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}

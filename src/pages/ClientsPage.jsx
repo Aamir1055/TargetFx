@@ -6,6 +6,7 @@ import { useData } from '../contexts/DataContext'
 import { useGroups } from '../contexts/GroupContext'
 import { useIB } from '../contexts/IBContext'
 import Sidebar from '../components/Sidebar'
+import PageSizeSelect from '../components/PageSizeSelect'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import WebSocketIndicator from '../components/WebSocketIndicator'
@@ -3275,19 +3276,7 @@ const ClientsPage = () => {
             
             {/* Right Side: Page Navigation + Zoom Controls */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-[#6B7280]">Rows</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                  className="h-7 px-2 pr-6 text-xs border border-[#ECECEC] rounded-[10px] bg-white text-[#374151] focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                >
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={150}>150</option>
-                </select>
-              </div>
+              <PageSizeSelect value={itemsPerPage} onChange={handleItemsPerPageChange} />
               {/* Previous button */}
               <button 
                 onClick={() => handlePageChange(currentPage - 1)}
