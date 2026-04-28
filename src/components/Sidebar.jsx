@@ -34,6 +34,31 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
 
   // Use either passed prop or stored count (stored count takes priority for cross-page visibility)
   const displayCount = storedMarginCount || marginLevelCount
+
+  // Global Compact / Full numeric display mode (applies across all pages)
+  const [displayMode, setDisplayMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('globalDisplayMode')
+      return saved === 'full' ? 'full' : 'compact'
+    } catch { return 'compact' }
+  })
+  const changeDisplayMode = (next) => {
+    setDisplayMode(next)
+    try { localStorage.setItem('globalDisplayMode', next) } catch {}
+    try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: next })) } catch {}
+  }
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setDisplayMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
   
   const navigationItems = [
     { name: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
@@ -124,6 +149,34 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
               </div>
             )}
           </div>
+
+          {/* Global Compact / Full numeric display mode (applies across all pages) */}
+          {isOpen && (
+            <div className="px-4 pt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Display</span>
+                <div
+                  className="inline-flex items-center rounded-md bg-white border border-slate-200 shadow-sm overflow-hidden h-7"
+                  title="Switch between compact (e.g. 2.57Cr) and full numeric display"
+                >
+                  <button
+                    type="button"
+                    onClick={() => changeDisplayMode('compact')}
+                    className={`h-full px-2 text-[11px] font-medium transition-colors ${displayMode === 'compact' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => changeDisplayMode('full')}
+                    className={`h-full px-2 text-[11px] font-medium border-l border-slate-200 transition-colors ${displayMode === 'full' ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    Full
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <nav className="flex-1 overflow-y-auto px-2 py-4">
             {navigationItems.map((item) => (

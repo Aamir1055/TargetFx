@@ -142,15 +142,25 @@ const Client2Page = () => {
   const [cardFilterPercentMode, setCardFilterPercentMode] = useState(false) // Do not persist; always start disabled
   const [showFaceCards, setShowFaceCards] = useState(true)
   // Display mode for monetary fields: 'compact' (e.g. 2.57Cr) or 'full' (e.g. 2,57,14,191.16)
+  // Synced globally via the Sidebar (localStorage key: 'globalDisplayMode')
   const [displayMode, setDisplayMode] = useState(() => {
     try {
-      const saved = localStorage.getItem('client2DisplayMode')
+      const saved = localStorage.getItem('globalDisplayMode') || localStorage.getItem('client2DisplayMode')
       return saved === 'full' ? 'full' : 'compact'
     } catch { return 'compact' }
   })
   useEffect(() => {
-    try { localStorage.setItem('client2DisplayMode', displayMode) } catch {}
-  }, [displayMode])
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setDisplayMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSorting, setIsSorting] = useState(false)
@@ -3777,7 +3787,7 @@ const Client2Page = () => {
   }
 
   return (
-    <div className="min-h-screen flex overflow-x-hidden overflow-y-auto relative bg-[#F8FAFC]">
+    <div className="h-screen flex overflow-hidden relative bg-[#F8FAFC]">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => {
@@ -3793,7 +3803,7 @@ const Client2Page = () => {
         }}
       />
 
-      <main className={`flex-1 p-2 sm:p-4 lg:p-6 overflow-x-hidden relative z-10 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
+      <main className={`flex-1 p-2 sm:p-4 lg:p-6 overflow-x-hidden overflow-y-auto no-page-scrollbar relative z-10 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="max-w-full mx-auto h-full flex flex-col min-h-0">
           {/* Header Section */}
           <div className="bg-white rounded-2xl shadow-sm px-3 sm:px-6 py-3 mb-4 sm:mb-6">
@@ -4128,23 +4138,6 @@ const Client2Page = () => {
                 )}
               </div>
 
-              {/* Compact / Full display mode toggle */}
-              <button
-                type="button"
-                onClick={() => setDisplayMode(m => m === 'compact' ? 'full' : 'compact')}
-                className="h-8 px-2.5 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors"
-                title={displayMode === 'compact' ? 'Switch to full numbers' : 'Switch to compact numbers'}
-              >
-                <span className="text-xs font-medium text-[#374151]">
-                  {displayMode === 'compact' ? 'Compact' : 'Full'}
-                </span>
-                <div className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${displayMode === 'full' ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                  <span
-                    className={`inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform ${displayMode === 'full' ? 'translate-x-4' : 'translate-x-0.5'}`}
-                  />
-                </div>
-              </button>
-
               {/* Cards Toggle Button with Switch */}
               <button
                 onClick={() => setShowFaceCards(v => !v)}
@@ -4467,7 +4460,7 @@ const Client2Page = () => {
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#9ca3af #e5e7eb',
                   position: 'relative',
-                  height: showFaceCards ? '550px' : '750px'
+                  height: showFaceCards ? 'calc(100vh - 320px)' : 'calc(100vh - 285px)'
                 }}>
                   <style>{`
                   /* Table cell boundary enforcement */
@@ -4484,6 +4477,11 @@ const Client2Page = () => {
                   /* Ensure text doesn't overflow cell boundaries */
                   table td > *, table th > * {
                     max-width: 100%;
+                  }
+
+                  /* Hide main page-level scrollbar */
+                  .no-page-scrollbar::-webkit-scrollbar {
+                    display: none;
                   }
                   
                   .overflow-y-auto::-webkit-scrollbar {

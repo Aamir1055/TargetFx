@@ -165,6 +165,25 @@ const PositionsPage = () => {
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const columnSelectorRef = useRef(null)
   const [displayMode, setDisplayMode] = useState('value') // 'value' or 'percentage'
+  // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
+  const [numericMode, setNumericMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('globalDisplayMode')
+      return saved === 'full' ? 'full' : 'compact'
+    } catch { return 'compact' }
+  })
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState({
     position: false,
@@ -1038,6 +1057,47 @@ const PositionsPage = () => {
       const formatted = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + (otherNumbers ? ',' : '') + lastThree
       return decPart ? `${formatted}.${decPart}` : formatted
     }
+  }
+
+  // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
+  const formatCompactIndian = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return '0'
+    const abs = Math.abs(num)
+    const sign = num < 0 ? '-' : ''
+    if (abs >= 1e7) return `${sign}${(abs / 1e7).toFixed(2)}Cr`
+    if (abs >= 1e5) return `${sign}${(abs / 1e5).toFixed(2)}L`
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
+    return `${sign}${abs.toFixed(2)}`
+  }
+
+  // Money formatter that honors the global Compact/Full mode for monetary fields
+  // (profit, storage, commission, floating profit). Returns the display value;
+  // pair with `fmtMoneyFull` for tooltips when in compact mode.
+  const fmtMoney = (n, digits = 2) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact') return formatCompactIndian(num)
+    return formatNumber(num, digits)
+  }
+  const fmtMoneyFull = (n, digits = 2) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    return formatNumber(num, digits)
+  }
+
+  // Price formatter: compacts values >= 1000 using K/L/Cr in compact mode,
+  // otherwise shows the full 5-decimal price.
+  const fmtPrice = (n, digits = 5) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
+    return formatNumber(num, digits)
+  }
+  const fmtPriceFull = (n, digits = 5) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    return formatNumber(num, digits)
   }
 
   // Get card icon path based on card title
@@ -2534,7 +2594,7 @@ const PositionsPage = () => {
                   <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
                     summaryStats.totalFloatingProfit >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
                   }`}>
-                    <span>{formatNumber(Math.abs(summaryStats.totalFloatingProfit))}</span>
+                    <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.totalFloatingProfit)) : undefined}>{fmtMoney(Math.abs(summaryStats.totalFloatingProfit))}</span>
                     <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">USD</span>
                   </div>
                 )}
@@ -2610,7 +2670,7 @@ const PositionsPage = () => {
                 <div className="h-6 w-10 bg-gray-200 rounded animate-pulse" />
               ) : (
                 <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                  <span>{formatIndianNumber(summaryStats.totalVolume, 2)}</span>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(summaryStats.totalVolume, 2) : undefined}>{fmtMoney(summaryStats.totalVolume, 2)}</span>
                 </div>
               )}
             </div>
@@ -2654,7 +2714,7 @@ const PositionsPage = () => {
                       </div>
                     </div>
                     <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-24 skeleton-shimmer-pos rounded" /> : <><span>{formatNumber(serverNetTotals.volume || 0,2)}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span></>}
+                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-24 skeleton-shimmer-pos rounded" /> : <><span title={numericMode === 'compact' ? fmtMoneyFull(serverNetTotals.volume || 0, 2) : undefined}>{fmtMoney(serverNetTotals.volume || 0, 2)}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span></>}
                     </div>
                   </div>
                 )}
@@ -2684,7 +2744,7 @@ const PositionsPage = () => {
                           <polygon points="5,0 10,10 0,10" fill="#DC2626"/>
                         </svg>
                       )}
-                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-24 skeleton-shimmer-pos rounded" /> : <><span>{formatNumber(serverNetTotals.profit || 0,2)}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">USD</span></>}
+                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-24 skeleton-shimmer-pos rounded" /> : <><span title={numericMode === 'compact' ? fmtMoneyFull(serverNetTotals.profit || 0, 2) : undefined}>{fmtMoney(serverNetTotals.profit || 0, 2)}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">USD</span></>}
                     </div>
                   </div>
                 )}
@@ -3145,21 +3205,21 @@ const PositionsPage = () => {
                               </td>
                             )}
                             {netVisibleColumns.netVolume && (
-                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(netPos.netVolume, 2)}</td>
+                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(netPos.netVolume, 2) : undefined}>{fmtMoney(netPos.netVolume, 2)}</td>
                             )}
                             {netVisibleColumns.avgPrice && (
-                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(netPos.avgPrice, 5)}</td>
+                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtPriceFull(netPos.avgPrice, 5) : undefined}>{fmtPrice(netPos.avgPrice, 5)}</td>
                             )}
                             {netVisibleColumns.totalProfit && (
-                              <td className="px-2 py-1.5 text-sm whitespace-nowrap">
-                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${netPos.totalProfit >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{formatNumber(netPos.totalProfit, 2)}</span>
+                              <td className="px-2 py-1.5 text-sm whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(netPos.totalProfit, 2) : undefined}>
+                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${netPos.totalProfit >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{fmtMoney(netPos.totalProfit, 2)}</span>
                               </td>
                             )}
                             {netVisibleColumns.totalStorage && (
-                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(netPos.totalStorage ?? 0, 2)}</td>
+                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(netPos.totalStorage ?? 0, 2) : undefined}>{fmtMoney(netPos.totalStorage ?? 0, 2)}</td>
                             )}
                             {netVisibleColumns.totalCommission && (
-                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(netPos.totalCommission ?? 0, 2)}</td>
+                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(netPos.totalCommission ?? 0, 2) : undefined}>{fmtMoney(netPos.totalCommission ?? 0, 2)}</td>
                             )}
                             {netVisibleColumns.loginCount && (
                               <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{netPos.loginCount}</td>
@@ -3251,7 +3311,7 @@ const PositionsPage = () => {
                       </div>
                     </div>
                     <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                      <span>{formatNumber(serverClientNetTotals.volume || 0, 2)}</span>
+                      <span title={numericMode === 'compact' ? fmtMoneyFull(serverClientNetTotals.volume || 0, 2) : undefined}>{fmtMoney(serverClientNetTotals.volume || 0, 2)}</span>
                     </div>
                   </div>
                 )}
@@ -3273,7 +3333,7 @@ const PositionsPage = () => {
                     }`}>
                       <span>
                         {(serverClientNetTotals.profit || 0) >= 0 ? '▲ ' : '▼ '}
-                        {formatNumber(serverClientNetTotals.profit || 0, 2)}
+                        <span title={numericMode === 'compact' ? fmtMoneyFull(serverClientNetTotals.profit || 0, 2) : undefined}>{fmtMoney(serverClientNetTotals.profit || 0, 2)}</span>
                       </span>
                     </div>
                   </div>
@@ -3664,10 +3724,10 @@ const PositionsPage = () => {
                                 {clientNetVisibleColumns.netType && (<td className="px-2 py-1.5 text-sm whitespace-nowrap">
                                   <span className={`px-2 py-0.5 text-xs font-medium rounded ${row.netType === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{row.netType}</span>
                                 </td>)}
-                                {clientNetVisibleColumns.netVolume && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(row.netVolume, 2)}</td>)}
+                                {clientNetVisibleColumns.netVolume && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(row.netVolume, 2) : undefined}>{fmtMoney(row.netVolume, 2)}</td>)}
                                 {clientNetVisibleColumns.avgPrice && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(row.avgPrice, 5)}</td>)}
                                 {clientNetVisibleColumns.totalProfit && (<td className="px-2 py-1.5 text-sm whitespace-nowrap">
-                                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${row.totalProfit >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{formatNumber(row.totalProfit, 2)}</span>
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${row.totalProfit >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`} title={numericMode === 'compact' ? fmtMoneyFull(row.totalProfit, 2) : undefined}>{fmtMoney(row.totalProfit, 2)}</span>
                                 </td>)}
                                 {clientNetVisibleColumns.totalPositions && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">
                                   {row.totalPositions ?? '-'}
@@ -3957,51 +4017,51 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.volume && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(adjustValueForSymbol(p.volume, p.symbol), 2)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.volume, p.symbol), 2) : undefined}>{fmtMoney(adjustValueForSymbol(p.volume, p.symbol), 2)}</td>
                           )}
                           {effectiveCols.volumePercentage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
-                              {(p.volume != null && p.volume !== '') ? formatNumber(p.volume, 2) : '-'}
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.volume != null && p.volume !== '' ? fmtMoneyFull(p.volume, 2) : undefined}>
+                              {(p.volume != null && p.volume !== '') ? fmtMoney(p.volume, 2) : '-'}
                             </td>
                           )}
                           {effectiveCols.priceOpen && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(p.priceOpen, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceOpen, 5) : undefined}>{fmtPrice(p.priceOpen, 5)}</td>
                           )}
                           {effectiveCols.priceCurrent && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
-                              {formatNumber(p.priceCurrent, 5)}
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceCurrent, 5) : undefined}>
+                              {fmtPrice(p.priceCurrent, 5)}
                             </td>
                           )}
                           {effectiveCols.sl && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(p.priceSL, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceSL, 5) : undefined}>{fmtPrice(p.priceSL, 5)}</td>
                           )}
                           {effectiveCols.tp && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(p.priceTP, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceTP, 5) : undefined}>{fmtPrice(p.priceTP, 5)}</td>
                           )}
                           {effectiveCols.profit && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0">
+                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>
                               <span className={`px-2 py-0.5 text-xs font-medium rounded transition-all duration-300 ${
                                 (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
-                                {formatNumber(adjustValueForSymbol(p.profit, p.symbol, true), 2)}
+                                {fmtMoney(adjustValueForSymbol(p.profit, p.symbol, true), 2)}
                               </span>
                             </td>
                           )}
                           {effectiveCols.profitPercentage && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0">
+                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.profit != null && p.profit !== '' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>
                               <span className={`px-2 py-0.5 text-xs font-medium rounded ${
                                 (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
-                                {(p.profit != null && p.profit !== '') ? formatNumber(adjustValueForSymbol(p.profit, p.symbol, true), 2) : '-'}
+                                {(p.profit != null && p.profit !== '') ? fmtMoney(adjustValueForSymbol(p.profit, p.symbol, true), 2) : '-'}
                               </span>
                             </td>
                           )}
                           {effectiveCols.storage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(adjustValueForSymbol(p.storage, p.symbol, true), 2)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.storage, p.symbol, true), 2) : undefined}>{fmtMoney(adjustValueForSymbol(p.storage, p.symbol, true), 2)}</td>
                           )}
                           {effectiveCols.storagePercentage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
-                              {(p.storage != null && p.storage !== '') ? formatNumber(p.storage, 2) : '-'}
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.storage != null && p.storage !== '' ? fmtMoneyFull(p.storage, 2) : undefined}>
+                              {(p.storage != null && p.storage !== '') ? fmtMoney(p.storage, 2) : '-'}
                             </td>
                           )}
                           {effectiveCols.appliedPercentage && (
@@ -4026,7 +4086,7 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.commission && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{formatNumber(adjustValueForSymbol(p.commission, p.symbol, true), 2)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.commission, p.symbol, true), 2) : undefined}>{fmtMoney(adjustValueForSymbol(p.commission, p.symbol, true), 2)}</td>
                           )}
                         </tr>
                       )
