@@ -870,6 +870,14 @@ const LiveDealingPage = () => {
     if (Number.isNaN(num)) return '-'
     return formatIndianNumber(num, digits)
   }
+  // Resolve per-row decimal digits from the API response. Falls back to 3
+  // when the field is missing or invalid.
+  const getDigits = (row, fallback = 3) => {
+    if (!row) return fallback
+    const raw = row.digits ?? row.digit ?? row.priceDigits
+    const n = Number(raw)
+    return Number.isFinite(n) && n >= 0 ? n : fallback
+  }
   // Count formatter: compacts when value >= 1000
   const fmtCount = (n) => {
     const num = Number(n) || 0
@@ -1792,7 +1800,7 @@ const LiveDealingPage = () => {
                       <button
                         key={value}
                         onClick={() => setModuleFilter(value)}
-                        className={`h-full px-3 text-xs font-semibold rounded-[5px] transition-all duration-150 focus:outline-none
+                        className={`h-full px-3 text-xs font-semibold rounded-[4px] transition-all duration-150 focus:outline-none
                           ${moduleFilter === value
                             ? 'bg-[#3B5BDB] text-white shadow-sm'
                             : 'text-[#374151] hover:bg-white/70'
@@ -2181,8 +2189,8 @@ const LiveDealingPage = () => {
                         </td>
                       )}
                       {visibleColumns.price && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtPriceFull(deal.rawData?.price, 5) : undefined}>
-                          {fmtPrice(deal.rawData?.price, 5)}
+                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtPriceFull(deal.rawData?.price, getDigits(deal.rawData)) : undefined}>
+                          {fmtPrice(deal.rawData?.price, getDigits(deal.rawData))}
                         </td>
                       )}
                       {visibleColumns.profit && (

@@ -153,18 +153,20 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
           {/* Global Compact / Full numeric display mode (applies across all pages) */}
           {isOpen && (
             <div className="px-3 pt-3">
-              <div className="flex items-center bg-[#F3F4F6] rounded-md p-0.5 w-full">
+              <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full" style={{borderRadius:'4px'}}>
                 <button
                   type="button"
                   onClick={() => changeDisplayMode('compact')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-sm text-[11px] font-medium transition-colors ${displayMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium transition-colors ${displayMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  style={{borderRadius:'4px'}}
                 >
                   Compact
                 </button>
                 <button
                   type="button"
                   onClick={() => changeDisplayMode('full')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-sm text-[11px] font-medium transition-colors ${displayMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium transition-colors ${displayMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  style={{borderRadius:'4px'}}
                 >
                   Full
                 </button>

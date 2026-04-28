@@ -470,6 +470,15 @@ const PendingOrdersPage = () => {
     return formatNumber(num, digits)
   }
 
+  // Resolve per-row decimal digits from the API response. Falls back to 3
+  // when the field is missing or invalid.
+  const getDigits = (row, fallback = 3) => {
+    if (!row) return fallback
+    const raw = row.digits ?? row.digit ?? row.priceDigits
+    const n = Number(raw)
+    return Number.isFinite(n) && n >= 0 ? n : fallback
+  }
+
   // Color mapping for order `type` column
   const getOrderTypeColor = (type) => {
     const t = String(type || '').toUpperCase()
@@ -1393,16 +1402,17 @@ const PendingOrdersPage = () => {
                             } else if (colKey === 'volume') {
                               const volRaw = o.volumeCurrent ?? o.volume ?? o.volumeInitial;
                               cellContent = (
-                                <span title={numericMode === 'compact' ? fmtMoneyFull(volRaw, 3) : undefined}>{fmtMoney(volRaw, 3)}</span>
+                                <span title={numericMode === 'compact' ? fmtMoneyFull(volRaw, 2) : undefined}>{fmtMoney(volRaw, 2)}</span>
                               );
                             } else if (colKey === 'priceOrder') {
                               const priceRaw = o.priceOrder ?? o.price ?? o.priceOpen ?? o.priceOpenExact ?? o.open_price;
+                              const d = getDigits(o);
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  <span title={numericMode === 'compact' ? fmtPriceFull(priceRaw, 3) : undefined}>{fmtPrice(priceRaw, 3)}</span>
+                                  <span title={numericMode === 'compact' ? fmtPriceFull(priceRaw, d) : undefined}>{fmtPrice(priceRaw, d)}</span>
                                   {priceDelta !== undefined && priceDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${priceDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {priceDelta > 0 ? '▲' : '▼'} {Math.abs(priceDelta).toFixed(3)}
+                                      {priceDelta > 0 ? '▲' : '▼'} {Math.abs(priceDelta).toFixed(d)}
                                     </span>
                                   ) : null}
                                 </div>
@@ -1410,16 +1420,16 @@ const PendingOrdersPage = () => {
                             } else if (colKey === 'priceCurrent') {
                               const trigRaw = o.priceTrigger ?? o.trigger ?? 0;
                               cellContent = (
-                                <span title={numericMode === 'compact' ? fmtPriceFull(trigRaw, 3) : undefined}>{fmtPrice(trigRaw, 3)}</span>
+                                <span title={numericMode === 'compact' ? fmtPriceFull(trigRaw, 2) : undefined}>{fmtPrice(trigRaw, 2)}</span>
                               );
                             } else if (colKey === 'sl') {
                               const slRaw = o.priceSL ?? o.sl ?? o.stop_loss;
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  <span title={numericMode === 'compact' ? fmtPriceFull(slRaw, 3) : undefined}>{fmtPrice(slRaw, 3)}</span>
+                                  <span title={numericMode === 'compact' ? fmtPriceFull(slRaw, 2) : undefined}>{fmtPrice(slRaw, 2)}</span>
                                   {slDelta !== undefined && slDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${slDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {slDelta > 0 ? '▲' : '▼'} {Math.abs(slDelta).toFixed(3)}
+                                      {slDelta > 0 ? '▲' : '▼'} {Math.abs(slDelta).toFixed(2)}
                                     </span>
                                   ) : null}
                                 </div>
@@ -1428,10 +1438,10 @@ const PendingOrdersPage = () => {
                               const tpRaw = o.priceTP ?? o.tp ?? o.take_profit;
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  <span title={numericMode === 'compact' ? fmtPriceFull(tpRaw, 3) : undefined}>{fmtPrice(tpRaw, 3)}</span>
+                                  <span title={numericMode === 'compact' ? fmtPriceFull(tpRaw, 2) : undefined}>{fmtPrice(tpRaw, 2)}</span>
                                   {tpDelta !== undefined && tpDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${tpDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {tpDelta > 0 ? '▲' : '▼'} {Math.abs(tpDelta).toFixed(3)}
+                                      {tpDelta > 0 ? '▲' : '▼'} {Math.abs(tpDelta).toFixed(2)}
                                     </span>
                                   ) : null}
                                 </div>

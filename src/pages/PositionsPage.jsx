@@ -1100,6 +1100,15 @@ const PositionsPage = () => {
     return formatNumber(num, digits)
   }
 
+  // Resolve per-row decimal digits from the API response. Falls back to 5
+  // when the field is missing or invalid.
+  const getDigits = (row, fallback = 5) => {
+    if (!row) return fallback
+    const raw = row.digits ?? row.digit ?? row.priceDigits
+    const n = Number(raw)
+    return Number.isFinite(n) && n >= 0 ? n : fallback
+  }
+
   // Get card icon path based on card title
   const getCardIcon = (cardTitle) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
@@ -3208,7 +3217,7 @@ const PositionsPage = () => {
                               <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(netPos.netVolume, 2) : undefined}>{fmtMoney(netPos.netVolume, 2)}</td>
                             )}
                             {netVisibleColumns.avgPrice && (
-                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtPriceFull(netPos.avgPrice, 5) : undefined}>{fmtPrice(netPos.avgPrice, 5)}</td>
+                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtPriceFull(netPos.avgPrice, getDigits(netPos)) : undefined}>{fmtPrice(netPos.avgPrice, getDigits(netPos))}</td>
                             )}
                             {netVisibleColumns.totalProfit && (
                               <td className="px-2 py-1.5 text-sm whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(netPos.totalProfit, 2) : undefined}>
@@ -4025,18 +4034,18 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.priceOpen && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceOpen, 5) : undefined}>{fmtPrice(p.priceOpen, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceOpen, getDigits(p)) : undefined}>{fmtPrice(p.priceOpen, getDigits(p))}</td>
                           )}
                           {effectiveCols.priceCurrent && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceCurrent, 5) : undefined}>
-                              {fmtPrice(p.priceCurrent, 5)}
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceCurrent, getDigits(p)) : undefined}>
+                              {fmtPrice(p.priceCurrent, getDigits(p))}
                             </td>
                           )}
                           {effectiveCols.sl && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceSL, 5) : undefined}>{fmtPrice(p.priceSL, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceSL, getDigits(p)) : undefined}>{fmtPrice(p.priceSL, getDigits(p))}</td>
                           )}
                           {effectiveCols.tp && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceTP, 5) : undefined}>{fmtPrice(p.priceTP, 5)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceTP, getDigits(p)) : undefined}>{fmtPrice(p.priceTP, getDigits(p))}</td>
                           )}
                           {effectiveCols.profit && (
                             <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>
