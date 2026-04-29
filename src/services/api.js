@@ -529,7 +529,12 @@ export const brokerAPI = {
   
   // Get all client percentages
   getAllClientPercentages: async (params = {}) => {
-    const response = await api.get('/api/broker/clients/percentages', { params })
+    // Backend expects `limit`; translate `page_size` if callers pass it.
+    const { page_size, ...rest } = params
+    const finalParams = page_size != null && rest.limit == null
+      ? { ...rest, limit: page_size }
+      : rest
+    const response = await api.get('/api/broker/clients/percentages', { params: finalParams })
     return response.data
   },
   

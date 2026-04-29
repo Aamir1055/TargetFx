@@ -2599,7 +2599,6 @@ const PositionsPage = () => {
               ) : (
                 <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                   <span>{summaryStats.totalPositions}</span>
-                  <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">POS</span>
                 </div>
               )}
             </div>
@@ -2627,7 +2626,6 @@ const PositionsPage = () => {
                     summaryStats.totalFloatingProfit >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
                   }`}>
                     <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.totalFloatingProfit)) : undefined}>{fmtMoney(Math.abs(summaryStats.totalFloatingProfit))}</span>
-                    <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">USD</span>
                   </div>
                 )}
               </div>
@@ -2680,7 +2678,6 @@ const PositionsPage = () => {
               ) : (
                 <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                   <span title={numericMode === 'compact' ? String(summaryStats.uniqueLogins) : undefined}>{numericMode === 'compact' ? fmtPrice(summaryStats.uniqueLogins, 0) : summaryStats.uniqueLogins}</span>
-                  <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ACCT</span>
                 </div>
               )}
             </div>

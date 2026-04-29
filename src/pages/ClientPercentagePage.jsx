@@ -171,6 +171,8 @@ const ClientPercentagePage = () => {
   // Export menu state
   const [exporting, setExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportMenuRef = useRef(null)
   
   // Sorting states
   const [sortColumn, setSortColumn] = useState('client_login')
@@ -370,8 +372,13 @@ const ClientPercentagePage = () => {
     URL.revokeObjectURL(url)
   }
 
-  const handleExport = async () => {
+  const handleExport = async (mode = 'all') => {
     if (exporting) return
+
+    if (mode === 'selected' && selectedRows.size === 0) {
+      alert('No rows selected')
+      return
+    }
 
     const sortBy = sortColumn === 'client_login' ? 'login'
       : sortColumn === 'client_name' ? 'name'
@@ -380,7 +387,7 @@ const ClientPercentagePage = () => {
     const PARALLEL = 12
     const MAX_RETRIES = 3
     const MAX_TOTAL_PAGES = 1000 // hard ceiling against runaway pagination
-    const REQUESTED_PAGE_SIZE = 10000 // ask big; server may cap silently
+    const REQUESTED_PAGE_SIZE = 1000
 
     const fetchChunk = async (page, pageSize) => {
       let lastErr
@@ -522,17 +529,28 @@ const ClientPercentagePage = () => {
         }
       }
 
-      const all = Array.from(byLogin.values())
-      if (!all.length) {
+      const allRows = Array.from(byLogin.values())
+      if (!allRows.length) {
         alert('No data to export')
         return
       }
-      if (all.length < total) {
-        console.warn(`[ClientPercentage] Export collected ${all.length} of ${total} rows.`)
+      if (allRows.length < total) {
+        console.warn(`[ClientPercentage] Export collected ${allRows.length} of ${total} rows.`)
       }
 
-      const csv = buildCSV(all)
-      downloadCSV(csv, `client_percentage_${new Date().toISOString().split('T')[0]}.csv`)
+      // For "selected" mode, filter to only the chosen logins.
+      const finalRows = mode === 'selected'
+        ? allRows.filter(c => selectedRows.has(c.client_login) || selectedRows.has(c.login))
+        : allRows
+
+      if (!finalRows.length) {
+        alert('Selected rows not found in dataset')
+        return
+      }
+
+      const suffix = mode === 'selected' ? 'selected' : 'all'
+      const csv = buildCSV(finalRows)
+      downloadCSV(csv, `client_percentage_${suffix}_${new Date().toISOString().split('T')[0]}.csv`)
     } catch (err) {
       console.error('[ClientPercentage] Export failed:', err)
       alert('Export failed. Please try again.')
@@ -707,11 +725,16 @@ const ClientPercentagePage = () => {
           setShowColumnSelector(false)
         }
       }
+      if (showExportMenu && exportMenuRef.current) {
+        if (!exportMenuRef.current.contains(event.target)) {
+          setShowExportMenu(false)
+        }
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showColumnSelector])
+  }, [showColumnSelector, showExportMenu])
 
   // Helper function to render sortable table header (no column filter)
   const renderHeaderCell = (columnKey, label, sortKey = null) => {
@@ -798,6 +821,59 @@ const ClientPercentagePage = () => {
 
             {/* Action Buttons - All on right side */}
             <div className="flex items-center gap-2">
+                  {/* Import CSV Button */}
+                  <button
+                    onClick={() => { setCsvData([]); setCsvError(''); if (csvFileRef.current) csvFileRef.current.value = ''; setShowImportModal(true) }}
+                    className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+                    title="Import CSV"
+                  >
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Import CSV
+                  </button>
+
+                  {/* Export Button (with dropdown) */}
+                  <div className="relative" ref={exportMenuRef}>
+                    <button
+                      onClick={() => setShowExportMenu(v => !v)}
+                      disabled={exporting}
+                      className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                      title="Export to CSV"
+                    >
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
+                      </svg>
+                      {exporting
+                        ? `Exporting… ${Math.round((exportProgress || 0) * 100)}%`
+                        : 'Export'}
+                      {!exporting && (
+                        <svg className="w-3 h-3 ml-0.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </button>
+                    {showExportMenu && !exporting && (
+                      <div className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
+                        <button
+                          onClick={() => { setShowExportMenu(false); handleExport('all') }}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+                        >
+                          <span>Download All</span>
+                          <span className="text-xs text-gray-500">{stats.total || ''}</span>
+                        </button>
+                        <button
+                          onClick={() => { setShowExportMenu(false); handleExport('selected') }}
+                          disabled={selectedRows.size === 0}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
+                        >
+                          <span>Download Selected</span>
+                          <span className="text-xs text-gray-500">{selectedRows.size}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   <GroupSelector 
                     moduleName="clientpercentage" 
                     onCreateClick={() => {
@@ -1001,31 +1077,10 @@ const ClientPercentagePage = () => {
                     </div>
 
                     {/* Import CSV Button */}
-                    <button
-                      onClick={() => { setCsvData([]); setCsvError(''); if (csvFileRef.current) csvFileRef.current.value = ''; setShowImportModal(true) }}
-                      className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
-                      title="Import CSV"
-                    >
-                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                      Import CSV
-                    </button>
+                    {/* moved to header next to Groups */}
 
-                    {/* Export Button */}
-                    <button
-                      onClick={handleExport}
-                      disabled={exporting}
-                      className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                      title="Export all to CSV"
-                    >
-                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
-                      </svg>
-                      {exporting
-                        ? `Exporting… ${Math.round((exportProgress || 0) * 100)}%`
-                        : 'Export'}
-                    </button>
+                    {/* Export Button (with dropdown) */}
+                    {/* moved to header next to Groups */}
 
                     {/* Bulk Update Button */}
                     {selectedRows.size > 0 && (
