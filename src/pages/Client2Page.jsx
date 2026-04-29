@@ -4399,7 +4399,7 @@ const Client2Page = () => {
                 {/* Column Selector Dropdown */}
                 {showColumnSelector && (
                   <div
-                    className="fixed bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 flex flex-col"
+                    className="fixed bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 flex flex-col overflow-hidden"
                     style={{
                       top: columnSelectorPos.top,
                       left: columnSelectorPos.left,

@@ -131,7 +131,7 @@ const ColumnChooserList = ({
   const isSearching = search.trim().length > 0
 
   return (
-    <div className={`flex flex-col ${theme.border}`} style={{ width: '100%', maxHeight: 'inherit' }}>
+    <div className={`flex flex-col ${theme.border}`} style={{ width: '100%', flex: 1, minHeight: 0, maxHeight: 'inherit' }}>
       {title && (
         <div className={`px-3 py-2 border-b ${theme.headBorder} flex items-center justify-between`}>
           <p className={`text-[10px] font-bold uppercase tracking-wide ${theme.titleText}`}>{title}</p>
