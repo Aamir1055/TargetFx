@@ -3214,13 +3214,22 @@ const ClientsPage = () => {
                     <div className="px-3 py-2 border-b border-amber-200 flex items-center justify-between bg-amber-50">
                       <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Show/Hide & Reorder Columns</p>
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={resetColumnOrder}
-                          className="text-[10px] font-semibold px-2 py-0.5 rounded text-amber-700 hover:bg-amber-100"
-                          title="Reset column order to default"
-                        >
-                          Reset Order
-                        </button>
+                        <div className="relative group">
+                          <button
+                            onClick={resetColumnOrder}
+                            className="p-1 rounded text-amber-700 hover:bg-amber-100"
+                            aria-label="Reset column order to default"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v6h6" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 20v-6h-6" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 10a8 8 0 0114-3m2 7a8 8 0 01-14 3" />
+                            </svg>
+                          </button>
+                          <span className="absolute right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-[10px] font-medium px-2 py-1 rounded whitespace-nowrap z-50 pointer-events-none shadow">
+                            Reset Order
+                          </span>
+                        </div>
                         <button
                           onClick={() => setShowColumnSelector(false)}
                           className="text-amber-500 hover:text-amber-700 p-1 rounded hover:bg-amber-100"

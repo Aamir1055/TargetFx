@@ -4414,13 +4414,22 @@ const Client2Page = () => {
                   <div className="px-4 py-2 border-b border-[#F3F4F6] flex items-center justify-between">
                     <p className="text-sm font-semibold text-[#1F2937]">Show/Hide & Reorder Columns</p>
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => { setColumnOrder(null); try { localStorage.removeItem('client2ColumnOrder') } catch {} }}
-                        className="text-[10px] font-semibold px-2 py-0.5 rounded text-blue-600 hover:bg-blue-50"
-                        title="Reset column order"
-                      >
-                        Reset Order
-                      </button>
+                      <div className="relative group">
+                        <button
+                          onClick={() => { setColumnOrder(null); try { localStorage.removeItem('client2ColumnOrder') } catch {} }}
+                          className="p-1 rounded text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                          aria-label="Reset column order"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v6h6" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 20v-6h-6" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 10a8 8 0 0114-3m2 7a8 8 0 01-14 3" />
+                          </svg>
+                        </button>
+                        <span className="absolute right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-[10px] font-medium px-2 py-1 rounded whitespace-nowrap z-50 pointer-events-none shadow">
+                          Reset Order
+                        </span>
+                      </div>
                       <button
                         onClick={() => setShowColumnSelector(false)}
                         className="text-[#9CA3AF] hover:text-[#4B5563] p-1 rounded hover:bg-gray-50"

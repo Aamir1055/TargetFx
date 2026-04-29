@@ -29,7 +29,7 @@ const ACCENTS = {
     dragOverRing: 'ring-2 ring-amber-400'
   },
   blue: {
-    border: 'border-blue-200',
+    border: 'border-grey-200',
     headBorder: 'border-blue-200',
     titleText: 'text-blue-700',
     closeText: 'text-blue-500 hover:text-blue-700 hover:bg-blue-100',
@@ -136,14 +136,23 @@ const ColumnChooserList = ({
         <div className={`px-3 py-2 border-b ${theme.headBorder} flex items-center justify-between`}>
           <p className={`text-[10px] font-bold uppercase tracking-wide ${theme.titleText}`}>{title}</p>
           {typeof onResetOrder === 'function' && (
-            <button
-              type="button"
-              onClick={onResetOrder}
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded ${theme.closeText}`}
-              title="Reset column order"
-            >
-              Reset Order
-            </button>
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={onResetOrder}
+                className={`p-1 rounded ${theme.closeText}`}
+                aria-label="Reset column order"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v6h6" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 20v-6h-6" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 10a8 8 0 0114-3m2 7a8 8 0 01-14 3" />
+                </svg>
+              </button>
+              <span className="absolute right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-[10px] font-medium px-2 py-1 rounded whitespace-nowrap z-50 pointer-events-none shadow">
+                Reset Order
+              </span>
+            </div>
           )}
         </div>
       )}
