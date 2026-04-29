@@ -3846,8 +3846,8 @@ const PositionsPage = () => {
                     </button>
                     {showColumnSelector && (
                       <div
-                        className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 z-50 flex flex-col"
-                        style={{ width: 280, maxHeight: '60vh' }}
+                        className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 z-50 flex flex-col overflow-hidden"
+                        style={{ width: 280, maxHeight: 'min(55vh, calc(100dvh - 140px))' }}
                       >
                         <div className="px-3 py-2 border-b border-[#F3F4F6] flex items-center justify-between">
                           <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide & Reorder</p>
