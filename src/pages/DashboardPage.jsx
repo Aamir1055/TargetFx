@@ -347,7 +347,7 @@ const DashboardPage = () => {
     const netDW = (stats.dailyDeposit || 0) - (stats.dailyWithdrawal || 0)
     
     const configs = {
-      1: { id: 1, title: 'Total Clients', value: stats.totalClients, simple: true, borderColor: 'border-blue-200', textColor: 'text-blue-600' },
+      1: { id: 1, title: 'Total Clients', value: Number(stats.totalClients || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), simple: true, borderColor: 'border-blue-200', textColor: 'text-blue-600' },
       2: { id: 2, title: 'Total Balance', value: formatIndianNumber(stats.totalBalance), simple: true, borderColor: 'border-indigo-200', textColor: 'text-indigo-600' },
       3: { id: 3, title: 'Total Credit', value: formatIndianNumber(stats.totalCredit), simple: true, borderColor: 'border-emerald-200', textColor: 'text-emerald-600' },
       4: { id: 4, title: 'Total Equity', value: formatIndianNumber(stats.totalEquity), simple: true, borderColor: 'border-sky-200', textColor: 'text-sky-600' },

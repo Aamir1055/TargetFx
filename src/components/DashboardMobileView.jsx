@@ -8,6 +8,17 @@ const formatNum = (n) => {
   return v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const formatCompactIndian = (v) => {
+  const n = Number(v)
+  if (!isFinite(n)) return '0.00'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1e7) return sign + (abs / 1e7).toFixed(2) + 'Cr'
+  if (abs >= 1e5) return sign + (abs / 1e5).toFixed(2) + 'L'
+  if (abs >= 1e3) return sign + (abs / 1e3).toFixed(2) + 'K'
+  return sign + abs.toFixed(2)
+}
+
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '$0.00'
   return new Intl.NumberFormat('en-US', {
@@ -33,6 +44,7 @@ export default function DashboardMobileView({
   const { logout } = useAuth()
   const [showViewAll, setShowViewAll] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [orderedCards, setOrderedCards] = useState([])
   const [dragStartLabel, setDragStartLabel] = useState(null)
   const [showCardFilter, setShowCardFilter] = useState(false)
@@ -100,6 +112,48 @@ export default function DashboardMobileView({
       setOrderedCards(defaultOrder)
     }
   }, [faceCardOrder, faceCardTotals, getFaceCardConfig])
+
+  // Sync numericMode with global display mode events
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
+
+  // Card ID → faceCardTotals key map for simple monetary cards
+  const CARD_RAW_VALUE_KEY = {
+    2: 'totalBalance', 3: 'totalCredit', 4: 'totalEquity',
+    8: 'dailyDeposit', 9: 'dailyWithdrawal', 19: 'blockedCommission',
+    20: 'dailyBonusIn', 21: 'dailyBonusOut', 23: 'weekBonusIn',
+    24: 'weekBonusOut', 26: 'monthBonusIn', 27: 'monthBonusOut',
+    29: 'lifetimeBonusIn', 30: 'lifetimeBonusOut',
+    32: 'weekDeposit', 33: 'weekWithdrawal',
+    35: 'monthDeposit', 36: 'monthWithdrawal',
+    38: 'lifetimeDeposit', 39: 'lifetimeWithdrawal',
+    41: 'weekCreditIn', 42: 'monthCreditIn', 43: 'lifetimeCreditIn',
+    44: 'weekCreditOut', 45: 'monthCreditOut', 46: 'lifetimeCreditOut',
+    48: 'weekPreviousEquity', 49: 'monthPreviousEquity', 50: 'previousEquity'
+  }
+
+  const fmtCardValue = (card) => {
+    if (numericMode === 'compact') {
+      if (card.withArrow || card.withIcon) {
+        return formatCompactIndian(Math.abs(Number(card.value) || 0))
+      }
+      const rawKey = CARD_RAW_VALUE_KEY[card.id]
+      if (rawKey && faceCardTotals && faceCardTotals[rawKey] !== undefined) {
+        return formatCompactIndian(Math.abs(Number(faceCardTotals[rawKey]) || 0))
+      }
+    }
+    return card.formattedValue || card.value || '0'
+  }
 
   // Get cards in order and filter by visibility
   const getOrderedCards = () => {
@@ -251,7 +305,7 @@ export default function DashboardMobileView({
                   ? (card.isPositive ? 'text-[#16A34A]' : 'text-[#DC2626]')
                   : 'text-black'
               }`}>
-                {card.formattedValue || card.value || '0'}
+                {fmtCardValue(card)}
               </span>
             </div>
           </div>
@@ -323,6 +377,15 @@ export default function DashboardMobileView({
             </div>
 
             <div className="flex-1 overflow-auto py-2">
+              {/* Compact / Full display mode toggle */}
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
                   {label:'Dashboard', path:'/dashboard', active:true, icon: (

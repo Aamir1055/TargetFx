@@ -21,6 +21,17 @@ const formatNum = (n, decimals = 2) => {
   return v.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
+const formatCompactIndian = (v) => {
+  const n = Number(v)
+  if (!isFinite(n)) return '0.00'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1e7) return sign + (abs / 1e7).toFixed(2) + 'Cr'
+  if (abs >= 1e5) return sign + (abs / 1e5).toFixed(2) + 'L'
+  if (abs >= 1e3) return sign + (abs / 1e3).toFixed(2) + 'K'
+  return sign + abs.toFixed(2)
+}
+
 const formatTime = (timestamp) => {
   if (!timestamp) return '-'
   const date = new Date(timestamp * 1000)
@@ -39,6 +50,7 @@ export default function LiveDealingModule() {
   const { positions: cachedPositions, clients, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
@@ -109,6 +121,27 @@ export default function LiveDealingModule() {
     setAppliedFromDate('')
     setAppliedToDate('')
   }, [])
+
+  // Sync numericMode with global display mode events
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
+
+  const fmtMoney = (v) => {
+    const n = Number(v)
+    if (!isFinite(n)) return '0.00'
+    if (numericMode === 'compact') return formatCompactIndian(n)
+    return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
 
   // Listen for global request to open Customize View from child modals
   useEffect(() => {
@@ -679,13 +712,13 @@ export default function LiveDealingModule() {
         )
       case 'netVolume':
         if (displayMode === 'both') {
-          const volValue = formatNum(deal.rawData?.volume || 0, 2)
+          const volValue = fmtMoney(deal.rawData?.volume || 0)
           const volPercent = deal.rawData?.volume_percentage != null ? formatNum(deal.rawData.volume_percentage, 2) : '0.00'
           value = `${volValue} (${volPercent}%)`
         } else if (displayMode === 'percentage') {
           value = deal.rawData?.volume_percentage != null ? formatNum(deal.rawData.volume_percentage, 2) : '0.00'
         } else {
-          value = formatNum(deal.rawData?.volume || 0, 2)
+          value = fmtMoney(deal.rawData?.volume || 0)
         }
         break
       case 'averagePrice':
@@ -695,13 +728,13 @@ export default function LiveDealingModule() {
         const profit = deal.rawData?.profit || 0
         let profitValue
         if (displayMode === 'both') {
-          const profVal = formatNum(profit, 2)
+          const profVal = fmtMoney(profit)
           const profPercent = deal.rawData?.profit_percentage != null ? formatNum(deal.rawData.profit_percentage, 2) : '0.00'
           profitValue = `${profVal} (${profPercent}%)`
         } else if (displayMode === 'percentage') {
           profitValue = deal.rawData?.profit_percentage != null ? formatNum(deal.rawData.profit_percentage, 2) : '0.00'
         } else {
-          profitValue = formatNum(profit, 2)
+          profitValue = fmtMoney(profit)
         }
         return (
           <div 
@@ -719,24 +752,24 @@ export default function LiveDealingModule() {
         )
       case 'commission':
         if (displayMode === 'both') {
-          const commValue = formatNum(deal.rawData?.commission || 0, 2)
+          const commValue = fmtMoney(deal.rawData?.commission || 0)
           const commPercent = deal.rawData?.commission_percentage != null ? formatNum(deal.rawData.commission_percentage, 2) : '0.00'
           value = `${commValue} (${commPercent}%)`
         } else if (displayMode === 'percentage') {
           value = deal.rawData?.commission_percentage != null ? formatNum(deal.rawData.commission_percentage, 2) : '0.00'
         } else {
-          value = formatNum(deal.rawData?.commission || 0, 2)
+          value = fmtMoney(deal.rawData?.commission || 0)
         }
         break
       case 'storage':
         if (displayMode === 'both') {
-          const storValue = formatNum(deal.rawData?.storage || 0, 2)
+          const storValue = fmtMoney(deal.rawData?.storage || 0)
           const storPercent = deal.rawData?.storage_percentage != null ? formatNum(deal.rawData.storage_percentage, 2) : '0.00'
           value = `${storValue} (${storPercent}%)`
         } else if (displayMode === 'percentage') {
           value = deal.rawData?.storage_percentage != null ? formatNum(deal.rawData.storage_percentage, 2) : '0.00'
         } else {
-          value = formatNum(deal.rawData?.storage || 0, 2)
+          value = fmtMoney(deal.rawData?.storage || 0)
         }
         break
       case 'appliedPercentage':
@@ -823,6 +856,15 @@ export default function LiveDealingModule() {
             </div>
 
             <div className="flex-1 overflow-auto py-2">
+              {/* Compact / Full display mode toggle */}
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
                   {label:'Dashboard', path:'/dashboard', icon: (
@@ -952,75 +994,7 @@ export default function LiveDealingModule() {
           </div>
         </div>
 
-        {/* Face Cards Carousel */}
-        <div className="pb-2 px-4">
-          <div 
-            ref={carouselRef}
-            className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory"
-          >
-            {cards.map((card, i) => (
-              <div 
-                key={i}
-                draggable="true"
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('cardIndex', i)
-                  e.dataTransfer.effectAllowed = 'move'
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const fromIndex = parseInt(e.dataTransfer.getData('cardIndex'))
-                  if (fromIndex !== i && !isNaN(fromIndex)) {
-                    const newCards = [...cards]
-                    const [movedCard] = newCards.splice(fromIndex, 1)
-                    newCards.splice(i, 0, movedCard)
-                    setCards(newCards)
-                  }
-                }}
-                style={{
-                  boxSizing: 'border-box',
-                  minWidth: '125px',
-                  width: '125px',
-                  height: '60px',
-                  background: '#FFFFFF',
-                  border: '1px solid #F2F2F7',
-                  boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                  borderRadius: '12px',
-                  padding: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  scrollSnapAlign: 'start',
-                  flexShrink: 0,
-                  flex: 'none',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  touchAction: 'pan-x'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>{card.label}</span>
-                  <img src={getCardIcon(card.label)} alt="" style={{ width: '16px', height: '16px', objectFit: 'contain', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none' }} />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    lineHeight: '14px',
-                    letterSpacing: '-0.01em',
-                    color: '#000000'
-                  }}>
-                    {card.value === '' || card.value === undefined ? '0' : card.value}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Face Cards Carousel - removed on mobile per request */}
 
         {/* Search and Controls Bar - Separate from table */}
         <div className="mx-1 sm:mx-4 mb-1 px-3 py-3 sm:p-4">

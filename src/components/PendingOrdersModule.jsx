@@ -17,6 +17,17 @@ const formatNum = (n, decimals = 2) => {
   return v.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
+const formatCompactIndian = (v) => {
+  const n = Number(v)
+  if (!isFinite(n)) return '0.00'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1e7) return sign + (abs / 1e7).toFixed(2) + 'Cr'
+  if (abs >= 1e5) return sign + (abs / 1e5).toFixed(2) + 'L'
+  if (abs >= 1e3) return sign + (abs / 1e3).toFixed(2) + 'K'
+  return sign + abs.toFixed(2)
+}
+
 const formatTime = (ts) => {
   if (!ts) return '-'
   try {
@@ -38,6 +49,7 @@ export default function PendingOrdersModule() {
   const { orders, clients, loading, positions } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
@@ -80,6 +92,41 @@ export default function PendingOrdersModule() {
     setActiveGroupFilter('pendingorders', null)
     setSearchInput('')
   }, [])
+
+  // Sync numericMode with global display mode events
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
+
+  const fmtMoney = (v) => {
+    const n = Number(v)
+    if (!isFinite(n)) return '0.00'
+    if (numericMode === 'compact') return formatCompactIndian(n)
+    return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
+
+  const fmtCount = (v) => {
+    const n = Number(v)
+    if (!isFinite(n)) return '0'
+    if (numericMode === 'compact') return formatCompactIndian(n)
+    return n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+  }
+
+  const fmtPrice = (v, decimals = 5) => {
+    const n = Number(v)
+    if (!isFinite(n)) return '0.00'
+    if (numericMode === 'compact') return formatCompactIndian(n)
+    return n.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  }
 
   // Listen for global request to open Customize View from child modals
   useEffect(() => {
@@ -256,10 +303,10 @@ export default function PendingOrdersModule() {
   // Update cards when summary stats change
   useEffect(() => {
     const newCards = [
-      { label: 'PENDING ORDERS', value: String(summaryStats.totalOrders) },
-      { label: 'UNIQUE LOGINS', value: String(summaryStats.uniqueLogins) },
-      { label: 'SYMBOLS', value: String(summaryStats.uniqueSymbols) },
-      { label: 'TOTAL VOLUME', value: formatNum(summaryStats.totalVolume, 2) }
+      { label: 'PENDING ORDERS', value: fmtCount(summaryStats.totalOrders) },
+      { label: 'UNIQUE LOGINS', value: fmtCount(summaryStats.uniqueLogins) },
+      { label: 'SYMBOLS', value: fmtCount(summaryStats.uniqueSymbols) },
+      { label: 'TOTAL VOLUME', value: fmtMoney(summaryStats.totalVolume) }
     ]
     
     // Only update if cards length is different (initial load) or keep existing order
@@ -274,7 +321,7 @@ export default function PendingOrdersModule() {
         })
       })
     }
-  }, [summaryStats])
+  }, [summaryStats, numericMode])
 
   // Get visible columns
   const allColumns = [
@@ -345,7 +392,7 @@ export default function PendingOrdersModule() {
           </div>
         )
       case 'volume':
-        value = formatNum(order.volumeCurrent || order.volume || 0, 2)
+        value = fmtMoney(order.volumeCurrent || order.volume || 0)
         break
       case 'priceOrder':
         value = formatNum(order.priceOrder || order.price || 0, 5)
@@ -432,6 +479,15 @@ export default function PendingOrdersModule() {
             </div>
 
             <div className="flex-1 overflow-auto py-2">
+              {/* Compact / Full display mode toggle */}
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
                   {label:'Dashboard', path:'/dashboard', icon: (

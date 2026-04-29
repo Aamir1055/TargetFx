@@ -17,6 +17,17 @@ const formatNum = (n) => {
   return v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const formatCompactIndian = (v) => {
+  const n = Number(v)
+  if (!isFinite(n)) return '0.00'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1e7) return sign + (abs / 1e7).toFixed(2) + 'Cr'
+  if (abs >= 1e5) return sign + (abs / 1e5).toFixed(2) + 'L'
+  if (abs >= 1e3) return sign + (abs / 1e3).toFixed(2) + 'K'
+  return sign + abs.toFixed(2)
+}
+
 export default function Client2Module() {
   const navigate = useNavigate()
   const { logout } = useAuth()
@@ -24,6 +35,7 @@ export default function Client2Module() {
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [currentPage, setCurrentPage] = useState(1)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [showPercent, setShowPercent] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -93,6 +105,27 @@ export default function Client2Module() {
     setSearchInput('')
     setDebouncedSearchInput('')
   }, [])
+
+  // Sync numericMode with global display mode events
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
+
+  const fmtMoney = (v) => {
+    const n = Number(v)
+    if (!isFinite(n)) return '0.00'
+    if (numericMode === 'compact') return formatCompactIndian(n)
+    return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
 
   // Debounce search input to prevent API collision during typing
   useEffect(() => {
@@ -347,14 +380,14 @@ export default function Client2Module() {
     
     // Only show 6 face cards as requested
     return [
-      { label: 'Total Clients', value: formatNum(clientCount), unit: 'Count', numericValue: clientCount },
-      { label: addPercent('Balance'), value: formatNum(t.balance || 0), unit: 'USD', numericValue: t.balance || 0 },
-      { label: addPercent('Credit'), value: formatNum(t.credit || 0), unit: 'USD', numericValue: t.credit || 0 },
-      { label: addPercent('Equity'), value: formatNum(t.equity || 0), unit: 'USD', numericValue: t.equity || 0 },
-      { label: addPercent('Floating P/L'), value: formatNum(t.floating || 0), unit: 'USD', numericValue: t.floating || 0 },
-      { label: addPercent('P&L'), value: formatNum(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0 }
+      { label: 'Total Clients', value: Number(clientCount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), unit: 'Count', numericValue: clientCount },
+      { label: addPercent('Balance'), value: fmtMoney(t.balance || 0), unit: 'USD', numericValue: t.balance || 0 },
+      { label: addPercent('Credit'), value: fmtMoney(t.credit || 0), unit: 'USD', numericValue: t.credit || 0 },
+      { label: addPercent('Equity'), value: fmtMoney(t.equity || 0), unit: 'USD', numericValue: t.equity || 0 },
+      { label: addPercent('Floating P/L'), value: fmtMoney(t.floating || 0), unit: 'USD', numericValue: t.floating || 0 },
+      { label: addPercent('P&L'), value: fmtMoney(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0 }
     ]
-  }, [filteredClients, totals, rebateTotals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent])
+  }, [filteredClients, totals, rebateTotals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent, numericMode])
 
   // Initialize and reconcile saved card order whenever cards change
   useEffect(() => {
@@ -847,7 +880,7 @@ export default function Client2Module() {
     
     // Otherwise format as number (for numeric columns)
     if (percentageColumns.has(key)) {
-      return formatNum(value || 0)
+      return fmtMoney(value || 0)
     }
     
     return value
@@ -927,6 +960,15 @@ export default function Client2Module() {
             </div>
 
             <div className="flex-1 overflow-auto py-2">
+              {/* Compact / Full display mode toggle */}
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
                   {label:'Dashboard', path:'/dashboard', icon: (

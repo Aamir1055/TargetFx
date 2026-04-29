@@ -17,6 +17,17 @@ const formatNum = (n, decimals = 2) => {
   return v.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
+const formatCompactIndian = (v) => {
+  const n = Number(v)
+  if (!isFinite(n)) return '0.00'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1e7) return sign + (abs / 1e7).toFixed(2) + 'Cr'
+  if (abs >= 1e5) return sign + (abs / 1e5).toFixed(2) + 'L'
+  if (abs >= 1e3) return sign + (abs / 1e3).toFixed(2) + 'K'
+  return sign + abs.toFixed(2)
+}
+
 const getMarginLevelPercent = (obj) => {
   let val = obj?.margin_level ?? obj?.marginLevel ?? obj?.margin_percent ?? obj?.marginPercent ?? obj?.margin
   if (val === undefined || val === null) return undefined
@@ -32,6 +43,7 @@ export default function MarginLevelModule() {
   const { accounts, clients, loading, positions, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
@@ -77,6 +89,27 @@ export default function MarginLevelModule() {
     setActiveGroupFilter('marginlevel', null)
     setSearchInput('')
   }, [])
+
+  // Sync numericMode with global display mode events
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
+
+  const fmtMoney = (v) => {
+    const n = Number(v)
+    if (!isFinite(n)) return '0.00'
+    if (numericMode === 'compact') return formatCompactIndian(n)
+    return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
 
   // Listen for global request to open Customize View from child modals
   useEffect(() => {
@@ -278,26 +311,26 @@ export default function MarginLevelModule() {
         value = account.group || '-'
         break
       case 'balance':
-        value = formatNum(account.balance || 0, 2)
+        value = fmtMoney(account.balance || 0)
         break
       case 'equity':
-        value = formatNum(account.equity || 0, 2)
+        value = fmtMoney(account.equity || 0)
         break
       case 'margin':
-        value = formatNum(account.margin || 0, 2)
+        value = fmtMoney(account.margin || 0)
         break
       case 'marginFree':
-        value = formatNum(account.margin_free || account.marginFree || 0, 2)
+        value = fmtMoney(account.margin_free || account.marginFree || 0)
         break
       case 'marginLevel':
         const ml = getMarginLevelPercent(account)
         value = ml !== undefined ? formatNum(ml, 2) + '%' : '-'
         break
       case 'profit':
-        value = formatNum(account.profit || 0, 2)
+        value = fmtMoney(account.profit || 0)
         break
       case 'credit':
-        value = formatNum(account.credit || 0, 2)
+        value = fmtMoney(account.credit || 0)
         break
       case 'leverage':
         value = account.leverage || '-'
@@ -372,6 +405,15 @@ export default function MarginLevelModule() {
             </div>
 
             <div className="flex-1 overflow-auto py-2">
+              {/* Compact / Full display mode toggle */}
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
                   {label:'Dashboard', path:'/dashboard', icon: (
@@ -718,10 +760,10 @@ export default function MarginLevelModule() {
                         }}
                       >
                         {col.key === 'login' ? 'Total' :
-                         col.key === 'balance' ? formatNum(sortedAccounts.reduce((s,a)=> s + (a.balance || 0), 0), 2) :
-                         col.key === 'equity' ? formatNum(sortedAccounts.reduce((s,a)=> s + (a.equity || 0), 0), 2) :
-                         col.key === 'margin' ? formatNum(sortedAccounts.reduce((s,a)=> s + (a.margin || 0), 0), 2) :
-                         col.key === 'marginFree' ? formatNum(sortedAccounts.reduce((s,a)=> s + (a.margin_free || a.marginFree || 0), 0), 2) :
+                         col.key === 'balance' ? fmtMoney(sortedAccounts.reduce((s,a)=> s + (a.balance || 0), 0)) :
+                         col.key === 'equity' ? fmtMoney(sortedAccounts.reduce((s,a)=> s + (a.equity || 0), 0)) :
+                         col.key === 'margin' ? fmtMoney(sortedAccounts.reduce((s,a)=> s + (a.margin || 0), 0)) :
+                         col.key === 'marginFree' ? fmtMoney(sortedAccounts.reduce((s,a)=> s + (a.margin_free || a.marginFree || 0), 0)) :
                          ''}
                       </div>
                     ))}
