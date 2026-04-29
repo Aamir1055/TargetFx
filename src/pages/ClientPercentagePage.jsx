@@ -916,7 +916,6 @@ const ClientPercentagePage = () => {
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                 <span>{stats.total}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">CLI</span>
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -932,7 +931,6 @@ const ClientPercentagePage = () => {
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                 <span title={numericMode === 'compact' ? String(stats.total_custom) : undefined}>{fmtCount(stats.total_custom)}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">CUST</span>
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -948,7 +946,6 @@ const ClientPercentagePage = () => {
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                 <span title={numericMode === 'compact' ? String(stats.total_default) : undefined}>{fmtCount(stats.total_default)}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">DEF</span>
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -963,8 +960,7 @@ const ClientPercentagePage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{stats.default_percentage}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">%</span>
+                <span>{stats.default_percentage}%</span>
               </div>
             </div>
           </div>

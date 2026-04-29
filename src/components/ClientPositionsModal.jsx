@@ -3632,13 +3632,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 // Add Max Profit and Max Loss to second row (desktop only)
                 if (isDesktop) {
                   if (fixedCardVisibility.pf_maxProfit) {
-                    const profits = positions.map(p => p.profit || 0)
-                    const maxProfit = profits.length > 0 ? Math.max(...profits) : 0
+                    const maxProfit = Number(dealStats?.maxProfit ?? 0)
                     row2.push({ label: 'Max Profit', value: fmtMoney(maxProfit), labelClass: maxProfit >= 0 ? 'text-emerald-700' : 'text-gray-700', valueClass: getProfitColor(maxProfit), accent: maxProfit >= 0 ? 'border-emerald-400' : 'border-gray-300' })
                   }
                   if (fixedCardVisibility.pf_maxLoss) {
-                    const profits = positions.map(p => p.profit || 0)
-                    const maxLoss = profits.length > 0 ? Math.min(...profits) : 0
+                    const maxLoss = Number(dealStats?.maxLoss ?? 0)
                     row2.push({ label: 'Max Loss', value: fmtMoney(maxLoss), labelClass: maxLoss < 0 ? 'text-red-700' : 'text-gray-700', valueClass: getProfitColor(maxLoss), accent: maxLoss < 0 ? 'border-red-400' : 'border-gray-300' })
                   }
                 }

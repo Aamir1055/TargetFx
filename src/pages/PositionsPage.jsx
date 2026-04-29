@@ -3876,28 +3876,50 @@ const PositionsPage = () => {
                     <tr className="divide-x divide-gray-200">
                       {(() => {
                         const effectiveCols = getEffectiveVisibleColumns()
+                        const baseKeys = allColumns.map(c => c.key)
+                        const ordered = (Array.isArray(columnOrder) && columnOrder.length)
+                          ? [...columnOrder.filter(k => baseKeys.includes(k)), ...baseKeys.filter(k => !columnOrder.includes(k))]
+                          : baseKeys
+                        const headerByKey = (key) => {
+                          switch (key) {
+                            case 'login': return effectiveCols.login && renderHeaderCell('login', 'Login')
+                            case 'name': return effectiveCols.name && renderHeaderCell('name', 'Name')
+                            case 'position': return effectiveCols.position && renderHeaderCell('position', 'Position')
+                            case 'symbol': return effectiveCols.symbol && renderHeaderCell('symbol', 'Symbol')
+                            case 'action': return effectiveCols.action && renderHeaderCell('action', 'Action')
+                            case 'volume': return (
+                              <>
+                                {effectiveCols.volume && renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}
+                                {effectiveCols.volumePercentage && renderHeaderCell('volume', 'Volume %')}
+                              </>
+                            )
+                            case 'priceOpen': return effectiveCols.priceOpen && renderHeaderCell('priceOpen', 'Open Price')
+                            case 'priceCurrent': return effectiveCols.priceCurrent && renderHeaderCell('priceCurrent', 'Current Price')
+                            case 'sl': return effectiveCols.sl && renderHeaderCell('priceSL', 'S/L')
+                            case 'tp': return effectiveCols.tp && renderHeaderCell('priceTP', 'T/P')
+                            case 'profit': return (
+                              <>
+                                {effectiveCols.profit && renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}
+                                {effectiveCols.profitPercentage && renderHeaderCell('percentage', 'Profit %')}
+                              </>
+                            )
+                            case 'storage': return (
+                              <>
+                                {effectiveCols.storage && renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}
+                                {effectiveCols.storagePercentage && renderHeaderCell('storage', 'Storage %')}
+                              </>
+                            )
+                            case 'reason': return effectiveCols.reason && renderHeaderCell('reason', 'Reason')
+                            case 'comment': return effectiveCols.comment && renderHeaderCell('comment', 'Comment')
+                            case 'commission': return effectiveCols.commission && renderHeaderCell('commission', 'Commission')
+                            default: return null
+                          }
+                        }
                         return (
                           <>
-                          {effectiveCols.time && renderHeaderCell('timeUpdate', 'Time', 'timeUpdate')}
-                          {effectiveCols.login && renderHeaderCell('login', 'Login')}
-                          {effectiveCols.name && renderHeaderCell('name', 'Name')}
-                          {effectiveCols.position && renderHeaderCell('position', 'Position')}
-                          {effectiveCols.symbol && renderHeaderCell('symbol', 'Symbol')}
-                          {effectiveCols.action && renderHeaderCell('action', 'Action')}
-                          {effectiveCols.volume && renderHeaderCell('volume', displayMode === 'percentage' ? 'Volume %' : 'Volume')}
-                          {effectiveCols.volumePercentage && renderHeaderCell('volume', 'Volume %')}
-                          {effectiveCols.priceOpen && renderHeaderCell('priceOpen', 'Open Price')}
-                          {effectiveCols.priceCurrent && renderHeaderCell('priceCurrent', 'Current Price')}
-                          {effectiveCols.sl && renderHeaderCell('priceSL', 'S/L')}
-                          {effectiveCols.tp && renderHeaderCell('priceTP', 'T/P')}
-                          {effectiveCols.profit && renderHeaderCell('profit', displayMode === 'percentage' ? 'Profit %' : 'Profit')}
-                          {effectiveCols.profitPercentage && renderHeaderCell('percentage', 'Profit %')}
-                          {effectiveCols.storage && renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}
-                          {effectiveCols.storagePercentage && renderHeaderCell('storage', 'Storage %')}
-                          {effectiveCols.appliedPercentage && renderHeaderCell('applied_percentage', 'Applied %')}
-                          {effectiveCols.reason && renderHeaderCell('reason', 'Reason')}
-                          {effectiveCols.comment && renderHeaderCell('comment', 'Comment')}
-                          {effectiveCols.commission && renderHeaderCell('commission', 'Commission')}
+                            {effectiveCols.time && renderHeaderCell('timeUpdate', 'Time', 'timeUpdate')}
+                            {ordered.map(k => <Fragment key={k}>{headerByKey(k)}</Fragment>)}
+                            {effectiveCols.appliedPercentage && renderHeaderCell('applied_percentage', 'Applied %')}
                           </>
                         )
                       })()}
@@ -3961,13 +3983,14 @@ const PositionsPage = () => {
                     ) : displayedPositions.map((p) => {
                       const effectiveCols = getEffectiveVisibleColumns()
                       const rowClass = 'hover:bg-blue-50'
-                      return (
-                        <tr key={p.position} className={`${rowClass} transition-all duration-300 divide-x divide-gray-200`}>
-                          {effectiveCols.time && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{formatTime(p.timeUpdate || p.timeCreate)}</td>
-                          )}
-                          {effectiveCols.login && (
-                            <td 
+                      const baseKeys = allColumns.map(c => c.key)
+                      const ordered = (Array.isArray(columnOrder) && columnOrder.length)
+                        ? [...columnOrder.filter(k => baseKeys.includes(k)), ...baseKeys.filter(k => !columnOrder.includes(k))]
+                        : baseKeys
+                      const cellByKey = (key) => {
+                        switch (key) {
+                          case 'login': return effectiveCols.login && (
+                            <td
                               className="px-2 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap cursor-pointer hover:underline border-r border-gray-200 last:border-r-0"
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -3977,77 +4000,84 @@ const PositionsPage = () => {
                             >
                               {p.login}
                             </td>
-                          )}
-                          {effectiveCols.name && (
+                          )
+                          case 'name': return effectiveCols.name && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.name ?? '-'}</td>
-                          )}
-                          {effectiveCols.position && (
+                          )
+                          case 'position': return effectiveCols.position && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.position}</td>
-                          )}
-                          {effectiveCols.symbol && (
+                          )
+                          case 'symbol': return effectiveCols.symbol && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.symbol}</td>
-                          )}
-                          {effectiveCols.action && (
+                          )
+                          case 'action': return effectiveCols.action && (
                             <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0">
                               <span className={`px-1.5 py-0.5 rounded text-[12px] font-semibold ${getActionChipClasses(p.action)}`}>
                                 {getActionLabel(p.action)}
                               </span>
                             </td>
-                          )}
-                          {effectiveCols.volume && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.volume, p.symbol), 2) : undefined}>{fmtMoney(adjustValueForSymbol(p.volume, p.symbol), 2)}</td>
-                          )}
-                          {effectiveCols.volumePercentage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.volume != null && p.volume !== '' ? fmtMoneyFull(p.volume, 2) : undefined}>
-                              {(p.volume != null && p.volume !== '') ? fmtMoney(p.volume, 2) : '-'}
-                            </td>
-                          )}
-                          {effectiveCols.priceOpen && (
+                          )
+                          case 'volume': return (
+                            <>
+                              {effectiveCols.volume && (
+                                <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.volume, p.symbol), 2) : undefined}>{fmtMoney(adjustValueForSymbol(p.volume, p.symbol), 2)}</td>
+                              )}
+                              {effectiveCols.volumePercentage && (
+                                <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.volume != null && p.volume !== '' ? fmtMoneyFull(p.volume, 2) : undefined}>
+                                  {(p.volume != null && p.volume !== '') ? fmtMoney(p.volume, 2) : '-'}
+                                </td>
+                              )}
+                            </>
+                          )
+                          case 'priceOpen': return effectiveCols.priceOpen && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{fmtPriceFull(p.priceOpen, getDigits(p))}</td>
-                          )}
-                          {effectiveCols.priceCurrent && (
+                          )
+                          case 'priceCurrent': return effectiveCols.priceCurrent && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
                               {fmtPriceFull(p.priceCurrent, getDigits(p))}
                             </td>
-                          )}
-                          {effectiveCols.sl && (
+                          )
+                          case 'sl': return effectiveCols.sl && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{fmtPriceFull(p.priceSL)}</td>
-                          )}
-                          {effectiveCols.tp && (
+                          )
+                          case 'tp': return effectiveCols.tp && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{fmtPriceFull(p.priceTP)}</td>
-                          )}
-                          {effectiveCols.profit && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded transition-all duration-300 ${
-                                (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {fmtMoney(adjustValueForSymbol(p.profit, p.symbol, true), 2)}
-                              </span>
-                            </td>
-                          )}
-                          {effectiveCols.profitPercentage && (
-                            <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.profit != null && p.profit !== '' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {(p.profit != null && p.profit !== '') ? fmtMoney(adjustValueForSymbol(p.profit, p.symbol, true), 2) : '-'}
-                              </span>
-                            </td>
-                          )}
-                          {effectiveCols.storage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.storage, p.symbol, true), 2) : undefined}>{fmtMoney(adjustValueForSymbol(p.storage, p.symbol, true), 2)}</td>
-                          )}
-                          {effectiveCols.storagePercentage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.storage != null && p.storage !== '' ? fmtMoneyFull(p.storage, 2) : undefined}>
-                              {(p.storage != null && p.storage !== '') ? fmtMoney(p.storage, 2) : '-'}
-                            </td>
-                          )}
-                          {effectiveCols.appliedPercentage && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
-                              {(p.applied_percentage != null && p.applied_percentage !== '') ? `${formatNumber(p.applied_percentage, 2)}%` : '-'}
-                            </td>
-                          )}
-                          {effectiveCols.reason && (
+                          )
+                          case 'profit': return (
+                            <>
+                              {effectiveCols.profit && (
+                                <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded transition-all duration-300 ${
+                                    (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {fmtMoney(adjustValueForSymbol(p.profit, p.symbol, true), 2)}
+                                  </span>
+                                </td>
+                              )}
+                              {effectiveCols.profitPercentage && (
+                                <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.profit != null && p.profit !== '' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                    (p.profit || 0) >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {(p.profit != null && p.profit !== '') ? fmtMoney(adjustValueForSymbol(p.profit, p.symbol, true), 2) : '-'}
+                                  </span>
+                                </td>
+                              )}
+                            </>
+                          )
+                          case 'storage': return (
+                            <>
+                              {effectiveCols.storage && (
+                                <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.storage, p.symbol, true), 2) : undefined}>{fmtMoney(adjustValueForSymbol(p.storage, p.symbol, true), 2)}</td>
+                              )}
+                              {effectiveCols.storagePercentage && (
+                                <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' && p.storage != null && p.storage !== '' ? fmtMoneyFull(p.storage, 2) : undefined}>
+                                  {(p.storage != null && p.storage !== '') ? fmtMoney(p.storage, 2) : '-'}
+                                </td>
+                              )}
+                            </>
+                          )
+                          case 'reason': return effectiveCols.reason && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">
                               <span className={`px-2 py-0.5 text-xs rounded ${
                                 p.reason === 'DEALER' ? 'bg-blue-100 text-blue-800' :
@@ -4057,14 +4087,28 @@ const PositionsPage = () => {
                                 {p.reason || '-'}
                               </span>
                             </td>
-                          )}
-                          {effectiveCols.comment && (
+                          )
+                          case 'comment': return effectiveCols.comment && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 max-w-xs truncate border-r border-gray-200 last:border-r-0" title={p.comment}>
                               {p.comment || '-'}
                             </td>
-                          )}
-                          {effectiveCols.commission && (
+                          )
+                          case 'commission': return effectiveCols.commission && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.commission, p.symbol, true), 2) : undefined}>{fmtMoney(adjustValueForSymbol(p.commission, p.symbol, true), 2)}</td>
+                          )
+                          default: return null
+                        }
+                      }
+                      return (
+                        <tr key={p.position} className={`${rowClass} transition-all duration-300 divide-x divide-gray-200`}>
+                          {effectiveCols.time && (
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{formatTime(p.timeUpdate || p.timeCreate)}</td>
+                          )}
+                          {ordered.map(k => <Fragment key={k}>{cellByKey(k)}</Fragment>)}
+                          {effectiveCols.appliedPercentage && (
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
+                              {(p.applied_percentage != null && p.applied_percentage !== '') ? `${formatNumber(p.applied_percentage, 2)}%` : '-'}
+                            </td>
                           )}
                         </tr>
                       )
