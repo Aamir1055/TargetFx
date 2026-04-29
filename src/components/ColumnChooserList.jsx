@@ -33,7 +33,7 @@ const ACCENTS = {
     headBorder: 'border-blue-200',
     titleText: 'text-blue-700',
     closeText: 'text-blue-500 hover:text-blue-700 hover:bg-blue-100',
-    inputBorder: 'border-blue-300 focus:ring-blue-500',
+    inputBorder: 'border-gray-300 focus:ring-blue-500',
     rowHover: 'hover:bg-blue-50',
     checkbox: 'text-blue-600 focus:ring-blue-500',
     dragOverRing: 'ring-2 ring-blue-400'
