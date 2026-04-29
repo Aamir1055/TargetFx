@@ -585,17 +585,21 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const fetchPositions = async () => {
     try {
       setLoading(true)
-      
-      // Always use cached positions (fetched on page load)
-      if (allPositionsCache && allPositionsCache.length >= 0) {
-        // Filter from cached positions
-        const clientPositions = allPositionsCache.filter(pos => pos.login === client.login)
-        setPositions(clientPositions)
-      } else {
-        setPositions([])
-      }
+
+      // Call positions/search API with the dialog's login as mt5Accounts filter
+      const response = await brokerAPI.searchPositions({
+        mt5Accounts: [String(client.login)],
+        page: 1,
+        limit: 1000,
+      })
+      const data = response?.data ?? response
+      const clientPositions = data?.positions ?? data?.data?.positions ?? data?.items ?? (Array.isArray(data) ? data : [])
+      setPositions(clientPositions)
+      calculateNetPositions(clientPositions)
     } catch (error) {
+      console.error('[ClientPositionsModal] fetchPositions failed:', error)
       setError('Failed to load positions')
+      setPositions([])
     } finally {
       setLoading(false)
     }

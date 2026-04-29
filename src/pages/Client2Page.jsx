@@ -3001,7 +3001,7 @@ const Client2Page = () => {
     // Base payload mirrors current filters/search/sort
     const base = {
       page: 1,
-      limit: 10000
+      limit: 1000
     }
     if (searchQuery && searchQuery.trim()) base.search = searchQuery.trim()
 
@@ -3312,7 +3312,7 @@ const Client2Page = () => {
           payload.percentage = true
         }
 
-        const batchSize = 10000
+        const batchSize = 1000
         const CONCURRENCY_LIMIT = 5 // max parallel requests at once
 
         // Page 1 first — drives all subsequent logic
