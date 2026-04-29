@@ -4417,7 +4417,7 @@ const Client2Page = () => {
                       <div className="relative group">
                         <button
                           onClick={() => { setColumnOrder(null); try { localStorage.removeItem('client2ColumnOrder') } catch {} }}
-                          className="p-1 rounded text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                          className="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           aria-label="Reset column order"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4430,14 +4430,6 @@ const Client2Page = () => {
                           Reset Order
                         </span>
                       </div>
-                      <button
-                        onClick={() => setShowColumnSelector(false)}
-                        className="text-[#9CA3AF] hover:text-[#4B5563] p-1 rounded hover:bg-gray-50"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
                     </div>
                   </div>
 

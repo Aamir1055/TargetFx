@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-const DEFAULT_OPTIONS = [25, 50, 100, 150]
+const DEFAULT_OPTIONS = [100, 200, 300, 400, 500]
 
 const PageSizeSelect = ({ value, onChange, options = DEFAULT_OPTIONS, label = 'Rows', menuZIndex = 9999 }) => {
   const [open, setOpen] = useState(false)

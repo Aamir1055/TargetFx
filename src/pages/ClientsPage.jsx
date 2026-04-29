@@ -3217,7 +3217,7 @@ const ClientsPage = () => {
                         <div className="relative group">
                           <button
                             onClick={resetColumnOrder}
-                            className="p-1 rounded text-amber-700 hover:bg-amber-100"
+                            className="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                             aria-label="Reset column order to default"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
