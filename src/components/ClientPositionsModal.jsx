@@ -784,11 +784,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     const num = Number(n)
     if (Number.isNaN(num)) return '-'
     if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
-    return num.toFixed(digits)
+    return num.toLocaleString('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
   }
   const fmtPriceFull = (n, digits = 5) => {
     const num = Number(n)
-    return Number.isNaN(num) ? '-' : num.toFixed(digits)
+    return Number.isNaN(num) ? '-' : num.toLocaleString('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
   }
   // Per-row digits from API response (digits / digit / priceDigits). Returns fallback when missing.
   const getDigits = (row, fallback = 5) => {
@@ -2403,23 +2403,23 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                               </td>
                               )}
                               {positionsVisibleColumns.priceOpen && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(position.priceOpen, getDigits(position)) : undefined}>
-                                {typeof position.priceOpen === 'number' ? fmtPrice(position.priceOpen, getDigits(position)) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
+                                {typeof position.priceOpen === 'number' ? fmtPriceFull(position.priceOpen, getDigits(position)) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.priceCurrent && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(position.priceCurrent, getDigits(position)) : undefined}>
-                                {typeof position.priceCurrent === 'number' ? fmtPrice(position.priceCurrent, getDigits(position)) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
+                                {typeof position.priceCurrent === 'number' ? fmtPriceFull(position.priceCurrent, getDigits(position)) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.sl && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(position.priceSL) : undefined}>
-                                {position.priceSL > 0 ? fmtPrice(position.priceSL) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
+                                {position.priceSL > 0 ? fmtPriceFull(position.priceSL) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.tp && (
-                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(position.priceTP) : undefined}>
-                                {position.priceTP > 0 ? fmtPrice(position.priceTP) : '-'}
+                              <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
+                                {position.priceTP > 0 ? fmtPriceFull(position.priceTP) : '-'}
                               </td>
                               )}
                               {positionsVisibleColumns.profit && (
@@ -3329,8 +3329,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtVolumeFull(deal.volume) : undefined}>
                             {deal.volume > 0 ? fmtVolume(deal.volume) : '-'}
                           </td>
-                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtPriceFull(deal.price, getDigits(deal)) : undefined}>
-                            {deal.price > 0 ? fmtPrice(deal.price, getDigits(deal)) : '-'}
+                          <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
+                            {deal.price > 0 ? fmtPriceFull(deal.price, getDigits(deal)) : '-'}
                           </td>
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(deal.commission) : undefined}>
                             {fmtMoney(deal.commission)}

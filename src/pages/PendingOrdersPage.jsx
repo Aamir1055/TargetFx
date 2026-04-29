@@ -1472,7 +1472,7 @@ const PendingOrdersPage = () => {
                               const d = getDigits(o);
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  <span title={numericMode === 'compact' ? fmtPriceFull(priceRaw, d) : undefined}>{fmtPrice(priceRaw, d)}</span>
+                                  <span>{fmtPriceFull(priceRaw, d)}</span>
                                   {priceDelta !== undefined && priceDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${priceDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                       {priceDelta > 0 ? '▲' : '▼'} {Math.abs(priceDelta).toFixed(d)}
@@ -1483,13 +1483,13 @@ const PendingOrdersPage = () => {
                             } else if (colKey === 'priceCurrent') {
                               const trigRaw = o.priceTrigger ?? o.trigger ?? 0;
                               cellContent = (
-                                <span title={numericMode === 'compact' ? fmtPriceFull(trigRaw, 2) : undefined}>{fmtPrice(trigRaw, 2)}</span>
+                                <span>{fmtPriceFull(trigRaw, 2)}</span>
                               );
                             } else if (colKey === 'sl') {
                               const slRaw = o.priceSL ?? o.sl ?? o.stop_loss;
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  <span title={numericMode === 'compact' ? fmtPriceFull(slRaw, 2) : undefined}>{fmtPrice(slRaw, 2)}</span>
+                                  <span>{fmtPriceFull(slRaw, 2)}</span>
                                   {slDelta !== undefined && slDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${slDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                       {slDelta > 0 ? '▲' : '▼'} {Math.abs(slDelta).toFixed(2)}
@@ -1501,7 +1501,7 @@ const PendingOrdersPage = () => {
                               const tpRaw = o.priceTP ?? o.tp ?? o.take_profit;
                               cellContent = (
                                 <div className="flex items-center gap-1">
-                                  <span title={numericMode === 'compact' ? fmtPriceFull(tpRaw, 2) : undefined}>{fmtPrice(tpRaw, 2)}</span>
+                                  <span>{fmtPriceFull(tpRaw, 2)}</span>
                                   {tpDelta !== undefined && tpDelta !== 0 ? (
                                     <span className={`ml-1 text-[11px] font-medium ${tpDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                       {tpDelta > 0 ? '▲' : '▼'} {Math.abs(tpDelta).toFixed(2)}

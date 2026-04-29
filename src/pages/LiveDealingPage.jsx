@@ -1845,102 +1845,6 @@ const LiveDealingPage = () => {
               </div>
             </div>
 
-          {/* Summary Cards - Client2 Face Card Design */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">
-                  {timeFilter === '24h' ? 'DEALS (24H)' : timeFilter === '7d' ? 'DEALS (7D)' : 'FILTERED DEALS'}
-                </span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
-                  <img 
-                    src={getCardIcon(timeFilter === '24h' ? 'DEALS (24H)' : timeFilter === '7d' ? 'DEALS (7D)' : 'FILTERED DEALS')} 
-                    alt="Deals"
-                    style={{ width: '100%', height: '100%' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span title={numericMode === 'compact' ? formatIndianNumber(sortedDeals.length, 0) : undefined}>{fmtCount(sortedDeals.length)}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">DEAL</span>
-              </div>
-              {searchQuery && (
-                <p className="text-[10px] text-[#9CA3AF] mt-1">of {trimmedDeals.length} total</p>
-              )}
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">CONNECTION STATUS</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
-                  <img 
-                    src={getCardIcon('CONNECTION STATUS')} 
-                    alt="Connection Status"
-                    style={{ width: '100%', height: '100%' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                    }}
-                  />
-                </div>
-              </div>
-              <div className={`text-sm md:text-base font-bold leading-none ${
-                connectionState === 'connected' ? 'text-[#16A34A]' :
-                connectionState === 'connecting' ? 'text-[#F59E0B]' :
-                'text-[#DC2626]'
-              }`}>
-                {connectionState === 'connected' ? 'Live' :
-                 connectionState === 'connecting' ? 'Connecting...' :
-                 'Disconnected'}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">UNIQUE LOGINS</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
-                  <img 
-                    src={getCardIcon('UNIQUE LOGINS')} 
-                    alt="Unique Logins"
-                    style={{ width: '100%', height: '100%' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span title={numericMode === 'compact' ? formatIndianNumber(new Set(sortedDeals.map(d => d.login)).size, 0) : undefined}>{fmtCount(new Set(sortedDeals.map(d => d.login)).size)}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ACCT</span>
-              </div>
-              {searchQuery && (
-                <p className="text-[10px] text-[#9CA3AF] mt-1">of {new Set(trimmedDeals.map(d => d.login)).size} total</p>
-              )}
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">SYMBOLS</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
-                  <img 
-                    src={getCardIcon('SYMBOLS')} 
-                    alt="Symbols"
-                    style={{ width: '100%', height: '100%' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span title={numericMode === 'compact' ? formatIndianNumber(new Set(sortedDeals.map(d => d.symbol)).size, 0) : undefined}>{fmtCount(new Set(sortedDeals.map(d => d.symbol)).size)}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">SYM</span>
-              </div>
-              {searchQuery && (
-                <p className="text-[10px] text-[#9CA3AF] mt-1">of {new Set(trimmedDeals.map(d => d.symbol)).size} total</p>
-              )}
-            </div>
-          </div>
-
           {/* Table with Search Inside */}
           <div className="bg-white rounded-lg shadow-sm border border-[#E5E7EB] overflow-hidden flex flex-col flex-1">
             {/* Search and Controls Bar - Inside table container */}
@@ -2239,7 +2143,7 @@ const LiveDealingPage = () => {
                           case 'volume':
                             return <td key="volume" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.volume, 2) : undefined}>{fmtMoney(deal.rawData?.volume, 2)}</td>
                           case 'price':
-                            return <td key="price" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle} title={numericMode === 'compact' ? fmtPriceFull(deal.rawData?.price, getDigits(deal.rawData)) : undefined}>{fmtPrice(deal.rawData?.price, getDigits(deal.rawData))}</td>
+                            return <td key="price" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{fmtPriceFull(deal.rawData?.price, getDigits(deal.rawData))}</td>
                           case 'profit':
                             return (
                               <td key="profit" className={`px-3 py-2.5 whitespace-nowrap text-sm ${

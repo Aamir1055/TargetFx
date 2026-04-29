@@ -2711,77 +2711,6 @@ const PositionsPage = () => {
           {/* NET Position View */}
           {showNetPositions ? (
             <div className="space-y-4 flex flex-col flex-1 overflow-hidden">
-              {/* NET Position Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3">
-                {netCardsVisible.netSymbols && (
-                  <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">NET Symbols</span>
-                      {(isInitialNetLoading || isNetPageLoading || isExporting) && <div className="h-3 w-10 skeleton-shimmer-pos rounded" />}
-                      <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
-                        <img 
-                          src={getCardIcon('NET Symbols')} 
-                          alt="NET Symbols"
-                          style={{ width: '100%', height: '100%' }}
-                          onError={(e) => { e.target.style.display = 'none' }}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-16 skeleton-shimmer-pos rounded" /> : <><span>{serverTotalNetPositions}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">SYM</span></>}
-                    </div>
-                  </div>
-                )}
-                {netCardsVisible.totalNetVolume && (
-                  <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total NET Volume %' : 'Total NET Volume'}</span>
-                      <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
-                        <img 
-                          src={getCardIcon('Total NET Volume')} 
-                          alt="Total NET Volume"
-                          style={{ width: '100%', height: '100%' }}
-                          onError={(e) => { e.target.style.display = 'none' }}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-24 skeleton-shimmer-pos rounded" /> : <><span title={numericMode === 'compact' ? fmtMoneyFull(serverNetTotals.volume || 0, 2) : undefined}>{fmtMoney(serverNetTotals.volume || 0, 2)}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span></>}
-                    </div>
-                  </div>
-                )}
-                {netCardsVisible.totalNetPL && (
-                  <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                      <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total NET P/L %' : 'Total NET P/L'}</span>
-                      <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
-                        <img 
-                          src={getCardIcon('Total NET P/L')} 
-                          alt="Total NET P/L"
-                          style={{ width: '100%', height: '100%' }}
-                          onError={(e) => { e.target.style.display = 'none' }}
-                        />
-                      </div>
-                    </div>
-                    <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
-                      (serverNetTotals.profit || 0) >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
-                    }`}>
-                      {(serverNetTotals.profit || 0) >= 0 && (
-                        <svg width="8" height="8" viewBox="0 0 10 10" className="md:w-[10px] md:h-[10px]">
-                          <polygon points="5,0 10,10 0,10" fill="#16A34A"/>
-                        </svg>
-                      )}
-                      {(serverNetTotals.profit || 0) < 0 && (
-                        <svg width="8" height="8" viewBox="0 0 10 10" style={{transform: 'rotate(180deg)'}} className="md:w-[10px] md:h-[10px]">
-                          <polygon points="5,0 10,10 0,10" fill="#DC2626"/>
-                        </svg>
-                      )}
-                      {(isInitialNetLoading || isNetPageLoading || isExporting) ? <div className="h-4 w-24 skeleton-shimmer-pos rounded" /> : <><span title={numericMode === 'compact' ? fmtMoneyFull(serverNetTotals.profit || 0, 2) : undefined}>{fmtMoney(serverNetTotals.profit || 0, 2)}</span><span className="text-[10px] md:text-xs font-normal text-[#6B7280]">USD</span></>}
-                    </div>
-                  </div>
-                )}
-                {/* Removed grouping toggle card per new layout */}
-              </div>
 
               {/* NET Position Table */}
               <div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden flex flex-col" style={{ maxHeight: '60vh' }}>
@@ -3240,7 +3169,7 @@ const PositionsPage = () => {
                               <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(netPos.netVolume, 2) : undefined}>{fmtMoney(netPos.netVolume, 2)}</td>
                             )}
                             {netVisibleColumns.avgPrice && (
-                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtPriceFull(netPos.avgPrice, getDigits(netPos)) : undefined}>{fmtPrice(netPos.avgPrice, getDigits(netPos))}</td>
+                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{fmtPriceFull(netPos.avgPrice, getDigits(netPos))}</td>
                             )}
                             {netVisibleColumns.totalProfit && (
                               <td className="px-2 py-1.5 text-sm whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(netPos.totalProfit, 2) : undefined}>
@@ -4077,18 +4006,18 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.priceOpen && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceOpen, getDigits(p)) : undefined}>{fmtPrice(p.priceOpen, getDigits(p))}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{fmtPriceFull(p.priceOpen, getDigits(p))}</td>
                           )}
                           {effectiveCols.priceCurrent && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceCurrent, getDigits(p)) : undefined}>
-                              {fmtPrice(p.priceCurrent, getDigits(p))}
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
+                              {fmtPriceFull(p.priceCurrent, getDigits(p))}
                             </td>
                           )}
                           {effectiveCols.sl && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceSL) : undefined}>{fmtPrice(p.priceSL)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{fmtPriceFull(p.priceSL)}</td>
                           )}
                           {effectiveCols.tp && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceTP) : undefined}>{fmtPrice(p.priceTP)}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">{fmtPriceFull(p.priceTP)}</td>
                           )}
                           {effectiveCols.profit && (
                             <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>

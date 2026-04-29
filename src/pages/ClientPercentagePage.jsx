@@ -201,12 +201,12 @@ const ClientPercentagePage = () => {
     return () => clearTimeout(timeoutId)
   }, [searchQuery, sortColumn, sortDirection, isAuthenticated, unauthorized])
 
-  // Fetch data when page changes
+  // Fetch data when page or page size changes
   useEffect(() => {
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
     if (!isAuthenticated || unauthorized || hidden) return
     fetchAllClientPercentages(currentPage)
-  }, [currentPage, isAuthenticated, unauthorized])
+  }, [currentPage, itemsPerPage, isAuthenticated, unauthorized])
 
   useEffect(() => {
     const onRefreshed = () => setUnauthorized(false)
