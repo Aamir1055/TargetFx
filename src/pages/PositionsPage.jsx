@@ -12,6 +12,7 @@ import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import PositionModule from '../components/PositionModule'
 import DateFilterModal from '../components/DateFilterModal'
+import ColumnChooserList from '../components/ColumnChooserList'
 import { normalizePositions } from '../utils/currencyNormalization'
 
 const PositionsPage = () => {
@@ -226,6 +227,27 @@ const PositionsPage = () => {
     { key: 'comment', label: 'Comment' },
     { key: 'commission', label: 'Commission' }
   ]
+
+  // Column order (persisted) for reorder via Column Chooser
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('positionsPageColumnOrder')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return null
+  })
+  useEffect(() => {
+    try {
+      if (columnOrder) localStorage.setItem('positionsPageColumnOrder', JSON.stringify(columnOrder))
+    } catch {}
+  }, [columnOrder])
+  const resetColumnOrder = () => {
+    setColumnOrder(null)
+    try { localStorage.removeItem('positionsPageColumnOrder') } catch {}
+  }
 
   // Map base metric keys to their percentage field names from API
   const percentageFieldMap = {
@@ -3824,26 +3846,28 @@ const PositionsPage = () => {
                     </button>
                     {showColumnSelector && (
                       <div
-                        className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-2 z-50 w-56"
-                        style={{ maxHeight: '400px', overflowY: 'auto' }}
+                        className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 z-50 flex flex-col"
+                        style={{ width: 280, maxHeight: '60vh' }}
                       >
-                        <div className="px-3 py-2 border-b border-[#F3F4F6]">
-                          <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide Columns</p>
+                        <div className="px-3 py-2 border-b border-[#F3F4F6] flex items-center justify-between">
+                          <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide & Reorder</p>
+                          <button
+                            onClick={resetColumnOrder}
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded text-blue-600 hover:bg-blue-50"
+                            title="Reset column order"
+                          >Reset Order</button>
                         </div>
-                        {allColumns.map(col => (
-                          <label
-                            key={col.key}
-                            className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer transition-colors"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={visibleColumns[col.key]}
-                              onChange={() => toggleColumn(col.key)}
-                              className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-1"
-                            />
-                            <span className="ml-2 text-sm text-[#374151]">{col.label}</span>
-                          </label>
-                        ))}
+                        <div className="flex-1 min-h-0 flex flex-col">
+                          <ColumnChooserList
+                            columns={allColumns}
+                            visibleColumns={visibleColumns}
+                            onToggle={toggleColumn}
+                            columnOrder={columnOrder}
+                            onReorder={(newOrder) => setColumnOrder(newOrder)}
+                            accent="blue"
+                            title={null}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

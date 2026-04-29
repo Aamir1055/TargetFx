@@ -9,6 +9,7 @@ import Client2Module from '../components/Client2Module'
 import { useData } from '../contexts/DataContext'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
+import ColumnChooserList from '../components/ColumnChooserList'
 import api, { brokerAPI } from '../services/api'
 import { useGroups } from '../contexts/GroupContext'
 import { useIB } from '../contexts/IBContext'
@@ -4398,11 +4399,11 @@ const Client2Page = () => {
                 {/* Column Selector Dropdown */}
                 {showColumnSelector && (
                   <div
-                    className="fixed bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-3 flex flex-col"
+                    className="fixed bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 flex flex-col"
                     style={{
                       top: columnSelectorPos.top,
                       left: columnSelectorPos.left,
-                      width: 300,
+                      width: 320,
                       maxHeight: '60vh',
                       zIndex: 20000000
                     }}
@@ -4411,45 +4412,37 @@ const Client2Page = () => {
                     onMouseDown={(e) => e.stopPropagation()}
                   >
                   <div className="px-4 py-2 border-b border-[#F3F4F6] flex items-center justify-between">
-                    <p className="text-sm font-semibold text-[#1F2937]">Show/Hide Columns</p>
-                    <button
-                      onClick={() => setShowColumnSelector(false)}
-                      className="text-[#9CA3AF] hover:text-[#4B5563] p-1 rounded hover:bg-gray-50"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                    <p className="text-sm font-semibold text-[#1F2937]">Show/Hide & Reorder Columns</p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setColumnOrder(null); try { localStorage.removeItem('client2ColumnOrder') } catch {} }}
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded text-blue-600 hover:bg-blue-50"
+                        title="Reset column order"
+                      >
+                        Reset Order
+                      </button>
+                      <button
+                        onClick={() => setShowColumnSelector(false)}
+                        className="text-[#9CA3AF] hover:text-[#4B5563] p-1 rounded hover:bg-gray-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="px-4 py-2 border-b border-[#F3F4F6]">
-                    <input
-                      type="text"
-                      placeholder="Search columns..."
-                      value={columnSearchQuery}
-                      onChange={(e) => setColumnSearchQuery(e.target.value)}
-                      className="w-full px-3 py-2 text-sm text-[#1F2937] border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-[#9CA3AF]"
+                  <div className="flex-1 min-h-0 flex flex-col" onWheel={(e) => e.stopPropagation()}>
+                    <ColumnChooserList
+                      columns={allColumns}
+                      visibleColumns={visibleColumns}
+                      onToggle={toggleColumn}
+                      columnOrder={columnOrder}
+                      onReorder={(newOrder) => setColumnOrder(newOrder)}
+                      accent="blue"
+                      title={null}
                     />
                   </div>
-
-                  <div className="overflow-y-auto flex-1 px-2 py-2" onWheel={(e) => e.stopPropagation()}>
-                    {allColumns
-                      .filter(col => col.label.toLowerCase().includes((columnSearchQuery || '').toLowerCase()))
-                      .map(col => (
-                        <label
-                          key={col.key}
-                          className="flex items-center gap-2 text-xs text-gray-700 hover:bg-gray-50 p-2 rounded-md cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns[col.key] || false}
-                            onChange={() => toggleColumn(col.key)}
-                            className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-1"
-                          />
-                          <span className="font-semibold">{col.label}</span>
-                        </label>
-                      ))}
-                    </div>
                   </div>
                 )}
 
@@ -4605,18 +4598,12 @@ const Client2Page = () => {
                       <tr>
                         {visibleColumnsList.map(col => {
                           const filterCount = getActiveFilterCount(col.key)
-                          const isDragging = draggedColumn === col.key
-                          const isDragOver = dragOverColumn === col.key
                           const isResizing = resizingColumn === col.key
                           return (
                             <th
                               key={col.key}
                               ref={(el) => { if (!headerRefs.current) headerRefs.current = {}; headerRefs.current[col.key] = el }}
-                              className={`px-2 py-2 text-left text-xs font-bold text-white uppercase tracking-wider bg-blue-600 hover:bg-blue-700 transition-all select-none relative border-r border-slate-200 ${isDragging ? 'opacity-50' : ''
-                                } ${isDragOver ? 'border-l-4 border-yellow-400' : ''} ${isResizing ? 'bg-blue-700 ring-2 ring-yellow-400' : ''}`}
-                              onDragOver={(e) => handleColumnDragOver(e, col.key)}
-                              onDragLeave={handleColumnDragLeave}
-                              onDrop={(e) => handleColumnDrop(e, col.key)}
+                              className={`px-2 py-2 text-left text-xs font-bold text-white uppercase tracking-wider bg-blue-600 hover:bg-blue-700 transition-all select-none relative border-r border-slate-200 ${isResizing ? 'bg-blue-700 ring-2 ring-yellow-400' : ''}`}
                               style={{
                                 minWidth: '80px',
                                 overflow: 'hidden',
@@ -4629,26 +4616,6 @@ const Client2Page = () => {
                             >
                               <div className="flex items-center gap-2 justify-between min-w-0">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  {/* Drag Handle Area - larger clickable area on left side */}
-                                  <div
-                                    className={`${col.key === 'login' ? 'flex items-center gap-2 cursor-move hover:opacity-80 py-1 pl-1 pr-1' : 'flex items-center gap-2 cursor-move hover:opacity-80 py-1 -ml-2 pl-2 pr-1'}`}
-                                    draggable={!resizingColumn}
-                                    onDragStart={(e) => {
-                                      e.stopPropagation()
-                                      handleColumnDragStart(e, col.key)
-                                    }}
-                                    onDragEnd={handleColumnDragEnd}
-                                    onClick={(e) => e.stopPropagation()}
-                                    title="Drag to reorder column"
-                                  >
-                                    <svg
-                                      className="w-3 h-3 text-white/60 flex-shrink-0"
-                                      fill="currentColor"
-                                      viewBox="0 0 20 20"
-                                    >
-                                      <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"></path>
-                                    </svg>
-                                  </div>
                                   <div
                                     className={`flex items-center gap-1 flex-1 ${isSorting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                                     onClick={() => handleSort(col.key)}

@@ -13,6 +13,7 @@ import WebSocketIndicator from '../components/WebSocketIndicator'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import MobileClientsView from '../components/MobileClientsViewNew'
+import ColumnChooserList from '../components/ColumnChooserList'
 // import ClientDashboardDesignC from '../components/dashboard/ClientDashboardDesignC'
 import workerManager from '../workers/workerManager'
 import { brokerAPI } from '../services/api'
@@ -3205,74 +3206,41 @@ const ClientsPage = () => {
                   </svg>
                 </button>
                 {showColumnSelector && (
-                  <div className="absolute top-full left-0 mt-2 bg-amber-50 rounded-lg shadow-xl border-2 border-amber-200 py-2 flex flex-col" style={{ 
-                    width: '300px',
-                    maxHeight: '50vh',
+                  <div className="absolute top-full left-0 mt-2 bg-amber-50 rounded-lg shadow-xl border-2 border-amber-200 py-0 flex flex-col" style={{ 
+                    width: '320px',
+                    maxHeight: '60vh',
                     zIndex: 20000000
                   }}>
-                    <div className="px-3 py-2 border-b border-amber-200 flex items-center justify-between">
-                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Show/Hide Columns</p>
-                      <button
-                        onClick={() => setShowColumnSelector(false)}
-                        className="text-amber-500 hover:text-amber-700 p-1 rounded hover:bg-amber-100"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                    
-                    
-                    <div className="px-3 py-2 border-b border-amber-200">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={columnSearchQuery}
-                          onChange={(e) => setColumnSearchQuery(e.target.value)}
-                          placeholder="Search columns..."
-                          className="w-full px-3 py-1.5 text-xs border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-500"
-                        />
-                        {columnSearchQuery && (
-                          <button
-                            onClick={() => setColumnSearchQuery('')}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
+                    <div className="px-3 py-2 border-b border-amber-200 flex items-center justify-between bg-amber-50">
+                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Show/Hide & Reorder Columns</p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={resetColumnOrder}
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded text-amber-700 hover:bg-amber-100"
+                          title="Reset column order to default"
+                        >
+                          Reset Order
+                        </button>
+                        <button
+                          onClick={() => setShowColumnSelector(false)}
+                          className="text-amber-500 hover:text-amber-700 p-1 rounded hover:bg-amber-100"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
-                    <div style={{ overflowY: 'auto', flex: 1 }}>
-                      {dynamicColumns
-                        .filter(col => 
-                          col.label.toLowerCase().includes(columnSearchQuery.toLowerCase()) ||
-                          col.key.toLowerCase().includes(columnSearchQuery.toLowerCase())
-                        )
-                        .map(col => (
-                          <label
-                            key={col.key}
-                            className="flex items-center px-3 py-2 hover:bg-amber-100 cursor-pointer transition-colors rounded-md mx-2"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={visibleColumns[col.key] === true}
-                              onChange={() => toggleColumn(col.key)}
-                              className="w-3.5 h-3.5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 focus:ring-1"
-                            />
-                            <span className="ml-2 text-xs font-semibold text-gray-700">{col.label}</span>
-                          </label>
-                        ))
-                      }
-                      {dynamicColumns.filter(col => 
-                        col.label.toLowerCase().includes(columnSearchQuery.toLowerCase()) ||
-                        col.key.toLowerCase().includes(columnSearchQuery.toLowerCase())
-                      ).length === 0 && (
-                        <div className="px-3 py-4 text-center text-xs text-gray-500">
-                          No columns found matching "{columnSearchQuery}"
-                        </div>
-                      )}
+                    <div className="flex-1 min-h-0 flex flex-col" style={{ maxHeight: 'calc(60vh - 40px)' }}>
+                      <ColumnChooserList
+                        columns={dynamicColumns}
+                        visibleColumns={visibleColumns}
+                        onToggle={toggleColumn}
+                        columnOrder={columnOrder}
+                        onReorder={(newOrder) => setColumnOrder(newOrder)}
+                        accent="amber"
+                        title={null}
+                      />
                     </div>
                   </div>
                 )}
@@ -3395,15 +3363,10 @@ const ClientsPage = () => {
                         return (
                         <th
                           key={col.key}
-                          draggable={isFilterable} // Only allow dragging base columns, not percentage display columns
-                          onDragStart={(e) => isFilterable && handleColumnDragStart(e, col.baseKey)}
-                          onDragOver={(e) => isFilterable && handleColumnDragOver(e)}
-                          onDrop={(e) => isFilterable && handleColumnDrop(e, col.baseKey)}
-                          onDragEnd={handleColumnDragEnd}
-                          className={`px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider relative group hover:bg-blue-700 transition-colors bg-blue-600 ${isFilterable ? 'cursor-move' : ''} ${draggingColumn === col.baseKey ? 'opacity-50' : ''}`}
+                          className={`px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider relative group hover:bg-blue-700 transition-colors bg-blue-600`}
                           ref={el => { if (el) { if (!headerRefs.current) headerRefs.current = {}; headerRefs.current[col.key] = el } }}
                           style={{ width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : `${defaultPixelWidth}px`, minWidth: '80px', overflow: 'visible', position: 'relative' }}
-                          title={isFilterable ? `${col.label} - Drag to reorder` : col.label}
+                          title={col.label}
                         >
                           {/* Column Resize Handle */}
                           <div 

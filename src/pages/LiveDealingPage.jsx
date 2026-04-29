@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
 import { useData } from '../contexts/DataContext'
@@ -12,6 +12,7 @@ import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import LiveDealingModule from '../components/LiveDealingModule'
+import ColumnChooserList from '../components/ColumnChooserList'
 
 const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
 
@@ -162,6 +163,35 @@ const LiveDealingPage = () => {
     { key: 'position', label: 'Position' },
     { key: 'reason', label: 'Reason' }
   ]
+
+  // Column order (persisted) for reorder via Column Chooser
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('liveDealingPageColumnOrder')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return null
+  })
+  useEffect(() => {
+    try {
+      if (columnOrder) localStorage.setItem('liveDealingPageColumnOrder', JSON.stringify(columnOrder))
+    } catch {}
+  }, [columnOrder])
+  const resetColumnOrder = () => {
+    setColumnOrder(null)
+    try { localStorage.removeItem('liveDealingPageColumnOrder') } catch {}
+  }
+  const orderedColumns = (() => {
+    if (!Array.isArray(columnOrder) || columnOrder.length === 0) return allColumns
+    const map = new Map(allColumns.map(c => [c.key, c]))
+    const out = []
+    columnOrder.forEach(k => { if (map.has(k)) { out.push(map.get(k)); map.delete(k) } })
+    map.forEach(c => out.push(c))
+    return out
+  })()
 
   const toggleColumn = (columnKey) => {
     setVisibleColumns(prev => ({
@@ -1987,26 +2017,28 @@ const LiveDealingPage = () => {
                     {showColumnSelector && (
                       <div
                         ref={columnSelectorRef}
-                        className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-2 z-50 w-56"
-                        style={{ maxHeight: '400px', overflowY: 'auto' }}
+                        className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 z-50 flex flex-col"
+                        style={{ width: 280, maxHeight: '60vh' }}
                       >
-                        <div className="px-3 py-2 border-b border-[#F3F4F6]">
-                          <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide Columns</p>
+                        <div className="px-3 py-2 border-b border-[#F3F4F6] flex items-center justify-between">
+                          <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide & Reorder</p>
+                          <button
+                            onClick={resetColumnOrder}
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded text-blue-600 hover:bg-blue-50"
+                            title="Reset column order"
+                          >Reset Order</button>
                         </div>
-                        {allColumns.map(col => (
-                          <label
-                            key={col.key}
-                            className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer transition-colors"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={visibleColumns[col.key]}
-                              onChange={() => toggleColumn(col.key)}
-                              className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-1"
-                            />
-                            <span className="ml-2 text-sm text-[#374151]">{col.label}</span>
-                          </label>
-                        ))}
+                        <div className="flex-1 min-h-0 flex flex-col">
+                          <ColumnChooserList
+                            columns={allColumns}
+                            visibleColumns={visibleColumns}
+                            onToggle={toggleColumn}
+                            columnOrder={columnOrder}
+                            onReorder={(newOrder) => setColumnOrder(newOrder)}
+                            accent="blue"
+                            title={null}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2080,20 +2112,29 @@ const LiveDealingPage = () => {
               <table className="min-w-full divide-y text-xs border-separate border-spacing-0" style={{ borderCollapse: 'separate', borderColor: '#888888' }}>
               <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
                 <tr className="divide-x divide-blue-400">
-                  {visibleColumns.time && renderHeaderCell('time', 'Time')}
-                  {visibleColumns.deal && renderHeaderCell('deal', 'Deal')}
-                  {visibleColumns.login && renderHeaderCell('login', 'Login')}
-                  {visibleColumns.action && renderHeaderCell('action', 'Action')}
-                  {visibleColumns.symbol && renderHeaderCell('symbol', 'Symbol')}
-                  {visibleColumns.volume && renderHeaderCell('volume', 'Volume')}
-                  {visibleColumns.price && renderHeaderCell('price', 'Price')}
-                  {visibleColumns.profit && renderHeaderCell('profit', 'Profit')}
-                  {visibleColumns.commission && renderHeaderCell('commission', 'Commission')}
-                  {visibleColumns.storage && renderHeaderCell('storage', 'Storage')}
-                  {visibleColumns.entry && renderHeaderCell('entry', 'Entry')}
-                  {visibleColumns.order && renderHeaderCell('order', 'Order')}
-                  {visibleColumns.position && renderHeaderCell('position', 'Position')}
-                  {visibleColumns.reason && renderHeaderCell('reason', 'Reason')}
+                  {orderedColumns.map(col => {
+                    if (!visibleColumns[col.key]) return null
+                    let cell = null
+                    switch (col.key) {
+                      case 'time': cell = renderHeaderCell('time', 'Time'); break
+                      case 'deal': cell = renderHeaderCell('deal', 'Deal'); break
+                      case 'login': cell = renderHeaderCell('login', 'Login'); break
+                      case 'action': cell = renderHeaderCell('action', 'Action'); break
+                      case 'symbol': cell = renderHeaderCell('symbol', 'Symbol'); break
+                      case 'volume': cell = renderHeaderCell('volume', 'Volume'); break
+                      case 'price': cell = renderHeaderCell('price', 'Price'); break
+                      case 'profit': cell = renderHeaderCell('profit', 'Profit'); break
+                      case 'commission': cell = renderHeaderCell('commission', 'Commission'); break
+                      case 'storage': cell = renderHeaderCell('storage', 'Storage'); break
+                      case 'entry': cell = renderHeaderCell('entry', 'Entry'); break
+                      case 'order': cell = renderHeaderCell('order', 'Order'); break
+                      case 'position': cell = renderHeaderCell('position', 'Position'); break
+                      case 'reason': cell = renderHeaderCell('reason', 'Reason'); break
+                      default: cell = null
+                    }
+                    if (!cell) return null
+                    return <Fragment key={col.key}>{cell}</Fragment>
+                  })}
                 </tr>
               </thead>
 
@@ -2150,92 +2191,68 @@ const LiveDealingPage = () => {
                       className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${newDealIds.has(deal.id) ? 'new-deal-blink' : ''}`}
                       style={{ borderLeft: '3px solid #e5e7eb' }}
                     >
-                      {visibleColumns.time && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {formatTime(deal.time)}
-                        </td>
-                      )}
-                      {visibleColumns.deal && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {deal.rawData?.deal || deal.id}
-                        </td>
-                      )}
-                      {visibleColumns.login && (
-                        <td 
-                          className="px-3 py-2.5 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
-                          style={{ borderRight: '1px solid #e5e7eb' }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedLogin(deal.login)
-                          }}
-                          title="Click to view login details"
-                        >
-                          {deal.login}
-                        </td>
-                      )}
-                      {visibleColumns.action && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                            deal.rawData?.action === 'BUY' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {deal.rawData?.action || '-'}
-                          </span>
-                        </td>
-                      )}
-                      {visibleColumns.symbol && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {deal.rawData?.symbol || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.volume && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.volume, 2) : undefined}>
-                          {fmtMoney(deal.rawData?.volume, 2)}
-                        </td>
-                      )}
-                      {visibleColumns.price && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtPriceFull(deal.rawData?.price, getDigits(deal.rawData)) : undefined}>
-                          {fmtPrice(deal.rawData?.price, getDigits(deal.rawData))}
-                        </td>
-                      )}
-                      {visibleColumns.profit && (
-                        <td className={`px-3 py-2.5 whitespace-nowrap text-sm ${
-                          (deal.rawData?.profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`} style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.profit, 2) : undefined}>
-                          {fmtMoney(deal.rawData?.profit, 2)}
-                        </td>
-                      )}
-                      {visibleColumns.commission && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.commission, 2) : undefined}>
-                          {fmtMoney(deal.rawData?.commission, 2)}
-                        </td>
-                      )}
-                      {visibleColumns.storage && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.storage, 2) : undefined}>
-                          {fmtMoney(deal.rawData?.storage, 2)}
-                        </td>
-                      )}
-                      {visibleColumns.entry && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {deal.rawData?.entry || 0}
-                        </td>
-                      )}
-                      {visibleColumns.order && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {deal.rawData?.order || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.position && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {deal.rawData?.position || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.reason && (
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-600">
-                          {deal.rawData?.reason || '-'}
-                        </td>
-                      )}
+                      {orderedColumns.map(col => {
+                        if (!visibleColumns[col.key]) return null
+                        const cellStyle = { borderRight: '1px solid #e5e7eb' }
+                        switch (col.key) {
+                          case 'time':
+                            return <td key="time" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{formatTime(deal.time)}</td>
+                          case 'deal':
+                            return <td key="deal" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={cellStyle}>{deal.rawData?.deal || deal.id}</td>
+                          case 'login':
+                            return (
+                              <td 
+                                key="login"
+                                className="px-3 py-2.5 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                                style={cellStyle}
+                                onClick={(e) => { e.stopPropagation(); setSelectedLogin(deal.login) }}
+                                title="Click to view login details"
+                              >
+                                {deal.login}
+                              </td>
+                            )
+                          case 'action':
+                            return (
+                              <td key="action" className="px-3 py-2.5 whitespace-nowrap text-sm" style={cellStyle}>
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                  deal.rawData?.action === 'BUY' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {deal.rawData?.action || '-'}
+                                </span>
+                              </td>
+                            )
+                          case 'symbol':
+                            return <td key="symbol" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={cellStyle}>{deal.rawData?.symbol || '-'}</td>
+                          case 'volume':
+                            return <td key="volume" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.volume, 2) : undefined}>{fmtMoney(deal.rawData?.volume, 2)}</td>
+                          case 'price':
+                            return <td key="price" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle} title={numericMode === 'compact' ? fmtPriceFull(deal.rawData?.price, getDigits(deal.rawData)) : undefined}>{fmtPrice(deal.rawData?.price, getDigits(deal.rawData))}</td>
+                          case 'profit':
+                            return (
+                              <td key="profit" className={`px-3 py-2.5 whitespace-nowrap text-sm ${
+                                (deal.rawData?.profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                              }`} style={cellStyle} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.profit, 2) : undefined}>
+                                {fmtMoney(deal.rawData?.profit, 2)}
+                              </td>
+                            )
+                          case 'commission':
+                            return <td key="commission" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.commission, 2) : undefined}>{fmtMoney(deal.rawData?.commission, 2)}</td>
+                          case 'storage':
+                            return <td key="storage" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.storage, 2) : undefined}>{fmtMoney(deal.rawData?.storage, 2)}</td>
+                          case 'entry':
+                            return <td key="entry" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{deal.rawData?.entry || 0}</td>
+                          case 'order':
+                            return <td key="order" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{deal.rawData?.order || '-'}</td>
+                          case 'position':
+                            return <td key="position" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{deal.rawData?.position || '-'}</td>
+                          case 'reason':
+                            return <td key="reason" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-600">{deal.rawData?.reason || '-'}</td>
+                          default:
+                            return null
+                        }
+                      })}
                     </tr>
                   ))
                   )}

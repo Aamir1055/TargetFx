@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { brokerAPI } from '../services/api'
 import { useGroups } from '../contexts/GroupContext'
 import { useData } from '../contexts/DataContext'
@@ -11,6 +11,7 @@ import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import ClientPercentageModule from '../components/ClientPercentageModule'
+import ColumnChooserList from '../components/ColumnChooserList'
 
 const ClientPercentagePage = () => {
   // Detect mobile device
@@ -107,6 +108,35 @@ const ClientPercentagePage = () => {
     { key: 'updatedAt', label: 'Last Updated' },
     { key: 'actions', label: 'Actions' },
   ]
+
+  // Column order (persisted) for reorder via Column Chooser
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('clientPercentagePageColumnOrder')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return null
+  })
+  useEffect(() => {
+    try {
+      if (columnOrder) localStorage.setItem('clientPercentagePageColumnOrder', JSON.stringify(columnOrder))
+    } catch {}
+  }, [columnOrder])
+  const resetColumnOrder = () => {
+    setColumnOrder(null)
+    try { localStorage.removeItem('clientPercentagePageColumnOrder') } catch {}
+  }
+  const orderedColumns = (() => {
+    if (!Array.isArray(columnOrder) || columnOrder.length === 0) return allColumns
+    const map = new Map(allColumns.map(c => [c.key, c]))
+    const out = []
+    columnOrder.forEach(k => { if (map.has(k)) { out.push(map.get(k)); map.delete(k) } })
+    map.forEach(c => out.push(c))
+    return out
+  })()
 
   const toggleColumn = (key) => {
     setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -720,26 +750,28 @@ const ClientPercentagePage = () => {
                       {showColumnSelector && (
                         <div
                           ref={columnSelectorRef}
-                          className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-2 z-50 w-56"
-                          style={{ maxHeight: '400px', overflowY: 'auto' }}
+                          className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 z-50 flex flex-col"
+                          style={{ width: 280, maxHeight: '60vh' }}
                         >
-                          <div className="px-3 py-2 border-b border-[#F3F4F6]">
-                            <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide Columns</p>
+                          <div className="px-3 py-2 border-b border-[#F3F4F6] flex items-center justify-between">
+                            <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide & Reorder</p>
+                            <button
+                              onClick={resetColumnOrder}
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded text-blue-600 hover:bg-blue-50"
+                              title="Reset column order"
+                            >Reset Order</button>
                           </div>
-                          {allColumns.map(col => (
-                            <label
-                              key={col.key}
-                              className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns[col.key]}
-                                onChange={() => toggleColumn(col.key)}
-                                className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-1"
-                              />
-                              <span className="ml-2 text-sm text-[#374151]">{col.label}</span>
-                            </label>
-                          ))}
+                          <div className="flex-1 min-h-0 flex flex-col">
+                            <ColumnChooserList
+                              columns={allColumns}
+                              visibleColumns={visibleColumns}
+                              onToggle={toggleColumn}
+                              columnOrder={columnOrder}
+                              onReorder={(newOrder) => setColumnOrder(newOrder)}
+                              accent="blue"
+                              title={null}
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -838,21 +870,29 @@ const ClientPercentagePage = () => {
                         className="w-3.5 h-3.5 rounded border-white/50 text-blue-600 focus:ring-blue-500 cursor-pointer"
                       />
                     </th>
-                    {visibleColumns.login && renderHeaderCell('client_login', 'Client Login', 'client_login')}
-                    {visibleColumns.clientName && renderHeaderCell('client_name', 'Client Name', 'client_name')}
-                    {visibleColumns.percentage && renderHeaderCell('percentage', 'Percentage', 'percentage')}
-                    {visibleColumns.type && renderHeaderCell('is_custom', 'Type')}
-                    {visibleColumns.comment && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb' }}>
-                        Comment
-                      </th>
-                    )}
-                    {visibleColumns.updatedAt && renderHeaderCell('updated_at', 'Last Updated')}
-                    {visibleColumns.actions && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb' }}>
-                        Actions
-                      </th>
-                    )}
+                    {orderedColumns.map(col => {
+                      if (!visibleColumns[col.key]) return null
+                      let cell = null
+                      switch (col.key) {
+                        case 'login': cell = renderHeaderCell('client_login', 'Client Login', 'client_login'); break
+                        case 'clientName': cell = renderHeaderCell('client_name', 'Client Name', 'client_name'); break
+                        case 'percentage': cell = renderHeaderCell('percentage', 'Percentage', 'percentage'); break
+                        case 'type': cell = renderHeaderCell('is_custom', 'Type'); break
+                        case 'comment': cell = (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb' }}>
+                            Comment
+                          </th>
+                        ); break
+                        case 'updatedAt': cell = renderHeaderCell('updated_at', 'Last Updated'); break
+                        case 'actions': cell = (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb' }}>
+                            Actions
+                          </th>
+                        ); break
+                        default: cell = null
+                      }
+                      return <Fragment key={col.key}>{cell}</Fragment>
+                    })}
                   </tr>
                 </thead>
 
@@ -926,66 +966,74 @@ const ClientPercentagePage = () => {
                           className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
                       </td>
-                      {visibleColumns.login && (
-                        <td 
-                          className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
-                          style={{ borderRight: '1px solid #e5e7eb' }}
-                          onClick={() => setSelectedLogin(client.client_login)}
-                          title="Click to view login details"
-                        >
-                          {client.client_login}
-                        </td>
-                      )}
-                      {visibleColumns.clientName && (
-                        <td className="px-4 py-3 text-sm text-gray-700 break-words" style={{ borderRight: '1px solid #e5e7eb', minWidth: '120px', maxWidth: '180px', width: '150px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                          {client.client_name || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.percentage && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          <span className={`px-2 py-1 rounded text-sm font-semibold ${
-                            client.is_custom 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {client.percentage}%
-                          </span>
-                        </td>
-                      )}
-                      {visibleColumns.type && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            client.is_custom 
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {client.is_custom ? 'Custom' : 'Default'}
-                          </span>
-                        </td>
-                      )}
-                      {visibleColumns.comment && (
-                        <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {client.comment || '-'}
-                        </td>
-                      )}
-                      {visibleColumns.updatedAt && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>
-                          {client.updated_at ? new Date(client.updated_at).toLocaleDateString('en-GB') : '-'}
-                        </td>
-                      )}
-                      {visibleColumns.actions && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm">
-                          <button
-                            onClick={() => handleEditClick(client)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit
-                          </button>
-                        </td>
-                      )}
+                      {orderedColumns.map(col => {
+                        if (!visibleColumns[col.key]) return null
+                        let cell = null
+                        switch (col.key) {
+                          case 'login': cell = (
+                            <td
+                              className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                              style={{ borderRight: '1px solid #e5e7eb' }}
+                              onClick={() => setSelectedLogin(client.client_login)}
+                              title="Click to view login details"
+                            >
+                              {client.client_login}
+                            </td>
+                          ); break
+                          case 'clientName': cell = (
+                            <td className="px-4 py-3 text-sm text-gray-700 break-words" style={{ borderRight: '1px solid #e5e7eb', minWidth: '120px', maxWidth: '180px', width: '150px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                              {client.client_name || '-'}
+                            </td>
+                          ); break
+                          case 'percentage': cell = (
+                            <td className="px-4 py-3 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
+                              <span className={`px-2 py-1 rounded text-sm font-semibold ${
+                                client.is_custom
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {client.percentage}%
+                              </span>
+                            </td>
+                          ); break
+                          case 'type': cell = (
+                            <td className="px-4 py-3 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                client.is_custom
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {client.is_custom ? 'Custom' : 'Default'}
+                              </span>
+                            </td>
+                          ); break
+                          case 'comment': cell = (
+                            <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" style={{ borderRight: '1px solid #e5e7eb' }}>
+                              {client.comment || '-'}
+                            </td>
+                          ); break
+                          case 'updatedAt': cell = (
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>
+                              {client.updated_at ? new Date(client.updated_at).toLocaleDateString('en-GB') : '-'}
+                            </td>
+                          ); break
+                          case 'actions': cell = (
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <button
+                                onClick={() => handleEditClick(client)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit
+                              </button>
+                            </td>
+                          ); break
+                          default: cell = null
+                        }
+                        return <Fragment key={col.key}>{cell}</Fragment>
+                      })}
                     </tr>
                   ))
                   )}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, Fragment } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useGroups } from '../contexts/GroupContext'
 import { brokerAPI } from '../services/api'
@@ -10,6 +10,7 @@ import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import PendingOrdersModule from '../components/PendingOrdersModule'
+import ColumnChooserList from '../components/ColumnChooserList'
 
 const PendingOrdersPage = () => {
   // Detect mobile device
@@ -105,6 +106,36 @@ const PendingOrdersPage = () => {
     { key: 'sl', label: 'S/L' },
     { key: 'tp', label: 'T/P' }
   ]
+
+  // Column order (persisted) for reorder via Column Chooser
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pendingOrdersPageColumnOrder')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) return parsed
+      }
+    } catch {}
+    return null
+  })
+  useEffect(() => {
+    try {
+      if (columnOrder) localStorage.setItem('pendingOrdersPageColumnOrder', JSON.stringify(columnOrder))
+    } catch {}
+  }, [columnOrder])
+  const resetColumnOrder = () => {
+    setColumnOrder(null)
+    try { localStorage.removeItem('pendingOrdersPageColumnOrder') } catch {}
+  }
+  // Ordered columns (with any new keys appended) for table rendering
+  const orderedColumns = (() => {
+    if (!Array.isArray(columnOrder) || columnOrder.length === 0) return allColumns
+    const map = new Map(allColumns.map(c => [c.key, c]))
+    const out = []
+    columnOrder.forEach(k => { if (map.has(k)) { out.push(map.get(k)); map.delete(k) } })
+    map.forEach(c => out.push(c))
+    return out
+  })()
 
   const toggleColumn = (columnKey) => {
     setVisibleColumns(prev => ({
@@ -1241,26 +1272,28 @@ const PendingOrdersPage = () => {
                     {showColumnSelector && (
                       <div
                         ref={columnSelectorRef}
-                        className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-2 z-50 w-56"
-                        style={{ maxHeight: '400px', overflowY: 'auto' }}
+                        className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 z-50 flex flex-col"
+                        style={{ width: 280, maxHeight: '60vh' }}
                       >
-                        <div className="px-3 py-2 border-b border-[#F3F4F6]">
-                          <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide Columns</p>
+                        <div className="px-3 py-2 border-b border-[#F3F4F6] flex items-center justify-between">
+                          <p className="text-xs font-semibold text-[#1F2937] uppercase">Show/Hide & Reorder</p>
+                          <button
+                            onClick={resetColumnOrder}
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded text-blue-600 hover:bg-blue-50"
+                            title="Reset column order"
+                          >Reset Order</button>
                         </div>
-                        {allColumns.map(col => (
-                          <label
-                            key={col.key}
-                            className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer transition-colors"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={visibleColumns[col.key]}
-                              onChange={() => toggleColumn(col.key)}
-                              className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-1"
-                            />
-                            <span className="ml-2 text-sm text-[#374151]">{col.label}</span>
-                          </label>
-                        ))}
+                        <div className="flex-1 min-h-0 flex flex-col">
+                          <ColumnChooserList
+                            columns={allColumns}
+                            visibleColumns={visibleColumns}
+                            onToggle={toggleColumn}
+                            columnOrder={columnOrder}
+                            onReorder={(newOrder) => setColumnOrder(newOrder)}
+                            accent="blue"
+                            title={null}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1325,28 +1358,37 @@ const PendingOrdersPage = () => {
               <table className="w-full">
                   <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
                     <tr className="divide-x divide-blue-400">
-                      {visibleColumns.time && renderHeaderCell('timeSetup', 'Time', 'timeSetup')}
-                      {visibleColumns.login && renderHeaderCell('login', 'Login')}
-                      {visibleColumns.name && renderHeaderCell('name', 'Name')}
-                      {visibleColumns.order && renderHeaderCell('order', 'Order')}
-                      {visibleColumns.symbol && renderHeaderCell('symbol', 'Symbol')}
-                      {visibleColumns.type && renderHeaderCell('type', 'Type')}
-                      {visibleColumns.state && renderHeaderCell('state', 'State')}
-                      {visibleColumns.volume && renderHeaderCell('volume', 'Volume')}
-                      {visibleColumns.priceOrder && renderHeaderCell('priceOrder', 'Price')}
-                      {visibleColumns.priceCurrent && renderHeaderCell('priceTrigger', 'Trigger')}
-                      {visibleColumns.sl && renderHeaderCell('priceSL', 'SL', 'sl')}
-                      {visibleColumns.tp && renderHeaderCell('priceTP', 'TP', 'tp')}
+                      {orderedColumns.map(col => {
+                        if (!visibleColumns[col.key]) return null
+                        let cell = null
+                        switch (col.key) {
+                          case 'time': cell = renderHeaderCell('timeSetup', 'Time', 'timeSetup'); break
+                          case 'login': cell = renderHeaderCell('login', 'Login'); break
+                          case 'name': cell = renderHeaderCell('name', 'Name'); break
+                          case 'order': cell = renderHeaderCell('order', 'Order'); break
+                          case 'symbol': cell = renderHeaderCell('symbol', 'Symbol'); break
+                          case 'type': cell = renderHeaderCell('type', 'Type'); break
+                          case 'state': cell = renderHeaderCell('state', 'State'); break
+                          case 'volume': cell = renderHeaderCell('volume', 'Volume'); break
+                          case 'priceOrder': cell = renderHeaderCell('priceOrder', 'Price'); break
+                          case 'priceCurrent': cell = renderHeaderCell('priceTrigger', 'Trigger'); break
+                          case 'sl': cell = renderHeaderCell('priceSL', 'SL', 'sl'); break
+                          case 'tp': cell = renderHeaderCell('priceTP', 'TP', 'tp'); break
+                          default: cell = null
+                        }
+                        if (!cell) return null
+                        return <Fragment key={col.key}>{cell}</Fragment>
+                      })}
                     </tr>
                   </thead>
                   <tbody className="bg-white">
                     {isPageLoading ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1] border-l-2 border-l-[#E1E1E1]">
-                          {Object.values(visibleColumns).map((visible, colIdx) => (
-                            visible ? (
+                          {orderedColumns.map((col, colIdx) => (
+                            visibleColumns[col.key] ? (
                               <td
-                                key={colIdx}
+                                key={col.key}
                                 className={`px-2${colIdx !== 0 ? ' border-l border-[#E1E1E1]' : ''}`}
                                 style={{ height: '38px' }}
                               >
@@ -1370,7 +1412,9 @@ const PendingOrdersPage = () => {
                       const tpDelta = flash?.tpDelta
                       return (
                         <tr key={id ?? index} className={`hover:bg-blue-50 transition-colors border-l-2 border-l-[#E1E1E1]`}>
-                          {Object.entries(visibleColumns).map(([colKey, visible], colIdx) => {
+                          {orderedColumns.map((col, colIdx) => {
+                            const colKey = col.key
+                            const visible = visibleColumns[colKey]
                             if (!visible) return null;
                             // Cell content logic
                             let cellContent = null;
