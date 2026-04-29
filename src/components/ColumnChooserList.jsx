@@ -59,7 +59,8 @@ const ColumnChooserList = ({
   onResetOrder,
   searchPlaceholder = 'Search columns...',
   title = 'Show / Hide & Reorder Columns',
-  accent = 'amber'
+  accent = 'amber',
+  groupVisibleFirst = false
 }) => {
   const [search, setSearch] = useState('')
   const [draggedKey, setDraggedKey] = useState(null)
@@ -69,13 +70,22 @@ const ColumnChooserList = ({
 
   // Compute the ordered list based on columnOrder (with any missing/new keys appended)
   const orderedColumns = useMemo(() => {
-    if (!Array.isArray(columnOrder) || columnOrder.length === 0) return columns
-    const map = new Map(columns.map(c => [c.key, c]))
-    const ordered = []
-    columnOrder.forEach(k => { if (map.has(k)) { ordered.push(map.get(k)); map.delete(k) } })
-    map.forEach(c => ordered.push(c)) // append any new columns not yet in saved order
-    return ordered
-  }, [columns, columnOrder])
+    let base
+    if (!Array.isArray(columnOrder) || columnOrder.length === 0) {
+      base = columns
+    } else {
+      const map = new Map(columns.map(c => [c.key, c]))
+      const ordered = []
+      columnOrder.forEach(k => { if (map.has(k)) { ordered.push(map.get(k)); map.delete(k) } })
+      map.forEach(c => ordered.push(c)) // append any new columns not yet in saved order
+      base = ordered
+    }
+    if (!groupVisibleFirst) return base
+    // Stable partition: visible columns first, then hidden — preserves relative order in each group.
+    const visible = base.filter(c => !!visibleColumns[c.key])
+    const hidden = base.filter(c => !visibleColumns[c.key])
+    return [...visible, ...hidden]
+  }, [columns, columnOrder, groupVisibleFirst, visibleColumns])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -92,9 +102,9 @@ const ColumnChooserList = ({
     const from = keys.indexOf(sourceKey)
     const to = keys.indexOf(targetKey)
     if (from === -1 || to === -1) return
+    // Swap: dragged column takes target's position, target takes dragged column's position.
     const next = [...keys]
-    const [moved] = next.splice(from, 1)
-    next.splice(to, 0, moved)
+    ;[next[from], next[to]] = [next[to], next[from]]
     if (typeof onReorder === 'function') onReorder(next)
   }
 

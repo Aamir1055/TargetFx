@@ -111,6 +111,14 @@ const Client2Page = () => {
   const [isPageChanging, setIsPageChanging] = useState(false)
   const pageChangeTimeoutRef = useRef(null)
 
+  // Currency mode segmented control: Combined (default) | INR | Currency
+  const [currencyMode, setCurrencyMode] = useState(() => {
+    try { return localStorage.getItem('client2CurrencyMode') || 'Combined' } catch { return 'Combined' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('client2CurrencyMode', currencyMode) } catch {}
+  }, [currencyMode])
+
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
@@ -892,7 +900,8 @@ const Client2Page = () => {
       // Build request payload - simple pagination (column filters handled by /fields endpoint)
       const payload = {
         page: Number(currentPage) || 1,
-        limit: Number(itemsPerPage) || 100
+        limit: Number(itemsPerPage) || 100,
+        currency: currencyMode
       }
 
       // Add search query if present - API will handle searching across all fields
@@ -1395,7 +1404,7 @@ const Client2Page = () => {
       setInitialLoad(false)
       setIsSorting(false)
     }
-  }, [currentPage, itemsPerPage, debouncedSearchQuery, filters, columnFilters, mt5Accounts, accountRangeMin, accountRangeMax, sortBy, sortOrder, percentModeActive, activeGroup, selectedIB, ibMT5Accounts, quickFilters])
+  }, [currentPage, itemsPerPage, debouncedSearchQuery, filters, columnFilters, mt5Accounts, accountRangeMin, accountRangeMax, sortBy, sortOrder, percentModeActive, activeGroup, selectedIB, ibMT5Accounts, quickFilters, currencyMode])
 
   // Resume after successful token refresh
   useEffect(() => {
@@ -3976,6 +3985,29 @@ const Client2Page = () => {
                   )}
                 </div>
 
+                {/* Currency Mode segmented control */}
+                <div className="inline-flex rounded-md border border-[#E5E7EB] bg-white shadow-sm overflow-hidden h-8">
+                  {['Combined', 'INR', 'USD'].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        if (currencyMode === opt) return
+                        setCurrencyMode(opt)
+                        setCurrentPage(1)
+                      }}
+                      className={`px-2.5 text-xs font-medium transition-colors ${
+                        currencyMode === opt
+                          ? 'bg-blue-600 text-white'
+                          : 'text-[#374151] hover:bg-gray-50'
+                      }`}
+                      title={`Show values in ${opt}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Card Filter Button */}
                 <div className="relative flex items-center" ref={cardFilterMenuRef}>
                   <button
@@ -4442,6 +4474,7 @@ const Client2Page = () => {
                       onReorder={(newOrder) => setColumnOrder(newOrder)}
                       accent="blue"
                       title={null}
+                      groupVisibleFirst
                     />
                   </div>
                   </div>
