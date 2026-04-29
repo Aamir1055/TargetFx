@@ -167,6 +167,10 @@ const ClientPercentagePage = () => {
   const [csvImporting, setCsvImporting] = useState(false)
   const [csvError, setCsvError] = useState('')
   const csvFileRef = useRef(null)
+
+  // Export menu state
+  const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
   
   // Sorting states
   const [sortColumn, setSortColumn] = useState('client_login')
@@ -326,6 +330,215 @@ const ClientPercentagePage = () => {
       setSelectedRows(new Set())
     } else {
       setSelectedRows(new Set(clients.map(c => c.client_login)))
+    }
+  }
+
+  // ---- Export to CSV (uses API, chunked) ----
+  const buildCSV = (rows) => {
+    const exportColumns = allColumns.filter(c => c.key !== 'actions')
+    const headers = exportColumns.map(col => col.label).join(',')
+    const escape = (v) => {
+      let s = v == null ? '' : String(v)
+      s = s.replace(/"/g, '""')
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) s = `"${s}"`
+      return s
+    }
+    const body = rows.map(item => exportColumns.map(col => {
+      switch (col.key) {
+        case 'login': return escape(item.client_login || item.login || '')
+        case 'clientName': return escape(item.client_name || item.name || '')
+        case 'percentage': return escape(item.percentage ?? 0)
+        case 'type': return escape(item.is_custom ? 'Custom' : 'Default')
+        case 'comment': return escape(item.comment || '')
+        case 'updatedAt': return escape(item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-GB') : '')
+        default: return escape(item[col.key] ?? '')
+      }
+    }).join(',')).join('\n')
+    return headers + '\n' + body
+  }
+
+  const downloadCSV = (csv, filename) => {
+    // Prepend BOM so Excel opens UTF-8 correctly.
+    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExport = async () => {
+    if (exporting) return
+
+    const sortBy = sortColumn === 'client_login' ? 'login'
+      : sortColumn === 'client_name' ? 'name'
+      : sortColumn
+
+    const PARALLEL = 12
+    const MAX_RETRIES = 3
+    const MAX_TOTAL_PAGES = 1000 // hard ceiling against runaway pagination
+    const REQUESTED_PAGE_SIZE = 10000 // ask big; server may cap silently
+
+    const fetchChunk = async (page, pageSize) => {
+      let lastErr
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const r = await brokerAPI.getAllClientPercentages({
+            page,
+            page_size: pageSize,
+            sort_by: sortBy,
+            sort_order: sortDirection,
+          })
+          return r.data || {}
+        } catch (e) {
+          lastErr = e
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise(res => setTimeout(res, 250 * Math.pow(2, attempt)))
+          }
+        }
+      }
+      throw lastErr || new Error(`Failed to fetch page ${page}`)
+    }
+
+    try {
+      setExporting(true)
+      setExportProgress(0)
+
+      // 1) Probe with a large requested size to discover both `total` and the
+      //    server's effective max page size (it may cap silently).
+      const probe = await fetchChunk(1, REQUESTED_PAGE_SIZE)
+      const probeClients = Array.isArray(probe.clients) ? probe.clients : []
+      const total = Number(probe.total || 0)
+
+      if (!total) {
+        alert('No data to export')
+        return
+      }
+
+      // Effective page size = whatever the server actually returned.
+      // If probe came back empty (server quirk) but total > 0, abort early
+      // rather than guessing a size and generating thousands of empty pages.
+      if (probeClients.length === 0) {
+        throw new Error('Server returned no rows on first page; cannot determine page size.')
+      }
+      const effectiveSize = probeClients.length
+
+      // Dedupe by login across pages.
+      const byLogin = new Map()
+      const addClients = (list) => {
+        for (const c of (list || [])) {
+          const key = c?.client_login ?? c?.login
+          if (key == null) continue
+          if (!byLogin.has(key)) byLogin.set(key, c)
+        }
+      }
+      addClients(probeClients)
+
+      const totalPages = Math.min(
+        Math.max(1, Math.ceil(total / effectiveSize)),
+        MAX_TOTAL_PAGES,
+      )
+
+      // Progress is tracked by pages completed so it never goes backwards.
+      let pagesDone = 1
+      const updateProgress = () => setExportProgress(Math.min(pagesDone / totalPages, 1))
+      updateProgress()
+
+      // 2) Fetch remaining pages in parallel batches.
+      // Track failed pages separately from empty pages so we don't conflate
+      // hard errors with legitimately empty results.
+      const failedPages = []
+      const emptyPages = []
+
+      for (let page = 2; page <= totalPages; page += PARALLEL) {
+        const pages = []
+        for (let i = 0; i < PARALLEL && (page + i) <= totalPages; i++) pages.push(page + i)
+        const results = await Promise.all(
+          pages.map(p => fetchChunk(p, REQUESTED_PAGE_SIZE)
+            .then(d => ({ p, d, ok: true }))
+            .catch(err => ({ p, err, ok: false }))
+          )
+        )
+        for (const res of results) {
+          pagesDone++
+          if (!res.ok) {
+            console.warn(`[ClientPercentage] Page ${res.p} failed after retries:`, res.err)
+            failedPages.push(res.p)
+            continue
+          }
+          const list = Array.isArray(res.d.clients) ? res.d.clients : []
+          if (list.length === 0) emptyPages.push(res.p)
+          else addClients(list)
+        }
+        updateProgress()
+      }
+
+      // 3) Final retry for failed pages only (fetchChunk already exhausted its
+      //    own retries; one more end-of-run attempt is a deliberate, separate
+      //    pass for transient outages).
+      if (failedPages.length) {
+        const recovered = await Promise.all(
+          failedPages.map(p => fetchChunk(p, REQUESTED_PAGE_SIZE)
+            .then(d => Array.isArray(d.clients) ? d.clients : [])
+            .catch(() => null)
+          )
+        )
+        recovered.forEach((list, i) => {
+          if (list === null) {
+            console.warn(`[ClientPercentage] Page ${failedPages[i]} unrecoverable; rows may be missing.`)
+          } else if (list.length === 0) {
+            emptyPages.push(failedPages[i])
+          } else {
+            addClients(list)
+          }
+        })
+      }
+
+      // 4) Forward-walk safety net for off-by-one totals. Bound by both a
+      //    hard page count and the remaining-row gap to avoid runaway loops.
+      if (byLogin.size < total) {
+        let nextPage = totalPages + 1
+        const remaining = total - byLogin.size
+        const extraBudget = Math.min(
+          Math.ceil(remaining / effectiveSize) + 2, // cover the gap + small slack
+          Math.max(0, MAX_TOTAL_PAGES - totalPages),
+        )
+        for (let i = 0; i < extraBudget && byLogin.size < total; i++) {
+          let list
+          try {
+            const d = await fetchChunk(nextPage, REQUESTED_PAGE_SIZE)
+            list = Array.isArray(d.clients) ? d.clients : []
+          } catch {
+            break
+          }
+          if (!list.length) break
+          const before = byLogin.size
+          addClients(list)
+          if (byLogin.size === before) break // server returning duplicates
+          nextPage++
+        }
+      }
+
+      const all = Array.from(byLogin.values())
+      if (!all.length) {
+        alert('No data to export')
+        return
+      }
+      if (all.length < total) {
+        console.warn(`[ClientPercentage] Export collected ${all.length} of ${total} rows.`)
+      }
+
+      const csv = buildCSV(all)
+      downloadCSV(csv, `client_percentage_${new Date().toISOString().split('T')[0]}.csv`)
+    } catch (err) {
+      console.error('[ClientPercentage] Export failed:', err)
+      alert('Export failed. Please try again.')
+    } finally {
+      setExporting(false)
+      setExportProgress(0)
     }
   }
 
@@ -797,6 +1010,21 @@ const ClientPercentagePage = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                       </svg>
                       Import CSV
+                    </button>
+
+                    {/* Export Button */}
+                    <button
+                      onClick={handleExport}
+                      disabled={exporting}
+                      className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                      title="Export all to CSV"
+                    >
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
+                      </svg>
+                      {exporting
+                        ? `Exporting… ${Math.round((exportProgress || 0) * 100)}%`
+                        : 'Export'}
                     </button>
 
                     {/* Bulk Update Button */}
