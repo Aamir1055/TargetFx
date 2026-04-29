@@ -4050,10 +4050,10 @@ const PositionsPage = () => {
                             </td>
                           )}
                           {effectiveCols.sl && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceSL, getDigits(p)) : undefined}>{fmtPrice(p.priceSL, getDigits(p))}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceSL) : undefined}>{fmtPrice(p.priceSL)}</td>
                           )}
                           {effectiveCols.tp && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceTP, getDigits(p)) : undefined}>{fmtPrice(p.priceTP, getDigits(p))}</td>
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtPriceFull(p.priceTP) : undefined}>{fmtPrice(p.priceTP)}</td>
                           )}
                           {effectiveCols.profit && (
                             <td className="px-2 py-1.5 text-sm whitespace-nowrap border-r border-gray-200 last:border-r-0" title={numericMode === 'compact' ? fmtMoneyFull(adjustValueForSymbol(p.profit, p.symbol, true), 2) : undefined}>

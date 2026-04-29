@@ -87,7 +87,7 @@ const PendingOrdersPage = () => {
     type: true,
     volume: true,
     priceOrder: true,
-    priceCurrent: true,
+    priceCurrent: false,
     sl: false,
     tp: false
   })

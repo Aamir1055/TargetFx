@@ -4403,7 +4403,7 @@ const Client2Page = () => {
                       top: columnSelectorPos.top,
                       left: columnSelectorPos.left,
                       width: 300,
-                      maxHeight: '70vh',
+                      maxHeight: '60vh',
                       zIndex: 20000000
                     }}
                     onClick={(e) => e.stopPropagation()}

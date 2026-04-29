@@ -902,7 +902,7 @@ const MarginLevelPage = () => {
             {/* Title Section */}
             <div>
               <h1 className="text-xl font-bold text-[#1A1A1A]">Margin Level</h1>
-              <p className="text-xs text-[#6B7280] mt-0.5">Shows accounts with margin level &lt; 50% (excludes zero margin levels)</p>
+              <p className="text-xs text-[#6B7280] mt-0.5">show accounts in margin level </p>
             </div>
 
             {/* Action Buttons - All on right side */}
@@ -1199,8 +1199,8 @@ const MarginLevelPage = () => {
                   <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0" />
                   </svg>
-                  <p className="text-gray-500 text-sm">No accounts with margin level below 50%.</p>
-                  <p className="text-gray-400 text-xs mt-1">Live updates will appear here</p>
+                  <p className="text-gray-500 text-sm">No accounts in margin level</p>
+                  <p className="text-gray-400 text-xs mt-1"></p>
                 </div>
               ) : (
                 <table className="w-full divide-y divide-gray-200">
