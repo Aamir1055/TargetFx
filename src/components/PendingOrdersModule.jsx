@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
+import { brokerAPI } from '../services/api'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
 import GroupModal from './GroupModal'
@@ -72,6 +73,13 @@ export default function PendingOrdersModule() {
   const itemsPerPage = 15
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
+
+  // Server totals from API (for face cards — same approach as desktop)
+  const [serverTotals, setServerTotals] = useState({ totalOrders: 0, uniqueLogins: 0, volumeCurrent: 0, volumeInitial: 0 })
+  const hasFetchedServerTotalsRef = useRef(false)
+  const [serverOrders, setServerOrders] = useState([])
+  const [serverTotalOrders, setServerTotalOrders] = useState(0)
+  const [hasFetchedOrders, setHasFetchedOrders] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
     timeSetup: true,
@@ -154,6 +162,65 @@ export default function PendingOrdersModule() {
     }
   }, [])
 
+  // Poll server every 2s — mirrors PendingOrdersPage.jsx desktop behaviour exactly
+  useEffect(() => {
+    let isCancelled = false
+    let timer = null
+    let controller = new AbortController()
+
+    const poll = async () => {
+      if (isCancelled) return
+      try {
+        const params = {
+          page: currentPage,
+          limit: itemsPerPage,
+          sortBy: sortColumn || 'timeSetup',
+          sortOrder: sortDirection || 'desc'
+        }
+        if (searchInput && searchInput.trim()) params.search = searchInput.trim()
+
+        const response = await brokerAPI.searchOrders(params, { signal: controller.signal })
+        if (isCancelled) return
+        const data = response?.data?.orders || response?.data?.positions || response?.orders || []
+        const total = response?.data?.total || response?.total || 0
+        const totals = response?.data?.totals || response?.totals || null
+        if (Array.isArray(data)) {
+          setServerOrders(data)
+          setServerTotalOrders(total)
+          if (totals) {
+            setServerTotals({
+              totalOrders: total,
+              uniqueLogins: totals.uniqueLogins ?? 0,
+              volumeCurrent: totals.volumeCurrent ?? 0,
+              volumeInitial: totals.volumeInitial ?? 0
+            })
+            hasFetchedServerTotalsRef.current = true
+          }
+          setHasFetchedOrders(true)
+        }
+      } catch (err) {
+        if (!isCancelled && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
+          console.warn('[PendingOrdersModule] Polling error:', err?.message)
+        }
+      }
+      if (!isCancelled) timer = setTimeout(poll, 2000)
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') { if (!timer && !isCancelled) poll() }
+      else if (timer) { clearTimeout(timer); timer = null }
+    }
+
+    if (document.visibilityState === 'visible') poll()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      isCancelled = true
+      controller.abort()
+      if (timer) { clearTimeout(timer); timer = null }
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [currentPage, itemsPerPage, sortColumn, sortDirection, searchInput])
+
   const handlePageChange = (nextPage, maxPage) => {
     const safeMaxPage = Math.max(1, maxPage)
     const clampedPage = Math.min(safeMaxPage, Math.max(1, nextPage))
@@ -186,12 +253,16 @@ export default function PendingOrdersModule() {
     const uniqueLogins = new Set(ibFilteredOrders.map(o => o.login)).size
     const uniqueSymbols = new Set(ibFilteredOrders.map(o => o.symbol)).size
     const totalVolume = ibFilteredOrders.reduce((sum, o) => sum + (o.volumeCurrent || o.volume || 0), 0)
+    const volumeCurrent = ibFilteredOrders.reduce((sum, o) => sum + (o.volumeCurrent || o.volume || 0), 0)
+    const volumeInitial = ibFilteredOrders.reduce((sum, o) => sum + (o.volumeInitial || o.volumeCurrent || o.volume || 0), 0)
     
     return {
       totalOrders,
       uniqueLogins,
       uniqueSymbols,
-      totalVolume
+      totalVolume,
+      volumeCurrent,
+      volumeInitial
     }
   }, [ibFilteredOrders])
 
@@ -285,6 +356,12 @@ export default function PendingOrdersModule() {
     setCurrentPage(1)
   }, [ibFilteredOrders.length, searchInput])
 
+  // Use server-polled orders for table when available (same as desktop), fallback to WS cache
+  const displayOrders = hasFetchedOrders ? serverOrders : filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const totalPages = hasFetchedOrders
+    ? Math.max(1, Math.ceil(serverTotalOrders / itemsPerPage))
+    : Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage))
+
   // Face cards data - matching desktop layout with persistent state
   const [cards, setCards] = useState([])
 
@@ -292,21 +369,27 @@ export default function PendingOrdersModule() {
   const getCardIcon = (label) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'PENDING ORDERS': `${baseUrl}Mobile cards icons/Brokers Eye Platform/Group.svg`,
+      'TOTAL ORDERS': `${baseUrl}Mobile cards icons/Brokers Eye Platform/Group.svg`,
       'UNIQUE LOGINS': `${baseUrl}Mobile cards icons/Total Clients.svg`,
-      'SYMBOLS': `${baseUrl}Mobile cards icons/Brokers Eye Platform/Group.svg`,
-      'TOTAL VOLUME': `${baseUrl}Mobile cards icons/Total Balance.svg`
+      'VOLUME CURRENT': `${baseUrl}Mobile cards icons/Total Equity.svg`,
+      'VOLUME INITIAL': `${baseUrl}Mobile cards icons/Total Balance.svg`
     }
     return iconMap[label] || `${baseUrl}Mobile cards icons/Total Clients.svg`
   }
   
   // Update cards when summary stats change
   useEffect(() => {
+    // Prefer server totals (API) when available, fall back to client-side sums
+    const totalOrders = hasFetchedServerTotalsRef.current ? serverTotals.totalOrders : summaryStats.totalOrders
+    const uniqueLogins = hasFetchedServerTotalsRef.current ? serverTotals.uniqueLogins : summaryStats.uniqueLogins
+    const volumeCurrent = hasFetchedServerTotalsRef.current ? serverTotals.volumeCurrent : summaryStats.volumeCurrent
+    const volumeInitial = hasFetchedServerTotalsRef.current ? serverTotals.volumeInitial : summaryStats.volumeInitial
+
     const newCards = [
-      { label: 'PENDING ORDERS', value: fmtCount(summaryStats.totalOrders) },
-      { label: 'UNIQUE LOGINS', value: fmtCount(summaryStats.uniqueLogins) },
-      { label: 'SYMBOLS', value: fmtCount(summaryStats.uniqueSymbols) },
-      { label: 'TOTAL VOLUME', value: fmtMoney(summaryStats.totalVolume) }
+      { label: 'TOTAL ORDERS', value: fmtCount(totalOrders) },
+      { label: 'UNIQUE LOGINS', value: fmtCount(uniqueLogins) },
+      { label: 'VOLUME CURRENT', value: fmtMoney(volumeCurrent) },
+      { label: 'VOLUME INITIAL', value: fmtMoney(volumeInitial) }
     ]
     
     // Only update if cards length is different (initial load) or keep existing order
@@ -321,7 +404,7 @@ export default function PendingOrdersModule() {
         })
       })
     }
-  }, [summaryStats, numericMode])
+  }, [summaryStats, serverTotals, numericMode])
 
   // Get visible columns
   const allColumns = [
@@ -681,7 +764,7 @@ export default function PendingOrdersModule() {
               </svg>
             </button>
             <button 
-              onClick={() => handlePageChange(currentPage - 1, Math.ceil(filteredOrders.length / itemsPerPage))}
+              onClick={() => handlePageChange(currentPage - 1, totalPages)}
               disabled={currentPage === 1}
               className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -693,24 +776,23 @@ export default function PendingOrdersModule() {
               <input
                 type="number"
                 min={1}
-                max={Math.ceil(filteredOrders.length / itemsPerPage)}
+                max={totalPages}
                 value={currentPage}
                 onChange={(e) => {
                   const n = Number(e.target.value)
-                  const maxPage = Math.ceil(filteredOrders.length / itemsPerPage)
-                  if (!isNaN(n) && n >= 1 && n <= maxPage) {
-                    handlePageChange(n, maxPage)
+                  if (!isNaN(n) && n >= 1 && n <= totalPages) {
+                    handlePageChange(n, totalPages)
                   }
                 }}
                 className="w-10 h-6 border border-[#ECECEC] rounded-[8px] text-center text-[10px]"
                 aria-label="Current page"
               />
               <span className="text-[#9CA3AF]">/</span>
-              <span>{Math.ceil(filteredOrders.length / itemsPerPage)}</span>
+              <span>{totalPages}</span>
             </div>
             <button 
-              onClick={() => handlePageChange(currentPage + 1, Math.ceil(filteredOrders.length / itemsPerPage))}
-              disabled={currentPage >= Math.ceil(filteredOrders.length / itemsPerPage)}
+              onClick={() => handlePageChange(currentPage + 1, totalPages)}
+              disabled={currentPage >= totalPages}
               className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
@@ -803,7 +885,7 @@ export default function PendingOrdersModule() {
                     ))}
                   </>
                 ) : (
-                  filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((order, idx) => (
+                  displayOrders.map((order, idx) => (
                   <div 
                     key={idx} 
                     className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors"
@@ -824,7 +906,7 @@ export default function PendingOrdersModule() {
                 )}
 
                 {/* Total Row */}
-                {filteredOrders.length > 0 && !loading?.orders && (
+                {displayOrders.length > 0 && !loading?.orders && (
                   <div 
                     className="grid text-[10px] text-[#1A63BC] font-outfit bg-[#EFF4FB] border-t-2 border-[#1A63BC]"
                     style={{
@@ -851,7 +933,7 @@ export default function PendingOrdersModule() {
                 )}
 
                 {/* Empty state */}
-                {filteredOrders.length === 0 && !loading?.orders && (
+                {displayOrders.length === 0 && !loading?.orders && (
                   <div className="text-center py-8 text-[#9CA3AF] text-sm">
                     No pending orders found
                   </div>
