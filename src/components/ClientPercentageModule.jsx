@@ -294,9 +294,9 @@ export default function ClientPercentageModule() {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
       'TOTAL CLIENTS': `${baseUrl}Desktop cards icons/Total Clients.svg`,
-      'CUSTOM %': `${baseUrl}Desktop cards icons/AVAILABLE Commision%25.svg`,
-      'DEFAULT': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'AVG %': `${baseUrl}Desktop cards icons/AVAILABLE Commision%25.svg`
+      'CUSTOM PERCENTAGES': `${baseUrl}Desktop cards icons/TOTAL COMMISION.svg`,
+      'USING DEFAULT': `${baseUrl}Desktop cards icons/AVAILABLE Commision.svg`,
+      'DEFAULT PERCENTAGE': `${baseUrl}Desktop cards icons/TOTAL COMMISION%25.svg`
     }
     return iconMap[label] || `${baseUrl}Desktop cards icons/Total Clients.svg`
   }
@@ -309,8 +309,9 @@ export default function ClientPercentageModule() {
     }
     const newCards = [
       { label: 'TOTAL CLIENTS', value: Number(stats.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), numericValue: stats.total },
-      { label: 'CUSTOM %', value: fmtCount(stats.total_custom), numericValue: stats.total_custom },
-      { label: 'DEFAULT', value: fmtCount(stats.total_default), numericValue: stats.total_default }
+      { label: 'CUSTOM PERCENTAGES', value: fmtCount(stats.total_custom), numericValue: stats.total_custom },
+      { label: 'USING DEFAULT', value: fmtCount(stats.total_default), numericValue: stats.total_default },
+      { label: 'DEFAULT PERCENTAGE', value: `${stats.default_percentage || 0}%`, numericValue: stats.default_percentage }
     ]
     
     if (cards.length === 0) {
