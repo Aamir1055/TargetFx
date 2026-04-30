@@ -60,7 +60,9 @@ const ColumnChooserList = ({
   searchPlaceholder = 'Search columns...',
   title = 'Show / Hide & Reorder Columns',
   accent = 'amber',
-  groupVisibleFirst = false
+  groupVisibleFirst = false,
+  pinnedColumns = [],
+  onPinToggle
 }) => {
   const [search, setSearch] = useState('')
   const [draggedKey, setDraggedKey] = useState(null)
@@ -98,6 +100,9 @@ const ColumnChooserList = ({
 
   const reorderTo = (sourceKey, targetKey) => {
     if (!sourceKey || !targetKey || sourceKey === targetKey) return
+    // Pinned columns are locked in place — neither source nor target can be pinned.
+    const pinnedSet = new Set(Array.isArray(pinnedColumns) ? pinnedColumns : [])
+    if (pinnedSet.has(sourceKey) || pinnedSet.has(targetKey)) return
     const keys = orderedColumns.map(c => c.key)
     const from = keys.indexOf(sourceKey)
     const to = keys.indexOf(targetKey)
@@ -202,7 +207,8 @@ const ColumnChooserList = ({
         {filtered.map((col) => {
           const isDragging = draggedKey === col.key
           const isOver = dragOverKey === col.key && draggedKey && draggedKey !== col.key
-          const dragDisabled = isSearching // disable reorder while searching to avoid confusion
+          const isPinned = Array.isArray(pinnedColumns) && pinnedColumns.includes(col.key)
+          const dragDisabled = isSearching || isPinned // disable reorder while searching or when pinned
           return (
             <div
               key={col.key}
@@ -213,7 +219,7 @@ const ColumnChooserList = ({
               onDrop={(e) => !dragDisabled && handleDrop(e, col.key)}
               onDragEnd={handleDragEnd}
               className={`flex items-center px-2 py-1.5 mx-2 rounded-md cursor-pointer transition-colors ${theme.rowHover} ${isDragging ? 'opacity-50' : ''} ${isOver ? theme.dragOverRing : ''}`}
-              title={dragDisabled ? 'Clear search to reorder' : 'Drag to reorder'}
+              title={isPinned ? 'Pinned columns cannot be reordered' : (dragDisabled ? 'Clear search to reorder' : 'Drag to reorder')}
             >
               {/* Drag handle */}
               <span
@@ -233,6 +239,25 @@ const ColumnChooserList = ({
                 />
                 <span className="text-xs font-semibold text-gray-700 truncate">{col.label}</span>
               </label>
+              {typeof onPinToggle === 'function' && (
+                (() => {
+                  const isPinned = Array.isArray(pinnedColumns) && pinnedColumns.includes(col.key)
+                  return (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onPinToggle(col.key) }}
+                      className={`ml-1 p-1 rounded transition-colors ${isPinned ? 'text-blue-600 hover:bg-blue-100' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'}`}
+                      title={isPinned ? 'Unpin column' : 'Pin column (freeze at left)'}
+                      aria-label={isPinned ? 'Unpin column' : 'Pin column'}
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill={isPinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 17v5" />
+                        <path d="M9 10.76V6h6v4.76a2 2 0 0 0 .6 1.43l2.4 2.39a1 1 0 0 1-.7 1.42H6.7a1 1 0 0 1-.7-1.42l2.4-2.39A2 2 0 0 0 9 10.76z" />
+                      </svg>
+                    </button>
+                  )
+                })()
+              )}
             </div>
           )
         })}

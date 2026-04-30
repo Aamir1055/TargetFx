@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Fragment } from 'react'
+import { useEffect, useRef, useState, useMemo, Fragment, cloneElement } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useGroups } from '../contexts/GroupContext'
 import { brokerAPI } from '../services/api'
@@ -136,6 +136,50 @@ const PendingOrdersPage = () => {
     map.forEach(c => out.push(c))
     return out
   })()
+
+  // Pinned (frozen) columns - persisted to localStorage
+  const [pinnedColumns, setPinnedColumns] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pendingOrdersPagePinnedColumns'))
+      return Array.isArray(saved) ? saved : []
+    } catch { return [] }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('pendingOrdersPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+  }, [pinnedColumns])
+  const togglePinColumn = (key) =>
+    setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+
+  // Cumulative left offsets for pinned columns (default width 150px since no resize tracking)
+  const PINNED_DEFAULT_WIDTH = 150
+  const pinnedOffsets = useMemo(() => {
+    const map = {}
+    let offset = 0
+    for (const col of orderedColumns) {
+      if (!visibleColumns[col.key]) continue
+      if (pinnedColumns.includes(col.key)) {
+        map[col.key] = offset
+        offset += PINNED_DEFAULT_WIDTH
+      }
+    }
+    return map
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedColumns, visibleColumns, pinnedColumns])
+
+  // Apply sticky positioning to a header/body cell element when its column is pinned
+  const applyPin = (cell, colKey, isHeader) => {
+    if (!cell || !pinnedColumns.includes(colKey)) return cell
+    const stickyStyle = {
+      position: 'sticky',
+      left: `${pinnedOffsets[colKey] || 0}px`,
+      zIndex: isHeader ? 21 : 5,
+      backgroundColor: isHeader ? '#2563eb' : '#ffffff',
+      boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
+    }
+    return cloneElement(cell, {
+      style: { ...(cell.props?.style || {}), ...stickyStyle }
+    })
+  }
 
   const toggleColumn = (columnKey) => {
     setVisibleColumns(prev => ({
@@ -1303,6 +1347,8 @@ const PendingOrdersPage = () => {
                             onReorder={(newOrder) => setColumnOrder(newOrder)}
                             accent="blue"
                             title={null}
+                            pinnedColumns={pinnedColumns}
+                            onPinToggle={togglePinColumn}
                           />
                         </div>
                       </div>
@@ -1388,6 +1434,7 @@ const PendingOrdersPage = () => {
                           default: cell = null
                         }
                         if (!cell) return null
+                        cell = applyPin(cell, col.key, true)
                         return <Fragment key={col.key}>{cell}</Fragment>
                       })}
                     </tr>
@@ -1396,17 +1443,25 @@ const PendingOrdersPage = () => {
                     {isPageLoading ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1] border-l-2 border-l-[#E1E1E1]">
-                          {orderedColumns.map((col, colIdx) => (
-                            visibleColumns[col.key] ? (
+                          {orderedColumns.map((col, colIdx) => {
+                            if (!visibleColumns[col.key]) return null
+                            const isPinnedCell = pinnedColumns.includes(col.key)
+                            const stickyTdStyle = isPinnedCell ? {
+                              position: 'sticky',
+                              left: `${pinnedOffsets[col.key] || 0}px`,
+                              zIndex: 5,
+                              backgroundColor: '#ffffff'
+                            } : undefined
+                            return (
                               <td
                                 key={col.key}
                                 className={`px-2${colIdx !== 0 ? ' border-l border-[#E1E1E1]' : ''}`}
-                                style={{ height: '38px' }}
+                                style={{ height: '38px', ...(stickyTdStyle || {}) }}
                               >
                                 <div className="h-3 w-full max-w-[80%] bg-gray-200 rounded animate-pulse" />
                               </td>
-                            ) : null
-                          ))}
+                            )
+                          })}
                         </tr>
                       ))
                     ) : displayedOrders.length === 0 ? (
@@ -1510,10 +1565,19 @@ const PendingOrdersPage = () => {
                                 </div>
                               );
                             }
+                            const isPinnedCell = pinnedColumns.includes(colKey)
+                            const stickyTdStyle = isPinnedCell ? {
+                              position: 'sticky',
+                              left: `${pinnedOffsets[colKey] || 0}px`,
+                              zIndex: 5,
+                              backgroundColor: '#ffffff',
+                              boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
+                            } : undefined
                             return (
                               <td
                                 key={colKey}
                                 className={`px-2 py-1.5 text-sm${colIdx !== 0 ? ' border-l border-[#E1E1E1]' : ''} ${colKey === 'login' ? 'text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap cursor-pointer hover:underline' : colKey === 'type' ? '' : colKey === 'state' ? '' : 'text-gray-900 whitespace-nowrap'}`}
+                                style={stickyTdStyle}
                               >
                                 {cellContent}
                               </td>

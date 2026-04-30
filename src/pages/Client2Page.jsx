@@ -297,6 +297,22 @@ const Client2Page = () => {
     }
   })
 
+  // Pinned (frozen) columns - persisted to localStorage
+  const [pinnedColumns, setPinnedColumns] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('client2PinnedColumns'))
+      return Array.isArray(saved) ? saved : ['login']
+    } catch (e) {
+      return ['login']
+    }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('client2PinnedColumns', JSON.stringify(pinnedColumns)) } catch (e) {}
+  }, [pinnedColumns])
+  const togglePinColumn = (key) => {
+    setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  }
+
   // Clear all filters on component mount (when navigating to this page or refreshing)
   useEffect(() => {
     setQuickFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
@@ -809,6 +825,19 @@ const Client2Page = () => {
   const totalTableWidth = useMemo(() => {
     return visibleColumnsList.reduce((sum, col) => sum + getDefaultColumnWidth(col), 0)
   }, [visibleColumnsList, columnWidths, getDefaultColumnWidth])
+
+  // Cumulative left offsets for pinned (sticky) columns, computed in display order
+  const pinnedOffsets = useMemo(() => {
+    const map = {}
+    let offset = 0
+    for (const col of visibleColumnsList) {
+      if (pinnedColumns.includes(col.key)) {
+        map[col.key] = offset
+        offset += getDefaultColumnWidth(col)
+      }
+    }
+    return map
+  }, [visibleColumnsList, pinnedColumns, getDefaultColumnWidth])
 
   // Filter operators by type
   const numberOperators = [
@@ -3826,6 +3855,29 @@ const Client2Page = () => {
               </div>
               {/* Action Buttons Row moved to right of title - keep only Cards toggle */}
               <div className="flex items-center gap-2">
+                {/* Currency Mode segmented control */}
+                <div className="inline-flex rounded-md border border-[#E5E7EB] bg-white shadow-sm overflow-hidden h-8">
+                  {['Combined', 'INR', 'USD'].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        if (currencyMode === opt) return
+                        setCurrencyMode(opt)
+                        setCurrentPage(1)
+                      }}
+                      className={`px-2.5 text-xs font-medium transition-colors ${
+                        currencyMode === opt
+                          ? 'bg-blue-600 text-white'
+                          : 'text-[#374151] hover:bg-gray-50'
+                      }`}
+                      title={`Show values in ${opt}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Filter Button */}
                 <div className="relative flex items-center" ref={filterMenuRef}>
                   <button
@@ -3986,27 +4038,6 @@ const Client2Page = () => {
                 </div>
 
                 {/* Currency Mode segmented control */}
-                <div className="inline-flex rounded-md border border-[#E5E7EB] bg-white shadow-sm overflow-hidden h-8">
-                  {['Combined', 'INR', 'USD'].map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => {
-                        if (currencyMode === opt) return
-                        setCurrencyMode(opt)
-                        setCurrentPage(1)
-                      }}
-                      className={`px-2.5 text-xs font-medium transition-colors ${
-                        currencyMode === opt
-                          ? 'bg-blue-600 text-white'
-                          : 'text-[#374151] hover:bg-gray-50'
-                      }`}
-                      title={`Show values in ${opt}`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
 
                 {/* Card Filter Button */}
                 <div className="relative flex items-center" ref={cardFilterMenuRef}>
@@ -4475,6 +4506,8 @@ const Client2Page = () => {
                       accent="blue"
                       title={null}
                       groupVisibleFirst
+                      pinnedColumns={pinnedColumns}
+                      onPinToggle={togglePinColumn}
                     />
                   </div>
                   </div>
@@ -4633,6 +4666,8 @@ const Client2Page = () => {
                         {visibleColumnsList.map(col => {
                           const filterCount = getActiveFilterCount(col.key)
                           const isResizing = resizingColumn === col.key
+                          const isPinned = pinnedColumns.includes(col.key)
+                          const pinnedLeft = isPinned ? (pinnedOffsets[col.key] || 0) : null
                           return (
                             <th
                               key={col.key}
@@ -4645,7 +4680,12 @@ const Client2Page = () => {
                                 position: 'sticky',
                                 top: 0,
                                 borderRight: '1px solid #e5e7eb',
-                                ...(col.key === 'login' && { left: 0, zIndex: 51, paddingLeft: '4px' })
+                                ...(isPinned && {
+                                  left: `${pinnedLeft}px`,
+                                  zIndex: 51,
+                                  boxShadow: '2px 0 4px -2px rgba(0,0,0,0.15)'
+                                }),
+                                ...(col.key === 'login' && { paddingLeft: '4px' })
                               }}
                             >
                               <div className="flex items-center gap-2 justify-between min-w-0">
@@ -5394,17 +5434,26 @@ const Client2Page = () => {
                       {(loading || initialLoad || isRefreshing || isPageChanging) ? (
                         Array.from({ length: 8 }, (_, i) => (
                           <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
-                            {visibleColumnsList.map((col) => (
-                              <td
-                                key={`${col.key}-${i}`}
-                                className={`${col.key === 'login' ? 'sticky left-0 bg-white z-10' : ''}`}
-                                style={{ height: '38px' }}
-                              >
-                                <div className="px-2">
-                                  <div className="h-3 w-full max-w-[80%] skeleton-shimmer" />
-                                </div>
-                              </td>
-                            ))}
+                            {visibleColumnsList.map((col) => {
+                              const isPinnedCell = pinnedColumns.includes(col.key)
+                              const stickyStyle = isPinnedCell ? {
+                                position: 'sticky',
+                                left: `${pinnedOffsets[col.key] || 0}px`,
+                                zIndex: 10,
+                                backgroundColor: '#ffffff'
+                              } : {}
+                              return (
+                                <td
+                                  key={`${col.key}-${i}`}
+                                  className={isPinnedCell ? 'bg-white' : ''}
+                                  style={{ height: '38px', ...stickyStyle }}
+                                >
+                                  <div className="px-2">
+                                    <div className="h-3 w-full max-w-[80%] skeleton-shimmer" />
+                                  </div>
+                                </td>
+                              )
+                            })}
                           </tr>
                         ))
                       ) : (!loading && !initialLoad && sortedClients.length === 0) ? (
@@ -5462,6 +5511,15 @@ const Client2Page = () => {
                               ? formatIndianNumber(Number(rawValue).toFixed(2))
                               : cellValue
 
+                            const isPinnedCell = pinnedColumns.includes(col.key)
+                            const stickyStyle = isPinnedCell ? {
+                              position: 'sticky',
+                              left: `${pinnedOffsets[col.key] || 0}px`,
+                              zIndex: 10,
+                              backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
+                              boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
+                            } : {}
+
                             // Special handling for login column - make it blue and sticky
                             if (col.key === 'login') {
                               return (
@@ -5472,10 +5530,8 @@ const Client2Page = () => {
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
-                                    position: 'sticky',
-                                    left: 0,
-                                    zIndex: 10,
-                                    borderRight: '1px solid #e5e7eb'
+                                    borderRight: '1px solid #e5e7eb',
+                                    ...(isPinnedCell ? stickyStyle : {})
                                   }}
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -5498,7 +5554,8 @@ const Client2Page = () => {
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
-                                  borderRight: '1px solid #e5e7eb'
+                                  borderRight: '1px solid #e5e7eb',
+                                  ...stickyStyle
                                 }}
                                 title={cellTitle}
                               >

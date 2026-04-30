@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef, useMemo, Fragment, cloneElement } from 'react'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
 import { useData } from '../contexts/DataContext'
@@ -192,6 +192,48 @@ const LiveDealingPage = () => {
     map.forEach(c => out.push(c))
     return out
   })()
+
+  // Pinned (frozen) columns - persisted to localStorage
+  const [pinnedColumns, setPinnedColumns] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('liveDealingPagePinnedColumns'))
+      return Array.isArray(saved) ? saved : []
+    } catch { return [] }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('liveDealingPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+  }, [pinnedColumns])
+  const togglePinColumn = (key) =>
+    setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+
+  const PINNED_DEFAULT_WIDTH = 150
+  const pinnedOffsets = useMemo(() => {
+    const map = {}
+    let offset = 0
+    for (const col of orderedColumns) {
+      if (!visibleColumns[col.key]) continue
+      if (pinnedColumns.includes(col.key)) {
+        map[col.key] = offset
+        offset += PINNED_DEFAULT_WIDTH
+      }
+    }
+    return map
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedColumns, visibleColumns, pinnedColumns])
+
+  const applyPin = (cell, colKey, isHeader) => {
+    if (!cell || !pinnedColumns.includes(colKey)) return cell
+    const stickyStyle = {
+      position: 'sticky',
+      left: `${pinnedOffsets[colKey] || 0}px`,
+      zIndex: isHeader ? 21 : 5,
+      backgroundColor: isHeader ? '#2563eb' : '#ffffff',
+      boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
+    }
+    return cloneElement(cell, {
+      style: { ...(cell.props?.style || {}), ...stickyStyle }
+    })
+  }
 
   const toggleColumn = (columnKey) => {
     setVisibleColumns(prev => ({
@@ -1952,6 +1994,8 @@ const LiveDealingPage = () => {
                             onReorder={(newOrder) => setColumnOrder(newOrder)}
                             accent="blue"
                             title={null}
+                            pinnedColumns={pinnedColumns}
+                            onPinToggle={togglePinColumn}
                           />
                         </div>
                       </div>
@@ -2048,6 +2092,7 @@ const LiveDealingPage = () => {
                       default: cell = null
                     }
                     if (!cell) return null
+                    cell = applyPin(cell, col.key, true)
                     return <Fragment key={col.key}>{cell}</Fragment>
                   })}
                 </tr>
@@ -2108,7 +2153,15 @@ const LiveDealingPage = () => {
                     >
                       {orderedColumns.map(col => {
                         if (!visibleColumns[col.key]) return null
-                        const cellStyle = { borderRight: '1px solid #e5e7eb' }
+                        const isPinnedCell = pinnedColumns.includes(col.key)
+                        const cellStyle = isPinnedCell ? {
+                          borderRight: '1px solid #e5e7eb',
+                          position: 'sticky',
+                          left: `${pinnedOffsets[col.key] || 0}px`,
+                          zIndex: 5,
+                          backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb',
+                          boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
+                        } : { borderRight: '1px solid #e5e7eb' }
                         switch (col.key) {
                           case 'time':
                             return <td key="time" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{formatTime(deal.time)}</td>
@@ -2163,7 +2216,7 @@ const LiveDealingPage = () => {
                           case 'position':
                             return <td key="position" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{deal.rawData?.position || '-'}</td>
                           case 'reason':
-                            return <td key="reason" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-600">{deal.rawData?.reason || '-'}</td>
+                            return <td key="reason" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-600" style={cellStyle}>{deal.rawData?.reason || '-'}</td>
                           default:
                             return null
                         }

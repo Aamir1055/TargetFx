@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback, Fragment, useDeferredValue } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback, Fragment, useDeferredValue, cloneElement } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useGroups } from '../contexts/GroupContext'
@@ -247,6 +247,37 @@ const PositionsPage = () => {
   const resetColumnOrder = () => {
     setColumnOrder(null)
     try { localStorage.removeItem('positionsPageColumnOrder') } catch {}
+  }
+
+  // Pinned (frozen) columns - persisted to localStorage
+  const [pinnedColumns, setPinnedColumns] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('positionsPagePinnedColumns'))
+      return Array.isArray(saved) ? saved : []
+    } catch { return [] }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('positionsPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+  }, [pinnedColumns])
+  const togglePinColumn = (key) =>
+    setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  const PINNED_DEFAULT_WIDTH = 150
+
+  // Apply sticky positioning to a header/body cell when its column is pinned.
+  // Skips Fragment cells (e.g., volume/profit/storage with percentage variants).
+  const applyPin = (cell, colKey, isHeader, pinnedOffsetsMap) => {
+    if (!cell || !pinnedColumns.includes(colKey)) return cell
+    if (cell.type === Fragment) return cell
+    const stickyStyle = {
+      position: 'sticky',
+      left: `${(pinnedOffsetsMap && pinnedOffsetsMap[colKey]) || 0}px`,
+      zIndex: isHeader ? 21 : 5,
+      backgroundColor: isHeader ? '#2563eb' : '#ffffff',
+      boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
+    }
+    return cloneElement(cell, {
+      style: { ...(cell.props?.style || {}), ...stickyStyle }
+    })
   }
 
   // Map base metric keys to their percentage field names from API
@@ -3803,6 +3834,8 @@ const PositionsPage = () => {
                             onReorder={(newOrder) => setColumnOrder(newOrder)}
                             accent="blue"
                             title={null}
+                            pinnedColumns={pinnedColumns}
+                            onPinToggle={togglePinColumn}
                           />
                         </div>
                       </div>
@@ -3880,6 +3913,16 @@ const PositionsPage = () => {
                         const ordered = (Array.isArray(columnOrder) && columnOrder.length)
                           ? [...columnOrder.filter(k => baseKeys.includes(k)), ...baseKeys.filter(k => !columnOrder.includes(k))]
                           : baseKeys
+                        // Compute cumulative left offsets for pinned columns in display order.
+                        const pinnedOffsetsMap = {}
+                        {
+                          let off = 0
+                          if (effectiveCols.time && pinnedColumns.includes('time')) { pinnedOffsetsMap['time'] = off; off += PINNED_DEFAULT_WIDTH }
+                          for (const k of ordered) {
+                            if (!effectiveCols[k]) continue
+                            if (pinnedColumns.includes(k)) { pinnedOffsetsMap[k] = off; off += PINNED_DEFAULT_WIDTH }
+                          }
+                        }
                         const headerByKey = (key) => {
                           switch (key) {
                             case 'login': return effectiveCols.login && renderHeaderCell('login', 'Login')
@@ -3917,8 +3960,8 @@ const PositionsPage = () => {
                         }
                         return (
                           <>
-                            {effectiveCols.time && renderHeaderCell('timeUpdate', 'Time', 'timeUpdate')}
-                            {ordered.map(k => <Fragment key={k}>{headerByKey(k)}</Fragment>)}
+                            {effectiveCols.time && applyPin(renderHeaderCell('timeUpdate', 'Time', 'timeUpdate'), 'time', true, pinnedOffsetsMap)}
+                            {ordered.map(k => <Fragment key={k}>{applyPin(headerByKey(k), k, true, pinnedOffsetsMap)}</Fragment>)}
                             {effectiveCols.appliedPercentage && renderHeaderCell('applied_percentage', 'Applied %')}
                           </>
                         )
@@ -3987,6 +4030,16 @@ const PositionsPage = () => {
                       const ordered = (Array.isArray(columnOrder) && columnOrder.length)
                         ? [...columnOrder.filter(k => baseKeys.includes(k)), ...baseKeys.filter(k => !columnOrder.includes(k))]
                         : baseKeys
+                      // Compute cumulative left offsets for pinned columns in display order.
+                      const pinnedOffsetsMap = {}
+                      {
+                        let off = 0
+                        if (effectiveCols.time && pinnedColumns.includes('time')) { pinnedOffsetsMap['time'] = off; off += PINNED_DEFAULT_WIDTH }
+                        for (const k of ordered) {
+                          if (!effectiveCols[k]) continue
+                          if (pinnedColumns.includes(k)) { pinnedOffsetsMap[k] = off; off += PINNED_DEFAULT_WIDTH }
+                        }
+                      }
                       const cellByKey = (key) => {
                         switch (key) {
                           case 'login': return effectiveCols.login && (
@@ -4101,10 +4154,11 @@ const PositionsPage = () => {
                       }
                       return (
                         <tr key={p.position} className={`${rowClass} transition-all duration-300 divide-x divide-gray-200`}>
-                          {effectiveCols.time && (
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{formatTime(p.timeUpdate || p.timeCreate)}</td>
+                          {effectiveCols.time && applyPin(
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{formatTime(p.timeUpdate || p.timeCreate)}</td>,
+                            'time', false, pinnedOffsetsMap
                           )}
-                          {ordered.map(k => <Fragment key={k}>{cellByKey(k)}</Fragment>)}
+                          {ordered.map(k => <Fragment key={k}>{applyPin(cellByKey(k), k, false, pinnedOffsetsMap)}</Fragment>)}
                           {effectiveCols.appliedPercentage && (
                             <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums border-r border-gray-200 last:border-r-0">
                               {(p.applied_percentage != null && p.applied_percentage !== '') ? `${formatNumber(p.applied_percentage, 2)}%` : '-'}

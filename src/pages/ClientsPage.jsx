@@ -545,6 +545,33 @@ const ClientsPage = () => {
     return baseWidth
   }, [visibleColumnsList, columnWidths, displayMode])
 
+  // Pinned (frozen) columns - persisted to localStorage
+  const [pinnedColumns, setPinnedColumns] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('clientsPagePinnedColumns'))
+      return Array.isArray(saved) ? saved : []
+    } catch { return [] }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('clientsPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+  }, [pinnedColumns])
+  const togglePinColumn = (key) =>
+    setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+
+  // Cumulative left offsets for pinned columns in display order (using current widths)
+  const pinnedOffsets = useMemo(() => {
+    const map = {}
+    let offset = 0
+    for (const col of (visibleColumnsList || [])) {
+      if (pinnedColumns.includes(col.key)) {
+        map[col.key] = offset
+        const w = columnWidths[col.key]
+        offset += (typeof w === 'number' && w > 0 ? w : 150)
+      }
+    }
+    return map
+  }, [visibleColumnsList, pinnedColumns, columnWidths])
+
   // Clear all filters on component mount (when navigating to this page)
   useEffect(() => {
     setFilterByPositions(false)
@@ -3249,6 +3276,8 @@ const ClientsPage = () => {
                         onReorder={(newOrder) => setColumnOrder(newOrder)}
                         accent="amber"
                         title={null}
+                        pinnedColumns={pinnedColumns}
+                        onPinToggle={togglePinColumn}
                       />
                     </div>
                   </div>
@@ -3368,13 +3397,23 @@ const ClientsPage = () => {
                         const isFilterable = !col.key.endsWith('_percentage_display') // Only filter base columns
                         const isLastColumn = colIndex >= renderCols.length - 3 // Last 3 columns
                         const defaultPixelWidth = 150 // Default width in pixels for each column
-                        
+                        const isPinned = pinnedColumns.includes(col.baseKey)
+                        const pinnedLeft = isPinned ? pinnedOffsets[col.baseKey] : undefined
+
                         return (
                         <th
                           key={col.key}
                           className={`px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider relative group hover:bg-blue-700 transition-colors bg-blue-600`}
                           ref={el => { if (el) { if (!headerRefs.current) headerRefs.current = {}; headerRefs.current[col.key] = el } }}
-                          style={{ width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : `${defaultPixelWidth}px`, minWidth: '80px', overflow: 'visible', position: 'relative' }}
+                          style={{
+                            width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : `${defaultPixelWidth}px`,
+                            minWidth: '80px',
+                            overflow: 'visible',
+                            position: isPinned ? 'sticky' : 'relative',
+                            left: isPinned ? `${pinnedLeft}px` : undefined,
+                            zIndex: isPinned ? 12 : undefined,
+                            boxShadow: isPinned ? '2px 0 4px -2px rgba(0,0,0,0.15)' : undefined
+                          }}
                           title={col.label}
                         >
                           {/* Column Resize Handle */}
@@ -3919,6 +3958,17 @@ const ClientsPage = () => {
                         className={`hover:bg-blue-50 transition-all duration-200 ${globalIndex === displayedClients.length - 1 ? 'border-b-2 border-gray-300' : 'border-b border-gray-100 hover:border-blue-200'}`}
                       >
                         {renderCols.map(col => {
+                          const baseColKey = col.key.replace(/_percentage_display$/, '')
+                          const isPinned = pinnedColumns.includes(baseColKey)
+                          const pinnedLeft = isPinned ? pinnedOffsets[baseColKey] : undefined
+                          const stickyStyle = isPinned ? {
+                            position: 'sticky',
+                            left: `${pinnedLeft}px`,
+                            zIndex: 1,
+                            background: 'inherit',
+                            backgroundColor: '#fff',
+                            boxShadow: '2px 0 4px -2px rgba(0,0,0,0.15)'
+                          } : null
                           // Special handling for login column - make it clickable
                           if (col.key === 'login') {
                             const defaultPixelWidth = 150
@@ -3926,7 +3976,7 @@ const ClientsPage = () => {
                               <td 
                                 key={col.key} 
                                 className="px-3 py-2 text-sm text-blue-600 hover:text-blue-700 cursor-pointer hover:underline transition-all" 
-                                style={{ width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : `${defaultPixelWidth}px`, minWidth: '80px' }}
+                                style={{ width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : `${defaultPixelWidth}px`, minWidth: '80px', ...(stickyStyle || {}) }}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setSelectedClient(client)
@@ -3947,7 +3997,7 @@ const ClientsPage = () => {
                           // Regular columns
                           const defaultPixelWidth = 150
                           return (
-                            <td key={col.key} className="px-2 py-1.5 text-[13px] text-gray-800" style={{ width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : `${defaultPixelWidth}px`, minWidth: '80px' }}>
+                            <td key={col.key} className="px-2 py-1.5 text-[13px] text-gray-800" style={{ width: columnWidths[col.key] ? `${columnWidths[col.key]}px` : `${defaultPixelWidth}px`, minWidth: '80px', ...(stickyStyle || {}) }}>
                               <div className="truncate" title={col.title}>
                                 {col.value}
                               </div>

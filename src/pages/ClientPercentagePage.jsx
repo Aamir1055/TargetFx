@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef, useMemo, Fragment, cloneElement } from 'react'
 import { brokerAPI } from '../services/api'
 import { useGroups } from '../contexts/GroupContext'
 import { useData } from '../contexts/DataContext'
@@ -137,6 +137,50 @@ const ClientPercentagePage = () => {
     map.forEach(c => out.push(c))
     return out
   })()
+
+  // Pinned (frozen) columns - persisted to localStorage
+  const [pinnedColumns, setPinnedColumns] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('clientPercentagePagePinnedColumns'))
+      return Array.isArray(saved) ? saved : []
+    } catch { return [] }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('clientPercentagePagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+  }, [pinnedColumns])
+  const togglePinColumn = (key) =>
+    setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+
+  const PINNED_DEFAULT_WIDTH = 150
+  const PINNED_LEADING_OFFSET = 40 // checkbox column width
+  const pinnedOffsets = useMemo(() => {
+    const map = {}
+    let offset = PINNED_LEADING_OFFSET
+    for (const col of orderedColumns) {
+      if (!visibleColumns[col.key]) continue
+      if (pinnedColumns.includes(col.key)) {
+        map[col.key] = offset
+        offset += PINNED_DEFAULT_WIDTH
+      }
+    }
+    return map
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedColumns, visibleColumns, pinnedColumns])
+
+  const applyPin = (cell, colKey, isHeader) => {
+    if (!cell || !pinnedColumns.includes(colKey)) return cell
+    if (cell.type === Fragment) return cell
+    const stickyStyle = {
+      position: 'sticky',
+      left: `${pinnedOffsets[colKey] || 0}px`,
+      zIndex: isHeader ? 21 : 5,
+      backgroundColor: isHeader ? '#2563eb' : '#ffffff',
+      boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
+    }
+    return cloneElement(cell, {
+      style: { ...(cell.props?.style || {}), ...stickyStyle }
+    })
+  }
 
   const toggleColumn = (key) => {
     setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -1066,6 +1110,8 @@ const ClientPercentagePage = () => {
                               onReorder={(newOrder) => setColumnOrder(newOrder)}
                               accent="blue"
                               title={null}
+                              pinnedColumns={pinnedColumns}
+                              onPinToggle={togglePinColumn}
                             />
                           </div>
                         </div>
@@ -1181,6 +1227,7 @@ const ClientPercentagePage = () => {
                         ); break
                         default: cell = null
                       }
+                      cell = applyPin(cell, col.key, true)
                       return <Fragment key={col.key}>{cell}</Fragment>
                     })}
                   </tr>
@@ -1322,6 +1369,7 @@ const ClientPercentagePage = () => {
                           ); break
                           default: cell = null
                         }
+                        cell = applyPin(cell, col.key, false)
                         return <Fragment key={col.key}>{cell}</Fragment>
                       })}
                     </tr>
