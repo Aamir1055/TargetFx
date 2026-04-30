@@ -764,7 +764,9 @@ export default function PositionModule() {
       case 'login':
         const handleLoginClick = () => {
           const fullClient = clients.find(c => String(c.login) === String(pos.login))
-          setSelectedClient(fullClient || { login: pos.login, email: pos.email || '', name: '' })
+            || rawClients.find(c => String(c.login) === String(pos.login))
+          const derivedName = [pos.firstName, pos.lastName].filter(Boolean).join(' ') || pos.name || ''
+          setSelectedClient(fullClient || { login: pos.login, email: pos.email || '', name: derivedName })
         }
         return (
           <div 
@@ -1186,7 +1188,7 @@ export default function PositionModule() {
       <div className="flex-1 overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Action buttons row */}
         <div className="pt-5 pb-4 px-4">
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
             <button 
               onClick={() => setIsCustomizeOpen(true)}
               className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative flex-shrink-0 ${
@@ -1842,12 +1844,16 @@ export default function PositionModule() {
                             style={{boxShadow: '2px 0 4px rgba(0,0,0,0.05)'}}
                             onClick={() => {
                               const fullClient = clients.find(c => String(c.login) === String(pos.login))
-                              setSelectedClient(fullClient || { login: pos.login, email: pos.email || '', name: '' })
+                                || rawClients.find(c => String(c.login) === String(pos.login))
+                              const derivedName = [pos.firstName, pos.lastName].filter(Boolean).join(' ') || pos.name || ''
+                              setSelectedClient(fullClient || { login: pos.login, email: pos.email || '', name: derivedName })
                             }}
                             onTouchEnd={(e) => {
                               e.preventDefault()
                               const fullClient = clients.find(c => String(c.login) === String(pos.login))
-                              setSelectedClient(fullClient || { login: pos.login, email: pos.email || '', name: '' })
+                                || rawClients.find(c => String(c.login) === String(pos.login))
+                              const derivedName = [pos.firstName, pos.lastName].filter(Boolean).join(' ') || pos.name || ''
+                              setSelectedClient(fullClient || { login: pos.login, email: pos.email || '', name: derivedName })
                             }}
                           >
                             {pos.login}
