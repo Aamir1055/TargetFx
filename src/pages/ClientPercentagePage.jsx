@@ -12,6 +12,7 @@ import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import ClientPercentageModule from '../components/ClientPercentageModule'
 import ColumnChooserList from '../components/ColumnChooserList'
+import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
 
 const ClientPercentagePage = () => {
   // Detect mobile device
@@ -150,6 +151,9 @@ const ClientPercentagePage = () => {
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+
+  // Column resize (per-column widths persisted to localStorage)
+  const { setHeaderRef, getHeaderStyle, handleResizeStart } = useColumnResize('clientPercentagePageColumnWidths')
 
   const PINNED_DEFAULT_WIDTH = 150
   const PINNED_LEADING_OFFSET = 40 // checkbox column width
@@ -785,17 +789,20 @@ const ClientPercentagePage = () => {
     if (!sortKey) {
       return (
         <th
+          ref={setHeaderRef(columnKey)}
           className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider select-none border-b border-blue-500"
-          style={{ backgroundColor: '#2563eb' }}
+          style={{ backgroundColor: '#2563eb', ...getHeaderStyle(columnKey) }}
         >
           <span>{label}</span>
+          <ColumnResizeHandle columnKey={columnKey} onResizeStart={handleResizeStart} />
         </th>
       )
     }
     return (
       <th
+        ref={setHeaderRef(columnKey)}
         className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider hover:bg-blue-700 transition-colors select-none group border-b border-blue-500 cursor-pointer"
-        style={{ backgroundColor: '#2563eb' }}
+        style={{ backgroundColor: '#2563eb', ...getHeaderStyle(columnKey) }}
         onClick={() => {
           setSortColumn(sortKey)
           setSortDirection(prev => sortColumn === sortKey && prev === 'asc' ? 'desc' : 'asc')
@@ -805,6 +812,7 @@ const ClientPercentagePage = () => {
           <span>{label}</span>
           {getSortIcon(sortKey)}
         </div>
+        <ColumnResizeHandle columnKey={columnKey} onResizeStart={handleResizeStart} />
       </th>
     )
   }

@@ -13,6 +13,7 @@ import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import LiveDealingModule from '../components/LiveDealingModule'
 import ColumnChooserList from '../components/ColumnChooserList'
+import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
 
 const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
 
@@ -207,6 +208,9 @@ const LiveDealingPage = () => {
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+
+  // Column resize (per-column widths persisted to localStorage)
+  const { setHeaderRef, getHeaderStyle, handleResizeStart } = useColumnResize('liveDealingPageColumnWidths')
 
   const PINNED_DEFAULT_WIDTH = 150
   const pinnedOffsets = useMemo(() => {
@@ -1292,7 +1296,11 @@ const LiveDealingPage = () => {
     const actualSortKey = sortKey || columnKey
     
     return (
-      <th className="px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider hover:bg-blue-700 transition-all select-none group bg-blue-600">
+      <th
+        ref={setHeaderRef(columnKey)}
+        style={getHeaderStyle(columnKey)}
+        className="px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider hover:bg-blue-700 transition-all select-none group bg-blue-600"
+      >
         <div className="flex items-center gap-1 justify-between">
           <div 
             className="flex items-center gap-1 cursor-pointer flex-1"
@@ -1663,6 +1671,7 @@ const LiveDealingPage = () => {
             )}
           </div>
         </div>
+        <ColumnResizeHandle columnKey={columnKey} onResizeStart={handleResizeStart} />
       </th>
     )
   }

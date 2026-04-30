@@ -14,6 +14,7 @@ import PositionModule from '../components/PositionModule'
 import DateFilterModal from '../components/DateFilterModal'
 import ColumnChooserList from '../components/ColumnChooserList'
 import { normalizePositions } from '../utils/currencyNormalization'
+import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
 
 const PositionsPage = () => {
   // Mobile detection - initialize with actual window width to prevent flash
@@ -262,6 +263,9 @@ const PositionsPage = () => {
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
   const PINNED_DEFAULT_WIDTH = 150
+
+  // Column resize (per-column widths persisted to localStorage)
+  const { setHeaderRef, getHeaderStyle, handleResizeStart } = useColumnResize('positionsPageColumnWidths')
 
   // Apply sticky positioning to a header/body cell when its column is pinned.
   // Skips Fragment cells (e.g., volume/profit/storage with percentage variants).
@@ -2008,7 +2012,11 @@ const PositionsPage = () => {
     const actualSortKey = sortKey || columnKey
     
     return (
-      <th className="px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider transition-all select-none group border-r border-gray-200 last:border-r-0">
+      <th
+        ref={setHeaderRef(columnKey)}
+        style={getHeaderStyle(columnKey)}
+        className="px-2 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider transition-all select-none group border-r border-gray-200 last:border-r-0"
+      >
         <div className="flex items-center gap-1 justify-between">
           <div 
             className="flex items-center gap-1 cursor-pointer flex-1 text-white"
@@ -2417,6 +2425,7 @@ const PositionsPage = () => {
             )}
           </div>
         </div>
+        <ColumnResizeHandle columnKey={columnKey} onResizeStart={handleResizeStart} />
       </th>
     )
   }
