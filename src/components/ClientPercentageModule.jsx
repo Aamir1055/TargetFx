@@ -72,6 +72,26 @@ export default function ClientPercentageModule() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedClient, setSelectedClient] = useState(null)
 
+  // Bulk Update State
+  const [selectedRows, setSelectedRows] = useState(new Set())
+  const [showBulkModal, setShowBulkModal] = useState(false)
+  const [bulkPercentage, setBulkPercentage] = useState('')
+  const [bulkComment, setBulkComment] = useState('')
+  const [bulkSaving, setBulkSaving] = useState(false)
+
+  // CSV Import State
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [csvData, setCsvData] = useState([])
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvError, setCsvError] = useState('')
+  const csvFileRef = useRef(null)
+
+  // Export State
+  const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportMenuRef = useRef(null)
+
   // API State
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(false)
@@ -348,7 +368,7 @@ export default function ClientPercentageModule() {
   ]
 
   const activeColumns = allColumns.filter(col => visibleColumns[col.key])
-  const gridTemplateColumns = activeColumns.map(col => col.width).join(' ')
+  const gridTemplateColumns = '32px ' + activeColumns.map(col => col.width).join(' ')
 
   const renderCellValue = (item, key, isSticky = false) => {
     let value = '-'
@@ -414,6 +434,186 @@ export default function ClientPercentageModule() {
   }
 
   // Export to CSV
+  // Row selection helpers
+  const toggleRowSelection = (login) => {
+    setSelectedRows(prev => {
+      const next = new Set(prev)
+      next.has(login) ? next.delete(login) : next.add(login)
+      return next
+    })
+  }
+
+  const toggleAllRows = (data) => {
+    const logins = data.map(c => c.client_login || c.login).filter(Boolean)
+    if (selectedRows.size > 0 && selectedRows.size === logins.length) {
+      setSelectedRows(new Set())
+    } else {
+      setSelectedRows(new Set(logins))
+    }
+  }
+
+  // Bulk Update handler
+  const handleBulkUpdate = async () => {
+    const percentage = parseFloat(bulkPercentage)
+    if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+      alert('Please enter a valid percentage between 0 and 100')
+      return
+    }
+    try {
+      setBulkSaving(true)
+      const clientsToUpdate = Array.from(selectedRows).map(login => ({
+        login,
+        percentage,
+        comment: bulkComment || `Bulk update: ${percentage}%`
+      }))
+      await brokerAPI.bulkUpdateClientPercentages(clientsToUpdate)
+      await fetchAllClientPercentages(currentPage)
+      setShowBulkModal(false)
+      setSelectedRows(new Set())
+      setBulkPercentage('')
+      setBulkComment('')
+    } catch (err) {
+      console.error('Error bulk updating percentages:', err)
+      alert('Failed to bulk update. Please try again.')
+    } finally {
+      setBulkSaving(false)
+    }
+  }
+
+  // CSV File Parser
+  const handleCSVFile = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setCsvError('')
+    setCsvData([])
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target.result
+        const lines = text.trim().split(/\r?\n/)
+        if (lines.length < 2) { setCsvError('CSV must have a header row and at least one data row'); return }
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''))
+        const loginIdx = headers.findIndex(h => h === 'login')
+        const pctIdx = headers.findIndex(h => h === 'percentage')
+        const cmtIdx = headers.findIndex(h => h === 'comment')
+        if (loginIdx === -1 || pctIdx === -1) { setCsvError('CSV must have "login" and "percentage" columns'); return }
+        const rows = []
+        const errors = []
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim()
+          if (!line) continue
+          const cols = line.split(',').map(c => c.trim().replace(/^["']|["']$/g, ''))
+          const login = parseInt(cols[loginIdx])
+          const pct = parseFloat(cols[pctIdx])
+          const comment = cmtIdx !== -1 && cols[cmtIdx] ? cols[cmtIdx] : ''
+          if (isNaN(login)) { errors.push(`Row ${i + 1}: invalid login "${cols[loginIdx]}"`); continue }
+          if (isNaN(pct) || pct < 0 || pct > 100) { errors.push(`Row ${i + 1}: invalid percentage "${cols[pctIdx]}"`); continue }
+          rows.push({ login, percentage: pct, comment })
+        }
+        if (errors.length > 0) setCsvError(errors.slice(0, 3).join('\n') + (errors.length > 3 ? `\n...and ${errors.length - 3} more` : ''))
+        if (rows.length === 0) { if (!errors.length) setCsvError('No valid data rows found'); return }
+        setCsvData(rows)
+      } catch { setCsvError('Failed to parse CSV file') }
+    }
+    reader.readAsText(file)
+  }
+
+  // CSV Import handler
+  const handleCSVImport = async () => {
+    if (csvData.length === 0) return
+    try {
+      setCsvImporting(true)
+      await brokerAPI.bulkUpdateClientPercentages(csvData)
+      await fetchAllClientPercentages(currentPage)
+      setShowImportModal(false)
+      setCsvData([])
+      setCsvError('')
+      if (csvFileRef.current) csvFileRef.current.value = ''
+    } catch (err) {
+      console.error('Error importing CSV:', err)
+      setCsvError('Failed to import. Please try again.')
+    } finally {
+      setCsvImporting(false)
+    }
+  }
+
+  // CSV Export helpers
+  const buildCSV = (rows) => {
+    const exportColumns = activeColumns.filter(c => c.key !== 'actions')
+    const headers = exportColumns.map(col => col.label).join(',')
+    const escape = (v) => {
+      let s = v == null ? '' : String(v)
+      s = s.replace(/"/g, '""')
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) s = `"${s}"`
+      return s
+    }
+    const body = rows.map(item => exportColumns.map(col => {
+      switch (col.key) {
+        case 'login': return escape(item.client_login || item.login || '')
+        case 'percentage': return escape(item.percentage ?? 0)
+        case 'type': return escape(item.is_custom ? 'Custom' : 'Default')
+        case 'comment': return escape(item.comment || '')
+        case 'updatedAt': return escape(item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-GB') : '')
+        default: return escape(item[col.key] ?? '')
+      }
+    }).join(',')).join('\n')
+    return headers + '\n' + body
+  }
+
+  const downloadCSV = (csv, filename) => {
+    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  // Full Export handler (mirrors desktop — fetches all pages from API)
+  const handleExport = async (mode = 'all') => {
+    if (exporting) return
+    if (mode === 'selected' && selectedRows.size === 0) { alert('No rows selected'); return }
+    try {
+      setExporting(true)
+      setExportProgress(0)
+      const PARALLEL = 8
+      const PAGE_SIZE = 1000
+      const probe = await brokerAPI.getAllClientPercentages({ page: 1, page_size: PAGE_SIZE, sort_by: sortColumn || 'login', sort_order: sortDirection })
+      const probeClients = Array.isArray(probe.data?.clients) ? probe.data.clients : []
+      const total = Number(probe.data?.total || 0)
+      if (!total) { alert('No data to export'); return }
+      if (!probeClients.length) { alert('No data returned from server'); return }
+      const byLogin = new Map()
+      const addRows = (list) => { for (const c of (list || [])) { const k = c?.client_login ?? c?.login; if (k != null && !byLogin.has(k)) byLogin.set(k, c) } }
+      addRows(probeClients)
+      const totalPages = Math.max(1, Math.ceil(total / probeClients.length))
+      let done = 1
+      for (let page = 2; page <= totalPages; page += PARALLEL) {
+        const batch = []
+        for (let i = 0; i < PARALLEL && (page + i) <= totalPages; i++) batch.push(page + i)
+        const results = await Promise.all(batch.map(p => brokerAPI.getAllClientPercentages({ page: p, page_size: PAGE_SIZE, sort_by: sortColumn || 'login', sort_order: sortDirection }).then(r => Array.isArray(r.data?.clients) ? r.data.clients : []).catch(() => [])))
+        results.forEach(list => addRows(list))
+        done += batch.length
+        setExportProgress(Math.min(done / totalPages, 1))
+      }
+      const allRows = Array.from(byLogin.values())
+      const finalRows = mode === 'selected' ? allRows.filter(c => selectedRows.has(c.client_login) || selectedRows.has(c.login)) : allRows
+      if (!finalRows.length) { alert('No data to export'); return }
+      const csv = buildCSV(finalRows)
+      downloadCSV(csv, `client_percentage_${mode}_${new Date().toISOString().split('T')[0]}.csv`)
+    } catch (err) {
+      console.error('[ClientPercentageModule] Export failed:', err)
+      alert('Export failed. Please try again.')
+    } finally {
+      setExporting(false)
+      setExportProgress(0)
+      setShowExportMenu(false)
+    }
+  }
+
   const handleExportToCSV = () => {
     try {
       const dataToExport = filteredData
@@ -498,6 +698,18 @@ export default function ClientPercentageModule() {
     setActiveGroupFilter('clientpercentage', groupId)
     setIsGroupOpen(false)
   }
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    if (!showExportMenu) return
+    const handler = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setShowExportMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showExportMenu])
 
   // Fix mobile viewport height on actual devices
   useEffect(() => {
@@ -601,6 +813,51 @@ export default function ClientPercentageModule() {
                   </svg>
                 </button>
               )}
+              {/* Import CSV Button */}
+              <button
+                onClick={() => { setCsvData([]); setCsvError(''); if (csvFileRef.current) csvFileRef.current.value = ''; setShowImportModal(true) }}
+                className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151]"
+                title="Import CSV"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Import
+              </button>
+              {/* Export Button with dropdown */}
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  onClick={() => setShowExportMenu(v => !v)}
+                  disabled={exporting}
+                  className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151] disabled:opacity-60"
+                  title="Export"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
+                  </svg>
+                  {exporting ? `${Math.round((exportProgress || 0) * 100)}%` : 'Export'}
+                  {!exporting && <svg className="w-2.5 h-2.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>}
+                </button>
+                {showExportMenu && !exporting && (
+                  <div className="absolute left-0 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
+                    <button
+                      onClick={() => { setShowExportMenu(false); handleExport('all') }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+                    >
+                      <span>Download All</span>
+                      <span className="text-[10px] text-gray-400">{stats.total || ''}</span>
+                    </button>
+                    <button
+                      onClick={() => { setShowExportMenu(false); handleExport('selected') }}
+                      disabled={selectedRows.size === 0}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
+                    >
+                      <span>Download Selected</span>
+                      <span className="text-[10px] text-gray-400">{selectedRows.size}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => window.location.reload()}
                 disabled={loading}
@@ -617,6 +874,18 @@ export default function ClientPercentageModule() {
                 </svg>
               </button>
             </div>
+            {/* Bulk Update button — visible when rows are selected */}
+            {selectedRows.size > 0 && (
+              <button
+                onClick={() => { setBulkPercentage(''); setBulkComment(''); setShowBulkModal(true) }}
+                className="h-8 px-3 rounded-lg bg-blue-600 text-white border border-blue-600 shadow-sm flex items-center gap-1 hover:bg-blue-700 transition-colors text-[10px] font-semibold flex-shrink-0"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Bulk Update ({selectedRows.size})
+              </button>
+            )}
           </div>
         </div>
 
@@ -780,12 +1049,21 @@ export default function ClientPercentageModule() {
                     gridTemplateColumns
                   }}
                 >
+                  {/* Checkbox header */}
+                  <div className="h-[32px] flex items-center justify-center sticky left-0 z-30" style={{ backgroundColor: '#3B82F6' }}>
+                    <input
+                      type="checkbox"
+                      checked={paginatedData.length > 0 && selectedRows.size === paginatedData.length}
+                      onChange={() => toggleAllRows(paginatedData)}
+                      className="w-3 h-3 rounded cursor-pointer"
+                    />
+                  </div>
                   {activeColumns.map(col => (
                     <div 
                       key={col.key}
                       onClick={() => handleSort(col.key)}
                       className={`h-[32px] flex items-center justify-start px-1 cursor-pointer select-none ${
-                        col.sticky ? 'sticky left-0 z-30 bg-blue-500' : ''
+                        col.sticky ? 'sticky left-8 z-30 bg-blue-500' : ''
                       }`}
                       style={{
                         border: 'none',
@@ -820,10 +1098,11 @@ export default function ClientPercentageModule() {
                           gridTemplateColumns
                         }}
                       >
+                        <div className="h-[38px] flex items-center justify-center sticky left-0 bg-white z-10" />
                         {activeColumns.map(col => (
                           <div 
                             key={col.key}
-                            className={`h-[38px] flex items-center px-2 ${col.sticky ? 'sticky left-0 bg-white z-10' : ''}`}
+                            className={`h-[38px] flex items-center px-2 ${col.sticky ? 'sticky left-8 bg-white z-10' : ''}`}
                             style={{boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'}}
                           >
                             <div 
@@ -842,10 +1121,13 @@ export default function ClientPercentageModule() {
                   </div>
                 ) : (
                   <>
-                    {paginatedData.map((item, idx) => (
+                    {paginatedData.map((item, idx) => {
+                      const rowLogin = item.client_login || item.login
+                      const isSelected = selectedRows.has(rowLogin)
+                      return (
                       <div 
                         key={idx} 
-                        className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors"
+                        className={`grid text-[10px] text-[#4B4B4B] font-outfit border-b border-[#E1E1E1] transition-colors ${isSelected ? 'bg-blue-50' : 'bg-white hover:bg-[#F8FAFC]'}`}
                         style={{
                           gap: '0px', 
                           gridGap: '0px', 
@@ -853,13 +1135,23 @@ export default function ClientPercentageModule() {
                           gridTemplateColumns
                         }}
                       >
+                        {/* Row checkbox */}
+                        <div className="h-[38px] flex items-center justify-center sticky left-0 z-10" style={{ background: isSelected ? '#EFF6FF' : 'white' }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleRowSelection(rowLogin)}
+                            className="w-3 h-3 rounded cursor-pointer"
+                          />
+                        </div>
                         {activeColumns.map(col => (
                           <React.Fragment key={col.key}>
                             {renderCellValue(item, col.key, col.sticky)}
                           </React.Fragment>
                         ))}
                       </div>
-                    ))}
+                      )
+                    })}
 
                     {/* Total Row */}
                     {paginatedData.length > 0 && (
@@ -872,10 +1164,11 @@ export default function ClientPercentageModule() {
                           gridTemplateColumns
                         }}
                       >
+                        <div className="h-[28px]" />
                         {activeColumns.map(col => (
                           <div 
                             key={col.key}
-                            className={`h-[28px] flex items-center justify-start px-2 font-semibold ${col.sticky ? 'sticky left-0 bg-[#EFF4FB] z-10' : ''}`}
+                            className={`h-[28px] flex items-center justify-start px-2 font-semibold ${col.sticky ? 'sticky left-8 bg-[#EFF4FB] z-10' : ''}`}
                             style={{
                               border: 'none', 
                               outline: 'none', 
@@ -901,6 +1194,136 @@ export default function ClientPercentageModule() {
           </div>
         </div>
       </div>
+
+      {/* Bulk Update Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 bg-blue-600">
+              <h2 className="text-base font-semibold text-white">Bulk Update Percentages</h2>
+              <button onClick={() => setShowBulkModal(false)} disabled={bulkSaving} className="text-white/80 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <p className="text-sm text-gray-600">Update percentage for <span className="font-semibold text-blue-600">{selectedRows.size}</span> selected client{selectedRows.size !== 1 ? 's' : ''}.</p>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Percentage (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={bulkPercentage}
+                    onChange={(e) => setBulkPercentage(e.target.value)}
+                    placeholder="0.00"
+                    disabled={bulkSaving}
+                    className="w-full px-3 py-2.5 pr-8 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                </div>
+                <p className="mt-1 text-[10px] text-gray-400">Value must be between 0 and 100</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Comment</label>
+                <textarea
+                  value={bulkComment}
+                  onChange={(e) => setBulkComment(e.target.value)}
+                  rows={2}
+                  disabled={bulkSaving}
+                  placeholder="Optional comment"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setShowBulkModal(false)} disabled={bulkSaving} className="flex-1 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                <button onClick={handleBulkUpdate} disabled={bulkSaving || !bulkPercentage} className="flex-1 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {bulkSaving ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                      Saving...
+                    </span>
+                  ) : `Update ${selectedRows.size}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import CSV Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 bg-blue-600">
+              <h2 className="text-base font-semibold text-white">Import CSV</h2>
+              <button onClick={() => { setShowImportModal(false); setCsvData([]); setCsvError('') }} disabled={csvImporting} className="text-white/80 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+                <p className="font-semibold mb-1">CSV Format:</p>
+                <p>Required: <code className="bg-blue-100 px-1 rounded">login</code>, <code className="bg-blue-100 px-1 rounded">percentage</code></p>
+                <p>Optional: <code className="bg-blue-100 px-1 rounded">comment</code></p>
+                <p className="mt-1">Example: <code className="bg-blue-100 px-1 rounded">login,percentage,comment</code></p>
+                <p><code className="bg-blue-100 px-1 rounded">12345,15.5,Bulk import</code></p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">Select CSV File</label>
+                <input
+                  ref={csvFileRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleCSVFile}
+                  disabled={csvImporting}
+                  className="block w-full text-sm text-gray-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer cursor-pointer"
+                />
+              </div>
+              {csvError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700 whitespace-pre-line">{csvError}</div>
+              )}
+              {csvData.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-2">{csvData.length} row{csvData.length !== 1 ? 's' : ''} ready to import:</p>
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b">Login</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b">Percentage</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b">Comment</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {csvData.map((row, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="px-3 py-1.5 text-blue-600 font-medium">{row.login}</td>
+                            <td className="px-3 py-1.5 text-green-700 font-semibold">{row.percentage}%</td>
+                            <td className="px-3 py-1.5 text-gray-600 truncate max-w-[100px]">{row.comment || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => { setShowImportModal(false); setCsvData([]); setCsvError('') }} disabled={csvImporting} className="flex-1 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                <button onClick={handleCSVImport} disabled={csvImporting || csvData.length === 0} className="flex-1 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {csvImporting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                      Importing...
+                    </span>
+                  ) : csvData.length > 0 ? `Import ${csvData.length} Row${csvData.length !== 1 ? 's' : ''}` : 'Import'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CustomizeView Modal */}
       <CustomizeViewModal
