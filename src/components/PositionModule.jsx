@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useDeferredValue, startTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,6 +28,11 @@ export default function PositionModule() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isGroupOpen, setIsGroupOpen] = useState(false)
@@ -75,6 +80,9 @@ export default function PositionModule() {
   const [sortDirection, setSortDirection] = useState('asc')
   const [showClientNet, setShowClientNet] = useState(false)
   const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)
+  const [displayMode, setDisplayMode] = useState('value') // 'value' or 'percentage'
+  const [isExporting, setIsExporting] = useState(false)
+  const [numericMode, setNumericMode] = useState(() => { try { const saved = localStorage.getItem('globalDisplayMode'); return saved === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   
   // Client NET states
   const [clientNetCurrentPage, setClientNetCurrentPage] = useState(1)
@@ -109,12 +117,15 @@ export default function PositionModule() {
   const [serverNetPositions, setServerNetPositions] = useState([])
   const [serverNetTotal, setServerNetTotal] = useState(0)
   const [hasFetchedServerNet, setHasFetchedServerNet] = useState(false)
+  const hasFetchedServerNetRef = useRef(false)
   const [isServerNetLoading, setIsServerNetLoading] = useState(false)
 
   // Server-side positions (fetched when regular Positions tab is active on mobile)
   const [serverPositions, setServerPositions] = useState([])
   const [serverPositionsTotal, setServerPositionsTotal] = useState(0)
+  const [serverPositionsTotals, setServerPositionsTotals] = useState({ profit: 0, volume: 0, uniqueLogins: 0 })
   const [hasFetchedServerPositions, setHasFetchedServerPositions] = useState(false)
+  const hasFetchedServerPositionsRef = useRef(false)
   const [isServerPositionsLoading, setIsServerPositionsLoading] = useState(false)
   
   const [visibleColumns, setVisibleColumns] = useState({
@@ -183,6 +194,19 @@ export default function PositionModule() {
     }
   }, [])
 
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
+
   const handlePageChange = (nextPage, maxPage) => {
     const safeMaxPage = Math.max(1, maxPage)
     const clampedPage = Math.min(safeMaxPage, Math.max(1, nextPage))
@@ -222,15 +246,17 @@ export default function PositionModule() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  const mobileRegularSourcePositions = displayPositions
+
   // Apply filters in cumulative order: Customize View -> Group
   const ibFilteredPositions = useMemo(() => {
-    return applyCumulativeFilters(displayPositions, {
+    return applyCumulativeFilters(mobileRegularSourcePositions, {
       customizeFilters: filters,
       filterByActiveGroup,
       loginField: 'login',
       moduleName: 'positions'
     })
-  }, [displayPositions, filters, filterByActiveGroup, activeGroupFilters])
+  }, [mobileRegularSourcePositions, filters, filterByActiveGroup, activeGroupFilters])
 
   // Defer heavy calculations to allow navigation to be responsive
   const deferredIbFilteredPositions = useDeferredValue(ibFilteredPositions)
@@ -347,161 +373,13 @@ export default function PositionModule() {
 
   const clientNetPositions = useMemo(() => calculateClientNetPositions(dateFilteredPositions), [dateFilteredPositions, groupByBaseSymbol])
 
-  // Mobile NET view must use server-side net positions response, polled every 2s
-  useEffect(() => {
-    if (!isMobileView || !showClientNet) return
+  // Mobile NET view now uses the same WebSocket-cached client-side calculation as desktop.
+  // (Previous server-side NET polling effect has been removed to align mobile with desktop.)
 
-    let isCancelled = false
-    let timer = null
-    let isFirstFetch = true
+  // Mobile regular Positions view now uses the same WebSocket cache as desktop.
+  // (Previous server-side polling effect has been removed to align mobile with desktop.)
 
-    const fetchMobileNetPositions = async () => {
-      if (isCancelled) return;
-      try {
-        if (isFirstFetch) setIsServerNetLoading(true);
-
-        const params = {
-          page: 1,
-          limit: 50,
-          netPosition: true,
-          sortBy: 'netVolume',
-          sortOrder: 'asc'
-        };
-        if (groupByBaseSymbol) params.groupBaseSymbol = true;
-
-        const response = await brokerAPI.searchPositions(params);
-
-        if (isCancelled) return;
-
-        const data = response?.data?.positions || response?.positions || [];
-        const total = response?.data?.total || response?.total || 0;
-
-        const mapped = Array.isArray(data)
-          ? data.map(item => ({
-              login: item.login,
-              symbol: item.symbol || item.baseSymbol || '-',
-              netType: item.action === 'BUY' ? 'Buy' : item.action === 'SELL' ? 'Sell' : (item.action === 'FLAT' ? 'Flat' : (item.action || 'Flat')),
-              netVolume: item.netVolume || 0,
-              avgPrice: item.avgPrice || 0,
-              totalProfit: item.totalProfit || 0,
-              totalStorage: item.totalStorage || 0,
-              totalCommission: item.totalCommission || 0,
-              totalPositions: item.positionCount || item.totalPositions || 0
-            }))
-          : [];
-
-        setServerNetPositions(mapped);
-        setServerNetTotal(total);
-        setHasFetchedServerNet(true);
-      } catch (err) {
-        if (!isCancelled) {
-          console.warn('[PositionModule] Failed to fetch mobile NET positions:', err?.message);
-        }
-      } finally {
-        if (!isCancelled && isFirstFetch) {
-          setIsServerNetLoading(false);
-          isFirstFetch = false;
-        }
-      }
-
-      if (!isCancelled) {
-        timer = setTimeout(fetchMobileNetPositions, 2000);
-      }
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (!timer && !isCancelled) fetchMobileNetPositions()
-      } else if (timer) {
-        clearTimeout(timer)
-        timer = null
-      }
-    }
-
-    if (document.visibilityState === 'visible') fetchMobileNetPositions()
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      isCancelled = true
-      if (timer) { clearTimeout(timer); timer = null }
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-    }
-  }, [isMobileView, showClientNet, groupByBaseSymbol]);
-
-  // Mobile regular Positions view: poll server every 2s when NET is OFF
-  useEffect(() => {
-    if (!isMobileView || showClientNet) return
-
-    let isCancelled = false
-    let timer = null
-    let isFirstFetch = true
-
-    const fetchMobilePositions = async () => {
-      if (isCancelled) return;
-      try {
-        if (isFirstFetch) setIsServerPositionsLoading(true);
-
-        const params = {
-          page: currentPage,
-          limit: itemsPerPage,
-          sortBy: sortColumn || 'timeCreate',
-          sortOrder: sortDirection || 'asc',
-        };
-        if (searchInput && searchInput.trim()) params.search = searchInput.trim();
-
-        const response = await brokerAPI.searchPositions(params);
-
-        if (isCancelled) return;
-
-        const data = response?.data?.positions || response?.positions || [];
-        const total = response?.data?.total || response?.total || 0;
-
-        if (Array.isArray(data)) {
-          setServerPositions(data);
-          setServerPositionsTotal(total);
-          setHasFetchedServerPositions(true);
-        }
-      } catch (err) {
-        if (!isCancelled) {
-          console.warn('[PositionModule] Failed to fetch mobile positions:', err?.message);
-        }
-      } finally {
-        if (!isCancelled && isFirstFetch) {
-          setIsServerPositionsLoading(false);
-          isFirstFetch = false;
-        }
-      }
-
-      if (!isCancelled) {
-        timer = setTimeout(fetchMobilePositions, 2000);
-      }
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (!timer && !isCancelled) fetchMobilePositions()
-      } else if (timer) {
-        clearTimeout(timer)
-        timer = null
-      }
-    }
-
-    if (document.visibilityState === 'visible') fetchMobilePositions()
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      isCancelled = true
-      if (timer) { clearTimeout(timer); timer = null }
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-    }
-  }, [isMobileView, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, searchInput])
-
-  const mobileNetSourcePositions = useMemo(() => {
-    if (isMobileView && showClientNet) {
-      return hasFetchedServerNet ? serverNetPositions : []
-    }
-    return clientNetPositions
-  }, [isMobileView, showClientNet, hasFetchedServerNet, serverNetPositions, clientNetPositions])
+  const mobileNetSourcePositions = clientNetPositions
 
   // Filter Client NET positions based on search
   const filteredClientNetPositions = useMemo(() => {
@@ -522,7 +400,7 @@ export default function PositionModule() {
   // Apply search and sorting (use deferred value to prevent blocking navigation)
   const filteredPositions = useMemo(() => {
     // Apply search filter (date filter already applied in dateFilteredPositions)
-    let filtered = applySearchFilter(dateFilteredPositions, searchInput, ['symbol', 'login'])
+    let filtered = applySearchFilter(dateFilteredPositions, debouncedSearch, ['symbol', 'login'])
     
     // Map column keys to actual data fields for sorting
     const columnKeyMapping = {
@@ -538,7 +416,7 @@ export default function PositionModule() {
     filtered = applySorting(filtered, sortKey, sortDirection)
     
     return filtered
-  }, [dateFilteredPositions, searchInput, sortColumn, sortDirection])
+  }, [dateFilteredPositions, debouncedSearch, sortColumn, sortDirection])
 
   // Handle column sorting
   const handleSort = (columnKey) => {
@@ -567,6 +445,15 @@ export default function PositionModule() {
     filteredPositions.reduce((sum, pos) => sum + (Number(pos.profit) || 0), 0),
     [filteredPositions]
   )
+
+  // Mobile now uses the same client-side data flow as desktop (WS cache)
+  const isMobileRegularServerMode = false
+  const mobileRegularTotalPages = isMobileRegularServerMode
+    ? Math.max(1, Math.ceil(serverPositionsTotal / itemsPerPage))
+    : Math.max(1, Math.ceil(filteredPositions.length / itemsPerPage))
+  const mobileRegularDisplayedPositions = isMobileRegularServerMode
+    ? filteredPositions
+    : filteredPositions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   // Pagination calculations for Client NET (memoized)
   const clientNetTotalPages = useMemo(() =>
@@ -635,6 +522,29 @@ export default function PositionModule() {
     return activeColumns.map(col => col.width || '1fr').join(' ')
   }, [activeColumns])
 
+  // Compact/full numeric format helpers
+  const formatCompactIndian = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return '0'
+    const abs = Math.abs(num)
+    const sign = num < 0 ? '-' : ''
+    if (abs >= 1e7) return `${sign}${(abs / 1e7).toFixed(2)}Cr`
+    if (abs >= 1e5) return `${sign}${(abs / 1e5).toFixed(2)}L`
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
+    return `${sign}${abs.toFixed(2)}`
+  }
+  const fmtMoney = (n) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    if (numericMode === 'compact') return formatCompactIndian(num)
+    return formatNum(num)
+  }
+  const fmtMoneyFull = (n) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '-'
+    return formatNum(num)
+  }
+
   // Render cell value based on column key
   const renderCellValue = (pos, columnKey, isSticky = false) => {
     const stickyClass = isSticky ? 'sticky left-0 bg-white z-10' : ''
@@ -662,20 +572,20 @@ export default function PositionModule() {
         const isCentSym = /[cC]$/.test(String(pos.symbol || ''))
         const displayProfit = isCentSym ? rawProfit / 100 : rawProfit
         return (
-          <div className={`h-[38px] flex items-center justify-start px-2 font-medium ${
+          <div title={numericMode === 'compact' ? fmtMoneyFull(displayProfit) : undefined} className={`h-[38px] flex items-center justify-start px-2 font-medium ${
             displayProfit >= 0 ? 'text-green-600' : 'text-red-600'
           } ${stickyClass}`} style={stickyStyle}>
-            {formatNum(displayProfit)}
+            {fmtMoney(displayProfit)}
           </div>
         )
       }
       case 'priceOpen':
-        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.priceOpen || 0)}</div>
+        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.priceOpen || 0, 5)}</div>
       case 'priceCurrent':
-        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.priceCurrent || 0)}</div>
+        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.priceCurrent || 0, 5)}</div>
       case 'volume':
       case 'netVolume':
-        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.volume || 0)}</div>
+        return <div title={numericMode === 'compact' ? fmtMoneyFull(pos.volume || 0) : undefined} className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{fmtMoney(pos.volume || 0)}</div>
       case 'volumePercentage':
         return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.volumePercentage || 0)}%</div>
       case 'profitPercentage':
@@ -683,20 +593,20 @@ export default function PositionModule() {
       case 'storage': {
         const isCentSym = /[cC]$/.test(String(pos.symbol || ''))
         const displayStorage = isCentSym ? (pos.storage || 0) / 100 : (pos.storage || 0)
-        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(displayStorage)}</div>
+        return <div title={numericMode === 'compact' ? fmtMoneyFull(displayStorage) : undefined} className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{fmtMoney(displayStorage)}</div>
       }
       case 'storagePercentage':
         return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.storagePercentage || 0)}%</div>
       case 'appliedPercentage':
         return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.appliedPercentage || 0)}%</div>
       case 'sl':
-        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.sl || 0)}</div>
+        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.sl || 0, 5)}</div>
       case 'tp':
-        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.tp || 0)}</div>
+        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(pos.tp || 0, 5)}</div>
       case 'commission': {
         const isCentSym = /[cC]$/.test(String(pos.symbol || ''))
         const displayCommission = isCentSym ? (pos.commission || 0) / 100 : (pos.commission || 0)
-        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formatNum(displayCommission)}</div>
+        return <div title={numericMode === 'compact' ? fmtMoneyFull(displayCommission) : undefined} className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{fmtMoney(displayCommission)}</div>
       }
       case 'login':
         const handleLoginClick = () => {
@@ -747,46 +657,22 @@ export default function PositionModule() {
     return iconMap[label] || `${baseUrl}Mobile cards icons/Total Clients.svg`
   }
 
-  // Face cards for NET view: use API totals fields
+  // Face cards for NET view: compute from client-side data (same as desktop, sourced from WS cache)
   const [cards, setCards] = useState([])
   const netTotals = useMemo(() => {
-    // Only use API totals in mobile NET view
-    if (isMobileView && showClientNet && hasFetchedServerNet && serverNetPositions && serverNetPositions.length >= 0) {
-      // Try to get from last NET API response
-      // The polling effect sets serverNetTotal and serverNetPositions, but not the totals object
-      // So we need to get the last totals from the API response if available
-      // For now, fallback to calculating from serverNetPositions if not available
-      // If you want to use the API's totals object, you must extract it in the polling effect
-      // For now, just sum up from serverNetPositions
-      let netVolume = 0, totalProfit = 0, uniqueLogins = 0
-      const loginSet = new Set()
-      serverNetPositions.forEach(pos => {
-        netVolume += Number(pos.netVolume) || 0
-        totalProfit += Number(pos.totalProfit) || 0
-        if (pos.login) loginSet.add(pos.login)
-      })
-      uniqueLogins = loginSet.size
-      return {
-        total: serverNetTotal,
-        netVolume,
-        totalProfit,
-        uniqueLogins
-      }
-    }
-    // fallback to old logic for non-NET view
     return {
       total: filteredPositions.length,
       netVolume: filteredPositions.reduce((sum, p) => sum + (Number(p.volume) || 0), 0),
       totalProfit: filteredPositions.reduce((sum, p) => sum + (Number(p.profit) || 0), 0),
       uniqueLogins: new Set(filteredPositions.map(p => p.login)).size
     }
-  }, [isMobileView, showClientNet, hasFetchedServerNet, serverNetPositions, serverNetTotal, filteredPositions])
+  }, [filteredPositions])
 
   // Face cards array for rendering
   const netFaceCards = [
     { label: 'TOTAL', value: String(netTotals.total) },
-    { label: 'NET VOLUME', value: formatNum(netTotals.netVolume) },
-    { label: 'TOTAL PROFIT', value: formatNum(netTotals.totalProfit), isProfit: true, profitValue: netTotals.totalProfit },
+    { label: 'NET VOLUME', value: fmtMoney(netTotals.netVolume) },
+    { label: 'TOTAL PROFIT', value: fmtMoney(netTotals.totalProfit), isProfit: true, profitValue: netTotals.totalProfit },
     { label: 'UNIQUE LOGINS', value: String(netTotals.uniqueLogins) }
   ]
 
@@ -805,6 +691,115 @@ export default function PositionModule() {
     carousel.addEventListener('scroll', handleScroll)
     return () => carousel.removeEventListener('scroll', handleScroll)
   }, [])
+
+  // CSV export helpers
+  const toCSV = (rows, headers) => {
+    if (!rows || rows.length === 0) return headers.map(h => h.label).join(',')
+    const esc = (v) => {
+      if (v === null || v === undefined) return ''
+      let s = String(v)
+      s = s.replace(/"/g, '""')
+      if (/[",\n]/.test(s)) s = '"' + s + '"'
+      return s
+    }
+    const headerRow = headers.map(h => h.label).join(',')
+    const body = rows.map(r => headers.map(h => esc(h.accessor ? h.accessor(r) : r[h.key])).join(',')).join('\n')
+    return headerRow + '\n' + body
+  }
+
+  const downloadFile = (filename, content) => {
+    try {
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('CSV download failed:', e)
+    }
+  }
+
+  const handleMobileExport = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    try {
+      const EXPORT_LIMIT = 1000
+      if (showClientNet) {
+        // Export NET positions
+        const params = {
+          page: 1,
+          limit: EXPORT_LIMIT,
+          netPosition: true,
+          sortBy: 'netVolume',
+          sortOrder: 'desc',
+        }
+        if (groupByBaseSymbol) params.groupBaseSymbol = true
+        if (displayMode === 'percentage') params.percentage = true
+
+        const res = await brokerAPI.searchPositions(params)
+        const data = res?.data?.positions ?? res?.positions ?? []
+        const ACTION_LABEL = { BUY: 'Buy', SELL: 'Sell', FLAT: 'Flat' }
+        const rows = data.map(item => ({
+          symbol: item.symbol || item.baseSymbol || '-',
+          netType: ACTION_LABEL[item.action] ?? item.action ?? 'Flat',
+          netVolume: item.netVolume ?? 0,
+          avgPrice: item.avgPrice ?? 0,
+          totalProfit: item.totalProfit ?? 0,
+          totalStorage: item.totalStorage ?? 0,
+          totalPositions: item.positionCount ?? 0,
+        }))
+        const headers = [
+          { key: 'symbol',         label: 'Symbol' },
+          { key: 'netType',        label: 'NET Type' },
+          { key: 'netVolume',      label: displayMode === 'percentage' ? 'NET Volume %' : 'NET Volume' },
+          { key: 'avgPrice',       label: 'Avg Price' },
+          { key: 'totalProfit',    label: displayMode === 'percentage' ? 'Total Profit %' : 'Total Profit' },
+          { key: 'totalStorage',   label: 'Total Storage' },
+          { key: 'totalPositions', label: 'Positions' },
+        ]
+        downloadFile(`net_positions_${Date.now()}.csv`, toCSV(rows, headers))
+      } else {
+        // Export regular positions
+        const params = {
+          page: 1,
+          limit: EXPORT_LIMIT,
+          sortBy: sortColumn || 'timeCreate',
+          sortOrder: sortDirection || 'desc',
+        }
+        if (searchInput && searchInput.trim()) params.search = searchInput.trim()
+        if (displayMode === 'percentage') params.percentage = true
+
+        const res = await brokerAPI.searchPositions(params)
+        const data = res?.data?.positions ?? res?.positions ?? []
+        const formatTime = (ts) => {
+          if (!ts) return '-'
+          try {
+            const d = new Date(ts * 1000)
+            return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
+          } catch { return '-' }
+        }
+        const headers = [
+          { key: 'login',       label: 'Login',         accessor: r => r.login },
+          { key: 'symbol',      label: 'Symbol',        accessor: r => r.symbol },
+          { key: 'action',      label: 'Action',        accessor: r => r.action },
+          { key: 'volume',      label: 'Volume',        accessor: r => r.volume },
+          { key: 'priceOpen',   label: 'Open Price',    accessor: r => r.priceOpen },
+          { key: 'profit',      label: displayMode === 'percentage' ? 'Profit %' : 'Profit', accessor: r => r.profit },
+          { key: 'storage',     label: 'Storage',       accessor: r => r.storage },
+          { key: 'updated',     label: 'Updated',       accessor: r => formatTime(r.timeUpdate || r.timeCreate) },
+        ]
+        downloadFile(`positions_${Date.now()}.csv`, toCSV(data, headers))
+      }
+    } catch (e) {
+      console.error('Mobile export failed:', e)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // Fix mobile viewport height on actual devices
   useEffect(() => {
@@ -866,6 +861,35 @@ export default function PositionModule() {
             </div>
 
             <div className="flex-1 overflow-auto py-2">
+              {/* Compact / Full numeric display mode toggle — same as desktop sidebar */}
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNumericMode('compact')
+                      try { localStorage.setItem('globalDisplayMode', 'compact') } catch {}
+                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'compact' })) } catch {}
+                    }}
+                    className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  >
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNumericMode('full')
+                      try { localStorage.setItem('globalDisplayMode', 'full') } catch {}
+                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'full' })) } catch {}
+                    }}
+                    className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  >
+                    Full
+                  </button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
                   {label:'Dashboard', path:'/dashboard', icon: (
@@ -925,10 +949,10 @@ export default function PositionModule() {
       <div className="flex-1 overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Action buttons row */}
         <div className="pt-5 pb-4 px-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
             <button 
               onClick={() => setIsCustomizeOpen(true)}
-              className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative ${
+              className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative flex-shrink-0 ${
                 (filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('positions'))
                   ? 'bg-blue-50 border-blue-200' 
                   : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
@@ -954,15 +978,17 @@ export default function PositionModule() {
             </button>
             <button 
               onClick={() => {
-                setShowClientNet((v) => {
-                  const next = !v
-                  if (next) {
-                    setClientNetCurrentPage(1)
-                  }
-                  return next
+                startTransition(() => {
+                  setShowClientNet((v) => {
+                    const next = !v
+                    if (next) {
+                      setClientNetCurrentPage(1)
+                    }
+                    return next
+                  })
                 })
               }}
-              style={{ minWidth: '110px', width: '110px' }}
+              style={{ minWidth: '110px', width: '110px', flexShrink: 0 }}
               className={`h-8 rounded-[12px] ${showClientNet ? 'bg-blue-600 border-blue-600' : 'bg-white border-[#E5E7EB]'} border shadow-sm flex items-center justify-center gap-1.5 hover:opacity-90 transition-all`}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -973,8 +999,8 @@ export default function PositionModule() {
             {/* Group Base toggle for NET Position */}
             {showClientNet && (
               <button
-                onClick={() => setGroupByBaseSymbol(v => !v)}
-                className={`h-8 px-3 rounded-[12px] border ml-1 shadow-sm flex items-center justify-center gap-1.5 transition-all text-[10px] font-medium font-outfit ${groupByBaseSymbol ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-[#666666] border-[#E5E7EB]'}`}
+                onClick={() => startTransition(() => setGroupByBaseSymbol(v => !v))}
+                className={`h-8 px-3 rounded-[12px] border ml-1 shadow-sm flex items-center justify-center gap-1.5 transition-all text-[10px] font-medium font-outfit flex-shrink-0 ${groupByBaseSymbol ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-[#666666] border-[#E5E7EB]'}`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M4 6h16M7 10h10M10 14h7M13 18h4" stroke={groupByBaseSymbol ? '#fff' : '#666'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -982,6 +1008,32 @@ export default function PositionModule() {
                 Group Base
               </button>
             )}
+            {/* Percentage toggle icon button */}
+            <button
+              onClick={() => startTransition(() => setDisplayMode(m => m === 'percentage' ? 'value' : 'percentage'))}
+              title={displayMode === 'percentage' ? 'Switch to value view' : 'Switch to percentage view'}
+              className={`w-8 h-8 rounded-[12px] border shadow-sm flex items-center justify-center flex-shrink-0 transition-all ${
+                displayMode === 'percentage'
+                  ? 'bg-blue-600 border-blue-600'
+                  : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
+              }`}
+            >
+              <span className={`text-[13px] font-bold leading-none ${displayMode === 'percentage' ? 'text-white' : 'text-[#4B4B4B]'}`}>%</span>
+            </button>
+
+            {/* Download button */}
+            <button
+              onClick={handleMobileExport}
+              disabled={isExporting}
+              title={isExporting ? 'Exporting...' : showClientNet ? 'Export NET positions to CSV' : 'Export positions to CSV'}
+              className="w-8 h-8 rounded-[12px] border border-[#E5E7EB] shadow-sm bg-white flex items-center justify-center hover:bg-gray-50 transition-all flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isExporting
+                ? <svg className="w-4 h-4 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                : <svg className="w-4 h-4" fill="none" stroke="#4B4B4B" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
+              }
+            </button>
+
             <button 
               onClick={() => window.location.reload()}
               disabled={loading.positions}
@@ -1028,7 +1080,7 @@ export default function PositionModule() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.total !== undefined ? netTotals.total : 0}</span>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals?.total || 0) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.total !== undefined ? fmtMoney(netTotals.total) : 0}</span>
                 </div>
               </div>
               {/* Net Volume */}
@@ -1060,7 +1112,7 @@ export default function PositionModule() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.netVolume !== undefined ? formatNum(netTotals.netVolume) : '0.00'}</span>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals.netVolume) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.netVolume !== undefined ? fmtMoney(netTotals.netVolume) : '0.00'}</span>
                 </div>
               </div>
               {/* Total Profit */}
@@ -1092,8 +1144,8 @@ export default function PositionModule() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: netTotals?.totalProfit >= 0 ? '#16A34A' : '#DC2626' }}>
-                    {netTotals?.totalProfit !== undefined ? formatNum(netTotals.totalProfit) : '0.00'}
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals.totalProfit) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: netTotals?.totalProfit >= 0 ? '#16A34A' : '#DC2626' }}>
+                    {netTotals?.totalProfit !== undefined ? fmtMoney(netTotals.totalProfit) : '0.00'}
                   </span>
                 </div>
               </div>
@@ -1126,7 +1178,7 @@ export default function PositionModule() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.uniqueLogins !== undefined ? netTotals.uniqueLogins : 0}</span>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals?.uniqueLogins || 0) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.uniqueLogins !== undefined ? fmtMoney(netTotals.uniqueLogins) : 0}</span>
                 </div>
               </div>
             </div>
@@ -1159,7 +1211,7 @@ export default function PositionModule() {
               </svg>
             </button>
             <button 
-              onClick={() => handlePageChange(currentPage - 1, Math.ceil(filteredPositions.length / itemsPerPage))}
+              onClick={() => handlePageChange(currentPage - 1, mobileRegularTotalPages)}
               disabled={currentPage === 1}
               className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -1171,11 +1223,11 @@ export default function PositionModule() {
               <input
                 type="number"
                 min={1}
-                max={Math.ceil(filteredPositions.length / itemsPerPage)}
+                max={mobileRegularTotalPages}
                 value={currentPage}
                 onChange={(e) => {
                   const n = Number(e.target.value)
-                  const maxPage = Math.ceil(filteredPositions.length / itemsPerPage)
+                  const maxPage = mobileRegularTotalPages
                   if (!isNaN(n) && n >= 1 && n <= maxPage) {
                     handlePageChange(n, maxPage)
                   }
@@ -1184,11 +1236,11 @@ export default function PositionModule() {
                 aria-label="Current page"
               />
               <span className="text-[#9CA3AF]">/</span>
-              <span>{Math.ceil(filteredPositions.length / itemsPerPage)}</span>
+              <span>{mobileRegularTotalPages}</span>
             </div>
             <button 
-              onClick={() => handlePageChange(currentPage + 1, Math.ceil(filteredPositions.length / itemsPerPage))}
-              disabled={currentPage >= Math.ceil(filteredPositions.length / itemsPerPage)}
+              onClick={() => handlePageChange(currentPage + 1, mobileRegularTotalPages)}
+              disabled={currentPage >= mobileRegularTotalPages}
               className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
@@ -1301,7 +1353,7 @@ export default function PositionModule() {
                       : 'No positions found'}
                   </div>
                 ) : (
-                  filteredPositions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((pos, idx) => (
+                  mobileRegularDisplayedPositions.map((pos, idx) => (
                     <div 
                       key={idx} 
                       className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors"
@@ -1337,7 +1389,7 @@ export default function PositionModule() {
                       className={`h-[38px] flex items-center justify-start px-1 ${col.sticky ? 'sticky left-0 bg-[#EFF4FB] z-10' : ''}`}
                       style={{border: 'none', outline: 'none', boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'}}
                     >
-                      {idx === 0 ? 'Total' : (col.key === 'totalProfit' || col.key === 'profit') ? formatNum(totalProfit) : '-'}
+                      {idx === 0 ? 'Total' : (col.key === 'totalProfit' || col.key === 'profit') ? <span title={numericMode === 'compact' ? fmtMoneyFull(totalProfit) : undefined}>{fmtMoney(totalProfit)}</span> : '-'}
                     </div>
                   ))}
                 </div>
@@ -1351,110 +1403,7 @@ export default function PositionModule() {
 
         {showClientNet && isMobileView && (
           <div className="bg-[#F5F7FA] flex flex-col h-full">
-            {/* Face Cards Carousel - API-driven values */}
-            <div className="pb-2 pl-5">
-              <div className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4">
-                {/* Net Position */}
-                <div style={{
-                  boxSizing: 'border-box',
-                  minWidth: '125px',
-                  width: '125px',
-                  height: '60px',
-                  background: '#FFFFFF',
-                  border: '1px solid #F2F2F7',
-                  boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                  borderRadius: '12px',
-                  padding: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  scrollSnapAlign: 'start',
-                  flexShrink: 0,
-                  flex: 'none',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  touchAction: 'pan-x'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                    <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Net Position</span>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Equity.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.total !== undefined ? Number(netTotals.total).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}</span>
-                    
-                  </div>
-                </div>
-                {/* Total Net Volume */}
-                <div style={{
-                  boxSizing: 'border-box',
-                  minWidth: '125px',
-                  width: '125px',
-                  height: '60px',
-                  background: '#FFFFFF',
-                  border: '1px solid #F2F2F7',
-                  boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                  borderRadius: '12px',
-                  padding: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  scrollSnapAlign: 'start',
-                  flexShrink: 0,
-                  flex: 'none',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  touchAction: 'pan-x'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                    <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Net Volume</span>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Balance.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.netVolume !== undefined ? formatNum(netTotals.netVolume) : formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</span>
-                  </div>
-                </div>
-                {/* Total Net P/L */}
-                <div style={{
-                  boxSizing: 'border-box',
-                  minWidth: '125px',
-                  width: '125px',
-                  height: '60px',
-                  background: '#FFFFFF',
-                  border: '1px solid #F2F2F7',
-                  boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                  borderRadius: '12px',
-                  padding: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  scrollSnapAlign: 'start',
-                  flexShrink: 0,
-                  flex: 'none',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  touchAction: 'pan-x'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                    <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Net P/L</span>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/PNL.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: netTotals?.totalProfit >= 0 ? '#16A34A' : '#DC2626' }}>
-                      {netTotals?.totalProfit !== undefined ? formatNum(netTotals.totalProfit) : formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Face Cards Carousel removed from NET Position mobile view per request */}
 
             {/* Controls with Search - SYMMETRICAL with regular Positions tab */}
             <div className="pb-3 px-4">
@@ -1687,7 +1636,7 @@ export default function PositionModule() {
                   </div>
 
                   {/* Table Rows */}
-                  {isServerNetLoading || isClientNetPageChanging ? (
+                  {(isServerNetLoading || isClientNetPageChanging) && filteredClientNetPositions.length === 0 ? (
                     <>
                       {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={`client-net-skeleton-${i}`} className="grid text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]" style={{
@@ -1753,13 +1702,13 @@ export default function PositionModule() {
                         {clientNetVisibleColumns.netType && <div className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
                           pos.netType === 'Buy' ? 'text-green-600' : 'text-red-600'
                         }`}>{pos.netType}</div>}
-                        {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.netVolume)}</div>}
-                        {clientNetVisibleColumns.avgPrice && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.avgPrice)}</div>}
-                        {clientNetVisibleColumns.totalProfit && <div className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
+                        {clientNetVisibleColumns.netVolume && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.netVolume) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.netVolume)}</div>}
+                        {clientNetVisibleColumns.avgPrice && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.avgPrice) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.avgPrice)}</div>}
+                        {clientNetVisibleColumns.totalProfit && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalProfit) : undefined} className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
                           pos.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>{formatNum(pos.totalProfit)}</div>}
-                        {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.totalStorage || 0)}</div>}
-                        {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{formatNum(pos.totalCommission || 0)}</div>}
+                        }`}>{fmtMoney(pos.totalProfit)}</div>}
+                        {clientNetVisibleColumns.totalStorage && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalStorage || 0) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.totalStorage || 0)}</div>}
+                        {clientNetVisibleColumns.totalCommission && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalCommission || 0) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.totalCommission || 0)}</div>}
                         {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{pos.totalPositions}</div>}
                       </div>
                     ))
@@ -1783,11 +1732,11 @@ export default function PositionModule() {
                       {clientNetVisibleColumns.login && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">Total</div>}
                       {clientNetVisibleColumns.symbol && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
                       {clientNetVisibleColumns.netType && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</div>}
+                      {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{fmtMoney(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</div>}
                       {clientNetVisibleColumns.avgPrice && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.totalProfit && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}</div>}
-                      {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalStorage||0),0))}</div>}
-                      {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{formatNum(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalCommission||0),0))}</div>}
+                      {clientNetVisibleColumns.totalProfit && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{fmtMoney(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}</div>}
+                      {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{fmtMoney(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalStorage||0),0))}</div>}
+                      {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{fmtMoney(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalCommission||0),0))}</div>}
                       {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{mobileNetSourcePositions.reduce((s,p)=>s+p.totalPositions,0)}</div>}
                     </div>
                   )}

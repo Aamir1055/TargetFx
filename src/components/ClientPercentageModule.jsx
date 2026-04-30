@@ -19,12 +19,24 @@ const formatNum = (n, decimals = 2) => {
   return v.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
+const formatCompactIndian = (v) => {
+  const n = Number(v)
+  if (!isFinite(n)) return '0.00'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1e7) return sign + (abs / 1e7).toFixed(2) + 'Cr'
+  if (abs >= 1e5) return sign + (abs / 1e5).toFixed(2) + 'L'
+  if (abs >= 1e3) return sign + (abs / 1e3).toFixed(2) + 'K'
+  return sign + abs.toFixed(2)
+}
+
 export default function ClientPercentageModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { positions: cachedPositions, clients: allClients, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
@@ -75,6 +87,20 @@ export default function ClientPercentageModule() {
   useEffect(() => {
     setActiveGroupFilter('clientpercentage', null)
     setSearchInput('')
+  }, [])
+
+  // Sync numericMode with global display mode events
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
   }, [])
 
   // Listen for global request to open Customize View from child modals
@@ -276,10 +302,15 @@ export default function ClientPercentageModule() {
   }
   
   useEffect(() => {
+    const fmtCount = (v) => {
+      const n = Number(v) || 0
+      if (numericMode === 'compact') return formatCompactIndian(n)
+      return n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+    }
     const newCards = [
-      { label: 'TOTAL CLIENTS', value: String(stats.total), numericValue: stats.total },
-      { label: 'CUSTOM %', value: String(stats.total_custom), numericValue: stats.total_custom },
-      { label: 'DEFAULT', value: String(stats.total_default), numericValue: stats.total_default }
+      { label: 'TOTAL CLIENTS', value: Number(stats.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), numericValue: stats.total },
+      { label: 'CUSTOM %', value: fmtCount(stats.total_custom), numericValue: stats.total_custom },
+      { label: 'DEFAULT', value: fmtCount(stats.total_default), numericValue: stats.total_default }
     ]
     
     if (cards.length === 0) {
@@ -292,7 +323,7 @@ export default function ClientPercentageModule() {
         })
       })
     }
-  }, [stats])
+  }, [stats, numericMode])
 
   // Fetch data when page changes
   useEffect(() => {
@@ -1077,6 +1108,15 @@ export default function ClientPercentageModule() {
             </div>
 
             <div className="flex-1 overflow-auto py-2">
+              {/* Compact / Full display mode toggle */}
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
                   {label:'Dashboard', path:'/dashboard', icon: (
@@ -1086,7 +1126,7 @@ export default function ClientPercentageModule() {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="8" r="3" stroke="#404040"/><circle cx="16" cy="8" r="3" stroke="#404040"/><path d="M3 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="#404040"/></svg>
                   )},
                   {label:'Positions', path:'/positions', icon:(
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="#404040"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="#404040"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="#404040"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="#404040"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="3" rx="1" stroke="#404040"/><rect x="3" y="11" width="18" height="3" rx="1" stroke="#404040"/><rect x="3" y="16" width="18" height="3" rx="1" stroke="#404040"/></svg>
                   )},
                   {label:'Pending Orders', path:'/pending-orders', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#404040"/><circle cx="12" cy="12" r="2" fill="#404040"/></svg>
