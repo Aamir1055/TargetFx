@@ -633,8 +633,11 @@ const PendingOrdersPage = () => {
     }
   }
   
-  // Server data is already sorted/filtered/paginated — use directly
-  const displayedOrders = polledOrders
+  // Server data is already sorted/filtered/paginated — apply active group filter client-side
+  const displayedOrders = useMemo(
+    () => filterByActiveGroup(polledOrders, 'login', 'pendingorders'),
+    [polledOrders, filterByActiveGroup, activeGroupFilters]
+  )
   
   // Handle column header click for sorting
   const handleSort = (columnKey) => {
