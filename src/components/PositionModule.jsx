@@ -1145,18 +1145,6 @@ export default function PositionModule() {
               </svg>
               <span className={`${showClientNet ? 'text-white' : 'text-[#666666]'} text-[10px] font-medium font-outfit`}>NET Position</span>
             </button>
-            {/* Group Base toggle for NET Position */}
-            {showClientNet && (
-              <button
-                onClick={() => startTransition(() => setGroupByBaseSymbol(v => !v))}
-                className={`h-8 px-3 rounded-[12px] border ml-1 shadow-sm flex items-center justify-center gap-1.5 transition-all text-[10px] font-medium font-outfit flex-shrink-0 ${groupByBaseSymbol ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-[#666666] border-[#E5E7EB]'}`}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 6h16M7 10h10M10 14h7M13 18h4" stroke={groupByBaseSymbol ? '#fff' : '#666'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Group Base
-              </button>
-            )}
             {/* Percentage toggle icon button */}
             <button
               onClick={() => startTransition(() => setDisplayMode(m => m === 'percentage' ? 'value' : 'percentage'))}
