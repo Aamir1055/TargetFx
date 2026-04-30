@@ -163,6 +163,10 @@ api.interceptors.response.use(
     return response
   },
   async (error) => {
+    // Suppress noise from cancelled requests (component unmount, dep change, etc.)
+    if (axios.isCancel?.(error) || error?.code === 'ERR_CANCELED' || error?.message === 'canceled') {
+      return Promise.reject(error)
+    }
     if (DEBUG_LOGS) {
       const errInfo = {
         message: error.message,
@@ -215,6 +219,9 @@ api.interceptors.response.use(
 ibApi.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (axios.isCancel?.(error) || error?.code === 'ERR_CANCELED' || error?.message === 'canceled') {
+      return Promise.reject(error)
+    }
     if (DEBUG_LOGS) {
       const errInfo = {
         message: error.message,

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useDeferredValue, startTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,6 +28,11 @@ export default function PositionModule() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isGroupOpen, setIsGroupOpen] = useState(false)
@@ -112,6 +117,7 @@ export default function PositionModule() {
   const [serverNetPositions, setServerNetPositions] = useState([])
   const [serverNetTotal, setServerNetTotal] = useState(0)
   const [hasFetchedServerNet, setHasFetchedServerNet] = useState(false)
+  const hasFetchedServerNetRef = useRef(false)
   const [isServerNetLoading, setIsServerNetLoading] = useState(false)
 
   // Server-side positions (fetched when regular Positions tab is active on mobile)
@@ -119,6 +125,7 @@ export default function PositionModule() {
   const [serverPositionsTotal, setServerPositionsTotal] = useState(0)
   const [serverPositionsTotals, setServerPositionsTotals] = useState({ profit: 0, volume: 0, uniqueLogins: 0 })
   const [hasFetchedServerPositions, setHasFetchedServerPositions] = useState(false)
+  const hasFetchedServerPositionsRef = useRef(false)
   const [isServerPositionsLoading, setIsServerPositionsLoading] = useState(false)
   
   const [visibleColumns, setVisibleColumns] = useState({
@@ -239,10 +246,7 @@ export default function PositionModule() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const mobileRegularSourcePositions = useMemo(() => {
-    if (!isMobileView || showClientNet || !hasFetchedServerPositions) return displayPositions
-    return normalizePositions(serverPositions, clientCurrencyMap)
-  }, [isMobileView, showClientNet, hasFetchedServerPositions, displayPositions, serverPositions, clientCurrencyMap])
+  const mobileRegularSourcePositions = displayPositions
 
   // Apply filters in cumulative order: Customize View -> Group
   const ibFilteredPositions = useMemo(() => {
@@ -369,171 +373,13 @@ export default function PositionModule() {
 
   const clientNetPositions = useMemo(() => calculateClientNetPositions(dateFilteredPositions), [dateFilteredPositions, groupByBaseSymbol])
 
-  // Mobile NET view must use server-side net positions response, polled every 2s
-  useEffect(() => {
-    if (!isMobileView || !showClientNet) return
+  // Mobile NET view now uses the same WebSocket-cached client-side calculation as desktop.
+  // (Previous server-side NET polling effect has been removed to align mobile with desktop.)
 
-    let isCancelled = false
-    let timer = null
-    let isFirstFetch = true
+  // Mobile regular Positions view now uses the same WebSocket cache as desktop.
+  // (Previous server-side polling effect has been removed to align mobile with desktop.)
 
-    const fetchMobileNetPositions = async () => {
-      if (isCancelled) return;
-      try {
-        if (isFirstFetch) setIsServerNetLoading(true);
-
-        const params = {
-          page: 1,
-          limit: 50,
-          netPosition: true,
-          sortBy: 'netVolume',
-          sortOrder: 'asc'
-        };
-        if (groupByBaseSymbol) params.groupBaseSymbol = true;
-        if (displayMode === 'percentage') params.percentage = true;
-
-        const response = await brokerAPI.searchPositions(params);
-
-        if (isCancelled) return;
-
-        const data = response?.data?.positions || response?.positions || [];
-        const total = response?.data?.total || response?.total || 0;
-
-        const mapped = Array.isArray(data)
-          ? data.map(item => ({
-              login: item.login,
-              symbol: item.symbol || item.baseSymbol || '-',
-              netType: item.action === 'BUY' ? 'Buy' : item.action === 'SELL' ? 'Sell' : (item.action === 'FLAT' ? 'Flat' : (item.action || 'Flat')),
-              netVolume: item.netVolume || 0,
-              avgPrice: item.avgPrice || 0,
-              totalProfit: item.totalProfit || 0,
-              totalStorage: item.totalStorage || 0,
-              totalCommission: item.totalCommission || 0,
-              totalPositions: item.positionCount || item.totalPositions || 0
-            }))
-          : [];
-
-        setServerNetPositions(mapped);
-        setServerNetTotal(total);
-        setHasFetchedServerNet(true);
-      } catch (err) {
-        if (!isCancelled) {
-          console.warn('[PositionModule] Failed to fetch mobile NET positions:', err?.message);
-        }
-      } finally {
-        if (!isCancelled && isFirstFetch) {
-          setIsServerNetLoading(false);
-          isFirstFetch = false;
-        }
-      }
-
-      if (!isCancelled) {
-        timer = setTimeout(fetchMobileNetPositions, 2000);
-      }
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (!timer && !isCancelled) fetchMobileNetPositions()
-      } else if (timer) {
-        clearTimeout(timer)
-        timer = null
-      }
-    }
-
-    if (document.visibilityState === 'visible') fetchMobileNetPositions()
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      isCancelled = true
-      if (timer) { clearTimeout(timer); timer = null }
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-    }
-  }, [isMobileView, showClientNet, groupByBaseSymbol, displayMode]);
-
-  // Mobile regular Positions view: poll server every 2s when NET is OFF
-  useEffect(() => {
-    if (!isMobileView || showClientNet) return
-
-    let isCancelled = false
-    let timer = null
-    let isFirstFetch = true
-
-    const fetchMobilePositions = async () => {
-      if (isCancelled) return;
-      try {
-        if (isFirstFetch) setIsServerPositionsLoading(true);
-
-        const params = {
-          page: currentPage,
-          limit: itemsPerPage,
-          sortBy: sortColumn || 'timeCreate',
-          sortOrder: sortDirection || 'asc',
-        };
-        if (searchInput && searchInput.trim()) params.search = searchInput.trim();
-        if (displayMode === 'percentage') params.percentage = true;
-
-        const response = await brokerAPI.searchPositions(params);
-
-        if (isCancelled) return;
-
-        const data = response?.data?.positions || response?.positions || [];
-        const total = response?.data?.total || response?.total || 0;
-        const totals = response?.data?.totals || response?.totals || null;
-
-        if (Array.isArray(data)) {
-          setServerPositions(data);
-          setServerPositionsTotal(total);
-          if (totals) {
-            setServerPositionsTotals({
-              profit: totals.profit ?? totals.totalProfit ?? 0,
-              volume: totals.volume ?? totals.netVolume ?? 0,
-              uniqueLogins: totals.uniqueLogins ?? 0
-            })
-          }
-          setHasFetchedServerPositions(true);
-        }
-      } catch (err) {
-        if (!isCancelled) {
-          console.warn('[PositionModule] Failed to fetch mobile positions:', err?.message);
-        }
-      } finally {
-        if (!isCancelled && isFirstFetch) {
-          setIsServerPositionsLoading(false);
-          isFirstFetch = false;
-        }
-      }
-
-      if (!isCancelled) {
-        timer = setTimeout(fetchMobilePositions, 2000);
-      }
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (!timer && !isCancelled) fetchMobilePositions()
-      } else if (timer) {
-        clearTimeout(timer)
-        timer = null
-      }
-    }
-
-    if (document.visibilityState === 'visible') fetchMobilePositions()
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      isCancelled = true
-      if (timer) { clearTimeout(timer); timer = null }
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-    }
-  }, [isMobileView, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, searchInput, displayMode])
-
-  const mobileNetSourcePositions = useMemo(() => {
-    if (isMobileView && showClientNet) {
-      return hasFetchedServerNet ? serverNetPositions : []
-    }
-    return clientNetPositions
-  }, [isMobileView, showClientNet, hasFetchedServerNet, serverNetPositions, clientNetPositions])
+  const mobileNetSourcePositions = clientNetPositions
 
   // Filter Client NET positions based on search
   const filteredClientNetPositions = useMemo(() => {
@@ -554,7 +400,7 @@ export default function PositionModule() {
   // Apply search and sorting (use deferred value to prevent blocking navigation)
   const filteredPositions = useMemo(() => {
     // Apply search filter (date filter already applied in dateFilteredPositions)
-    let filtered = applySearchFilter(dateFilteredPositions, searchInput, ['symbol', 'login'])
+    let filtered = applySearchFilter(dateFilteredPositions, debouncedSearch, ['symbol', 'login'])
     
     // Map column keys to actual data fields for sorting
     const columnKeyMapping = {
@@ -570,7 +416,7 @@ export default function PositionModule() {
     filtered = applySorting(filtered, sortKey, sortDirection)
     
     return filtered
-  }, [dateFilteredPositions, searchInput, sortColumn, sortDirection])
+  }, [dateFilteredPositions, debouncedSearch, sortColumn, sortDirection])
 
   // Handle column sorting
   const handleSort = (columnKey) => {
@@ -600,7 +446,8 @@ export default function PositionModule() {
     [filteredPositions]
   )
 
-  const isMobileRegularServerMode = isMobileView && !showClientNet && hasFetchedServerPositions
+  // Mobile now uses the same client-side data flow as desktop (WS cache)
+  const isMobileRegularServerMode = false
   const mobileRegularTotalPages = isMobileRegularServerMode
     ? Math.max(1, Math.ceil(serverPositionsTotal / itemsPerPage))
     : Math.max(1, Math.ceil(filteredPositions.length / itemsPerPage))
@@ -810,48 +657,16 @@ export default function PositionModule() {
     return iconMap[label] || `${baseUrl}Mobile cards icons/Total Clients.svg`
   }
 
-  // Face cards for NET view: use API totals fields
+  // Face cards for NET view: compute from client-side data (same as desktop, sourced from WS cache)
   const [cards, setCards] = useState([])
   const netTotals = useMemo(() => {
-    // Only use API totals in mobile NET view
-    if (isMobileView && showClientNet && hasFetchedServerNet && serverNetPositions && serverNetPositions.length >= 0) {
-      // Try to get from last NET API response
-      // The polling effect sets serverNetTotal and serverNetPositions, but not the totals object
-      // So we need to get the last totals from the API response if available
-      // For now, fallback to calculating from serverNetPositions if not available
-      // If you want to use the API's totals object, you must extract it in the polling effect
-      // For now, just sum up from serverNetPositions
-      let netVolume = 0, totalProfit = 0, uniqueLogins = 0
-      const loginSet = new Set()
-      serverNetPositions.forEach(pos => {
-        netVolume += Number(pos.netVolume) || 0
-        totalProfit += Number(pos.totalProfit) || 0
-        if (pos.login) loginSet.add(pos.login)
-      })
-      uniqueLogins = loginSet.size
-      return {
-        total: serverNetTotal,
-        netVolume,
-        totalProfit,
-        uniqueLogins
-      }
-    }
-    if (isMobileView && !showClientNet && hasFetchedServerPositions) {
-      return {
-        total: serverPositionsTotal,
-        netVolume: Number(serverPositionsTotals.volume || 0),
-        totalProfit: Number(serverPositionsTotals.profit || 0),
-        uniqueLogins: Number(serverPositionsTotals.uniqueLogins || 0)
-      }
-    }
-    // fallback to old logic for non-NET view
     return {
       total: filteredPositions.length,
       netVolume: filteredPositions.reduce((sum, p) => sum + (Number(p.volume) || 0), 0),
       totalProfit: filteredPositions.reduce((sum, p) => sum + (Number(p.profit) || 0), 0),
       uniqueLogins: new Set(filteredPositions.map(p => p.login)).size
     }
-  }, [isMobileView, showClientNet, hasFetchedServerNet, serverNetPositions, serverNetTotal, hasFetchedServerPositions, serverPositionsTotal, serverPositionsTotals, filteredPositions])
+  }, [filteredPositions])
 
   // Face cards array for rendering
   const netFaceCards = [
@@ -1163,12 +978,14 @@ export default function PositionModule() {
             </button>
             <button 
               onClick={() => {
-                setShowClientNet((v) => {
-                  const next = !v
-                  if (next) {
-                    setClientNetCurrentPage(1)
-                  }
-                  return next
+                startTransition(() => {
+                  setShowClientNet((v) => {
+                    const next = !v
+                    if (next) {
+                      setClientNetCurrentPage(1)
+                    }
+                    return next
+                  })
                 })
               }}
               style={{ minWidth: '110px', width: '110px', flexShrink: 0 }}
@@ -1182,7 +999,7 @@ export default function PositionModule() {
             {/* Group Base toggle for NET Position */}
             {showClientNet && (
               <button
-                onClick={() => setGroupByBaseSymbol(v => !v)}
+                onClick={() => startTransition(() => setGroupByBaseSymbol(v => !v))}
                 className={`h-8 px-3 rounded-[12px] border ml-1 shadow-sm flex items-center justify-center gap-1.5 transition-all text-[10px] font-medium font-outfit flex-shrink-0 ${groupByBaseSymbol ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-[#666666] border-[#E5E7EB]'}`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -1193,7 +1010,7 @@ export default function PositionModule() {
             )}
             {/* Percentage toggle icon button */}
             <button
-              onClick={() => setDisplayMode(m => m === 'percentage' ? 'value' : 'percentage')}
+              onClick={() => startTransition(() => setDisplayMode(m => m === 'percentage' ? 'value' : 'percentage'))}
               title={displayMode === 'percentage' ? 'Switch to value view' : 'Switch to percentage view'}
               className={`w-8 h-8 rounded-[12px] border shadow-sm flex items-center justify-center flex-shrink-0 transition-all ${
                 displayMode === 'percentage'
@@ -1819,7 +1636,7 @@ export default function PositionModule() {
                   </div>
 
                   {/* Table Rows */}
-                  {isServerNetLoading || isClientNetPageChanging ? (
+                  {(isServerNetLoading || isClientNetPageChanging) && filteredClientNetPositions.length === 0 ? (
                     <>
                       {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={`client-net-skeleton-${i}`} className="grid text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]" style={{
