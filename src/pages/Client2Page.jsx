@@ -5387,18 +5387,15 @@ const Client2Page = () => {
                                 onMouseDown={(e) => handleResizeStart(e, col.key)}
                                 onDoubleClick={(e) => { e.stopPropagation(); handleAutoFit(col.key, col.baseKey) }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute top-0 right-0 h-full w-4 cursor-col-resize select-none z-30 hover:bg-blue-400/40 active:bg-blue-600/60 transition-colors"
+                                className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none z-30 hover:bg-white/60 active:bg-white/80 transition-colors"
                                 style={{
                                   userSelect: 'none',
                                   touchAction: 'none',
-                                  pointerEvents: 'auto',
-                                  marginRight: '-2px'
+                                  pointerEvents: 'auto'
                                 }}
                                 title="Drag to resize • Double-click to auto-fit"
                                 draggable={false}
-                              >
-                                <div className="absolute right-[2px] top-0 w-[3px] h-full bg-white/40 hover:bg-blue-400 active:bg-blue-600 transition-colors shadow-sm"></div>
-                              </div>
+                              />
                             </th>
                           )
                         })}

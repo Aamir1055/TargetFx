@@ -1194,7 +1194,6 @@ const PendingOrdersPage = () => {
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                 <span title={numericMode === 'compact' ? String(serverTotalOrders) : undefined}>{numericMode === 'compact' ? fmtPrice(serverTotalOrders, 0) : serverTotalOrders}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ORD</span>
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -1213,7 +1212,6 @@ const PendingOrdersPage = () => {
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                 <span title={numericMode === 'compact' ? String(Number(serverTotals.uniqueLogins || 0)) : undefined}>{numericMode === 'compact' ? fmtPrice(Number(serverTotals.uniqueLogins || 0), 0) : Number(serverTotals.uniqueLogins || 0)}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">ACCT</span>
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -1232,7 +1230,6 @@ const PendingOrdersPage = () => {
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                 <span title={numericMode === 'compact' ? fmtMoneyFull(serverTotals.volumeCurrent, 2) : undefined}>{fmtMoney(serverTotals.volumeCurrent, 2)}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span>
               </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -1251,7 +1248,6 @@ const PendingOrdersPage = () => {
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                 <span title={numericMode === 'compact' ? fmtMoneyFull(serverTotals.volumeInitial, 2) : undefined}>{fmtMoney(serverTotals.volumeInitial, 2)}</span>
-                <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">VOL</span>
               </div>
             </div>
           </div>
