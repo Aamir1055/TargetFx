@@ -76,7 +76,7 @@ export default function useColumnResize(storageKey) {
   // Helper: style fragment to merge into the <th> inline style
   const getHeaderStyle = useCallback((columnKey) => {
     const w = columnWidths[columnKey]
-    const base = { position: 'relative', whiteSpace: 'nowrap' }
+    const base = { position: 'relative', whiteSpace: 'nowrap', overflow: 'hidden' }
     if (!w) return base
     return { ...base, width: w, minWidth: w, maxWidth: w }
   }, [columnWidths])
