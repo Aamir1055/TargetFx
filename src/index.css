@@ -3,6 +3,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Unified loading dialog: indeterminate progress bar */
+@keyframes loading-bar-indeterminate {
+  0%   { left: -33%; }
+  100% { left: 100%; }
+}
+.loading-bar-indeterminate {
+  animation: loading-bar-indeterminate 1.2s ease-in-out infinite;
+}
+
+/* Shared skeleton shimmer used by table row placeholders */
+@keyframes skeletonShimmer {
+  0%   { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+.skeleton-shimmer-pos {
+  background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 20%, #f0f0f0 40%, #f0f0f0 100%);
+  background-size: 1000px 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
 /* Mobile viewport fixes */
 html {
   -webkit-overflow-scrolling: touch;

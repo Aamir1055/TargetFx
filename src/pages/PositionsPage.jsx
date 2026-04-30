@@ -2446,6 +2446,9 @@ const PositionsPage = () => {
 
   return (
     <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-hidden">
+      {(isInitialPositionsLoading || isInitialNetLoading) && (
+        <LoadingSpinner message="Loading positions..." subtitle="Fetching live open positions" />
+      )}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
@@ -2642,7 +2645,7 @@ const PositionsPage = () => {
                 </div>
               </div>
               {isInitialPositionsLoading ? (
-                <div className="h-6 w-16 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6" />
               ) : (
                 <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
                   <span>{summaryStats.totalPositions}</span>
@@ -2667,7 +2670,7 @@ const PositionsPage = () => {
                   </div>
                 </div>
                 {isInitialPositionsLoading ? (
-                  <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-6" />
                 ) : (
                   <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
                     summaryStats.floatingCombined >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
@@ -2696,7 +2699,7 @@ const PositionsPage = () => {
                   </div>
                 </div>
                 {isInitialPositionsLoading ? (
-                  <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-6" />
                 ) : (
                   <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
                     summaryStats.totalFloatingProfitPercentage >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
@@ -2722,7 +2725,7 @@ const PositionsPage = () => {
                 </div>
               </div>
               {isInitialPositionsLoading ? (
-                <div className="h-6 w-12 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6" />
               ) : (
                 <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
                   summaryStats.floatingINR >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
@@ -2747,7 +2750,7 @@ const PositionsPage = () => {
                 </div>
               </div>
               {isInitialPositionsLoading ? (
-                <div className="h-6 w-10 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6" />
               ) : (
                 <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
                   summaryStats.floatingUSD >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
@@ -3123,43 +3126,8 @@ const PositionsPage = () => {
                         </tr>
                       </thead>
 
-                      {/* YouTube-style Loading Progress Bar */}
-                      {(isInitialNetLoading || isNetPageLoading || isExporting) && (
-                        <thead className="sticky z-40" style={{ top: '48px' }}>
-                          <tr>
-                            <th colSpan={Object.values(netVisibleColumns).filter(v => v).length} className="p-0" style={{ height: '3px' }}>
-                              <div className="relative w-full h-full bg-gray-200 overflow-hidden">
-                                <style>{`
-                                  @keyframes shimmerSlide {
-                                    0% { transform: translateX(-100%); }
-                                    100% { transform: translateX(400%); }
-                                  }
-                                  .shimmer-loading-bar {
-                                    width: 30%;
-                                    height: 100%;
-                                    background: #2563eb;
-                                    animation: shimmerSlide 0.9s linear infinite;
-                                  }
-                                  @keyframes shimmerPos {
-                                    0% { background-position: -1000px 0; }
-                                    100% { background-position: 1000px 0; }
-                                  }
-                                  .skeleton-shimmer-pos {
-                                    background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 20%, #f0f0f0 40%, #f0f0f0 100%);
-                                    background-size: 1000px 100%;
-                                    animation: shimmerPos 1.5s ease-in-out infinite;
-                                    border-radius: 4px;
-                                  }
-                                `}</style>
-                                <div className="shimmer-loading-bar absolute top-0 left-0 h-full" />
-                              </div>
-                            </th>
-                          </tr>
-                        </thead>
-                      )}
-
                       <tbody className="bg-white text-sm">
-                        {(isInitialNetLoading || isNetPageLoading || isExporting) ? (
+                        {(isNetPageLoading || isExporting) ? (
                           Array.from({ length: 8 }, (_, i) => (
                             <tr key={`net-skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
                               {Object.entries(netVisibleColumns).map(([col, visible]) =>
@@ -3658,31 +3626,6 @@ const PositionsPage = () => {
                         </tr>
                       </thead>
 
-                      {/* YouTube-style Loading Progress Bar */}
-                      {isInitialClientNetLoading && (
-                        <thead className="sticky z-40" style={{ top: '48px' }}>
-                          <tr>
-                            <th colSpan={Object.values(clientNetVisibleColumns).filter(v => v).length} className="p-0" style={{ height: '3px' }}>
-                              <div className="relative w-full h-full bg-gray-200 overflow-hidden">
-                                <style>{`
-                                  @keyframes shimmerSlideClient {
-                                    0% { transform: translateX(-100%); }
-                                    100% { transform: translateX(400%); }
-                                  }
-                                  .shimmer-loading-bar-client {
-                                    width: 30%;
-                                    height: 100%;
-                                    background: #2563eb;
-                                    animation: shimmerSlideClient 0.9s linear infinite;
-                                  }
-                                `}</style>
-                                <div className="shimmer-loading-bar-client absolute top-0 left-0 h-full" />
-                              </div>
-                            </th>
-                          </tr>
-                        </thead>
-                      )}
-
                       <tbody className="bg-white text-sm">
                         {clientNetDisplayedPositions.map((row, idx) => {
                           const key = `${row.login}|${row.symbol}`
@@ -3963,43 +3906,8 @@ const PositionsPage = () => {
                     </tr>
                   </thead>
 
-                  {/* YouTube-style Loading Progress Bar */}
-                  {(isInitialPositionsLoading || isExporting || isPageLoading) && (
-                    <thead className="sticky z-40" style={{ top: '48px' }}>
-                      <tr>
-                        <th colSpan={Object.values(getEffectiveVisibleColumns()).filter(v => v).length} className="p-0" style={{ height: '3px' }}>
-                          <div className="relative w-full h-full bg-gray-200 overflow-hidden">
-                            <style>{`
-                              @keyframes shimmerSlidePos {
-                                0% { transform: translateX(-100%); }
-                                100% { transform: translateX(400%); }
-                              }
-                              .shimmer-loading-bar-pos {
-                                width: 30%;
-                                height: 100%;
-                                background: #2563eb;
-                                animation: shimmerSlidePos 0.9s linear infinite;
-                              }
-                              @keyframes shimmerPos {
-                                0% { background-position: -1000px 0; }
-                                100% { background-position: 1000px 0; }
-                              }
-                              .skeleton-shimmer-pos {
-                                background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 20%, #f0f0f0 40%, #f0f0f0 100%);
-                                background-size: 1000px 100%;
-                                animation: shimmerPos 1.5s ease-in-out infinite;
-                                border-radius: 4px;
-                              }
-                            `}</style>
-                            <div className="shimmer-loading-bar-pos absolute top-0 left-0 h-full" />
-                          </div>
-                        </th>
-                      </tr>
-                    </thead>
-                  )}
-
                   <tbody className="bg-white">
-                    {(isPageLoading || isInitialPositionsLoading || isExporting) ? (
+                    {(isPageLoading || isExporting) ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
                           {Object.values(getEffectiveVisibleColumns()).map((visible, colIdx) => (

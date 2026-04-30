@@ -853,6 +853,12 @@ const ClientPercentagePage = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {loading && clients.length === 0 && (
+        <LoadingSpinner
+          message="Loading client percentages..."
+          subtitle="Fetching custom profit-sharing percentages"
+        />
+      )}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
@@ -1241,38 +1247,20 @@ const ClientPercentagePage = () => {
                   </tr>
                 </thead>
 
-                {/* YouTube-style Loading Progress Bar */}
-                {loading && (
-                  <thead>
-                    <tr>
-                      <th colSpan={Object.values(visibleColumns).filter(v => v).length + 1} className="p-0" style={{ height: '3px' }}>
-                        <div className="relative w-full h-full bg-gray-200 overflow-hidden">
-                          <style>{`
-                            @keyframes shimmerSlidePercentage {
-                              0% { transform: translateX(-100%); }
-                              100% { transform: translateX(400%); }
-                            }
-                            .shimmer-loading-bar-percentage {
-                              width: 30%;
-                              height: 100%;
-                              background: #2563eb;
-                              animation: shimmerSlidePercentage 0.9s linear infinite;
-                            }
-                          `}</style>
-                          <div className="shimmer-loading-bar-percentage absolute top-0 left-0 h-full" />
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-                )}
-
                 <tbody className="bg-white divide-y divide-gray-200 text-sm">
                   {loading ? (
-                    <tr>
-                      <td colSpan={Object.values(visibleColumns).filter(v => v).length + 1} className="px-6 py-8 text-center text-sm text-gray-400">
-                        Loading client percentages...
-                      </td>
-                    </tr>
+                    Array.from({ length: 8 }, (_, i) => {
+                      const colCount = Object.values(visibleColumns).filter(v => v).length + 1
+                      return (
+                        <tr key={`pct-skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
+                          {Array.from({ length: colCount }, (_, c) => (
+                            <td key={c} className="px-2" style={{ height: '38px' }}>
+                              <div className="h-3 w-full max-w-[80%] skeleton-shimmer-pos" />
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })
                   ) : displayedClients.length === 0 ? (
                     <tr>
                       <td colSpan={Object.values(visibleColumns).filter(v => v).length + 1} className="px-6 py-8 text-center">

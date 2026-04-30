@@ -1741,6 +1741,9 @@ const LiveDealingPage = () => {
 
   return (
     <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-hidden">
+      {loading && deals.length === 0 && (
+        <LoadingSpinner message="Loading deals..." subtitle="Fetching live trading deals" />
+      )}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => {
@@ -2110,41 +2113,10 @@ const LiveDealingPage = () => {
                 </tr>
               </thead>
 
-              {/* YouTube-style Loading Progress Bar - Below table header */}
-              {loading && (
-                <thead>
-                  <tr>
-                    <th colSpan={Object.values(visibleColumns).filter(v => v).length} className="p-0" style={{ height: '3px' }}>
-                      <div className="relative w-full h-full bg-gray-200 overflow-hidden">
-                        <style>{`
-                          @keyframes shimmerSlide {
-                            0% { transform: translateX(-100%); }
-                            100% { transform: translateX(400%); }
-                          }
-                          .shimmer-loading-bar {
-                            width: 30%;
-                            height: 100%;
-                            background: #2563eb;
-                            animation: shimmerSlide 0.9s linear infinite;
-                          }
-                        `}</style>
-                        <div className="shimmer-loading-bar absolute top-0 left-0 h-full" />
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-              )}
-
               <tbody className="bg-white divide-y-2 text-sm" style={{ borderColor: '#888888' }}>
-                {loading ? (
-                  // Show empty state while loading to avoid layout shift
-                  <tr>
-                    <td colSpan={Object.values(visibleColumns).filter(v => v).length} className="px-6 py-8">
-                      <div className="flex flex-col items-center justify-center text-gray-400">
-                        <p className="text-sm">Loading deals...</p>
-                      </div>
-                    </td>
-                  </tr>
+                {loading && deals.length === 0 ? (
+                  // Empty body while initial load — overlay dialog handles UX
+                  null
                 ) : displayedDeals.length === 0 ? (
                   <tr>
                     <td colSpan={Object.values(visibleColumns).filter(v => v).length} className="px-6 py-12 text-center">

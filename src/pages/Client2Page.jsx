@@ -1364,6 +1364,7 @@ const Client2Page = () => {
         setTotals({}) // Clear normal totals
         setTotalsPercent(percentTotals)
         setError('')
+        setInitialLoad(false)
       } else {
         // Fetch only normal data
         const normalResponse = await brokerAPI.searchClients(payload, { signal: abortControllerRef.current.signal })
@@ -1386,6 +1387,7 @@ const Client2Page = () => {
         setTotals(normalTotals)
         setTotalsPercent({})
         setError('')
+        setInitialLoad(false)
       }
     } catch (err) {
       // Ignore request cancellations caused by in-flight aborts
@@ -1423,14 +1425,17 @@ const Client2Page = () => {
         }
         setError(errorMessage)
       }
+      // Surface error state by ending the initial-load overlay so user sees the message
+      setInitialLoad(false)
     } finally {
       isFetchingRef.current = false
       if (!silent) {
         setLoading(false)
         setProgressActive(false)
       }
-      // Mark initial load complete and always reset sorting state
-      setInitialLoad(false)
+      // Always reset sorting state. initialLoad is flipped only after a
+      // successful response so the empty-state doesn't flash on stale-request
+      // races during initial mount.
       setIsSorting(false)
     }
   }, [currentPage, itemsPerPage, debouncedSearchQuery, filters, columnFilters, mt5Accounts, accountRangeMin, accountRangeMax, sortBy, sortOrder, percentModeActive, activeGroup, selectedIB, ibMT5Accounts, quickFilters, currencyMode])
@@ -3828,6 +3833,9 @@ const Client2Page = () => {
 
   return (
     <div className="h-screen flex overflow-hidden relative bg-[#F8FAFC]">
+      {initialLoad && (
+        <LoadingSpinner message="Loading clients..." subtitle="Fetching client accounts" />
+      )}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => {
@@ -4531,8 +4539,8 @@ const Client2Page = () => {
                 )}
 
                 {/* Table - Show table with progress bar for all loading states */}
-                {/* Always show table unless it's the initial load, even when no clients */}
-                {(!initialLoad || clients.length > 0) && (
+                {/* Always render table (even during initial load) so header/toolbar mirror other modules */}
+                {(
                   <div className="overflow-auto relative table-scroll-container" ref={hScrollRef} style={{
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#9ca3af #e5e7eb',
@@ -5411,30 +5419,6 @@ const Client2Page = () => {
                       </tr>
                     </thead>
 
-                    {/* YouTube-style Loading Progress Bar - Below table header */}
-                    {(loading || isRefreshing || isPageChanging) && (
-                      <thead className="sticky z-40" style={{ top: '48px' }}>
-                        <tr>
-                          <th colSpan={visibleColumnsList.length} className="p-0" style={{ height: '3px' }}>
-                            <div className="relative w-full h-full bg-gray-200 overflow-hidden">
-                              <style>{`
-                                @keyframes headerSlide {
-                                  0% { transform: translateX(-100%); }
-                                  100% { transform: translateX(400%); }
-                                }
-                                .header-loading-bar {
-                                  width: 30%;
-                                  height: 100%;
-                                  background: #2563eb;
-                                  animation: headerSlide 0.9s linear infinite;
-                                }
-                              `}</style>
-                              <div className="header-loading-bar absolute top-0 left-0 h-full" />
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-                    )}
 
                     <tbody className="bg-white text-sm md:text-[15px]" key={`tbody-${animationKey}`}>
                       {(loading || initialLoad || isRefreshing || isPageChanging) ? (

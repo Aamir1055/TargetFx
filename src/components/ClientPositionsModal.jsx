@@ -2881,29 +2881,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         </tr>
                       </thead>
 
-                      {/* YouTube-style Loading Progress Bar */}
-                      <thead className="sticky z-40" style={{ top: '48px' }}>
-                        <tr>
-                          <th colSpan="12" className="p-0" style={{ height: '3px' }}>
-                            <div className="relative w-full h-full bg-gray-200 overflow-hidden">
-                              <style>{`
-                                @keyframes shimmerSlideDeals {
-                                  0% { transform: translateX(-100%); }
-                                  100% { transform: translateX(400%); }
-                                }
-                                .shimmer-loading-bar-deals {
-                                  width: 30%;
-                                  height: 100%;
-                                  background: #2563eb;
-                                  animation: shimmerSlideDeals 0.9s linear infinite;
-                                }
-                              `}</style>
-                              <div className="shimmer-loading-bar-deals absolute top-0 left-0 h-full" />
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-
                       <tbody className="bg-white">
                         <tr>
                           <td colSpan="12" className="px-6 py-8 text-center text-sm text-gray-400">

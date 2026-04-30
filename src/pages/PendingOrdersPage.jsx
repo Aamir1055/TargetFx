@@ -1126,11 +1126,14 @@ const PendingOrdersPage = () => {
     return <PendingOrdersModule />
   }
 
-  // Only show full-page spinner on initial load (before first API response).
-  if (!hasFetchedOrders) return <LoadingSpinner />
-
   return (
     <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-hidden">
+      {!hasFetchedOrders && (
+        <LoadingSpinner
+          message="Loading pending orders..."
+          subtitle="Fetching live pending orders"
+        />
+      )}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}

@@ -3868,31 +3868,6 @@ const ClientsPage = () => {
                   </tr>
                 </thead>
                 
-                {/* YouTube-style Loading Progress Bar - Below Header */}
-                {(isRefreshing || isSorting) && (
-                  <thead>
-                    <tr>
-                      <th colSpan={visibleColumnsList.length * (displayMode === 'both' ? 2 : 1)} style={{ padding: 0, height: '4px', border: 'none' }}>
-                        <div className="relative w-full h-1 bg-gray-200 overflow-hidden">
-                          <style>{`
-                            @keyframes headerSlide {
-                              0% { transform: translateX(-100%); }
-                              100% { transform: translateX(400%); }
-                            }
-                            .header-loading-bar {
-                              width: 30%;
-                              height: 100%;
-                              background: #2563eb;
-                              animation: headerSlide 1.2s ease-in-out;
-                            }
-                          `}</style>
-                          <div className="header-loading-bar absolute top-0 left-0 h-full" />
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-                )}
-                
                 <tbody className="bg-white divide-y divide-gray-100">
                   {/* Virtualization padding (top) */}
                   {topPadding > 0 && (
