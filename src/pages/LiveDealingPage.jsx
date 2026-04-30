@@ -119,6 +119,7 @@ const LiveDealingPage = () => {
       deal: true,
       time: true,
       login: true,
+      name: true,
       action: true,
       symbol: true,
       volume: true,
@@ -151,6 +152,7 @@ const LiveDealingPage = () => {
     { key: 'deal', label: 'Deal' },
     { key: 'time', label: 'Time' },
     { key: 'login', label: 'Login', sticky: true },
+    { key: 'name', label: 'Name' },
     { key: 'action', label: 'Action' },
     { key: 'symbol', label: 'Symbol' },
     { key: 'volume', label: 'Volume' },
@@ -2055,7 +2057,7 @@ const LiveDealingPage = () => {
                 </div>
               </div>
             </div>
-            <div className="overflow-y-auto overflow-x-hidden flex-1">
+            <div className="overflow-auto flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#9ca3af #e5e7eb' }}>
               {/* Smooth fade animation for new deals */}
               <style>{`
                 @keyframes dealFadeOut {
@@ -2078,6 +2080,7 @@ const LiveDealingPage = () => {
                       case 'time': cell = renderHeaderCell('time', 'Time'); break
                       case 'deal': cell = renderHeaderCell('deal', 'Deal'); break
                       case 'login': cell = renderHeaderCell('login', 'Login'); break
+                      case 'name': cell = renderHeaderCell('name', 'Name'); break
                       case 'action': cell = renderHeaderCell('action', 'Action'); break
                       case 'symbol': cell = renderHeaderCell('symbol', 'Symbol'); break
                       case 'volume': cell = renderHeaderCell('volume', 'Volume'); break
@@ -2179,6 +2182,8 @@ const LiveDealingPage = () => {
                                 {deal.login}
                               </td>
                             )
+                          case 'name':
+                            return <td key="name" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={cellStyle}>{deal.rawData?.name ?? deal.name ?? '-'}</td>
                           case 'action':
                             return (
                               <td key="action" className="px-3 py-2.5 whitespace-nowrap text-sm" style={cellStyle}>

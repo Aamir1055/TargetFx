@@ -1532,6 +1532,10 @@ const PositionsPage = () => {
     const uniqueLogins = Number(serverTotals.uniqueLogins || 0)
     const uniqueSymbols = new Set(ibFilteredPositions.map(p => p.symbol)).size
     const totalVolume = Number(serverTotals.volume || 0)
+    // Floating values per currency bucket (broker perspective: invert sign)
+    const floatingCombined = -(Number(serverTotals.floatingCombined ?? 0) || 0)
+    const floatingINR = -(Number(serverTotals.floatingINR ?? 0) || 0)
+    const floatingUSD = -(Number(serverTotals.floatingUSD ?? 0) || 0)
 
     return {
       totalPositions,
@@ -1539,7 +1543,10 @@ const PositionsPage = () => {
       totalFloatingProfitPercentage,
       uniqueLogins,
       uniqueSymbols,
-      totalVolume
+      totalVolume,
+      floatingCombined,
+      floatingINR,
+      floatingUSD
     }
   }, [ibFilteredPositions, serverTotalPositions, serverTotals])
   
@@ -2634,15 +2641,15 @@ const PositionsPage = () => {
               )}
             </div>
             
-            {/* Total Floating Profit - shown in 'value' mode */}
+            {/* Floating Combined - shown in 'value' mode */}
             {displayMode === 'value' && (
               <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                  <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating Profit</span>
+                  <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating Combined</span>
                   <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                     <img 
                       src={getCardIcon('Floating Profit')} 
-                      alt="Floating Profit"
+                      alt="Floating Combined"
                       style={{ width: '100%', height: '100%' }}
                       onError={(e) => {
                         e.target.style.display = 'none'
@@ -2654,9 +2661,9 @@ const PositionsPage = () => {
                   <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
                 ) : (
                   <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
-                    summaryStats.totalFloatingProfit >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
+                    summaryStats.floatingCombined >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
                   }`}>
-                    <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.totalFloatingProfit)) : undefined}>{fmtMoney(Math.abs(summaryStats.totalFloatingProfit))}</span>
+                    <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.floatingCombined)) : undefined}>{fmtMoney(Math.abs(summaryStats.floatingCombined))}</span>
                   </div>
                 )}
               </div>
@@ -2692,11 +2699,11 @@ const PositionsPage = () => {
             
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Unique Logins</span>
+                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating INR</span>
                 <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                   <img 
-                    src={getCardIcon('Unique Logins')} 
-                    alt="Unique Logins"
+                    src={getCardIcon('Floating Profit')} 
+                    alt="Floating INR"
                     style={{ width: '100%', height: '100%' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
@@ -2707,18 +2714,20 @@ const PositionsPage = () => {
               {isInitialPositionsLoading ? (
                 <div className="h-6 w-12 bg-gray-200 rounded animate-pulse" />
               ) : (
-                <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                  <span title={numericMode === 'compact' ? String(summaryStats.uniqueLogins) : undefined}>{numericMode === 'compact' ? fmtPrice(summaryStats.uniqueLogins, 0) : summaryStats.uniqueLogins}</span>
+                <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
+                  summaryStats.floatingINR >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
+                }`}>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.floatingINR)) : undefined}>{fmtMoney(Math.abs(summaryStats.floatingINR))}</span>
                 </div>
               )}
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total Volume %' : 'Total Volume'}</span>
+                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating USD</span>
                 <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
                   <img 
-                    src={getCardIcon('Symbols')} 
-                    alt="Total Volume"
+                    src={getCardIcon('Floating Profit')} 
+                    alt="Floating USD"
                     style={{ width: '100%', height: '100%' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
@@ -2729,8 +2738,10 @@ const PositionsPage = () => {
               {isInitialPositionsLoading ? (
                 <div className="h-6 w-10 bg-gray-200 rounded animate-pulse" />
               ) : (
-                <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                  <span title={numericMode === 'compact' ? fmtMoneyFull(summaryStats.totalVolume, 2) : undefined}>{fmtMoney(summaryStats.totalVolume, 2)}</span>
+                <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
+                  summaryStats.floatingUSD >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
+                }`}>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.floatingUSD)) : undefined}>{fmtMoney(Math.abs(summaryStats.floatingUSD))}</span>
                 </div>
               )}
             </div>
