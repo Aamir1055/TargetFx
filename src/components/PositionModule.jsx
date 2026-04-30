@@ -373,13 +373,143 @@ export default function PositionModule() {
 
   const clientNetPositions = useMemo(() => calculateClientNetPositions(dateFilteredPositions), [dateFilteredPositions, groupByBaseSymbol])
 
-  // Mobile NET view now uses the same WebSocket-cached client-side calculation as desktop.
-  // (Previous server-side NET polling effect has been removed to align mobile with desktop.)
+  // Poll server every 2s for regular positions (mirrors PositionsPage.jsx desktop behaviour)
+  useEffect(() => {
+    if (showClientNet) return
 
-  // Mobile regular Positions view now uses the same WebSocket cache as desktop.
-  // (Previous server-side polling effect has been removed to align mobile with desktop.)
+    let timer = null
+    let isCancelled = false
+    let controller = new AbortController()
 
-  const mobileNetSourcePositions = clientNetPositions
+    const poll = async () => {
+      if (isCancelled) return
+      try {
+        if (!hasFetchedServerPositionsRef.current) setIsServerPositionsLoading(true)
+        const params = {
+          page: currentPage,
+          limit: itemsPerPage,
+          sortBy: sortColumn || 'timeCreate',
+          sortOrder: sortDirection || 'desc'
+        }
+        if (debouncedSearch && debouncedSearch.trim()) params.search = debouncedSearch.trim()
+        if (displayMode === 'percentage') params.percentage = true
+
+        const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
+        if (isCancelled) return
+        const data = response?.data?.positions || response?.positions || []
+        const total = response?.data?.total || response?.total || 0
+        const totals = response?.data?.totals || response?.totals || null
+        if (Array.isArray(data)) {
+          setServerPositions(data)
+          setServerPositionsTotal(total)
+          if (totals) setServerPositionsTotals({
+            profit: totals.profit ?? totals.totalProfit ?? 0,
+            volume: totals.volume ?? totals.netVolume ?? 0,
+            uniqueLogins: totals.uniqueLogins ?? 0
+          })
+          setHasFetchedServerPositions(true)
+          hasFetchedServerPositionsRef.current = true
+          setIsServerPositionsLoading(false)
+        }
+      } catch (err) {
+        if (!isCancelled && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
+          console.warn('[PositionModule] Regular poll error:', err?.message)
+        }
+      }
+      if (!isCancelled) timer = setTimeout(poll, 2000)
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') { if (!timer && !isCancelled) poll() }
+      else if (timer) { clearTimeout(timer); timer = null }
+    }
+
+    if (document.visibilityState === 'visible') poll()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      isCancelled = true
+      controller.abort()
+      if (timer) { clearTimeout(timer); timer = null }
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, debouncedSearch, displayMode])
+
+  // Poll server every 2s for NET positions (mirrors PositionsPage.jsx desktop NET behaviour)
+  useEffect(() => {
+    if (!showClientNet) return
+
+    let timer = null
+    let isCancelled = false
+    let controller = new AbortController()
+
+    const poll = async () => {
+      if (isCancelled) return
+      try {
+        if (!hasFetchedServerNetRef.current) setIsServerNetLoading(true)
+        const params = {
+          page: 1,
+          limit: 1000,
+          netPosition: true,
+          sortBy: 'netVolume',
+          sortOrder: 'desc'
+        }
+        if (groupByBaseSymbol) params.groupBaseSymbol = true
+        if (displayMode === 'percentage') params.percentage = true
+        if (clientNetSearchInput.trim()) params.search = clientNetSearchInput.trim()
+
+        const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
+        if (isCancelled) return
+        const data = response?.data?.positions || response?.positions || []
+        const total = response?.data?.total || response?.total || 0
+        const totals = response?.data?.totals || response?.totals || null
+        if (Array.isArray(data)) {
+          const mapped = data.map(item => ({
+            login: item.login,
+            symbol: item.symbol || item.baseSymbol || '-',
+            netType: item.action === 'BUY' ? 'Buy' : item.action === 'SELL' ? 'Sell' : (item.action === 'FLAT' ? 'Flat' : (item.action || 'Flat')),
+            netVolume: item.netVolume || 0,
+            avgPrice: item.avgPrice || 0,
+            totalProfit: item.totalProfit || 0,
+            totalStorage: item.totalStorage || 0,
+            totalCommission: item.totalCommission || 0,
+            totalPositions: item.positionCount || item.totalPositions || 0
+          }))
+          setServerNetPositions(mapped)
+          setServerNetTotal(total)
+          if (totals) setServerPositionsTotals({
+            profit: totals.totalProfit ?? totals.profit ?? 0,
+            volume: totals.netVolume ?? totals.volume ?? 0,
+            uniqueLogins: totals.uniqueLogins ?? 0
+          })
+          setHasFetchedServerNet(true)
+          hasFetchedServerNetRef.current = true
+          setIsServerNetLoading(false)
+        }
+      } catch (err) {
+        if (!isCancelled && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
+          console.warn('[PositionModule] NET poll error:', err?.message)
+        }
+      }
+      if (!isCancelled) timer = setTimeout(poll, 2000)
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') { if (!timer && !isCancelled) poll() }
+      else if (timer) { clearTimeout(timer); timer = null }
+    }
+
+    if (document.visibilityState === 'visible') poll()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      isCancelled = true
+      controller.abort()
+      if (timer) { clearTimeout(timer); timer = null }
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [showClientNet, groupByBaseSymbol, displayMode, clientNetSearchInput])
+
+  // Use server-polled NET positions once available, else fall back to client-side calc
+  const mobileNetSourcePositions = hasFetchedServerNet ? serverNetPositions : clientNetPositions
 
   // Filter Client NET positions based on search
   const filteredClientNetPositions = useMemo(() => {
@@ -446,13 +576,14 @@ export default function PositionModule() {
     [filteredPositions]
   )
 
-  // Mobile now uses the same client-side data flow as desktop (WS cache)
-  const isMobileRegularServerMode = false
+  // Mobile now uses server-polled data (same as desktop). isMobileRegularServerMode = true once first poll done.
+  const isMobileRegularServerMode = hasFetchedServerPositions
   const mobileRegularTotalPages = isMobileRegularServerMode
     ? Math.max(1, Math.ceil(serverPositionsTotal / itemsPerPage))
     : Math.max(1, Math.ceil(filteredPositions.length / itemsPerPage))
+  // When server mode active, serverPositions are already paged — display directly
   const mobileRegularDisplayedPositions = isMobileRegularServerMode
-    ? filteredPositions
+    ? serverPositions
     : filteredPositions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   // Pagination calculations for Client NET (memoized)
@@ -657,16 +788,34 @@ export default function PositionModule() {
     return iconMap[label] || `${baseUrl}Mobile cards icons/Total Clients.svg`
   }
 
-  // Face cards for NET view: compute from client-side data (same as desktop, sourced from WS cache)
+  // Face cards for NET view: use server totals once available (same as desktop)
   const [cards, setCards] = useState([])
   const netTotals = useMemo(() => {
+    if (showClientNet && hasFetchedServerNet) {
+      const loginSet = new Set(serverNetPositions.map(p => p.login).filter(Boolean))
+      return {
+        total: serverNetTotal,
+        netVolume: serverPositionsTotals.volume,
+        totalProfit: serverPositionsTotals.profit,
+        uniqueLogins: serverPositionsTotals.uniqueLogins || loginSet.size
+      }
+    }
+    if (!showClientNet && hasFetchedServerPositions) {
+      return {
+        total: serverPositionsTotal,
+        netVolume: serverPositionsTotals.volume,
+        totalProfit: serverPositionsTotals.profit,
+        uniqueLogins: serverPositionsTotals.uniqueLogins
+      }
+    }
+    // Fallback to client-side WS cache totals
     return {
       total: filteredPositions.length,
       netVolume: filteredPositions.reduce((sum, p) => sum + (Number(p.volume) || 0), 0),
       totalProfit: filteredPositions.reduce((sum, p) => sum + (Number(p.profit) || 0), 0),
       uniqueLogins: new Set(filteredPositions.map(p => p.login)).size
     }
-  }, [filteredPositions])
+  }, [showClientNet, hasFetchedServerNet, serverNetPositions, serverNetTotal, serverPositionsTotals, hasFetchedServerPositions, serverPositionsTotal, filteredPositions])
 
   // Face cards array for rendering
   const netFaceCards = [
@@ -1074,7 +1223,7 @@ export default function PositionModule() {
                 touchAction: 'pan-x'
               }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Net Positions</span>
+                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Positions</span>
                   <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Balance.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
                   </div>
@@ -1083,7 +1232,7 @@ export default function PositionModule() {
                   <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals?.total || 0) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.total !== undefined ? fmtMoney(netTotals.total) : 0}</span>
                 </div>
               </div>
-              {/* Net Volume */}
+              {/* Floating Profit */}
               <div style={{
                 boxSizing: 'border-box',
                 minWidth: '125px',
@@ -1106,39 +1255,7 @@ export default function PositionModule() {
                 touchAction: 'pan-x'
               }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Net Volume</span>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Equity.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals.netVolume) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.netVolume !== undefined ? fmtMoney(netTotals.netVolume) : '0.00'}</span>
-                </div>
-              </div>
-              {/* Total Profit */}
-              <div style={{
-                boxSizing: 'border-box',
-                minWidth: '125px',
-                width: '125px',
-                height: '60px',
-                background: '#FFFFFF',
-                border: '1px solid #F2F2F7',
-                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                borderRadius: '12px',
-                padding: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                scrollSnapAlign: 'start',
-                flexShrink: 0,
-                flex: 'none',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                touchAction: 'pan-x'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Profit</span>
+                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Floating Profit</span>
                   <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Floating Profit.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
                   </div>
@@ -1179,6 +1296,38 @@ export default function PositionModule() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
                   <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals?.uniqueLogins || 0) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.uniqueLogins !== undefined ? fmtMoney(netTotals.uniqueLogins) : 0}</span>
+                </div>
+              </div>
+              {/* Total Volume */}
+              <div style={{
+                boxSizing: 'border-box',
+                minWidth: '125px',
+                width: '125px',
+                height: '60px',
+                background: '#FFFFFF',
+                border: '1px solid #F2F2F7',
+                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
+                borderRadius: '12px',
+                padding: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                scrollSnapAlign: 'start',
+                flexShrink: 0,
+                flex: 'none',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                touchAction: 'pan-x'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Volume</span>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Equity.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals.netVolume) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.netVolume !== undefined ? fmtMoney(netTotals.netVolume) : '0.00'}</span>
                 </div>
               </div>
             </div>

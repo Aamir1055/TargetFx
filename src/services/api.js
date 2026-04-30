@@ -382,8 +382,8 @@ export const brokerAPI = {
   // Search positions with server-side filtering, sorting, pagination, and grouping
   // Supports: page, limit, sortBy, sortOrder, search, filters[], dateFrom, dateTo,
   //           mt5Accounts[], clientNet, netPosition, groupBaseSymbol
-  searchPositions: async (params = {}) => {
-    const response = await api.post('/api/broker/positions/search', params)
+  searchPositions: async (params = {}, options = {}) => {
+    const response = await api.post('/api/broker/positions/search', params, options)
     return response.data
   },
 
@@ -412,8 +412,8 @@ export const brokerAPI = {
   },
 
   // Search pending orders with server-side filtering, sorting, pagination
-  searchOrders: async (params) => {
-    const response = await api.post('/api/broker/orders/search', params)
+  searchOrders: async (params, options = {}) => {
+    const response = await api.post('/api/broker/orders/search', params, options)
     return response.data
   },
 

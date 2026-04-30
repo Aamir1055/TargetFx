@@ -505,8 +505,7 @@ export const DataProvider = ({ children }) => {
       return clients
     }
 
-    // Clients endpoint removed from backend - commenting out to prevent CORS errors
-    console.warn('[DataContext] fetchClients skipped - endpoint not available')
+    // Clients endpoint removed from backend - populated via WebSocket
     isFetchingClientsRef.current = false
     setLoading(prev => ({ ...prev, clients: false }))
     return clients
@@ -656,8 +655,7 @@ export const DataProvider = ({ children }) => {
 
     setLoading(prev => ({ ...prev, accounts: true }))
     
-    // /api/broker/clients endpoint not in use - skip to prevent CORS errors
-    console.warn('[DataContext] fetchAccounts skipped - /api/broker/clients endpoint not available')
+    // /api/broker/clients endpoint not in use - accounts are populated via WebSocket
     setLoading(prev => ({ ...prev, accounts: false }))
     return accountsRef.current
   }, [isAuthenticated, fetchWithRetry])
@@ -1839,8 +1837,7 @@ export const DataProvider = ({ children }) => {
 
   // Verify current totals against a fresh API read; optionally apply fix
   const verifyAgainstAPI = useCallback(async (apply = false) => {
-    // /api/broker/clients endpoint not in use - skip to prevent CORS errors
-    console.warn('[DataContext] verifyAgainstAPI skipped - /api/broker/clients endpoint not available')
+    // /api/broker/clients endpoint not in use - populated via WebSocket
     return
     const response = await fetchWithRetry(() => brokerAPI.getClients(), { retries: 1, baseDelayMs: 600, label: 'verify:getClients' })
     const raw = response.data?.clients || []
