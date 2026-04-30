@@ -37,7 +37,7 @@ const PositionsPage = () => {
   // Use cached data from DataContext (orders, clients etc.)
   const { orders: cachedOrders, loading, connectionState, rawClients } = useData()
   const { isAuthenticated } = useAuth()
-  const { filterByActiveGroup, activeGroupFilters } = useGroups()
+  const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter, getGroupLogins } = useGroups()
 
   // --- Positions are fetched via REST polling (1s) when this page is active ---
   const [polledPositions, setPolledPositions] = useState([])
@@ -584,6 +584,13 @@ const PositionsPage = () => {
     setCurrentPage(1)
   }
 
+  // Reset to page 1 whenever the active group filter changes
+  const positionsActiveGroupName = getActiveGroupFilter('positions')
+  useEffect(() => {
+    setCurrentPage(1)
+    setNetCurrentPage(1)
+  }, [positionsActiveGroupName])
+
   // Check if value matches number or text filter
   const matchesNumberFilter = (value, filterConfig) => {
     if (!filterConfig) return true
@@ -777,6 +784,16 @@ const PositionsPage = () => {
         if (Array.isArray(columnFilters['login']) && columnFilters['login'].length > 0) {
           apiFilters.push({ field: 'login', operator: 'in', value: columnFilters['login'].map(Number) })
         }
+        // Apply active group filter as a server-side login filter (works across pages)
+        const activeGroupName = getActiveGroupFilter('positions')
+        if (activeGroupName) {
+          const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+          if (groupLogins.length > 0) {
+            apiFilters.push({ field: 'login', operator: 'in', value: groupLogins })
+          } else {
+            apiFilters.push({ field: 'login', operator: 'in', value: [-1] })
+          }
+        }
         if (apiFilters.length > 0) {
           params.filters = apiFilters
         }
@@ -827,7 +844,7 @@ const PositionsPage = () => {
         flashTimeouts.current.clear()
       } catch {}
     }
-  }, [isAuthenticated, isMobile, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode])
+  }, [isAuthenticated, isMobile, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
   // REST polling for NET positions (netPosition: true) when NET tab is active
   useEffect(() => {
@@ -851,6 +868,19 @@ const PositionsPage = () => {
         if (displayMode === 'percentage') params.percentage = true
         if (groupByBaseSymbol) params.groupBaseSymbol = true
         if (netActiveSearch.trim()) params.search = netActiveSearch.trim()
+
+        // Apply active group filter as a server-side login filter (works across pages)
+        const netApiFilters = []
+        const activeGroupName = getActiveGroupFilter('positions')
+        if (activeGroupName) {
+          const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+          if (groupLogins.length > 0) {
+            netApiFilters.push({ field: 'login', operator: 'in', value: groupLogins })
+          } else {
+            netApiFilters.push({ field: 'login', operator: 'in', value: [-1] })
+          }
+        }
+        if (netApiFilters.length > 0) params.filters = netApiFilters
 
         const response = await brokerAPI.searchPositions(params)
         if (isCancelled) return
@@ -917,7 +947,7 @@ const PositionsPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode])
+  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
   // REST polling for Client NET positions — COMMENTED OUT (replaced by NET Position using showNetPositions)
   /* useEffect(() => {

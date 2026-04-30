@@ -240,18 +240,9 @@ const SettingsPage = () => {
         <div className="max-w-4xl mx-auto">
           {/* Header Section */}
           <div className="mb-5">
-            <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center text-gray-600 hover:text-gray-900 transition-colors text-sm"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-              </button>
-              {/* Hide sidebar toggle on mobile for settings page */}
-              {false && (
+            {/* Hide sidebar toggle on mobile for settings page */}
+            {false && (
+              <div className="flex items-center justify-end mb-3">
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
                   className="lg:hidden text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-white"
@@ -260,8 +251,8 @@ const SettingsPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage your account security</p>
           </div>
