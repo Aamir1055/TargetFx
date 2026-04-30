@@ -123,7 +123,7 @@ export default function PositionModule() {
   // Server-side positions (fetched when regular Positions tab is active on mobile)
   const [serverPositions, setServerPositions] = useState([])
   const [serverPositionsTotal, setServerPositionsTotal] = useState(0)
-  const [serverPositionsTotals, setServerPositionsTotals] = useState({ profit: 0, volume: 0, uniqueLogins: 0 })
+  const [serverPositionsTotals, setServerPositionsTotals] = useState({ profit: 0, volume: 0, uniqueLogins: 0, floatingCombined: 0, floatingINR: 0, floatingUSD: 0 })
   const [hasFetchedServerPositions, setHasFetchedServerPositions] = useState(false)
   const hasFetchedServerPositionsRef = useRef(false)
   const [isServerPositionsLoading, setIsServerPositionsLoading] = useState(false)
@@ -262,18 +262,8 @@ export default function PositionModule() {
   const deferredIbFilteredPositions = useDeferredValue(ibFilteredPositions)
 
   // Apply date filter to positions before calculating summary stats
-  const dateFilteredPositions = useMemo(() => {
-    if (!dateFilter) return deferredIbFilteredPositions
-    
-    const now = Date.now() / 1000 // Current time in seconds
-    const daysInSeconds = dateFilter * 24 * 60 * 60
-    const cutoffTime = now - daysInSeconds
-    
-    return deferredIbFilteredPositions.filter(pos => {
-      const timeValue = pos.timeUpdate || pos.timeCreate
-      return timeValue && timeValue >= cutoffTime
-    })
-  }, [deferredIbFilteredPositions, dateFilter])
+  // Note: date filter is applied server-side via dateFrom/dateTo params in the polling effect
+  const dateFilteredPositions = deferredIbFilteredPositions
 
   // Calculate summary statistics (use deferred value to prevent blocking navigation)
   const summaryStats = useMemo(() => {
@@ -393,6 +383,11 @@ export default function PositionModule() {
         }
         if (debouncedSearch && debouncedSearch.trim()) params.search = debouncedSearch.trim()
         if (displayMode === 'percentage') params.percentage = true
+        if (dateFilter) {
+          const now = Math.floor(Date.now() / 1000)
+          params.dateFrom = now - dateFilter * 24 * 60 * 60
+          params.dateTo = now
+        }
 
         const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
         if (isCancelled) return
@@ -405,7 +400,10 @@ export default function PositionModule() {
           if (totals) setServerPositionsTotals({
             profit: totals.profit ?? totals.totalProfit ?? 0,
             volume: totals.volume ?? totals.netVolume ?? 0,
-            uniqueLogins: totals.uniqueLogins ?? 0
+            uniqueLogins: totals.uniqueLogins ?? 0,
+            floatingCombined: totals.floatingCombined ?? 0,
+            floatingINR: totals.floatingINR ?? 0,
+            floatingUSD: totals.floatingUSD ?? 0
           })
           setHasFetchedServerPositions(true)
           hasFetchedServerPositionsRef.current = true
@@ -432,7 +430,7 @@ export default function PositionModule() {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, debouncedSearch, displayMode])
+  }, [showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, debouncedSearch, displayMode, dateFilter])
 
   // Poll server every 2s for NET positions (mirrors PositionsPage.jsx desktop NET behaviour)
   useEffect(() => {
@@ -875,80 +873,146 @@ export default function PositionModule() {
   const handleMobileExport = async () => {
     if (isExporting) return
     setIsExporting(true)
+    const EXPORT_LIMIT = 1000
+    const CONCURRENCY = 5
+
+    const formatTime = (ts) => {
+      if (!ts) return '-'
+      try {
+        const d = new Date(ts * 1000)
+        return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
+      } catch { return '-' }
+    }
+
     try {
-      const EXPORT_LIMIT = 1000
       if (showClientNet) {
-        // Export NET positions
-        const params = {
-          page: 1,
-          limit: EXPORT_LIMIT,
+        // ── NET positions export (mirrors desktop handleExportNetPositions) ──
+        const baseParams = {
           netPosition: true,
           sortBy: 'netVolume',
           sortOrder: 'desc',
         }
-        if (groupByBaseSymbol) params.groupBaseSymbol = true
-        if (displayMode === 'percentage') params.percentage = true
+        if (groupByBaseSymbol) baseParams.groupBaseSymbol = true
+        if (displayMode === 'percentage') baseParams.percentage = true
+        if (debouncedSearch.trim()) baseParams.search = debouncedSearch.trim()
+        if (dateFilter) {
+          const now = Math.floor(Date.now() / 1000)
+          baseParams.dateFrom = now - dateFilter * 24 * 60 * 60
+          baseParams.dateTo = now
+        }
 
-        const res = await brokerAPI.searchPositions(params)
-        const data = res?.data?.positions ?? res?.positions ?? []
         const ACTION_LABEL = { BUY: 'Buy', SELL: 'Sell', FLAT: 'Flat' }
-        const rows = data.map(item => ({
+        const mapItems = (data) => data.map(item => ({
           symbol: item.symbol || item.baseSymbol || '-',
           netType: ACTION_LABEL[item.action] ?? item.action ?? 'Flat',
           netVolume: item.netVolume ?? 0,
           avgPrice: item.avgPrice ?? 0,
           totalProfit: item.totalProfit ?? 0,
           totalStorage: item.totalStorage ?? 0,
-          totalPositions: item.positionCount ?? 0,
+          totalCommission: item.totalCommission ?? 0,
+          totalPositions: item.positionCount ?? item.totalPositions ?? 0,
         }))
+
+        // Page 1 to get total/pages
+        const first = await brokerAPI.searchPositions({ ...baseParams, page: 1, limit: EXPORT_LIMIT })
+        const firstData = first?.data?.positions ?? first?.positions ?? []
+        const total = first?.data?.total ?? first?.total ?? 0
+        const apiPages = first?.data?.pages ?? first?.pages ?? 0
+        const totalPages = apiPages || Math.ceil(total / EXPORT_LIMIT)
+
+        let allRows = mapItems(firstData)
+
+        for (let start = 2; start <= totalPages; start += CONCURRENCY) {
+          const chunk = []
+          for (let p = start; p < start + CONCURRENCY && p <= totalPages; p++) {
+            chunk.push(brokerAPI.searchPositions({ ...baseParams, page: p, limit: EXPORT_LIMIT }))
+          }
+          const results = await Promise.all(chunk)
+          results.forEach(res => {
+            allRows = allRows.concat(mapItems(res?.data?.positions ?? res?.positions ?? []))
+          })
+        }
+
+        const pct = displayMode === 'percentage'
         const headers = [
-          { key: 'symbol',         label: 'Symbol' },
-          { key: 'netType',        label: 'NET Type' },
-          { key: 'netVolume',      label: displayMode === 'percentage' ? 'NET Volume %' : 'NET Volume' },
-          { key: 'avgPrice',       label: 'Avg Price' },
-          { key: 'totalProfit',    label: displayMode === 'percentage' ? 'Total Profit %' : 'Total Profit' },
-          { key: 'totalStorage',   label: 'Total Storage' },
-          { key: 'totalPositions', label: 'Positions' },
+          { key: 'symbol',         label: 'Symbol',                                     accessor: r => r.symbol },
+          { key: 'netType',        label: 'NET Type',                                   accessor: r => r.netType },
+          { key: 'netVolume',      label: pct ? 'NET Volume %'    : 'NET Volume',       accessor: r => r.netVolume },
+          { key: 'avgPrice',       label: 'Avg Price',                                  accessor: r => r.avgPrice },
+          { key: 'totalProfit',    label: pct ? 'Total Profit %'  : 'Total Profit',     accessor: r => r.totalProfit },
+          { key: 'totalStorage',   label: pct ? 'Total Storage %' : 'Total Storage',    accessor: r => r.totalStorage },
+          { key: 'totalCommission',label: 'Commission',                                 accessor: r => r.totalCommission },
+          { key: 'totalPositions', label: 'Positions',                                  accessor: r => r.totalPositions },
         ]
-        downloadFile(`net_positions_${Date.now()}.csv`, toCSV(rows, headers))
+        downloadFile(`net_positions_${Date.now()}.csv`, toCSV(allRows, headers))
+
       } else {
-        // Export regular positions
-        const params = {
-          page: 1,
-          limit: EXPORT_LIMIT,
+        // ── Regular positions export (mirrors desktop handleExportPositions) ──
+        const baseParams = {
           sortBy: sortColumn || 'timeCreate',
           sortOrder: sortDirection || 'desc',
         }
-        if (searchInput && searchInput.trim()) params.search = searchInput.trim()
-        if (displayMode === 'percentage') params.percentage = true
-
-        const res = await brokerAPI.searchPositions(params)
-        const data = res?.data?.positions ?? res?.positions ?? []
-        const formatTime = (ts) => {
-          if (!ts) return '-'
-          try {
-            const d = new Date(ts * 1000)
-            return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
-          } catch { return '-' }
+        if (debouncedSearch.trim()) baseParams.search = debouncedSearch.trim()
+        if (displayMode === 'percentage') baseParams.percentage = true
+        if (dateFilter) {
+          const now = Math.floor(Date.now() / 1000)
+          baseParams.dateFrom = now - dateFilter * 24 * 60 * 60
+          baseParams.dateTo = now
         }
+
+        // Page 1 to get total/pages
+        const first = await brokerAPI.searchPositions({ ...baseParams, page: 1, limit: EXPORT_LIMIT })
+        const firstData = first?.data?.positions ?? first?.positions ?? []
+        const total = first?.data?.total ?? first?.total ?? 0
+        const apiPages = first?.data?.pages ?? first?.pages ?? 0
+        const totalPages = apiPages || Math.ceil(total / EXPORT_LIMIT)
+
+        let allPositions = [...firstData]
+
+        for (let start = 2; start <= totalPages; start += CONCURRENCY) {
+          const chunk = []
+          for (let p = start; p < start + CONCURRENCY && p <= totalPages; p++) {
+            chunk.push(brokerAPI.searchPositions({ ...baseParams, page: p, limit: EXPORT_LIMIT }))
+          }
+          const results = await Promise.all(chunk)
+          results.forEach(res => {
+            allPositions = allPositions.concat(res?.data?.positions ?? res?.positions ?? [])
+          })
+        }
+
+        const pct = displayMode === 'percentage'
         const headers = [
-          { key: 'login',       label: 'Login',         accessor: r => r.login },
-          { key: 'symbol',      label: 'Symbol',        accessor: r => r.symbol },
-          { key: 'action',      label: 'Action',        accessor: r => r.action },
-          { key: 'volume',      label: 'Volume',        accessor: r => r.volume },
-          { key: 'priceOpen',   label: 'Open Price',    accessor: r => r.priceOpen },
-          { key: 'profit',      label: displayMode === 'percentage' ? 'Profit %' : 'Profit', accessor: r => r.profit },
-          { key: 'storage',     label: 'Storage',       accessor: r => r.storage },
-          { key: 'updated',     label: 'Updated',       accessor: r => formatTime(r.timeUpdate || r.timeCreate) },
+          { key: 'login',        label: 'Login',                                    accessor: r => r.login },
+          { key: 'name',         label: 'Name',                                     accessor: r => r.name },
+          { key: 'position',     label: 'Position',                                 accessor: r => r.position },
+          { key: 'symbol',       label: 'Symbol',                                   accessor: r => r.symbol },
+          { key: 'action',       label: 'Action',                                   accessor: r => r.action },
+          { key: 'volume',       label: pct ? 'Volume %' : 'Volume',               accessor: r => r.volume },
+          { key: 'priceOpen',    label: 'Open Price',                               accessor: r => r.priceOpen },
+          { key: 'priceCurrent', label: 'Current Price',                            accessor: r => r.priceCurrent },
+          { key: 'sl',           label: 'S/L',                                      accessor: r => r.priceSL },
+          { key: 'tp',           label: 'T/P',                                      accessor: r => r.priceTP },
+          { key: 'profit',       label: pct ? 'Profit %' : 'Profit',               accessor: r => r.profit },
+          { key: 'storage',      label: pct ? 'Storage %' : 'Storage',             accessor: r => r.storage },
+          { key: 'commission',   label: 'Commission',                               accessor: r => r.commission },
+          { key: 'reason',       label: 'Reason',                                   accessor: r => r.reason },
+          { key: 'comment',      label: 'Comment',                                  accessor: r => r.comment },
+          { key: 'updated',      label: 'Updated',                                  accessor: r => formatTime(r.timeUpdate || r.timeCreate) },
         ]
-        downloadFile(`positions_${Date.now()}.csv`, toCSV(data, headers))
+        downloadFile(`positions_${Date.now()}.csv`, toCSV(allPositions, headers))
       }
     } catch (e) {
       console.error('Mobile export failed:', e)
+      alert('Export failed. Please try again.')
     } finally {
       setIsExporting(false)
     }
   }
+
+  // Reset to page 1 when date filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [dateFilter])
 
   // Fix mobile viewport height on actual devices
   useEffect(() => {
@@ -1145,18 +1209,6 @@ export default function PositionModule() {
               </svg>
               <span className={`${showClientNet ? 'text-white' : 'text-[#666666]'} text-[10px] font-medium font-outfit`}>NET Position</span>
             </button>
-            {/* Group Base toggle for NET Position */}
-            {showClientNet && (
-              <button
-                onClick={() => startTransition(() => setGroupByBaseSymbol(v => !v))}
-                className={`h-8 px-3 rounded-[12px] border ml-1 shadow-sm flex items-center justify-center gap-1.5 transition-all text-[10px] font-medium font-outfit flex-shrink-0 ${groupByBaseSymbol ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-[#666666] border-[#E5E7EB]'}`}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 6h16M7 10h10M10 14h7M13 18h4" stroke={groupByBaseSymbol ? '#fff' : '#666'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Group Base
-              </button>
-            )}
             {/* Percentage toggle icon button */}
             <button
               onClick={() => startTransition(() => setDisplayMode(m => m === 'percentage' ? 'value' : 'percentage'))}
@@ -1196,143 +1248,73 @@ export default function PositionModule() {
         </div>
 
 
-        {/* Face Cards Carousel - Show in both NET and regular positions view on mobile */}
-        {isMobileView && !showClientNet && (
-          <div className="pb-2 pl-5">
-            <div className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4">
-              {/* Total Positions */}
-              <div style={{
-                boxSizing: 'border-box',
-                minWidth: '125px',
-                width: '125px',
-                height: '60px',
-                background: '#FFFFFF',
-                border: '1px solid #F2F2F7',
-                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                borderRadius: '12px',
-                padding: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                scrollSnapAlign: 'start',
-                flexShrink: 0,
-                flex: 'none',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                touchAction: 'pan-x'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Positions</span>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Balance.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
+        {/* Face Cards Carousel - matching desktop: Total Positions, Floating Combined, Floating INR, Floating USD */}
+        {isMobileView && !showClientNet && (() => {
+          const cardStyle = {
+            boxSizing: 'border-box', minWidth: '125px', width: '125px', height: '60px',
+            background: '#FFFFFF', border: '1px solid #F2F2F7',
+            boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)', borderRadius: '12px',
+            padding: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            scrollSnapAlign: 'start', flexShrink: 0, flex: 'none',
+            userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'pan-x'
+          }
+          const icon = (name) => `${import.meta.env.BASE_URL || '/'}Mobile cards icons/${name}.svg`
+          const fc = serverPositionsTotals
+          const mobileCards = [
+            {
+              label: 'Total Positions',
+              icon: icon('Total Balance'),
+              value: fmtMoney(netTotals?.total || 0),
+              fullValue: netTotals?.total || 0,
+              color: '#000000',
+              arrow: null
+            },
+            {
+              label: 'Floating Combined',
+              icon: icon('Floating Profit'),
+              value: fmtMoney(Math.abs(fc.floatingCombined)),
+              fullValue: fc.floatingCombined,
+              color: fc.floatingCombined >= 0 ? '#16A34A' : '#DC2626',
+              arrow: fc.floatingCombined >= 0 ? '▲' : '▼'
+            },
+            {
+              label: 'Floating INR',
+              icon: icon('Floating Profit'),
+              value: fmtMoney(Math.abs(fc.floatingINR)),
+              fullValue: fc.floatingINR,
+              color: fc.floatingINR >= 0 ? '#16A34A' : '#DC2626',
+              arrow: fc.floatingINR >= 0 ? '▲' : '▼'
+            },
+            {
+              label: 'Floating USD',
+              icon: icon('Floating Profit'),
+              value: fmtMoney(Math.abs(fc.floatingUSD)),
+              fullValue: fc.floatingUSD,
+              color: fc.floatingUSD >= 0 ? '#16A34A' : '#DC2626',
+              arrow: fc.floatingUSD >= 0 ? '▲' : '▼'
+            },
+          ]
+          return (
+            <div className="pb-2 pl-5">
+              <div className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4">
+                {mobileCards.map((card) => (
+                  <div key={card.label} style={cardStyle}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                      <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>{card.label}</span>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <img src={card.icon} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
+                      {card.arrow && <span style={{ fontSize: '10px', color: card.color, lineHeight: 1, flexShrink: 0 }}>{card.arrow}</span>}
+                      <span title={numericMode === 'compact' ? fmtMoneyFull(card.fullValue) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: card.color }}>{card.value}</span>
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals?.total || 0) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.total !== undefined ? fmtMoney(netTotals.total) : 0}</span>
-                </div>
-              </div>
-              {/* Floating Profit */}
-              <div style={{
-                boxSizing: 'border-box',
-                minWidth: '125px',
-                width: '125px',
-                height: '60px',
-                background: '#FFFFFF',
-                border: '1px solid #F2F2F7',
-                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                borderRadius: '12px',
-                padding: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                scrollSnapAlign: 'start',
-                flexShrink: 0,
-                flex: 'none',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                touchAction: 'pan-x'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Floating Profit</span>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Floating Profit.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals.totalProfit) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: netTotals?.totalProfit >= 0 ? '#16A34A' : '#DC2626' }}>
-                    {netTotals?.totalProfit !== undefined ? fmtMoney(netTotals.totalProfit) : '0.00'}
-                  </span>
-                </div>
-              </div>
-              {/* Unique Logins */}
-              <div style={{
-                boxSizing: 'border-box',
-                minWidth: '125px',
-                width: '125px',
-                height: '60px',
-                background: '#FFFFFF',
-                border: '1px solid #F2F2F7',
-                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                borderRadius: '12px',
-                padding: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                scrollSnapAlign: 'start',
-                flexShrink: 0,
-                flex: 'none',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                touchAction: 'pan-x'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Unique Logins</span>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Clients.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals?.uniqueLogins || 0) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.uniqueLogins !== undefined ? fmtMoney(netTotals.uniqueLogins) : 0}</span>
-                </div>
-              </div>
-              {/* Total Volume */}
-              <div style={{
-                boxSizing: 'border-box',
-                minWidth: '125px',
-                width: '125px',
-                height: '60px',
-                background: '#FFFFFF',
-                border: '1px solid #F2F2F7',
-                boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                borderRadius: '12px',
-                padding: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                scrollSnapAlign: 'start',
-                flexShrink: 0,
-                flex: 'none',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                touchAction: 'pan-x'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>Total Volume</span>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <img src={`${import.meta.env.BASE_URL || '/'}Mobile cards icons/Total Equity.svg`} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span title={numericMode === 'compact' ? fmtMoneyFull(netTotals.netVolume) : undefined} style={{ fontSize: '13px', fontWeight: 700, lineHeight: '14px', letterSpacing: '-0.01em', color: '#000000' }}>{netTotals?.netVolume !== undefined ? fmtMoney(netTotals.netVolume) : '0.00'}</span>
-                </div>
+                ))}
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Search and navigation */}
         {!showClientNet && (
