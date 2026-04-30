@@ -151,26 +151,39 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
           </div>
 
           {/* Global Compact / Full numeric display mode (applies across all pages) */}
-          <div className={`px-3 pt-3 ${isOpen ? 'block' : 'hidden lg:block'}`}>
-            <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full" style={{borderRadius:'4px'}}>
+          {isOpen ? (
+            <div className="px-3 pt-3">
+              <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full overflow-hidden" style={{borderRadius:'4px'}}>
+                <button
+                  type="button"
+                  onClick={() => changeDisplayMode('compact')}
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium transition-colors ${displayMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  style={{borderRadius:'4px'}}
+                >
+                  Compact
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeDisplayMode('full')}
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium transition-colors ${displayMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  style={{borderRadius:'4px'}}
+                >
+                  Full
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="px-2 pt-3 flex justify-center">
               <button
                 type="button"
-                onClick={() => changeDisplayMode('compact')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium transition-colors ${displayMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
-                style={{borderRadius:'4px'}}
+                onClick={() => changeDisplayMode(displayMode === 'compact' ? 'full' : 'compact')}
+                title={`Display: ${displayMode === 'compact' ? 'Compact' : 'Full'} (click to toggle)`}
+                className="w-9 h-9 flex items-center justify-center rounded-md bg-[#F3F4F6] text-[10px] font-bold text-[#3B5BDB] hover:bg-white border border-[#E5E7EB]"
               >
-                Compact
-              </button>
-              <button
-                type="button"
-                onClick={() => changeDisplayMode('full')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium transition-colors ${displayMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
-                style={{borderRadius:'4px'}}
-              >
-                Full
+                {displayMode === 'compact' ? 'C' : 'F'}
               </button>
             </div>
-          </div>
+          )}
 
           <nav className="flex-1 overflow-y-auto px-2 py-4">
             {navigationItems.map((item) => (
