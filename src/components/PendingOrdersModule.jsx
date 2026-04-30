@@ -48,7 +48,7 @@ export default function PendingOrdersModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { orders, clients, loading, positions } = useData()
-  const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
+  const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, getGroupLogins, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)
@@ -100,6 +100,11 @@ export default function PendingOrdersModule() {
     setActiveGroupFilter('pendingorders', null)
     setSearchInput('')
   }, [])
+
+  // Reset pagination when active group changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [getActiveGroupFilter('pendingorders')])
 
   // Sync numericMode with global display mode events
   useEffect(() => {
@@ -179,6 +184,15 @@ export default function PendingOrdersModule() {
         }
         if (searchInput && searchInput.trim()) params.search = searchInput.trim()
 
+        // Apply active group filter as a server-side login filter (works across pages)
+        const activeGroupName = getActiveGroupFilter('pendingorders')
+        if (activeGroupName) {
+          const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+          params.filters = [
+            { field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] }
+          ]
+        }
+
         const response = await brokerAPI.searchOrders(params, { signal: controller.signal })
         if (isCancelled) return
         const data = response?.data?.orders || response?.data?.positions || response?.orders || []
@@ -219,7 +233,7 @@ export default function PendingOrdersModule() {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [currentPage, itemsPerPage, sortColumn, sortDirection, searchInput])
+  }, [currentPage, itemsPerPage, sortColumn, sortDirection, searchInput, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
   const handlePageChange = (nextPage, maxPage) => {
     const safeMaxPage = Math.max(1, maxPage)

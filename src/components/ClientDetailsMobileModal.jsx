@@ -1201,47 +1201,38 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setActiveTab('positions')}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'positions'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Positions ({filteredPositions.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('deals')}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'deals'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Deals ({hasAppliedFilter ? totalDealsCount : 0})
-            </button>
-            <button
-              onClick={() => setActiveTab('funds')}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'funds'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Money Transactions
-            </button>
-            <button
-              onClick={() => setActiveTab('rules')}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'rules'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Rules
-            </button>
+          <div className="-mx-4 border-b border-gray-200 overflow-x-auto scrollbar-hide">
+            <div className="flex items-stretch px-2 min-w-max">
+              {[
+                { key: 'positions', label: 'Positions', count: filteredPositions.length },
+                { key: 'deals',     label: 'Deals',     count: hasAppliedFilter ? totalDealsCount : 0 },
+                { key: 'funds',     label: 'Money',     count: null },
+                { key: 'rules',     label: 'Rules',     count: null },
+              ].map(tab => {
+                const isActive = activeTab === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors ${
+                      isActive ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      {tab.label}
+                      {tab.count != null && (
+                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
+                          isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                        }`}>{tab.count}</span>
+                      )}
+                    </span>
+                    {isActive && (
+                      <span className="absolute left-3 right-3 -bottom-px h-[2px] bg-blue-600 rounded-full" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 

@@ -24,7 +24,7 @@ export default function PositionModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { positions, clients, loading, orders, rawClients } = useData()
-  const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
+  const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, getGroupLogins, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
@@ -165,6 +165,12 @@ export default function PositionModule() {
     setActiveGroupFilter('positions', null)
     setSearchInput('')
   }, [])
+
+  // Reset pagination when active group changes
+  useEffect(() => {
+    setCurrentPage(1)
+    setClientNetCurrentPage(1)
+  }, [getActiveGroupFilter('positions')])
 
   useEffect(() => {
     const handler = () => {
@@ -389,6 +395,15 @@ export default function PositionModule() {
           params.dateTo = now
         }
 
+        // Apply active group filter as a server-side login filter (works across pages)
+        const activeGroupName = getActiveGroupFilter('positions')
+        if (activeGroupName) {
+          const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+          params.filters = [
+            { field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] }
+          ]
+        }
+
         const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
         if (isCancelled) return
         const data = response?.data?.positions || response?.positions || []
@@ -430,7 +445,7 @@ export default function PositionModule() {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, debouncedSearch, displayMode, dateFilter])
+  }, [showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, debouncedSearch, displayMode, dateFilter, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
   // Poll server every 2s for NET positions (mirrors PositionsPage.jsx desktop NET behaviour)
   useEffect(() => {
@@ -454,6 +469,15 @@ export default function PositionModule() {
         if (groupByBaseSymbol) params.groupBaseSymbol = true
         if (displayMode === 'percentage') params.percentage = true
         if (clientNetSearchInput.trim()) params.search = clientNetSearchInput.trim()
+
+        // Apply active group filter as a server-side login filter (works across pages)
+        const activeGroupName = getActiveGroupFilter('positions')
+        if (activeGroupName) {
+          const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+          params.filters = [
+            { field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] }
+          ]
+        }
 
         const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
         if (isCancelled) return
@@ -504,7 +528,7 @@ export default function PositionModule() {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [showClientNet, groupByBaseSymbol, displayMode, clientNetSearchInput])
+  }, [showClientNet, groupByBaseSymbol, displayMode, clientNetSearchInput, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
   // Use server-polled NET positions once available, else fall back to client-side calc
   const mobileNetSourcePositions = hasFetchedServerNet ? serverNetPositions : clientNetPositions
@@ -1272,7 +1296,7 @@ export default function PositionModule() {
             {
               label: 'Floating Combined',
               icon: icon('Floating Profit'),
-              value: fmtMoney(Math.abs(fc.floatingCombined)),
+              value: fmtMoney(fc.floatingCombined),
               fullValue: fc.floatingCombined,
               color: fc.floatingCombined >= 0 ? '#16A34A' : '#DC2626',
               arrow: fc.floatingCombined >= 0 ? '▲' : '▼'
@@ -1280,7 +1304,7 @@ export default function PositionModule() {
             {
               label: 'Floating INR',
               icon: icon('Floating Profit'),
-              value: fmtMoney(Math.abs(fc.floatingINR)),
+              value: fmtMoney(fc.floatingINR),
               fullValue: fc.floatingINR,
               color: fc.floatingINR >= 0 ? '#16A34A' : '#DC2626',
               arrow: fc.floatingINR >= 0 ? '▲' : '▼'
@@ -1288,7 +1312,7 @@ export default function PositionModule() {
             {
               label: 'Floating USD',
               icon: icon('Floating Profit'),
-              value: fmtMoney(Math.abs(fc.floatingUSD)),
+              value: fmtMoney(fc.floatingUSD),
               fullValue: fc.floatingUSD,
               color: fc.floatingUSD >= 0 ? '#16A34A' : '#DC2626',
               arrow: fc.floatingUSD >= 0 ? '▲' : '▼'

@@ -384,8 +384,8 @@ export default function Client2Module() {
       { label: addPercent('Balance'), value: fmtMoney(t.balance || 0), unit: 'USD', numericValue: t.balance || 0 },
       { label: addPercent('Credit'), value: fmtMoney(t.credit || 0), unit: 'USD', numericValue: t.credit || 0 },
       { label: addPercent('Equity'), value: fmtMoney(t.equity || 0), unit: 'USD', numericValue: t.equity || 0 },
-      { label: addPercent('Floating P/L'), value: fmtMoney(Math.abs(t.floating || 0)), unit: 'USD', numericValue: t.floating || 0, isArrow: true },
-      { label: addPercent('P&L'), value: fmtMoney(Math.abs(t.pnl || 0)), unit: 'USD', numericValue: t.pnl || 0, isArrow: true }
+      { label: addPercent('Floating P/L'), value: fmtMoney(t.floating || 0), unit: 'USD', numericValue: t.floating || 0, isArrow: true },
+      { label: addPercent('P&L'), value: fmtMoney(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0, isArrow: true }
     ]
   }, [filteredClients, totals, rebateTotals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent, numericMode])
 
