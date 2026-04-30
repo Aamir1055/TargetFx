@@ -1537,9 +1537,9 @@ const PositionsPage = () => {
     const uniqueSymbols = new Set(ibFilteredPositions.map(p => p.symbol)).size
     const totalVolume = Number(serverTotals.volume || 0)
     // Floating values per currency bucket (broker perspective: invert sign)
-    const floatingCombined = -(Number(serverTotals.floatingCombined ?? 0) || 0)
-    const floatingINR = -(Number(serverTotals.floatingINR ?? 0) || 0)
-    const floatingUSD = -(Number(serverTotals.floatingUSD ?? 0) || 0)
+    const floatingCombined = Number(serverTotals.floatingCombined ?? 0) || 0
+    const floatingINR = Number(serverTotals.floatingINR ?? 0) || 0
+    const floatingUSD = Number(serverTotals.floatingUSD ?? 0) || 0
 
     return {
       totalPositions,
@@ -2672,7 +2672,8 @@ const PositionsPage = () => {
                   <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
                     summaryStats.floatingCombined >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
                   }`}>
-                    <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.floatingCombined)) : undefined}>{fmtMoney(Math.abs(summaryStats.floatingCombined))}</span>
+                    <span className="inline-flex items-center leading-none flex-shrink-0" style={{ fontSize: '0.85em' }} aria-label={summaryStats.floatingCombined >= 0 ? 'up' : 'down'}>{summaryStats.floatingCombined >= 0 ? '▲' : '▼'}</span>
+                    <span title={numericMode === 'compact' ? fmtMoneyFull(summaryStats.floatingCombined) : undefined}>{fmtMoney(summaryStats.floatingCombined)}</span>
                   </div>
                 )}
               </div>
@@ -2726,7 +2727,8 @@ const PositionsPage = () => {
                 <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
                   summaryStats.floatingINR >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
                 }`}>
-                  <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.floatingINR)) : undefined}>{fmtMoney(Math.abs(summaryStats.floatingINR))}</span>
+                  <span className="inline-flex items-center leading-none flex-shrink-0" style={{ fontSize: '0.85em' }} aria-label={summaryStats.floatingINR >= 0 ? 'up' : 'down'}>{summaryStats.floatingINR >= 0 ? '▲' : '▼'}</span>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(summaryStats.floatingINR) : undefined}>{fmtMoney(summaryStats.floatingINR)}</span>
                 </div>
               )}
             </div>
@@ -2750,7 +2752,8 @@ const PositionsPage = () => {
                 <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
                   summaryStats.floatingUSD >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
                 }`}>
-                  <span title={numericMode === 'compact' ? fmtMoneyFull(Math.abs(summaryStats.floatingUSD)) : undefined}>{fmtMoney(Math.abs(summaryStats.floatingUSD))}</span>
+                  <span className="inline-flex items-center leading-none flex-shrink-0" style={{ fontSize: '0.85em' }} aria-label={summaryStats.floatingUSD >= 0 ? 'up' : 'down'}>{summaryStats.floatingUSD >= 0 ? '▲' : '▼'}</span>
+                  <span title={numericMode === 'compact' ? fmtMoneyFull(summaryStats.floatingUSD) : undefined}>{fmtMoney(summaryStats.floatingUSD)}</span>
                 </div>
               )}
             </div>
@@ -2803,39 +2806,10 @@ const PositionsPage = () => {
                         </div>
                       </div>
                       
-                      {/* Card Filter */}
-                      <div className="relative" ref={netCardFilterRef}>
-                        <button onClick={()=>setNetCardFilterOpen(v=>!v)} className="px-2 py-1.5 text-xs rounded-lg border border-blue-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center gap-1.5 text-gray-700 font-medium shadow-sm" title="Toggle summary cards">
-                          <svg className="w-3.5 h-3.5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                          Card Filter
-                        </button>
-                        {netCardFilterOpen && (
-                          <div className="absolute left-0 top-full mt-2 bg-white rounded shadow-lg border border-gray-200 p-2 z-50 w-48">
-                            <p className="text-[10px] font-semibold text-gray-600 mb-1">Summary Cards</p>
-                            {Object.entries(netCardsVisible).map(([k,v]) => (
-                              <label key={k} className="flex items-center gap-1.5 py-1 px-1.5 rounded hover:bg-blue-50 cursor-pointer">
-                                <input type="checkbox" checked={v} onChange={()=>setNetCardsVisible(prev=>({...prev,[k]:!prev[k]}))} className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                                <span className="text-[11px] text-gray-700">{k==='netSymbols'?'NET Symbols':k==='totalNetVolume'?'Total NET Volume':k==='totalNetPL'?'Total NET P/L':'Total Logins'}</span>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      
                       {/* Export - icon only */}
                       {/* <button onClick={handleExportNetPositions} className="p-2 rounded-lg border border-green-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all text-gray-700 shadow-sm" title="Export NET positions to CSV">
                         <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
                       </button> */}
-                      
-                      {/* Group Base Symbols toggle */}
-                      <button
-                        onClick={() => setGroupByBaseSymbol(v => !v)}
-                        className={`px-2 py-1.5 text-xs rounded-lg border inline-flex items-center gap-1.5 font-medium shadow-sm transition-all ${groupByBaseSymbol ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' : 'bg-white text-gray-700 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300'}`}
-                        title="Toggle grouping by base symbol"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M10 14h7M13 18h4"/></svg>
-                        Group Base Symbols
-                      </button>
                       
                       {/* Columns selector - icon only */}
                       <div className="relative" ref={netColumnSelectorRef}>

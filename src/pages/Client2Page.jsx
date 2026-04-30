@@ -4256,8 +4256,8 @@ const Client2Page = () => {
                   balance: { title: 'Balance', value: balanceM.display, fullValue: balanceM.full, valueColor: 'text-[#000000]', skeletonW: 'w-20' },
                   credit: { title: 'Credit', value: creditM.display, fullValue: creditM.full, valueColor: 'text-[#000000]', skeletonW: 'w-20' },
                   equity: { title: 'Equity', value: equityM.display, fullValue: equityM.full, valueColor: 'text-[#000000]', skeletonW: 'w-20' },
-                  floating: { title: 'Floating PNL', value: floatingM.display, fullValue: floatingM.full, valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' },
-                  pnl: { title: 'P&L', value: pnlM.display, fullValue: pnlM.full, valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20' }
+                  floating: { title: 'Floating PNL', value: floatingM.display, fullValue: floatingM.full, valueColor: floatingValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20', trend: floatingValue >= 0 ? 'up' : 'down' },
+                  pnl: { title: 'P&L', value: pnlM.display, fullValue: pnlM.full, valueColor: pnlValue >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]', skeletonW: 'w-20', trend: pnlValue >= 0 ? 'up' : 'down' }
                 }
                 // Only show cards that are in faceCardOrder and visible
                 const visibleOrderedKeys = (faceCardOrder || Object.keys(cardDefs)).filter(key => cardVisibility[key] !== false && cardDefs[key])
@@ -4287,6 +4287,15 @@ const Client2Page = () => {
                             <div className={`h-6 ${card.skeletonW} bg-gray-200 rounded animate-pulse`}></div>
                           ) : (
                             <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${card.valueColor}`}>
+                              {card.trend && (
+                                <span
+                                  className="inline-flex items-center leading-none flex-shrink-0"
+                                  style={{ fontSize: '0.85em' }}
+                                  aria-label={card.trend === 'up' ? 'up' : 'down'}
+                                >
+                                  {card.trend === 'up' ? '▲' : '▼'}
+                                </span>
+                              )}
                               <span title={isCompact && card.fullValue ? card.fullValue : undefined}>{card.value}</span>
                               {card.unit && (
                                 <span className="text-[10px] md:text-xs font-normal text-[#6B7280]">{card.unit}</span>
