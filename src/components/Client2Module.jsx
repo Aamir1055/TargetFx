@@ -384,8 +384,8 @@ export default function Client2Module() {
       { label: addPercent('Balance'), value: fmtMoney(t.balance || 0), unit: 'USD', numericValue: t.balance || 0 },
       { label: addPercent('Credit'), value: fmtMoney(t.credit || 0), unit: 'USD', numericValue: t.credit || 0 },
       { label: addPercent('Equity'), value: fmtMoney(t.equity || 0), unit: 'USD', numericValue: t.equity || 0 },
-      { label: addPercent('Floating P/L'), value: fmtMoney(t.floating || 0), unit: 'USD', numericValue: t.floating || 0 },
-      { label: addPercent('P&L'), value: fmtMoney(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0 }
+      { label: addPercent('Floating P/L'), value: fmtMoney(Math.abs(t.floating || 0)), unit: 'USD', numericValue: t.floating || 0, isArrow: true },
+      { label: addPercent('P&L'), value: fmtMoney(Math.abs(t.pnl || 0)), unit: 'USD', numericValue: t.pnl || 0, isArrow: true }
     ]
   }, [filteredClients, totals, rebateTotals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent, numericMode])
 
@@ -1210,12 +1210,19 @@ export default function Client2Module() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
+                    {card.isArrow && card.numericValue !== 0 && (
+                      <span style={{ fontSize: '10px', color: card.numericValue > 0 ? '#16A34A' : '#DC2626', lineHeight: 1, flexShrink: 0 }}>
+                        {card.numericValue > 0 ? '▲' : '▼'}
+                      </span>
+                    )}
                     <span style={{
                       fontSize: '13px',
                       fontWeight: 700,
                       lineHeight: '14px',
                       letterSpacing: '-0.01em',
-                      color: card.numericValue > 0 ? '#16A34A' : card.numericValue < 0 ? '#DC2626' : '#000000'
+                      color: card.isArrow
+                        ? (card.numericValue > 0 ? '#16A34A' : card.numericValue < 0 ? '#DC2626' : '#000000')
+                        : (card.numericValue > 0 ? '#16A34A' : card.numericValue < 0 ? '#DC2626' : '#000000')
                     }}>
                       {card.value === '' || card.value === undefined ? '0.00' : card.value}
                       {/* Show % symbol if percentage mode is active and card label contains % */}
