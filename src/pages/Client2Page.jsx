@@ -563,9 +563,9 @@ const Client2Page = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        // Check if saved columns have the required new columns (accountType, processorType, lifetimePnL)
+        // Check if saved columns have the required new columns (accountType, processorType, lifetimePnL, pnl)
         // If they're missing, use new defaults instead
-        if (!parsed.hasOwnProperty('accountType') || !parsed.hasOwnProperty('processorType') || !parsed.hasOwnProperty('lifetimePnL')) {
+        if (!parsed.hasOwnProperty('accountType') || !parsed.hasOwnProperty('processorType') || !parsed.hasOwnProperty('lifetimePnL') || !parsed.hasOwnProperty('pnl')) {
           console.log('[Client2] Saved columns missing new fields, resetting to defaults')
           localStorage.removeItem('client2PageVisibleColumns')
           return getDefaultColumns()
@@ -610,7 +610,8 @@ const Client2Page = () => {
       thisMonthPnL: false,
       lifetimePnL: true,
       accountType: true,
-      processorType: true
+      processorType: true,
+      pnl: true
     }
   }
 
@@ -649,6 +650,7 @@ const Client2Page = () => {
     { key: 'name', label: 'Name', type: 'text' },
     { key: 'equity', label: 'Equity', type: 'float' },
     { key: 'profit', label: 'Floating Profit', type: 'float' },
+    { key: 'pnl', label: 'PnL', type: 'float' },
     { key: 'lastName', label: 'Last Name', type: 'text' },
     { key: 'middleName', label: 'Middle Name', type: 'text' },
     { key: 'email', label: 'Email', type: 'text' },

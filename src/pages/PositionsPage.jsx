@@ -37,7 +37,7 @@ const PositionsPage = () => {
   // Use cached data from DataContext (orders, clients etc.)
   const { orders: cachedOrders, loading, connectionState, rawClients } = useData()
   const { isAuthenticated } = useAuth()
-  const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter, getGroupLogins } = useGroups()
+  const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups } = useGroups()
 
   // --- Positions are fetched via REST polling (1s) when this page is active ---
   const [polledPositions, setPolledPositions] = useState([])
@@ -788,11 +788,7 @@ const PositionsPage = () => {
         const activeGroupName = getActiveGroupFilter('positions')
         if (activeGroupName) {
           const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
-          if (groupLogins.length > 0) {
-            apiFilters.push({ field: 'login', operator: 'in', value: groupLogins })
-          } else {
-            apiFilters.push({ field: 'login', operator: 'in', value: [-1] })
-          }
+          apiFilters.push({ field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] })
         }
         if (apiFilters.length > 0) {
           params.filters = apiFilters
@@ -844,7 +840,7 @@ const PositionsPage = () => {
         flashTimeouts.current.clear()
       } catch {}
     }
-  }, [isAuthenticated, isMobile, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, selectedLogin])
+  }, [isAuthenticated, isMobile, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin])
 
   // REST polling for NET positions (netPosition: true) when NET tab is active
   useEffect(() => {
@@ -874,11 +870,7 @@ const PositionsPage = () => {
         const activeGroupName = getActiveGroupFilter('positions')
         if (activeGroupName) {
           const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
-          if (groupLogins.length > 0) {
-            netApiFilters.push({ field: 'login', operator: 'in', value: groupLogins })
-          } else {
-            netApiFilters.push({ field: 'login', operator: 'in', value: [-1] })
-          }
+          netApiFilters.push({ field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] })
         }
         if (netApiFilters.length > 0) params.filters = netApiFilters
 
@@ -947,7 +939,7 @@ const PositionsPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, selectedLogin])
+  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin])
 
   // REST polling for Client NET positions — COMMENTED OUT (replaced by NET Position using showNetPositions)
   /* useEffect(() => {
