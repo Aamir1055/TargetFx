@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
+import { brokerAPI } from '../services/api'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
 import GroupModal from './GroupModal'
@@ -39,8 +39,14 @@ const getMarginLevelPercent = (obj) => {
 
 export default function MarginLevelModule() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
-  const { accounts, clients, loading, positions, orders } = useData()
+  const { logout, isAuthenticated } = useAuth()
+  // Local state populated by polling /api/broker/clients/margin-call (replaces WebSocket-fed data)
+  const [accounts, setAccounts] = useState([])
+  const [marginCallLoaded, setMarginCallLoaded] = useState(false)
+  const clients = accounts // alias for downstream code that referenced full client list
+  const positions = []
+  const orders = []
+  const loading = { accounts: !marginCallLoaded, clients: !marginCallLoaded }
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
@@ -60,6 +66,50 @@ export default function MarginLevelModule() {
     const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
   const carouselRef = useRef(null)
+
+  // Mirror selectedClient into a ref so the polling closure always reads the latest value
+  const selectedClientRef = useRef(null)
+  useEffect(() => { selectedClientRef.current = selectedClient }, [selectedClient])
+
+  // Fetch margin-call clients from REST API
+  const fetchMarginCallClients = async () => {
+    try {
+      const res = await brokerAPI.getMarginCallClients()
+      const data = res?.data ?? res
+      const list = Array.isArray(data)
+        ? data
+        : (data?.clients ?? data?.accounts ?? data?.results ?? [])
+      if (Array.isArray(list)) setAccounts(list)
+      setMarginCallLoaded(true)
+    } catch (err) {
+      console.error('[MarginLevelModule] Failed to fetch margin-call clients:', err)
+      setMarginCallLoaded(true)
+    }
+  }
+
+  // Initial fetch + 2s polling. Skip while modal is open or tab is hidden.
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let cancelled = false
+    let timer = null
+
+    const loop = async () => {
+      if (cancelled) return
+      const tabHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
+      if (!selectedClientRef.current && !tabHidden) {
+        await fetchMarginCallClients()
+      }
+      if (!cancelled) timer = setTimeout(loop, 2000)
+    }
+
+    fetchMarginCallClients()
+    timer = setTimeout(loop, 2000)
+
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [isAuthenticated])
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -71,16 +121,11 @@ export default function MarginLevelModule() {
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
     name: true,
-    group: false,
-    balance: true,
     equity: true,
     margin: true,
     marginFree: false,
     marginLevel: true,
-    profit: false,
-    credit: false,
-    leverage: false,
-    currency: false
+    profit: true
   })
 
   // Clear all filters on component mount (when navigating to this module)
@@ -267,16 +312,11 @@ export default function MarginLevelModule() {
   const allColumns = [
     { key: 'login', label: 'Login', width: '80px', sticky: true },
     { key: 'name', label: 'Name', width: '120px' },
-    { key: 'group', label: 'Group', width: '100px' },
-    { key: 'balance', label: 'Balance', width: '100px' },
     { key: 'equity', label: 'Equity', width: '100px' },
     { key: 'margin', label: 'Margin', width: '100px' },
-    { key: 'marginFree', label: 'Free Margin', width: '100px' },
+    { key: 'marginFree', label: 'Margin Free', width: '100px' },
     { key: 'marginLevel', label: 'Margin Level', width: '110px' },
-    { key: 'profit', label: 'Profit', width: '100px' },
-    { key: 'credit', label: 'Credit', width: '100px' },
-    { key: 'leverage', label: 'Leverage', width: '80px' },
-    { key: 'currency', label: 'Currency', width: '80px' }
+    { key: 'profit', label: 'Profit', width: '100px' }
   ]
 
   const activeColumns = allColumns.filter(col => visibleColumns[col.key])

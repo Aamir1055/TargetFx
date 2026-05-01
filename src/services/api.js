@@ -497,6 +497,12 @@ export const brokerAPI = {
     const response = await api.get(`/api/broker/clients/${login}/overview`)
     return response.data
   },
+
+  // Get clients in margin call (margin level page data)
+  getMarginCallClients: async () => {
+    const response = await api.get('/api/broker/clients/margin-call')
+    return response.data
+  },
   
   // Get deals by login
   getDealsByLogin: async (login, limit = 1000) => {
