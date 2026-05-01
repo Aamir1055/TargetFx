@@ -213,6 +213,7 @@ const ClientPercentagePage = () => {
   const [showImportModal, setShowImportModal] = useState(false)
   const [csvData, setCsvData] = useState([])
   const [csvImporting, setCsvImporting] = useState(false)
+  const [csvImportProgress, setCsvImportProgress] = useState({ done: 0, total: 0 })
   const [csvError, setCsvError] = useState('')
   const csvFileRef = useRef(null)
 
@@ -637,6 +638,50 @@ const ClientPercentagePage = () => {
   }
 
   // CSV import handlers
+
+  // Full RFC-4180 CSV parser — single pass over entire text so quoted fields
+  // containing commas OR newlines are handled correctly.
+  const parseCSVFull = (text) => {
+    const rows = []
+    // Strip BOM
+    let i = text.charCodeAt(0) === 0xFEFF ? 1 : 0
+    const n = text.length
+
+    while (i < n) {
+      const fields = []
+      while (i < n) {
+        if (text[i] === '"') {
+          // Quoted field
+          let field = ''
+          i++ // skip opening quote
+          while (i < n) {
+            if (text[i] === '"') {
+              if (i + 1 < n && text[i + 1] === '"') { field += '"'; i += 2 } // escaped ""
+              else { i++; break } // closing quote
+            } else {
+              field += text[i++]
+            }
+          }
+          fields.push(field)
+        } else {
+          // Unquoted field — read until comma or end of line
+          let start = i
+          while (i < n && text[i] !== ',' && text[i] !== '\r' && text[i] !== '\n') i++
+          fields.push(text.slice(start, i).trim())
+        }
+        // Comma → next field; newline/end → end of row
+        if (i < n && text[i] === ',') { i++; continue }
+        break
+      }
+      // Consume line ending
+      if (i < n && text[i] === '\r') i++
+      if (i < n && text[i] === '\n') i++
+      // Skip entirely blank rows
+      if (fields.length > 0 && !(fields.length === 1 && fields[0] === '')) rows.push(fields)
+    }
+    return rows
+  }
+
   const handleCSVFile = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -646,19 +691,17 @@ const ClientPercentagePage = () => {
     reader.onload = (ev) => {
       try {
         const text = ev.target.result
-        const lines = text.trim().split(/\r?\n/)
-        if (lines.length < 2) { setCsvError('CSV must have a header row and at least one data row'); return }
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''))
-        const loginIdx = headers.findIndex(h => h === 'login')
+        const allRows = parseCSVFull(text)
+        if (allRows.length < 2) { setCsvError('CSV must have a header row and at least one data row'); return }
+        const headers = allRows[0].map(h => h.trim().toLowerCase())
+        const loginIdx = headers.findIndex(h => h === 'login' || h === 'client login')
         const pctIdx = headers.findIndex(h => h === 'percentage')
         const cmtIdx = headers.findIndex(h => h === 'comment')
-        if (loginIdx === -1 || pctIdx === -1) { setCsvError('CSV must have "login" and "percentage" columns'); return }
+        if (loginIdx === -1 || pctIdx === -1) { setCsvError('CSV must have "Client Login" and "Percentage" columns'); return }
         const rows = []
         const errors = []
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim()
-          if (!line) continue
-          const cols = line.split(',').map(c => c.trim().replace(/^["']|["']$/g, ''))
+        for (let i = 1; i < allRows.length; i++) {
+          const cols = allRows[i]
           const login = parseInt(cols[loginIdx])
           const pct = parseFloat(cols[pctIdx])
           const comment = cmtIdx !== -1 && cols[cmtIdx] ? cols[cmtIdx] : ''
@@ -676,19 +719,28 @@ const ClientPercentagePage = () => {
 
   const handleCSVImport = async () => {
     if (csvData.length === 0) return
+    const BATCH_SIZE = 500
+    const totalBatches = Math.ceil(csvData.length / BATCH_SIZE)
     try {
       setCsvImporting(true)
-      await brokerAPI.bulkUpdateClientPercentages(csvData)
+      setCsvImportProgress({ done: 0, total: csvData.length })
+      for (let i = 0; i < csvData.length; i += BATCH_SIZE) {
+        const batch = csvData.slice(i, i + BATCH_SIZE)
+        await brokerAPI.bulkUpdateClientPercentages(batch)
+        setCsvImportProgress({ done: Math.min(i + BATCH_SIZE, csvData.length), total: csvData.length })
+      }
       await fetchAllClientPercentages()
       setShowImportModal(false)
       setCsvData([])
       setCsvError('')
+      setCsvImportProgress({ done: 0, total: 0 })
       if (csvFileRef.current) csvFileRef.current.value = ''
     } catch (err) {
       console.error('Error importing CSV:', err)
       setCsvError('Failed to import. Please try again.')
     } finally {
       setCsvImporting(false)
+      setCsvImportProgress({ done: 0, total: 0 })
     }
   }
 
@@ -858,6 +910,13 @@ const ClientPercentagePage = () => {
           message="Exporting..."
           subtitle="Preparing your spreadsheet"
           progress={typeof exportProgress === 'number' ? Math.round(exportProgress * 100) : null}
+        />
+      )}
+      {csvImporting && (
+        <LoadingSpinner
+          message="Importing..."
+          subtitle={csvImportProgress.total > 0 ? `${csvImportProgress.done} / ${csvImportProgress.total} rows` : 'Please wait'}
+          progress={csvImportProgress.total > 0 ? Math.round((csvImportProgress.done / csvImportProgress.total) * 100) : null}
         />
       )}
       <Sidebar
@@ -1578,11 +1637,12 @@ const ClientPercentagePage = () => {
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-700">
-                <p className="font-semibold mb-1">CSV Format:</p>
-                <p>Required columns: <code className="bg-blue-100 px-1 rounded">login</code>, <code className="bg-blue-100 px-1 rounded">percentage</code></p>
-                <p>Optional column: <code className="bg-blue-100 px-1 rounded">comment</code></p>
-                <p className="mt-1">Example: <code className="bg-blue-100 px-1 rounded">login,percentage,comment</code></p>
-                <p><code className="bg-blue-100 px-1 rounded">12345,15.5,Bulk import</code></p>
+                <p className="font-semibold mb-1">CSV Format (matches exported file):</p>
+                <p>Required columns: <code className="bg-blue-100 px-1 rounded">Client Login</code>, <code className="bg-blue-100 px-1 rounded">Percentage</code></p>
+                <p>Optional column: <code className="bg-blue-100 px-1 rounded">Comment</code></p>
+                <p className="mt-1">Example: <code className="bg-blue-100 px-1 rounded">Client Login,Client Name,Percentage,Type,Comment,Last Updated</code></p>
+                <p><code className="bg-blue-100 px-1 rounded">12345,John Doe,15.5,Custom,Bulk import,01/05/2026</code></p>
+                <p className="mt-1 text-blue-600">Tip: You can directly import the file downloaded using the Export button.</p>
               </div>
 
               <div>
@@ -1630,12 +1690,7 @@ const ClientPercentagePage = () => {
               <div className="flex items-center gap-3 pt-2 border-t border-gray-200">
                 <button onClick={() => { setShowImportModal(false); setCsvData([]); setCsvError('') }} disabled={csvImporting} className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">Cancel</button>
                 <button onClick={handleCSVImport} disabled={csvImporting || csvData.length === 0} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">
-                  {csvImporting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
-                      Importing...
-                    </span>
-                  ) : csvData.length > 0 ? `Import ${csvData.length} Row${csvData.length !== 1 ? 's' : ''}` : 'Import'}
+                  {csvData.length > 0 ? `Import ${csvData.length} Row${csvData.length !== 1 ? 's' : ''}` : 'Import'}
                 </button>
               </div>
             </div>
