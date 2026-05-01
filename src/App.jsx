@@ -8,6 +8,48 @@ import LoginPage from './pages/LoginPage'
 import LoginMobile from './pages/LoginMobile'
 import LoadingSpinner from './components/LoadingSpinner'
 
+// Full-page skeleton shown during auth check or lazy-load — no dark overlay
+const PageSkeleton = () => (
+  <div className="flex h-screen bg-gray-50">
+    {/* Sidebar skeleton */}
+    <div className="w-[190px] flex-shrink-0 bg-white border-r border-gray-100 flex flex-col gap-3 p-4">
+      <div className="h-10 w-32 bg-gray-200 rounded-lg animate-pulse mb-4" />
+      {[...Array(7)].map((_, i) => (
+        <div key={i} className="h-8 w-full bg-gray-100 rounded-md animate-pulse" />
+      ))}
+    </div>
+    {/* Main content skeleton */}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header bar */}
+      <div className="h-14 bg-white border-b border-gray-100 flex items-center px-6 gap-4">
+        <div className="h-5 w-40 bg-gray-200 rounded animate-pulse" />
+        <div className="flex-1" />
+        <div className="h-8 w-24 bg-gray-100 rounded-md animate-pulse" />
+        <div className="h-8 w-24 bg-gray-100 rounded-md animate-pulse" />
+      </div>
+      {/* Table skeleton */}
+      <div className="flex-1 p-6">
+        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+          {/* Column header row */}
+          <div className="flex gap-4 px-4 py-3 border-b border-gray-100 bg-gray-50">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-4 flex-1 bg-gray-200 rounded animate-pulse" />
+            ))}
+          </div>
+          {/* Data rows */}
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className={`flex gap-4 px-4 py-3 border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+              {[...Array(6)].map((_, j) => (
+                <div key={j} className="h-3.5 flex-1 bg-gray-100 rounded animate-pulse" style={{ opacity: 1 - j * 0.08 }} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+)
+
 // Lazy load heavy components for code splitting and faster navigation
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const Client2Page = lazy(() => import('./pages/Client2Page'))
@@ -40,7 +82,7 @@ const AppContent = () => {
   }, [])
 
   if (loading) {
-    return <LoadingSpinner />
+    return <PageSkeleton />
   }
 
   if (!isAuthenticated) {
@@ -56,7 +98,7 @@ const AppContent = () => {
   }
 
   return (
-    <Suspense fallback={<LoadingSpinner />}>
+    <Suspense fallback={<PageSkeleton />}>
       {/* Preload other routes in the background to speed up navigation */}
       <PreloadRoutes />
       <Routes>

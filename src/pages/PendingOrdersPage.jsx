@@ -410,6 +410,7 @@ const PendingOrdersPage = () => {
 
     const poll = async () => {
       if (isCancelled) return
+      if (selectedLogin) { if (!isCancelled) timer = setTimeout(poll, 2000); return }
       try {
         const params = {
           page: currentPage,
@@ -500,7 +501,7 @@ const PendingOrdersPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, columnFilters])
+  }, [currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, columnFilters, selectedLogin])
 
   // Helper to get order id
   const getOrderId = (order) => {
@@ -1750,8 +1751,8 @@ const PendingOrdersPage = () => {
           client={{ login: selectedLogin }}
           onClose={() => setSelectedLogin(null)}
           onClientUpdate={() => {}}
-          allPositionsCache={cachedPositions}
-          allOrdersCache={cachedOrders}
+          allPositionsCache={[]}
+          allOrdersCache={[]}
           onCacheUpdate={() => {}}
         />
       )}

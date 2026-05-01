@@ -720,7 +720,7 @@ const PositionsPage = () => {
   }, [netCurrentPage])
 
     useEffect(() => {
-    if (!isAuthenticated || isMobile || showNetPositions) {
+    if (!isAuthenticated || isMobile || showNetPositions || selectedLogin) {
       return
     }
 
@@ -844,11 +844,11 @@ const PositionsPage = () => {
         flashTimeouts.current.clear()
       } catch {}
     }
-  }, [isAuthenticated, isMobile, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
+  }, [isAuthenticated, isMobile, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, selectedLogin])
 
   // REST polling for NET positions (netPosition: true) when NET tab is active
   useEffect(() => {
-    if (!isAuthenticated || isMobile || !showNetPositions) {
+    if (!isAuthenticated || isMobile || !showNetPositions || selectedLogin) {
       return
     }
 
@@ -947,7 +947,7 @@ const PositionsPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
+  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, selectedLogin])
 
   // REST polling for Client NET positions — COMMENTED OUT (replaced by NET Position using showNetPositions)
   /* useEffect(() => {
@@ -4161,8 +4161,8 @@ const PositionsPage = () => {
           client={{ login: selectedLogin }}
           onClose={() => setSelectedLogin(null)}
           onClientUpdate={() => {}}
-          allPositionsCache={polledPositions}
-          allOrdersCache={cachedOrders}
+          allPositionsCache={[]}
+          allOrdersCache={[]}
           onCacheUpdate={() => {}}
         />
       )}

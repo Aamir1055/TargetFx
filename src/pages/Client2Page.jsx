@@ -1563,8 +1563,8 @@ const Client2Page = () => {
     // Avoid polling when tab is hidden
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
     const intervalId = setInterval(() => {
-      // Skip polling while recent user filter actions are active
-      if (Date.now() < pausePollingUntilRef.current) return
+      // Skip polling while recent user filter actions are active or modal is open
+      if (Date.now() < pausePollingUntilRef.current || selectedClient) return
       fetchClients(true) // silent = true, no loading spinner - will refresh with current filters applied
     }, 2000)
     return () => clearInterval(intervalId)
@@ -3829,8 +3829,8 @@ const Client2Page = () => {
           <ClientPositionsModal
             client={selectedClient}
             onClose={() => setSelectedClient(null)}
-            allPositionsCache={cachedPositions}
-            allOrdersCache={cachedOrders}
+            allPositionsCache={[]}
+            allOrdersCache={[]}
           />
         )}
       </div>
@@ -5797,10 +5797,9 @@ const Client2Page = () => {
             setShowClientDetailModal(false)
             setSelectedClient(null)
           }}
-          // Use fetchClients for consistency with ClientsPage so modal-triggered updates refresh server-side dataset
           onClientUpdate={fetchClients}
-          allPositionsCache={cachedPositions}
-          allOrdersCache={cachedOrders}
+          allPositionsCache={[]}
+          allOrdersCache={[]}
           onCacheUpdate={() => { /* Positions managed by DataContext; no local update needed */ }}
         />
       )}

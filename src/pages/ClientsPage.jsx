@@ -2431,8 +2431,8 @@ const ClientsPage = () => {
           <ClientPositionsModal
             client={selectedClient}
             onClose={() => setSelectedClient(null)}
-            allPositionsCache={cachedPositions}
-            allOrdersCache={cachedOrders}
+            allPositionsCache={[]}
+            allOrdersCache={[]}
           />
         )}
       </div>
@@ -4004,11 +4004,9 @@ const ClientsPage = () => {
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
           onClientUpdate={fetchClients}
-          allPositionsCache={cachedPositions}
-          allOrdersCache={cachedOrders}
-          onCacheUpdate={(newAllPositions) => {
-            // Positions are managed by DataContext, no need to update local state
-          }}
+          allPositionsCache={[]}
+          allOrdersCache={[]}
+          onCacheUpdate={() => { /* Positions managed by DataContext; no local update needed */ }}
         />
       )}
       

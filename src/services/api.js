@@ -491,6 +491,12 @@ export const brokerAPI = {
     const response = await api.get(`/api/broker/clients/${login}/positions`)
     return response.data
   },
+
+  // Get full client overview (account info + positions + orders)
+  getClientOverview: async (login) => {
+    const response = await api.get(`/api/broker/clients/${login}/overview`)
+    return response.data
+  },
   
   // Get deals by login
   getDealsByLogin: async (login, limit = 1000) => {

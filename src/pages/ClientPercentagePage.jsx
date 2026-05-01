@@ -1704,8 +1704,8 @@ const ClientPercentagePage = () => {
           client={{ login: selectedLogin }}
           onClose={() => setSelectedLogin(null)}
           onClientUpdate={() => {}}
-          allPositionsCache={cachedPositions}
-          allOrdersCache={cachedOrders}
+          allPositionsCache={[]}
+          allOrdersCache={[]}
           onCacheUpdate={() => {}}
         />
       )}

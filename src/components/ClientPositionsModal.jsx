@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useData } from '../contexts/DataContext'
 import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
 
@@ -44,8 +43,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   
   // Client data state (for updated balance/credit/equity)
   const [clientData, setClientData] = useState(client)
-  // Pull live clients list so the modal reflects current Balance/Equity/Credit/PnL
-  const { clients: liveClients } = useData()
   
   // Funds management state
   const [operationType, setOperationType] = useState('deposit')
@@ -236,12 +233,60 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }, [])
 
-  // Keep clientData in sync with the latest data from context (live WS updates)
+  // Refs that mirror the active search/sort state so the polling closure
+  // can read the latest values without re-creating the timer on every change.
+  const debouncedSearchQueryRef = useRef('')
+  const positionsSortColumnRef = useRef(null)
+  useEffect(() => { debouncedSearchQueryRef.current = debouncedSearchQuery }, [debouncedSearchQuery])
+  useEffect(() => { positionsSortColumnRef.current = positionsSortColumn }, [positionsSortColumn])
+
+  // Poll overview API every 2s while the modal is open to keep positions + account data live
   useEffect(() => {
-    if (!liveClients || !client?.login) return
-    const updated = liveClients.find(c => c && c.login === client.login)
-    if (updated) setClientData(updated)
-  }, [liveClients, client?.login])
+    if (!client?.login) return
+    let timer = null
+    let cancelled = false
+
+    const refresh = async () => {
+      if (cancelled) return
+      try {
+        const raw = await brokerAPI.getClientOverview(client.login)
+        if (cancelled) return
+        const data = raw?.data ?? raw
+        const account = data?.account ?? data?.client ?? data?.info ?? {}
+        if (account && Object.keys(account).length > 0) {
+          setClientData(prev => ({ ...prev, ...account }))
+        }
+        // Don't overwrite positions if user has an active search or sort —
+        // the search API owns the positions list in that case.
+        const apiActive =
+          (debouncedSearchQueryRef.current && debouncedSearchQueryRef.current.trim().length > 0) ||
+          !!positionsSortColumnRef.current
+        if (!apiActive) {
+          const updatedPositions =
+            data?.positions ??
+            data?.open_positions ??
+            data?.data?.positions ??
+            null
+          if (Array.isArray(updatedPositions)) {
+            setPositions(updatedPositions)
+            calculateNetPositions(updatedPositions)
+          }
+        }
+        const stats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
+        if (stats) setDealStats(stats)
+      } catch {
+        // silently ignore refresh errors
+      }
+      if (!cancelled) timer = setTimeout(refresh, 2000)
+    }
+
+    // Start polling after initial fetch completes (slight delay)
+    timer = setTimeout(refresh, 2000)
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [client?.login])
 
   // Toggle column visibility
   const togglePositionsColumn = (columnKey) => {
@@ -297,23 +342,21 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     // When a search or sort is active, positions are loaded via API. Skip cache.
     const apiActive = (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) || !!positionsSortColumn
     if (apiActive) return
-    if (allPositionsCache && allPositionsCache.length >= 0) {
-      const clientPositions = allPositionsCache.filter(pos => pos.login === client.login)
-      setPositions(clientPositions)
-      
-      // Calculate net positions grouped by symbol (including positions only)
-      calculateNetPositions(clientPositions)
-    }
+    // Skip if no cache provided — overview poller owns position data in that case
+    if (!allPositionsCache || allPositionsCache.length === 0) return
+    const clientPositions = allPositionsCache.filter(pos => pos.login === client.login)
+    setPositions(clientPositions)
+    calculateNetPositions(clientPositions)
   }, [allPositionsCache, client.login, debouncedSearchQuery, positionsSortColumn])
 
   // Update orders when allOrdersCache changes
   useEffect(() => {
     const apiActive = (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) || !!positionsSortColumn
     if (apiActive) return
-    if (allOrdersCache && allOrdersCache.length >= 0) {
-      const clientOrders = allOrdersCache.filter(order => order.login === client.login)
-      setOrders(clientOrders)
-    }
+    // Skip if no cache provided
+    if (!allOrdersCache || allOrdersCache.length === 0) return
+    const clientOrders = allOrdersCache.filter(order => order.login === client.login)
+    setOrders(clientOrders)
   }, [allOrdersCache, client.login, debouncedSearchQuery, positionsSortColumn])
 
   // Manual search trigger (on Enter or search icon click)
@@ -387,29 +430,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     run()
     return () => { cancelled = true }
   }, [activeTab, debouncedSearchQuery, positionsSortColumn, positionsSortDirection, client.login])
-
-  // Fetch aggregated deal stats for the client (GET endpoint per requirement)
-  useEffect(() => {
-    let cancelled = false
-    const loadStats = async () => {
-      try {
-        setDealStatsLoading(true)
-        setDealStatsError('')
-        const res = await brokerAPI.getClientDealStatsGET(client.login)
-        const data = res?.data || res
-        if (!cancelled) setDealStats(data || null)
-      } catch (err) {
-        if (!cancelled) {
-          setDealStats(null)
-          setDealStatsError('Failed to load deal stats')
-        }
-      } finally {
-        if (!cancelled) setDealStatsLoading(false)
-      }
-    }
-    if (client?.login) loadStats()
-    return () => { cancelled = true }
-  }, [client?.login])
 
   // Persist deal stat visibility
   useEffect(() => {
@@ -586,14 +606,26 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     try {
       setLoading(true)
 
-      // Call positions/search API with the dialog's login as mt5Accounts filter
-      const response = await brokerAPI.searchPositions({
-        mt5Accounts: [String(client.login)],
-        page: 1,
-        limit: 1000,
-      })
-      const data = response?.data ?? response
-      const clientPositions = data?.positions ?? data?.data?.positions ?? data?.items ?? (Array.isArray(data) ? data : [])
+      // Use the overview endpoint to get account info + positions in one call
+      const raw = await brokerAPI.getClientOverview(client.login)
+      const data = raw?.data ?? raw
+
+      // Extract client account details (balance, equity, credit, floating, etc.)
+      const account = data?.account ?? data?.client ?? data?.info ?? {}
+      if (account && Object.keys(account).length > 0) {
+        setClientData(prev => ({ ...prev, ...account }))
+      }
+
+      // Extract deal stats (totals, commission, etc.) from the overview response
+      const stats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
+      if (stats) setDealStats(stats)
+
+      // Extract positions
+      const clientPositions =
+        data?.positions ??
+        data?.open_positions ??
+        data?.data?.positions ??
+        (Array.isArray(data) ? data : [])
       setPositions(clientPositions)
       calculateNetPositions(clientPositions)
     } catch (error) {
@@ -639,8 +671,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }
 
   const fetchUpdatedClientData = async () => {
-    // /api/broker/clients endpoint not in use - skip to prevent CORS errors
-    console.warn('[ClientPositionsModal] fetchUpdatedClientData skipped - /api/broker/clients endpoint not available')
+    try {
+      const raw = await brokerAPI.getClientOverview(client.login)
+      const data = raw?.data ?? raw
+      const account = data?.account ?? data?.client ?? data?.info ?? {}
+      if (account && Object.keys(account).length > 0) {
+        setClientData(prev => ({ ...prev, ...account }))
+      }
+    } catch (err) {
+      console.warn('[ClientPositionsModal] fetchUpdatedClientData failed:', err)
+    }
   }
 
   const fetchAvailableRules = async () => {
