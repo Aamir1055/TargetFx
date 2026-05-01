@@ -398,10 +398,16 @@ export default function PositionModule() {
         // Apply active group filter as a server-side login filter (works across pages)
         const activeGroupName = getActiveGroupFilter('positions')
         if (activeGroupName) {
-          const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
-          params.filters = [
-            { field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] }
-          ]
+          const activeGroup = groups.find(g => g.name === activeGroupName)
+          if (activeGroup?.range) {
+            params.accountRangeMin = activeGroup.range.from
+            params.accountRangeMax = activeGroup.range.to
+          } else {
+            const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+            params.filters = [
+              { field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] }
+            ]
+          }
         }
 
         const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
@@ -473,10 +479,16 @@ export default function PositionModule() {
         // Apply active group filter as a server-side login filter (works across pages)
         const activeGroupName = getActiveGroupFilter('positions')
         if (activeGroupName) {
-          const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
-          params.filters = [
-            { field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] }
-          ]
+          const activeGroup = groups.find(g => g.name === activeGroupName)
+          if (activeGroup?.range) {
+            params.accountRangeMin = activeGroup.range.from
+            params.accountRangeMax = activeGroup.range.to
+          } else {
+            const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+            params.filters = [
+              { field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] }
+            ]
+          }
         }
 
         const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
