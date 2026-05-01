@@ -360,10 +360,10 @@ export default function ClientPercentageModule() {
   // Get visible columns
   const allColumns = [
     { key: 'login', label: 'Login', width: '100px', sticky: true },
-    { key: 'updatedAt', label: 'Last Updated', width: '150px' },
     { key: 'percentage', label: 'Percentage', width: '120px' },
     { key: 'type', label: 'Type', width: '100px' },
     { key: 'comment', label: 'Comment', width: '200px' },
+    { key: 'updatedAt', label: 'Last Updated', width: '150px' },
     { key: 'actions', label: 'Actions', width: '80px' }
   ]
 
@@ -521,9 +521,13 @@ export default function ClientPercentageModule() {
   // CSV Import handler
   const handleCSVImport = async () => {
     if (csvData.length === 0) return
+    const BATCH_SIZE = 500
     try {
       setCsvImporting(true)
-      await brokerAPI.bulkUpdateClientPercentages(csvData)
+      for (let i = 0; i < csvData.length; i += BATCH_SIZE) {
+        const batch = csvData.slice(i, i + BATCH_SIZE)
+        await brokerAPI.bulkUpdateClientPercentages(batch)
+      }
       await fetchAllClientPercentages(currentPage)
       setShowImportModal(false)
       setCsvData([])
@@ -539,7 +543,7 @@ export default function ClientPercentageModule() {
 
   // CSV Export helpers
   const buildCSV = (rows) => {
-    const exportColumns = activeColumns.filter(c => c.key !== 'actions')
+    const exportColumns = allColumns.filter(c => c.key !== 'actions')
     const headers = exportColumns.map(col => col.label).join(',')
     const escape = (v) => {
       let s = v == null ? '' : String(v)

@@ -92,7 +92,7 @@ export default function Client2Module() {
       const [moved] = newOrder.splice(fromIndex, 1)
       newOrder.splice(toIndex, 0, moved)
       setCardOrder(newOrder)
-      try { 
+      try { 33333333333333
         localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder)) 
         console.log('Card order swapped:', fromLabel, '->', toLabel, newOrder)
       } catch (e) {
