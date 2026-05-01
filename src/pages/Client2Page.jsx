@@ -208,6 +208,8 @@ const Client2Page = () => {
   const requestIdRef = useRef(0)
   // Pause polling during active user filter changes to avoid race
   const pausePollingUntilRef = useRef(0)
+  // Mirror selectedClient into a ref so the polling interval closure always reads the latest value
+  const selectedClientRef = useRef(null)
   // Drag-and-drop for face cards
   const [draggedCardKey, setDraggedCardKey] = useState(null)
   const [dragOverCardKey, setDragOverCardKey] = useState(null)
@@ -1559,12 +1561,16 @@ const Client2Page = () => {
 
   // Auto-refresh every 2 seconds to keep data updated (including filtered data) - desktop only
   useEffect(() => {
+    selectedClientRef.current = selectedClient
+  }, [selectedClient])
+
+  useEffect(() => {
     if (isMobile || !isAuthenticated || unauthorized) return
     // Avoid polling when tab is hidden
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
     const intervalId = setInterval(() => {
       // Skip polling while recent user filter actions are active or modal is open
-      if (Date.now() < pausePollingUntilRef.current || selectedClient) return
+      if (Date.now() < pausePollingUntilRef.current || selectedClientRef.current) return
       fetchClients(true) // silent = true, no loading spinner - will refresh with current filters applied
     }, 2000)
     return () => clearInterval(intervalId)

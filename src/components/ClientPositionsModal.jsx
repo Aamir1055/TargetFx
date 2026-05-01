@@ -151,10 +151,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     profitDealSum: true,
     profitDealsSum: true,
     sellDeals: true,
-    sellVolume: true
+    sellVolume: true,
+    winRate: true
   }
   // Deal stat keys that should NEVER be shown (blacklist)
-  const blockedDealStatKeys = new Set(['totalPnL', 'totalStorage', 'winRate'])
+  const blockedDealStatKeys = new Set(['totalPnL', 'totalStorage'])
   const [dealStatVisibility, setDealStatVisibility] = useState(() => {
     try {
       const saved = localStorage.getItem('positions_dealStats_visibility')
@@ -271,8 +272,14 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             setPositions(updatedPositions)
             calculateNetPositions(updatedPositions)
           }
+          const updatedOrders =
+            data?.orders ??
+            data?.pending_orders ??
+            data?.data?.orders ??
+            null
+          if (Array.isArray(updatedOrders)) setOrders(updatedOrders)
         }
-        const stats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
+        const stats = data?.dealsStats ?? data?.dealStats ?? data?.deal_stats ?? data?.stats ?? data?.analytics ?? null
         if (stats) setDealStats(stats)
       } catch {
         // silently ignore refresh errors
@@ -617,7 +624,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       }
 
       // Extract deal stats (totals, commission, etc.) from the overview response
-      const stats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
+      const stats = data?.dealsStats ?? data?.dealStats ?? data?.deal_stats ?? data?.stats ?? data?.analytics ?? null
       if (stats) setDealStats(stats)
 
       // Extract positions
@@ -628,6 +635,14 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         (Array.isArray(data) ? data : [])
       setPositions(clientPositions)
       calculateNetPositions(clientPositions)
+
+      // Extract pending orders from the overview response
+      const clientOrders =
+        data?.orders ??
+        data?.pending_orders ??
+        data?.data?.orders ??
+        []
+      if (Array.isArray(clientOrders)) setOrders(clientOrders)
     } catch (error) {
       console.error('[ClientPositionsModal] fetchPositions failed:', error)
       setError('Failed to load positions')
@@ -3592,7 +3607,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 const row1 = []
                 const totalPL = positions.reduce((sum, p) => sum + (p.profit || 0), 0)
                 const lifetime = Number(clientData?.lifetimePnL ?? clientData?.pnl ?? 0)
-                const floating = Number(clientData?.floating ?? totalPL)
+                const floating = Number(clientData?.floatingProfit ?? clientData?.floating ?? totalPL)
                 const bookPnL = lifetime + floating
                 
                 // Invert lifetime and bookPnL for display (negative shows as positive, positive shows as negative)
@@ -3626,7 +3641,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 // Filter out maxProfit and maxLoss from deals summary since they're already in position metrics
                 // Also filter out blocked keys (totalPnL, totalStorage, winRate) per requirements
                 const filteredBaseKeys = baseKeys.filter(k => k !== 'maxProfit' && k !== 'maxLoss' && !blockedDealStatKeys.has(k))
-                const preferredOrder = ['totalCommission','totalDeals','totalVolume','averageProfitPerDeal','averageVolumePerDeal','buyDeals','buyVolume','losingDealCount','losingDealSum','losingDealsSum','profitableDealCount','profitableDealsSum','profitDealSum','profitDealsSum','sellDeals','sellVolume']
+                const preferredOrder = ['totalCommission','totalDeals','totalVolume','winRate','averageProfitPerDeal','averageVolumePerDeal','buyDeals','buyVolume','losingDealCount','losingDealSum','losingDealsSum','profitableDealCount','profitableDealsSum','profitDealSum','profitDealsSum','sellDeals','sellVolume']
                 const toRender = [
                   ...preferredOrder.filter(k => filteredBaseKeys.includes(k)),
                   ...filteredBaseKeys.filter(k => !preferredOrder.includes(k))
