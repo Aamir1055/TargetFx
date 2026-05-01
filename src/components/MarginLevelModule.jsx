@@ -549,68 +549,6 @@ export default function MarginLevelModule() {
           </div>
         </div>
 
-        {/* Face Cards Carousel */}
-        <div className="pb-2 px-4">
-          <div className="grid grid-cols-2 gap-[8px]">
-            {cards.map((card, i) => (
-              <div 
-                key={i}
-                draggable="true"
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('cardIndex', i)
-                  e.dataTransfer.effectAllowed = 'move'
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const fromIndex = parseInt(e.dataTransfer.getData('cardIndex'))
-                  if (fromIndex !== i && !isNaN(fromIndex)) {
-                    const newCards = [...cards]
-                    const [movedCard] = newCards.splice(fromIndex, 1)
-                    newCards.splice(i, 0, movedCard)
-                    setCards(newCards)
-                  }
-                }}
-                style={{
-                  boxSizing: 'border-box',
-                  height: '60px',
-                  background: '#FFFFFF',
-                  border: '1px solid #F2F2F7',
-                  boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
-                  borderRadius: '12px',
-                  padding: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  touchAction: 'pan-x'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                  <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>{card.label}</span>
-                  <img src={getCardIcon(card.label)} alt="" style={{ width: '16px', height: '16px', objectFit: 'contain', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none' }} />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
-                  <span style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    lineHeight: '14px',
-                    letterSpacing: '-0.01em',
-                    color: '#000000'
-                  }}>
-                    {card.value === '' || card.value === undefined ? '0.00' : card.value}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Search and navigation */}
         <div className="pb-3 px-4">
           <div className="flex items-center gap-1">
@@ -626,15 +564,6 @@ export default function MarginLevelModule() {
                 className="flex-1 min-w-0 text-[11px] text-[#000000] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit"
               />
             </div>
-            <button 
-              onClick={() => setIsColumnSelectorOpen(true)}
-              className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50">
-              <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                <rect x="3" y="5" width="4" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
-                <rect x="8.5" y="5" width="4" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
-                <rect x="14" y="5" width="3" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
-              </svg>
-            </button>
             <button 
               onClick={() => handlePageChange(currentPage - 1, Math.ceil(sortedAccounts.length / itemsPerPage))}
               disabled={currentPage === 1}
