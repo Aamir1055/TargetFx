@@ -34,6 +34,9 @@ export default function Client2Module() {
   const { positions: cachedPositions, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [currentPage, setCurrentPage] = useState(1)
+  const [currencyMode, setCurrencyMode] = useState(() => { try { return localStorage.getItem('client2CurrencyMode') || 'Combined' } catch { return 'Combined' } })
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false)
+  const currencyDropdownRef = useRef(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
@@ -118,6 +121,17 @@ export default function Client2Module() {
       window.removeEventListener('globalDisplayModeChanged', onChange)
       window.removeEventListener('storage', onChange)
     }
+  }, [])
+
+  // Close currency dropdown on outside click
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(e.target)) {
+        setShowCurrencyDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
   }, [])
 
   const fmtMoney = (v) => {
@@ -216,7 +230,8 @@ export default function Client2Module() {
       const payload = {
         page: currentPage,
         limit: itemsPerPage,
-        percentage: usePercent
+        percentage: usePercent,
+        currency: currencyMode
       }
 
       // Add filters to payload (server-side filtering like desktop)
@@ -328,7 +343,7 @@ export default function Client2Module() {
         setIsLoading(false)
       }
     }
-  }, [showPercent, filters, getActiveGroupFilter, groups, currentPage, sortColumn, sortDirection, debouncedSearchInput])
+  }, [showPercent, filters, getActiveGroupFilter, groups, currentPage, sortColumn, sortDirection, debouncedSearchInput, currencyMode])
 
   // Fetch rebate totals from API
   const fetchRebateTotals = useCallback(async () => {
@@ -1075,6 +1090,60 @@ export default function Client2Module() {
                   <path d="M4 12L12 4M4.5 6.5C5.32843 6.5 6 5.82843 6 5C6 4.17157 5.32843 3.5 4.5 3.5C3.67157 3.5 3 4.17157 3 5C3 5.82843 3.67157 6.5 4.5 6.5ZM11.5 12.5C12.3284 12.5 13 11.8284 13 11C13 10.1716 12.3284 9.5 11.5 9.5C10.6716 9.5 10 10.1716 10 11C10 11.8284 10.6716 12.5 11.5 12.5Z" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
+              {/* Currency mode dropdown */}
+              <div className="relative" ref={currencyDropdownRef}>
+                <button
+                  onClick={() => setShowCurrencyDropdown(v => !v)}
+                  className={`h-8 px-2.5 rounded-[10px] border shadow-sm flex items-center gap-1.5 transition-colors ${
+                    currencyMode !== 'Combined'
+                      ? 'bg-blue-50 border-blue-300'
+                      : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
+                  }`}
+                  title="Currency"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="8" cy="8" r="5.5" stroke={currencyMode !== 'Combined' ? '#2563EB' : '#4B4B4B'} strokeWidth="1.5"/>
+                    <circle cx="16" cy="16" r="5.5" stroke={currencyMode !== 'Combined' ? '#2563EB' : '#4B4B4B'} strokeWidth="1.5"/>
+                    <path d="M6.5 7h3M6.5 9h3M8 7v4" stroke={currencyMode !== 'Combined' ? '#2563EB' : '#4B4B4B'} strokeWidth="1.2" strokeLinecap="round"/>
+                    <path d="M14.5 15h3M14.5 15c0-.83.67-1.5 1.5-1.5h.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5H16c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h.5c.83 0 1.5-.67 1.5-1.5" stroke={currencyMode !== 'Combined' ? '#2563EB' : '#4B4B4B'} strokeWidth="1.2" strokeLinecap="round"/>
+                    <path d="M13 10.5L10.5 13M10.5 10.5L13 13" stroke={currencyMode !== 'Combined' ? '#2563EB' : '#4B4B4B'} strokeWidth="1.2" strokeLinecap="round"/>
+                  </svg>
+                  <span className={`text-[10px] font-semibold ${currencyMode !== 'Combined' ? 'text-[#2563EB]' : 'text-[#4B4B4B]'}`}>
+                    {currencyMode}
+                  </span>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M2 3.5L5 6.5L8 3.5" stroke={currencyMode !== 'Combined' ? '#2563EB' : '#4B4B4B'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                {showCurrencyDropdown && (
+                  <div className="absolute left-0 top-full mt-1 w-[120px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] z-50 overflow-hidden">
+                    {['Combined', 'INR', 'USD'].map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => {
+                          setCurrencyMode(opt)
+                          try { localStorage.setItem('client2CurrencyMode', opt) } catch {}
+                          setCurrentPage(1)
+                          setShowCurrencyDropdown(false)
+                        }}
+                        className={`w-full px-3 py-2 text-left text-[12px] font-medium flex items-center gap-2 transition-colors ${
+                          currencyMode === opt
+                            ? 'bg-blue-50 text-[#2563EB]'
+                            : 'text-[#374151] hover:bg-gray-50'
+                        }`}
+                      >
+                        {currencyMode === opt && (
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6L5 9L10 3" stroke="#2563EB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                        {currencyMode !== opt && <span className="w-3" />}
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {/* Download button and dropdown */}
               <div className="relative" ref={columnDropdownRef}>
                 <button
@@ -1154,7 +1223,7 @@ export default function Client2Module() {
               </button>
             </div>
 
-            {/* Right side - View All only */}
+            {/* Right side - View All */}
             <span
               ref={viewAllRef}
               className="text-[#1A63BC] text-[12px] font-semibold leading-[15px] cursor-pointer"
@@ -1225,8 +1294,6 @@ export default function Client2Module() {
                         : (card.numericValue > 0 ? '#16A34A' : card.numericValue < 0 ? '#DC2626' : '#000000')
                     }}>
                       {card.value === '' || card.value === undefined ? '0.00' : card.value}
-                      {/* Show % symbol if percentage mode is active and card label contains % */}
-                      {showPercent && card.label.endsWith(' %') && <span style={{marginLeft: 2}}>%</span>}
                     </span>
                 </div>
               </div>
