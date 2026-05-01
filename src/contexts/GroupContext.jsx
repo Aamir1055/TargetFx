@@ -211,10 +211,19 @@ export const GroupProvider = ({ children }) => {
     return activeGroupFilters[moduleName] || null
   }
 
-  // Get login IDs for a specific group
+  // Get login IDs for a specific group (expands range-based groups)
   const getGroupLogins = (groupName) => {
     const group = groups.find(g => g.name === groupName)
-    return group ? group.loginIds : []
+    if (!group) return []
+    if (group.range) {
+      const from = Number(group.range.from)
+      const to = Number(group.range.to)
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return []
+      const logins = []
+      for (let i = from; i <= to; i++) logins.push(i)
+      return logins
+    }
+    return Array.isArray(group.loginIds) ? group.loginIds : []
   }
 
   // Check if a login is in the active group (supports both manual and range groups)
@@ -228,7 +237,10 @@ export const GroupProvider = ({ children }) => {
     // Check if it's a range-based group
     if (group.range) {
       const loginNum = Number(login)
-      return loginNum >= group.range.from && loginNum <= group.range.to
+      const from = Number(group.range.from)
+      const to = Number(group.range.to)
+      if (!Number.isFinite(loginNum) || !Number.isFinite(from) || !Number.isFinite(to)) return false
+      return loginNum >= from && loginNum <= to
     }
 
     // Manual selection group

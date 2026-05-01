@@ -19,7 +19,7 @@ const PendingOrdersPage = () => {
 
   // Use cached data from DataContext - MUST be called before conditional return
   const { orders: cachedOrders, positions: cachedPositions, fetchOrders } = useData()
-  const { filterByActiveGroup, activeGroupFilters } = useGroups()
+  const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter, getGroupLogins } = useGroups()
   
   // Server-side polled data
   const [polledOrders, setPolledOrders] = useState([])
@@ -459,6 +459,12 @@ const PendingOrdersPage = () => {
         if (Array.isArray(columnFilters['login']) && columnFilters['login'].length > 0) {
           apiFilters.push({ field: 'login', operator: 'in', value: columnFilters['login'].map(Number) })
         }
+        // Apply active group filter as a server-side login filter (works across pages and supports ranges)
+        const activeGroupName = getActiveGroupFilter('pendingorders')
+        if (activeGroupName) {
+          const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+          apiFilters.push({ field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] })
+        }
         if (apiFilters.length > 0) {
           params.filters = apiFilters
         }
@@ -501,7 +507,7 @@ const PendingOrdersPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, columnFilters, selectedLogin])
+  }, [currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, columnFilters, selectedLogin, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
   // Helper to get order id
   const getOrderId = (order) => {
