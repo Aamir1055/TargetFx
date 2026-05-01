@@ -54,6 +54,7 @@ export default function Client2Module() {
   const columnSelectorButtonRef = useRef(null)
   const abortControllerRef = useRef(null)
   const requestIdRef = useRef(0)
+  const isFetchingRef = useRef(false)
   const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
   const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
   const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
@@ -216,6 +217,8 @@ export default function Client2Module() {
 
   // Fetch clients data via API
   const fetchClients = useCallback(async (overridePercent = null, isInitialLoad = false) => {
+    // Skip periodic refresh if a fetch is already in-flight
+    if (!isInitialLoad && isFetchingRef.current) return
     // Generate unique request ID to track this specific request
     const currentRequestId = ++requestIdRef.current
     
@@ -224,6 +227,7 @@ export default function Client2Module() {
       if (isInitialLoad) {
         setIsLoading(true)
       }
+      isFetchingRef.current = true
       const usePercent = overridePercent !== null ? overridePercent : showPercent
       
       // Build payload - always use itemsPerPage (12) for mobile pagination
@@ -326,6 +330,7 @@ export default function Client2Module() {
       if (isInitialLoad) {
         setIsLoading(false)
       }
+      isFetchingRef.current = false
       
       // Cards are now computed via useMemo based on filtered clients
     } catch (error) {
@@ -336,12 +341,14 @@ export default function Client2Module() {
         if (isInitialLoad) {
           setIsLoading(false)
         }
+        isFetchingRef.current = false
         return
       }
       console.error('Failed to fetch clients:', error)
       if (isInitialLoad) {
         setIsLoading(false)
       }
+      isFetchingRef.current = false
     }
   }, [showPercent, filters, getActiveGroupFilter, groups, currentPage, sortColumn, sortDirection, debouncedSearchInput, currencyMode])
 
@@ -370,7 +377,7 @@ export default function Client2Module() {
   useEffect(() => {
     fetchClients(null, true) // Initial load with loading state
     fetchRebateTotals() // Fetch rebate totals on mount
-    const interval = setInterval(() => fetchClients(null, false), 1000) // Periodic refresh without loading state
+    const interval = setInterval(() => fetchClients(null, false), 5000) // Periodic refresh every 5s (skip if in-flight)
     const rebateInterval = setInterval(() => fetchRebateTotals(), 3600000) // Refresh rebate every 1 hour
     return () => {
       clearInterval(interval)

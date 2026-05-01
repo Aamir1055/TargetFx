@@ -97,6 +97,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     profit: true
   })
 
+  // Live account data from overview API (balance, equity, credit, floating, etc.)
+  const [clientData, setClientData] = useState(() => ({ ...client }))
+
   // Deal stats from API
   const [dealStats, setDealStats] = useState(null)
 
@@ -130,23 +133,39 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     return { symbols, totalNetVolume, buyFloating, sellFloating }
   }, [netPositions, positions])
 
-  // Fetch deal stats from API
-  const fetchDealStats = async () => {
-    try {
-      const data = await brokerAPI.getClientDealStatsGET(client.login)
-      setDealStats(data || null)
-    } catch (error) {
-      console.error('Failed to load deal stats:', error)
-      setDealStats(null)
-    }
-  }
-
   useEffect(() => {
     fetchPositionsAndInitDeals()
     fetchAvailableRules()
     fetchClientRules()
-    fetchDealStats()
   }, [client.login])
+
+  // Poll overview API every 2s while modal is open (mirrors desktop)
+  useEffect(() => {
+    if (!client?.login) return
+    let timer = null
+    let cancelled = false
+    const refresh = async () => {
+      if (cancelled) return
+      try {
+        const raw = await brokerAPI.getClientOverview(client.login)
+        if (cancelled) return
+        const data = raw?.data ?? raw
+        const account = data?.account ?? data?.client ?? data?.info ?? {}
+        if (account && Object.keys(account).length > 0) {
+          setClientData(prev => ({ ...prev, ...account }))
+        }
+        const updatedPositions = data?.positions ?? data?.open_positions ?? data?.data?.positions ?? null
+        if (Array.isArray(updatedPositions)) {
+          setPositions(updatedPositions)
+        }
+        const overviewStats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
+        if (overviewStats) setDealStats(overviewStats)
+      } catch { /* silently ignore */ }
+      if (!cancelled) timer = setTimeout(refresh, 2000)
+    }
+    timer = setTimeout(refresh, 2000)
+    return () => { cancelled = true; if (timer) clearTimeout(timer) }
+  }, [client?.login])
 
   // Reset pagination when tab changes
   useEffect(() => {
@@ -219,7 +238,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       setLoading(true)
       
       // Use cached positions and orders
-      const positionsData = allPositionsCache ? allPositionsCache.filter(pos => pos.login === client.login) : []
+      let positionsData = allPositionsCache ? allPositionsCache.filter(pos => pos.login === client.login) : []
       setPositions(positionsData)
       
       const ordersData = allOrdersCache ? allOrdersCache.filter(order => order.login === client.login) : []
@@ -337,10 +356,32 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       })
       setNetPositions(computedNet)
 
-      // Calculate and set stats using client data from WebSocket (like desktop)
+      // Fetch live account data from overview API
+      let overviewAccount = {}
+      try {
+        const raw = await brokerAPI.getClientOverview(client.login)
+        const data = raw?.data ?? raw
+        overviewAccount = data?.account ?? data?.client ?? data?.info ?? {}
+        if (overviewAccount && Object.keys(overviewAccount).length > 0) {
+          setClientData(prev => ({ ...prev, ...overviewAccount }))
+        }
+        // Use overview positions if available (more accurate than cache)
+        const overviewPositions = data?.positions ?? data?.open_positions ?? data?.data?.positions ?? null
+        if (Array.isArray(overviewPositions) && overviewPositions.length > 0) {
+          positionsData = overviewPositions
+          setPositions(overviewPositions)
+        }
+        const overviewStats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
+        if (overviewStats) setDealStats(overviewStats)
+      } catch (e) {
+        console.warn('[ClientDetailsMobileModal] overview fetch failed, using cache', e)
+      }
+
+      // Calculate and set stats using live account data from overview API
+      const merged = { ...client, ...overviewAccount }
       const totalPnL = positionsData.reduce((sum, p) => sum + (p.profit || 0), 0)
-      const lifetimePnL = Number(client.lifetimePnL ?? client.pnl ?? 0)
-      const floating = Number(client.floating ?? totalPnL)
+      const lifetimePnL = Number(merged.lifetimePnL ?? merged.pnl ?? 0)
+      const floating = Number(merged.floating ?? overviewAccount.floating ?? totalPnL)
       const bookPnL = lifetimePnL + floating
       
       setStats({
@@ -348,12 +389,12 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         totalPnL,
         lifetimePnL,
         bookPnL,
-        balance: Number(client.balance ?? 0),
-        credit: Number(client.credit ?? 0),
-        equity: Number(client.equity ?? 0),
-        totalVolume: dealStats?.totalVolume ?? 0,
-        totalDeals: dealStats?.totalDeals ?? 0,
-        winRate: dealStats?.winRate ?? 0
+        balance: Number(merged.balance ?? 0),
+        credit: Number(merged.credit ?? 0),
+        equity: Number(merged.equity ?? 0),
+        totalVolume: 0,
+        totalDeals: 0,
+        winRate: 0
       })
 
       // Set default date range to Today
@@ -393,12 +434,11 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       setCurrentDateFilter({ from: fromTimestamp, to: toTimestamp })
       setHasAppliedFilter(true)
 
-      // Calculate stats using client data and dealStats from API
-      // Use provided positionsArray or fall back to state
+      // Calculate stats using live account data from overview
       const positionsToUse = positionsArray !== null ? positionsArray : positions
       const totalPnL = positionsToUse.reduce((sum, p) => sum + (p.profit || 0), 0)
-      const lifetimePnL = Number(client.lifetimePnL ?? client.pnl ?? 0)
-      const floating = Number(client.floating ?? totalPnL)
+      const lifetimePnL = Number(clientData.lifetimePnL ?? clientData.pnl ?? client.lifetimePnL ?? client.pnl ?? 0)
+      const floating = Number(clientData.floating ?? client.floating ?? totalPnL)
       const bookPnL = lifetimePnL + floating
       const totalVolume = dealsData.reduce((sum, d) => sum + (d.volume || 0), 0)
       
@@ -410,9 +450,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         totalPnL,
         lifetimePnL,
         bookPnL,
-        balance: client.balance || 0,
-        credit: client.credit || 0,
-        equity: client.equity || 0,
+        balance: clientData.balance ?? client.balance ?? 0,
+        credit: clientData.credit ?? client.credit ?? 0,
+        equity: clientData.equity ?? client.equity ?? 0,
         totalVolume,
         totalDeals: dealsData.length,
         winRate
