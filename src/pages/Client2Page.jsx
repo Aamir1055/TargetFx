@@ -134,6 +134,8 @@ const Client2Page = () => {
   const [animationKey, setAnimationKey] = useState(0)
   const [initialLoad, setInitialLoad] = useState(true)
   const [progressActive, setProgressActive] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
 
   // UI state
   const [showColumnSelector, setShowColumnSelector] = useState(false)
@@ -3284,9 +3286,10 @@ const Client2Page = () => {
       try {
         console.log('[Client2Page] Export started, type:', type)
         setShowExportMenu(false)
+        setIsExporting(true)
+        setExportProgress(0)
 
         // Fetch ALL data for export (not just current page)
-        setLoading(true)
         const payload = {
           page: 1,
           limit: totalClients > 0 ? totalClients : 1000000 // Use actual total count, fallback to 1M
@@ -3372,6 +3375,7 @@ const Client2Page = () => {
         console.log('[Client2Page] API reports', pageCount, 'page(s) — fetching remaining in parallel')
 
         let allRows = [...firstRows]
+        setExportProgress(pageCount > 0 ? 1 / pageCount : 1)
 
         if (pageCount > 1) {
           const remainingPages = Array.from({ length: pageCount - 1 }, (_, i) => i + 2)
@@ -3388,13 +3392,13 @@ const Client2Page = () => {
               )
             )
             chunkResults.forEach(rows => allRows.push(...rows))
+            const fetched = Math.min(i + CONCURRENCY_LIMIT + 1, pageCount)
+            setExportProgress(fetched / pageCount)
             console.log(`[Client2Page] Fetched pages ${chunk[0]}–${chunk.at(-1)}, total so far: ${allRows.length}`)
           }
         }
 
         console.log('[Client2Page] Final row count:', allRows.length)
-
-        setLoading(false)
 
         console.log('[Client2Page] Export dataset fetched:', allRows?.length, 'rows')
 
@@ -3495,9 +3499,11 @@ const Client2Page = () => {
         
         console.log('[Client2Page] Export completed successfully')
       } catch (err) {
-        setLoading(false)
         console.error('[Client2Page] Export error:', err)
         alert('Export failed: ' + (err.message || 'Please try again.'))
+      } finally {
+        setIsExporting(false)
+        setExportProgress(0)
       }
     })()
   }
@@ -3834,7 +3840,14 @@ const Client2Page = () => {
   return (
     <div className="h-screen flex overflow-hidden relative bg-[#F8FAFC]">
       {initialLoad && (
-        <LoadingSpinner message="Loading clients..." subtitle="Fetching client accounts" />
+        <></>
+      )}
+      {isExporting && (
+        <LoadingSpinner
+          message="Exporting..."
+          subtitle="Preparing your spreadsheet"
+          progress={exportProgress > 0 ? Math.round(exportProgress * 100) : null}
+        />
       )}
       <Sidebar
         isOpen={sidebarOpen}
@@ -4230,7 +4243,7 @@ const Client2Page = () => {
           </div>
 
           {/* 6 Face Cards - matching Positions module style */}
-          {showFaceCards && ((totals && Object.keys(totals).length > 0) || (totalsPercent && Object.keys(totalsPercent).length > 0)) && (
+          {showFaceCards && (initialLoad || (totals && Object.keys(totals).length > 0) || (totalsPercent && Object.keys(totalsPercent).length > 0)) && (
             <div className="mb-6">
               {(() => {
                 const t = cardFilterPercentMode ? totalsPercent : totals
@@ -4322,7 +4335,7 @@ const Client2Page = () => {
           {/* Main Content */}
           <div className="flex-1">
             {/* Search Bar and Table Container */}
-            {!initialLoad && (
+            {true && (
               <div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden">
                 {/* Search and Controls Bar */}
                 <div className="border-b border-[#E5E7EB] p-4">
@@ -5417,6 +5430,13 @@ const Client2Page = () => {
                           )
                         })}
                       </tr>
+                      {(loading || initialLoad || isRefreshing || isPageChanging) && (
+                        <tr>
+                          <td colSpan={visibleColumnsList.length} className="p-0 bg-blue-600">
+                            <div className="table-loading-bar" />
+                          </td>
+                        </tr>
+                      )}
                     </thead>
 
 

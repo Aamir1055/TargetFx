@@ -24,6 +24,31 @@
   border-radius: 4px;
 }
 
+/* Thin indeterminate progress bar shown directly below table column header
+   (page change, page reload, module switch). 2px tall, swept blue accent. */
+@keyframes tableLoadingSweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+.table-loading-bar {
+  position: relative;
+  height: 2px;
+  width: 100%;
+  background: rgba(59, 130, 246, 0.12);
+  overflow: hidden;
+  pointer-events: none;
+}
+.table-loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 25%;
+  background: linear-gradient(90deg, transparent 0%, #3B82F6 50%, transparent 100%);
+  animation: tableLoadingSweep 1.2s linear infinite;
+}
+
 /* Mobile viewport fixes */
 html {
   -webkit-overflow-scrolling: touch;

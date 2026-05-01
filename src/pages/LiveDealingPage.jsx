@@ -1741,9 +1741,6 @@ const LiveDealingPage = () => {
 
   return (
     <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-hidden">
-      {loading && deals.length === 0 && (
-        <LoadingSpinner message="Loading deals..." subtitle="Fetching live trading deals" />
-      )}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => {
@@ -2111,12 +2108,28 @@ const LiveDealingPage = () => {
                     return <Fragment key={col.key}>{cell}</Fragment>
                   })}
                 </tr>
+                {loading && (
+                  <tr>
+                    <td colSpan={Object.values(visibleColumns).filter(Boolean).length} className="p-0 bg-blue-600">
+                      <div className="table-loading-bar" />
+                    </td>
+                  </tr>
+                )}
               </thead>
 
               <tbody className="bg-white divide-y-2 text-sm" style={{ borderColor: '#888888' }}>
                 {loading && deals.length === 0 ? (
-                  // Empty body while initial load — overlay dialog handles UX
-                  null
+                  Array.from({ length: 8 }, (_, i) => (
+                    <tr key={`deal-skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
+                      {orderedColumns.map(col => (
+                        visibleColumns[col.key] ? (
+                          <td key={col.key} className="px-2" style={{ height: '38px' }}>
+                            <div className="h-3 w-full max-w-[80%] skeleton-shimmer-pos" />
+                          </td>
+                        ) : null
+                      ))}
+                    </tr>
+                  ))
                 ) : displayedDeals.length === 0 ? (
                   <tr>
                     <td colSpan={Object.values(visibleColumns).filter(v => v).length} className="px-6 py-12 text-center">

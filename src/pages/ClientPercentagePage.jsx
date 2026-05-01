@@ -853,10 +853,11 @@ const ClientPercentagePage = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {loading && clients.length === 0 && (
+      {exporting && (
         <LoadingSpinner
-          message="Loading client percentages..."
-          subtitle="Fetching custom profit-sharing percentages"
+          message="Exporting..."
+          subtitle="Preparing your spreadsheet"
+          progress={typeof exportProgress === 'number' ? Math.round(exportProgress * 100) : null}
         />
       )}
       <Sidebar
@@ -1245,6 +1246,13 @@ const ClientPercentagePage = () => {
                       return <Fragment key={col.key}>{cell}</Fragment>
                     })}
                   </tr>
+                  {loading && (
+                    <tr>
+                      <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 1} className="p-0 bg-blue-600">
+                        <div className="table-loading-bar" />
+                      </td>
+                    </tr>
+                  )}
                 </thead>
 
                 <tbody className="bg-white divide-y divide-gray-200 text-sm">

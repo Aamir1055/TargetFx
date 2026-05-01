@@ -1131,12 +1131,6 @@ const PendingOrdersPage = () => {
 
   return (
     <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-hidden">
-      {!hasFetchedOrders && (
-        <LoadingSpinner
-          message="Loading pending orders..."
-          subtitle="Fetching live pending orders"
-        />
-      )}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
@@ -1449,9 +1443,16 @@ const PendingOrdersPage = () => {
                         return <Fragment key={col.key}>{cell}</Fragment>
                       })}
                     </tr>
+                    {(!hasFetchedOrders || isPageLoading) && (
+                      <tr>
+                        <td colSpan={Object.values(visibleColumns).filter(Boolean).length} className="p-0 bg-blue-600">
+                          <div className="table-loading-bar" />
+                        </td>
+                      </tr>
+                    )}
                   </thead>
                   <tbody className="bg-white">
-                    {isPageLoading ? (
+                    {(!hasFetchedOrders || isPageLoading) ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1] border-l-2 border-l-[#E1E1E1]">
                           {orderedColumns.map((col, colIdx) => {

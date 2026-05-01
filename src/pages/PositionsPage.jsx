@@ -2476,8 +2476,8 @@ const PositionsPage = () => {
 
   return (
     <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-hidden">
-      {(isInitialPositionsLoading || isInitialNetLoading) && (
-        <LoadingSpinner message="Loading positions..." subtitle="Fetching live open positions" />
+      {isExporting && (
+        <LoadingSpinner message="Exporting..." subtitle="Preparing your CSV download" />
       )}
       <Sidebar
         isOpen={sidebarOpen}
@@ -3154,10 +3154,17 @@ const PositionsPage = () => {
                             </th>
                           )}
                         </tr>
+                        {(isInitialNetLoading || isNetPageLoading) && (
+                          <tr>
+                            <td colSpan={Object.values(netVisibleColumns).filter(Boolean).length} className="p-0 bg-blue-600">
+                              <div className="table-loading-bar" />
+                            </td>
+                          </tr>
+                        )}
                       </thead>
 
                       <tbody className="bg-white text-sm">
-                        {(isNetPageLoading || isExporting) ? (
+                        {(isInitialNetLoading || isNetPageLoading || isExporting) ? (
                           Array.from({ length: 8 }, (_, i) => (
                             <tr key={`net-skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
                               {Object.entries(netVisibleColumns).map(([col, visible]) =>
@@ -3654,10 +3661,29 @@ const PositionsPage = () => {
                             </th>
                           )}
                         </tr>
+                        {isInitialClientNetLoading && (
+                          <tr>
+                            <td colSpan={Object.values(clientNetVisibleColumns).filter(Boolean).length} className="p-0 bg-blue-600">
+                              <div className="table-loading-bar" />
+                            </td>
+                          </tr>
+                        )}
                       </thead>
 
                       <tbody className="bg-white text-sm">
-                        {clientNetDisplayedPositions.map((row, idx) => {
+                        {isInitialClientNetLoading ? (
+                          Array.from({ length: 8 }, (_, i) => (
+                            <tr key={`client-net-skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
+                              {Object.entries(clientNetVisibleColumns).map(([col, visible]) =>
+                                visible ? (
+                                  <td key={col} className="px-2" style={{ height: '38px' }}>
+                                    <div className="h-3 w-full max-w-[80%] skeleton-shimmer-pos" />
+                                  </td>
+                                ) : null
+                              )}
+                            </tr>
+                          ))
+                        ) : clientNetDisplayedPositions.map((row, idx) => {
                           const key = `${row.login}|${row.symbol}`
                           return (
                             <Fragment key={key}>
@@ -3934,10 +3960,17 @@ const PositionsPage = () => {
                         )
                       })()}
                     </tr>
+                    {(isInitialPositionsLoading || isPageLoading) && (
+                      <tr>
+                        <td colSpan={Object.values(getEffectiveVisibleColumns()).filter(Boolean).length} className="p-0 bg-blue-600">
+                          <div className="table-loading-bar" />
+                        </td>
+                      </tr>
+                    )}
                   </thead>
 
                   <tbody className="bg-white">
-                    {(isPageLoading || isExporting) ? (
+                    {(isInitialPositionsLoading || isPageLoading || isExporting) ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
                           {Object.values(getEffectiveVisibleColumns()).map((visible, colIdx) => (
