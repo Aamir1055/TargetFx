@@ -1226,7 +1226,7 @@ export default function Client2Module() {
                 <svg
                   className="w-4 h-4"
                   fill="none"
-                  stroke="#1A63BC"
+                  stroke="#4B4B4B"
                   viewBox="0 0 24 24"
                   strokeWidth={2}
                 >
