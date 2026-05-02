@@ -445,6 +445,7 @@ export default function MarginLevelModule() {
               </button>
             </div>
 
+
             <div className="flex-1 overflow-auto py-2">
               {/* Compact / Full display mode toggle */}
               <div className="px-3 pb-3 pt-1">
@@ -497,6 +498,7 @@ export default function MarginLevelModule() {
               </nav>
             </div>
 
+
             <div className="p-4 mt-auto border-t border-[#ECECEC]">
               <button onClick={logout} className="flex items-center gap-3 px-2 h-[37px] text-[10px] text-[#404040]">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M10 17l5-5-5-5" stroke="#404040" strokeWidth="2"/><path d="M4 12h11" stroke="#404040" strokeWidth="2"/></svg>
@@ -506,6 +508,7 @@ export default function MarginLevelModule() {
           </div>
         </div>
       )}
+
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -543,28 +546,17 @@ export default function MarginLevelModule() {
               disabled={loading.accounts}
               className="w-8 h-8 rounded-lg border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <svg className="w-4 h-4" fill="none" stroke="#1A63BC" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-4 h-4" fill="none" stroke="#4B4B4B" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Search and navigation */}
+
+        {/* Navigation */}
         <div className="pb-3 px-4">
           <div className="flex items-center gap-1">
-            <div className="flex-1 min-w-0 h-[32px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] px-2 flex items-center gap-1.5">
-              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="flex-shrink-0">
-                <circle cx="8" cy="8" r="6.5" stroke="#4B4B4B" strokeWidth="1.5"/>
-                <path d="M13 13L16 16" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <input 
-                placeholder="Search" 
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="flex-1 min-w-0 text-[11px] text-[#000000] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit"
-              />
-            </div>
             <button 
               onClick={() => handlePageChange(currentPage - 1, Math.ceil(sortedAccounts.length / itemsPerPage))}
               disabled={currentPage === 1}
@@ -604,6 +596,7 @@ export default function MarginLevelModule() {
             </button>
           </div>
         </div>
+
 
         {/* Table */}
         <div>
@@ -751,6 +744,7 @@ export default function MarginLevelModule() {
           </div>
         </div>
       </div>
+
 
       {/* Column Selector Modal */}
       {isColumnSelectorOpen && (
@@ -924,6 +918,7 @@ export default function MarginLevelModule() {
           setPendingGroupDraft(draftName ? { name: draftName } : null)
         }}
       />
+
 
       {/* Login Group Modal */}
       <LoginGroupModal
