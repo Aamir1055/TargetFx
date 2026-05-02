@@ -739,8 +739,7 @@ const MarginLevelPage = () => {
           {/* Table - Show skeleton while loading */}
           <div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden flex flex-col flex-1">
             {/* Search and Controls Bar - Inside table container */}
-            {sortedAccounts && sortedAccounts.length > 0 && (
-              <div className="border-b border-[#E5E7EB] p-4">
+            <div className="border-b border-[#E5E7EB] p-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   {/* Left: Columns */}
                   <div className="flex items-center gap-2 flex-1">
@@ -856,8 +855,7 @@ const MarginLevelPage = () => {
                     </button>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
             <div className="overflow-y-auto flex-1">
               {isDataLoading ? (
@@ -871,14 +869,6 @@ const MarginLevelPage = () => {
                     <div className="h-10 bg-gray-100 rounded"></div>
                     <div className="h-10 bg-gray-200 rounded"></div>
                   </div>
-                </div>
-              ) : displayedAccounts.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0" />
-                  </svg>
-                  <p className="text-gray-500 text-sm">No accounts in margin level</p>
-                  <p className="text-gray-400 text-xs mt-1"></p>
                 </div>
               ) : (
                 <table className="w-full divide-y divide-gray-200 [&_th]:border-r [&_th:last-child]:border-r-0 [&_th]:border-white/30 [&_td]:border-r [&_td:last-child]:border-r-0 [&_td]:border-gray-200" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -954,6 +944,16 @@ const MarginLevelPage = () => {
                       )
                     })}
                     {/* Removed Total row as requested */}
+                    {displayedAccounts.length === 0 && (
+                      <tr>
+                        <td colSpan={orderedColumns.filter(c => visibleColumns[c.key]).length} className="px-4 py-12 text-center">
+                          <svg className="w-10 h-10 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0" />
+                          </svg>
+                          <p className="text-gray-500 text-sm">No accounts in margin level</p>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               )}

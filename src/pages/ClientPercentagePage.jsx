@@ -992,7 +992,7 @@ const ClientPercentagePage = () => {
                     )}
                   </div>
 
-                  <GroupSelector 
+                  {/* <GroupSelector 
                     moduleName="clientpercentage" 
                     onCreateClick={() => {
                       console.log('[ClientPercentagePage] onCreateClick called')
@@ -1006,7 +1006,7 @@ const ClientPercentagePage = () => {
                       setEditingGroup(group)
                       setShowGroupModal(true)
                     }}
-                  />
+                  /> */}
                 </div>
               </div>
             </div>
