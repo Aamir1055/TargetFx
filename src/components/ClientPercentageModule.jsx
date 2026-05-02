@@ -32,7 +32,8 @@ const formatCompactIndian = (v) => {
 
 export default function ClientPercentageModule() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
+  const canSetPercentage = user?.rights ? user.rights.includes('set_percentage') : true
   const { positions: cachedPositions, clients: cachedClients, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -400,7 +401,7 @@ export default function ClientPercentageModule() {
     { key: 'type', label: 'Type', width: '100px' },
     { key: 'comment', label: 'Comment', width: '200px' },
     { key: 'updatedAt', label: 'Last Updated', width: '150px' },
-    { key: 'actions', label: 'Actions', width: '80px' }
+    ...(canSetPercentage ? [{ key: 'actions', label: 'Actions', width: '80px' }] : [])
   ]
 
   const activeColumns = allColumns.filter(col => visibleColumns[col.key])
@@ -854,6 +855,7 @@ export default function ClientPercentageModule() {
                 </button>
               )}
               {/* Import CSV Button */}
+              {canSetPercentage && (
               <button
                 onClick={() => { setCsvData([]); setCsvError(''); if (csvFileRef.current) csvFileRef.current.value = ''; setShowImportModal(true) }}
                 className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151]"
@@ -864,6 +866,7 @@ export default function ClientPercentageModule() {
                 </svg>
                 Import
               </button>
+              )}
               {/* Export Button with dropdown */}
               <div className="relative" ref={exportMenuRef}>
                 <button

@@ -87,29 +87,30 @@ export default function MarginLevelModule() {
     }
   }
 
-  // Initial fetch + 2s polling. Skip while modal is open or tab is hidden.
+  // Initial fetch + 2s polling. Stops completely while client modal is open.
   useEffect(() => {
     if (!isAuthenticated) return
+    if (selectedClient) return  // Modal is open — don't poll margin-call at all
+
     let cancelled = false
     let timer = null
 
     const loop = async () => {
       if (cancelled) return
       const tabHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
-      if (!selectedClientRef.current && !tabHidden) {
+      if (!tabHidden) {
         await fetchMarginCallClients()
       }
       if (!cancelled) timer = setTimeout(loop, 2000)
     }
 
-    fetchMarginCallClients()
-    timer = setTimeout(loop, 2000)
+    loop()
 
     return () => {
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, selectedClient])
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)

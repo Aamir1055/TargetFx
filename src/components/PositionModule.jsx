@@ -49,7 +49,10 @@ export default function PositionModule() {
     const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
     const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
-  
+  // Ref so polling closures can skip while the client detail modal is open
+  const selectedClientRef = useRef(null)
+  useEffect(() => { selectedClientRef.current = selectedClient }, [selectedClient])
+
   // Build client currency map from rawClients for USC detection
   const clientCurrencyMap = useMemo(() => {
     if (!rawClients || rawClients.length === 0) return {}
@@ -75,7 +78,7 @@ export default function PositionModule() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isPageChanging, setIsPageChanging] = useState(false)
   const pageChangeTimeoutRef = useRef(null)
-  const itemsPerPage = 12
+  const itemsPerPage = 15
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
   const [showClientNet, setShowClientNet] = useState(false)
@@ -88,7 +91,7 @@ export default function PositionModule() {
   const [clientNetCurrentPage, setClientNetCurrentPage] = useState(1)
   const [isClientNetPageChanging, setIsClientNetPageChanging] = useState(false)
   const clientNetPageChangeTimeoutRef = useRef(null)
-  const clientNetItemsPerPage = 12
+  const clientNetItemsPerPage = 15
   const [clientNetSortColumn, setClientNetSortColumn] = useState(null)
   const [clientNetSortDirection, setClientNetSortDirection] = useState('asc')
   const [clientNetCardsVisible, setClientNetCardsVisible] = useState({
@@ -379,6 +382,8 @@ export default function PositionModule() {
 
     const poll = async () => {
       if (isCancelled) return
+      // Pause polling while client detail modal is open
+      if (selectedClientRef.current) { if (!isCancelled) timer = setTimeout(poll, 2000); return }
       try {
         if (!hasFetchedServerPositionsRef.current) setIsServerPositionsLoading(true)
         const params = {
@@ -457,11 +462,13 @@ export default function PositionModule() {
 
     const poll = async () => {
       if (isCancelled) return
+      // Pause polling while client detail modal is open
+      if (selectedClientRef.current) { if (!isCancelled) timer = setTimeout(poll, 2000); return }
       try {
         if (!hasFetchedServerNetRef.current) setIsServerNetLoading(true)
         const params = {
           page: 1,
-          limit: 1000,
+          limit: 15,
           netPosition: true,
           sortBy: 'netVolume',
           sortOrder: 'desc'

@@ -403,7 +403,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         const params = {
           mt5Accounts: [String(client.login)],
           page: 1,
-          limit: 100
+          limit: 15
         }
         if (hasSearch) params.search = debouncedSearchQuery.trim()
         if (hasSort) {

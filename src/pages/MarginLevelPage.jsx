@@ -98,6 +98,7 @@ const MarginLevelPage = () => {
   // Initial fetch + 2s polling. Skip while modal is open or tab is hidden.
   useEffect(() => {
     if (!isAuthenticated) return
+    if (isMobile) return  // Mobile uses MarginLevelModule which handles its own polling
     let cancelled = false
     let timer = null
 
@@ -118,7 +119,7 @@ const MarginLevelPage = () => {
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, isMobile])
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)

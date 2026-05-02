@@ -47,6 +47,9 @@ export default function Client2Module() {
   const [isLoginGroupModalOpen, setIsLoginGroupModalOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
+  // Ref so interval refresh can skip while the client detail modal is open
+  const selectedClientRef = useRef(null)
+  useEffect(() => { selectedClientRef.current = selectedClient }, [selectedClient])
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false)
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
@@ -61,7 +64,7 @@ export default function Client2Module() {
   const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
   const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const viewAllRef = useRef(null)
-  const itemsPerPage = 12
+  const itemsPerPage = 15
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearchInput, setDebouncedSearchInput] = useState('')
   const [showViewAllModal, setShowViewAllModal] = useState(false)
@@ -377,7 +380,7 @@ export default function Client2Module() {
   useEffect(() => {
     fetchClients(null, true) // Initial load with loading state
     fetchRebateTotals() // Fetch rebate totals on mount
-    const interval = setInterval(() => fetchClients(null, false), 5000) // Periodic refresh every 5s (skip if in-flight)
+    const interval = setInterval(() => { if (!selectedClientRef.current) fetchClients(null, false) }, 5000) // Periodic refresh every 5s (skip if in-flight or modal open)
     const rebateInterval = setInterval(() => fetchRebateTotals(), 3600000) // Refresh rebate every 1 hour
     return () => {
       clearInterval(interval)

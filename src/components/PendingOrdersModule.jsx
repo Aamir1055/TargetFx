@@ -64,6 +64,9 @@ export default function PendingOrdersModule() {
     const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
     const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
+  // Ref so polling closure can skip while the client detail modal is open
+  const selectedClientRef = useRef(null)
+  useEffect(() => { selectedClientRef.current = selectedClient }, [selectedClient])
   const carouselRef = useRef(null)
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
@@ -175,6 +178,8 @@ export default function PendingOrdersModule() {
 
     const poll = async () => {
       if (isCancelled) return
+      // Pause polling while client detail modal is open
+      if (selectedClientRef.current) { if (!isCancelled) timer = setTimeout(poll, 2000); return }
       try {
         const params = {
           page: currentPage,

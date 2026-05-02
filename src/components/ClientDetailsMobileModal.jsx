@@ -36,6 +36,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [positionsSearch, setPositionsSearch] = useState('')
   const [netPositionsSearch, setNetPositionsSearch] = useState('')
   const [dealsSearch, setDealsSearch] = useState('')
+  // API search results for positions (overrides local filter when search is active)
+  const [searchedPositions, setSearchedPositions] = useState(null)
+  const [searchedOrders, setSearchedOrders] = useState(null)
   
   // Broker Rules states
   const [availableRules, setAvailableRules] = useState([])
@@ -155,6 +158,13 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         const account = data?.account ?? data?.client ?? data?.info ?? {}
         if (account && Object.keys(account).length > 0) {
           setClientData(prev => ({ ...prev, ...account }))
+          // Keep face card stats in sync with live polling data
+          setStats(prev => ({
+            ...prev,
+            balance: Number(account.balance ?? prev.balance),
+            credit: Number(account.credit ?? prev.credit),
+            equity: Number(account.equity ?? prev.equity),
+          }))
         }
         const updatedPositions = data?.positions ?? data?.open_positions ?? data?.data?.positions ?? null
         if (Array.isArray(updatedPositions)) {
@@ -383,7 +393,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       const merged = { ...client, ...overviewAccount }
       const totalPnL = positionsData.reduce((sum, p) => sum + (p.profit || 0), 0)
       const lifetimePnL = Number(merged.lifetimePnL ?? merged.pnl ?? 0)
-      const floating = Number(merged.floating ?? overviewAccount.floating ?? totalPnL)
+      const floating = Number(merged.floatingProfit ?? merged.floating ?? overviewAccount.floatingProfit ?? overviewAccount.floating ?? totalPnL)
       const bookPnL = lifetimePnL + floating
       
       setStats({
@@ -411,7 +421,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       const endOfDay = new Date(today)
       endOfDay.setHours(23, 59, 59, 999)
       
-      await fetchDealsWithDateFilter(Math.floor(startOfDay.getTime() / 1000), Math.floor(endOfDay.getTime() / 1000), 1, positionsData)
+      await fetchDealsWithDateFilter(Math.floor(startOfDay.getTime() / 1000), Math.floor(endOfDay.getTime() / 1000), 1, positionsData, overviewAccount)
       
       setLoading(false)
     } catch (error) {
@@ -420,7 +430,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     }
   }
 
-  const fetchDealsWithDateFilter = async (fromTimestamp, toTimestamp, page = 1, positionsArray = null) => {
+  const fetchDealsWithDateFilter = async (fromTimestamp, toTimestamp, page = 1, positionsArray = null, accountData = null) => {
     try {
       setDealsLoading(true)
       
@@ -439,8 +449,10 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       // Calculate stats using live account data from overview
       const positionsToUse = positionsArray !== null ? positionsArray : positions
       const totalPnL = positionsToUse.reduce((sum, p) => sum + (p.profit || 0), 0)
-      const lifetimePnL = Number(clientData.lifetimePnL ?? clientData.pnl ?? client.lifetimePnL ?? client.pnl ?? 0)
-      const floating = Number(clientData.floating ?? client.floating ?? totalPnL)
+      // Use passed accountData (fresh from API) merged over stale clientData to avoid stale-closure values
+      const effectiveAccount = accountData ? { ...clientData, ...accountData } : clientData
+      const lifetimePnL = Number(effectiveAccount.lifetimePnL ?? effectiveAccount.pnl ?? client.lifetimePnL ?? client.pnl ?? 0)
+      const floating = Number(effectiveAccount.floatingProfit ?? effectiveAccount.floating ?? client.floating ?? totalPnL)
       const bookPnL = lifetimePnL + floating
       const totalVolume = dealsData.reduce((sum, d) => sum + (d.volume || 0), 0)
       
@@ -452,9 +464,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         totalPnL,
         lifetimePnL,
         bookPnL,
-        balance: clientData.balance ?? client.balance ?? 0,
-        credit: clientData.credit ?? client.credit ?? 0,
-        equity: clientData.equity ?? client.equity ?? 0,
+        balance: Number(effectiveAccount.balance ?? client.balance ?? 0),
+        credit: Number(effectiveAccount.credit ?? client.credit ?? 0),
+        equity: Number(effectiveAccount.equity ?? client.equity ?? 0),
         totalVolume,
         totalDeals: dealsData.length,
         winRate
@@ -717,21 +729,56 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const combinedPositions = useMemo(() => {
     return [...positions, ...orders]
   }, [positions, orders])
-  
+
+  // Debounced API search — fires when positionsSearch changes
+  useEffect(() => {
+    const trimmed = positionsSearch.trim()
+    if (!trimmed) {
+      setSearchedPositions(null)
+      setSearchedOrders(null)
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const params = {
+          mt5Accounts: [String(client.login)],
+          page: 1,
+          limit: 15,
+          search: trimmed
+        }
+        const [posRes, ordRes] = await Promise.all([
+          brokerAPI.searchPositions(params).catch(() => null),
+          brokerAPI.searchOrders(params).catch(() => null)
+        ])
+        if (cancelled) return
+        const posList =
+          posRes?.data?.positions ||
+          posRes?.positions ||
+          (Array.isArray(posRes?.data) ? posRes.data : null) ||
+          []
+        const ordList =
+          ordRes?.data?.orders ||
+          ordRes?.orders ||
+          (Array.isArray(ordRes?.data) ? ordRes.data : null) ||
+          []
+        setSearchedPositions(Array.isArray(posList) ? posList : [])
+        setSearchedOrders(Array.isArray(ordList) ? ordList : [])
+      } catch {
+        // ignore
+      }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [positionsSearch, client.login])
+
   // Filter data based on search
   const filteredPositions = useMemo(() => {
-    let filtered = combinedPositions
-    if (positionsSearch.trim()) {
-      const query = positionsSearch.toLowerCase()
-      filtered = combinedPositions.filter(p => 
-        (p.symbol || '').toLowerCase().includes(query) ||
-        (p.position || p.order || '').toString().includes(query) ||
-        (p.action || '').toLowerCase().includes(query) ||
-        (p.type || '').toLowerCase().includes(query)
-      )
-    }
-    return sortData(filtered, sortConfig.key, sortConfig.direction)
-  }, [combinedPositions, positionsSearch, sortConfig])
+    // When API search is active, use API results instead of local filter
+    const base = positionsSearch.trim() && searchedPositions !== null
+      ? [...(searchedPositions), ...(searchedOrders ?? [])]
+      : combinedPositions
+    return sortData(base, sortConfig.key, sortConfig.direction)
+  }, [combinedPositions, positionsSearch, searchedPositions, searchedOrders, sortConfig])
   
   // Helper: comparator for grouped arrays honoring header sort
   const compareByKey = (a, b, key) => {
@@ -772,18 +819,19 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
 
   // Filter grouped data separately and apply sorting within each section
   const filteredGroupedPositions = useMemo(() => {
-    const applySearch = (arr) => {
-      if (!positionsSearch.trim()) return arr
-      const q = positionsSearch.toLowerCase()
-      return arr.filter(it =>
-        (it.symbol || '').toLowerCase().includes(q) ||
-        String(it.position ?? it.order ?? '').includes(q) ||
-        String(it.action ?? it.type ?? '').toLowerCase().includes(q)
-      )
+    // When API search is active, re-bucket the API results instead of locally filtering
+    if (positionsSearch.trim() && searchedPositions !== null) {
+      const regs = Array.isArray(searchedPositions) ? [...searchedPositions] : []
+      const ords = Array.isArray(searchedOrders) ? [...searchedOrders] : []
+      if (sortConfig.key) {
+        regs.sort((a, b) => compareByKey(a, b, sortConfig.key))
+        ords.sort((a, b) => compareByKey(a, b, sortConfig.key))
+      }
+      return { regularPositions: regs, pendingOrders: ords }
     }
 
-    const regs = applySearch(groupedPositionsData.regularPositions)
-    const ords = applySearch(groupedPositionsData.pendingOrders)
+    const regs = groupedPositionsData.regularPositions.slice()
+    const ords = groupedPositionsData.pendingOrders.slice()
 
     // Apply sorting if a column is selected
     if (sortConfig.key) {
@@ -792,7 +840,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     }
 
     return { regularPositions: regs, pendingOrders: ords }
-  }, [groupedPositionsData, positionsSearch, sortConfig])
+  }, [groupedPositionsData, positionsSearch, searchedPositions, searchedOrders, sortConfig])
 
   const filteredNetPositions = useMemo(() => {
     let filtered = netPositions
