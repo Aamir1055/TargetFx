@@ -33,7 +33,7 @@ const formatCompactIndian = (v) => {
 export default function ClientPercentageModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
-  const { positions: cachedPositions, clients: allClients, orders } = useData()
+  const { positions: cachedPositions, clients: cachedClients, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
@@ -94,6 +94,7 @@ export default function ClientPercentageModule() {
 
   // API State
   const [clients, setClients] = useState([])
+  const [allClients, setAllClients] = useState([]) // full dataset for group filtering
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [stats, setStats] = useState({
@@ -172,12 +173,18 @@ export default function ClientPercentageModule() {
       } catch {}
       const clientsData = payload?.clients || []
       setClients(clientsData)
-      setStats({
+      setStats(prev => ({
         total: Number(payload?.total) || clientsData.length,
-        total_custom: Number(payload?.total_custom) || 0,
-        total_default: Number(payload?.total_default) || 0,
-        default_percentage: Number(payload?.default_percentage) || 0
-      })
+        total_custom: Number(payload?.total_custom) || prev.total_custom,
+        total_default: Number(payload?.total_default) || prev.total_default,
+        default_percentage: Number(payload?.default_percentage) || prev.default_percentage
+      }))
+
+      // If we have a total count and allClients is not yet populated, load all for group filtering
+      const total = Number(payload?.total) || clientsData.length
+      if (total > 0 && allClients.length === 0) {
+        fetchAllForGroupFilter(total)
+      }
       
       setLoading(false)
     } catch (err) {
@@ -185,6 +192,16 @@ export default function ClientPercentageModule() {
       setError('Failed to load client percentages')
       setLoading(false)
     }
+  }
+
+  // Load ALL records once for client-side group filtering
+  const fetchAllForGroupFilter = async (total) => {
+    try {
+      const response = await brokerAPI.getAllClientPercentages({ page: 1, limit: total })
+      const payload = response?.data?.data || response?.data || {}
+      const all = payload?.clients || []
+      if (all.length > 0) setAllClients(all)
+    } catch {}
   }
 
   // Handle edit click
@@ -200,15 +217,16 @@ export default function ClientPercentageModule() {
     setSelectedClient(null)
   }
 
-  // Use clients data instead of placeholder
-  const percentageData = clients
+  // Use allClients when a group is active (to filter across all records), else current page
+  const activeGroup = getActiveGroupFilter('clientpercentage')
+  const percentageData = activeGroup ? allClients : clients
 
   // Apply cumulative filters: Customize View -> IB -> Group
   const ibFilteredData = useMemo(() => {
     return applyCumulativeFilters(percentageData, {
       customizeFilters: filters,
       filterByActiveGroup,
-      loginField: 'login',
+      loginField: 'client_login',
       moduleName: 'clientpercentage'
     })
   }, [percentageData, filters, filterByActiveGroup, activeGroupFilters])
@@ -346,16 +364,34 @@ export default function ClientPercentageModule() {
     }
   }, [stats, numericMode])
 
-  // Fetch data when page changes
+  // Fetch data when page changes (only in non-group mode)
   useEffect(() => {
-    fetchAllClientPercentages(currentPage)
+    if (!activeGroup) {
+      fetchAllClientPercentages(currentPage)
+    }
   }, [currentPage])
 
-  // Pagination
+  // Reset to page 1 and ensure allClients is loaded when group filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+    if (activeGroup && allClients.length === 0 && stats.total > 0) {
+      fetchAllForGroupFilter(stats.total)
+    }
+  }, [activeGroup])
+
+  // Pagination — when group is active we paginate filteredData client-side
   const paginatedData = useMemo(() => {
-    // Use server-side pagination data directly from API for both views
+    if (activeGroup) {
+      const start = (currentPage - 1) * itemsPerPage
+      return filteredData.slice(start, start + itemsPerPage)
+    }
     return filteredData.length > 0 ? filteredData : clients
-  }, [clients, filteredData])
+  }, [activeGroup, clients, filteredData, currentPage, itemsPerPage])
+
+  const totalPages = useMemo(() => {
+    if (activeGroup) return Math.max(1, Math.ceil(filteredData.length / itemsPerPage))
+    return Math.max(1, Math.ceil(stats.total / itemsPerPage))
+  }, [activeGroup, filteredData.length, stats.total, itemsPerPage])
 
   // Get visible columns
   const allColumns = [
@@ -862,6 +898,28 @@ export default function ClientPercentageModule() {
                   </div>
                 )}
               </div>
+              {/* Groups Button */}
+              <button
+                onClick={() => setIsLoginGroupsOpen(true)}
+                className={`h-8 px-2 rounded-lg border shadow-sm flex items-center gap-1 transition-colors text-[10px] font-medium relative flex-shrink-0 ${
+                  getActiveGroupFilter('clientpercentage')
+                    ? 'bg-blue-50 border-blue-300 text-[#2563EB]'
+                    : 'bg-white border-[#E5E7EB] hover:bg-gray-50 text-[#374151]'
+                }`}
+                title="Groups"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="7" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
+                  <circle cx="14" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M1 17c0-3.314 2.686-6 6-6h6c3.314 0 6 2.686 6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Groups
+                {getActiveGroupFilter('clientpercentage') && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-blue-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1">
+                    1
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => window.location.reload()}
                 disabled={loading}
@@ -1004,26 +1062,22 @@ export default function ClientPercentageModule() {
               <input
                 type="number"
                 min={1}
-                max={Math.max(1, Math.ceil(Number(stats.total || 0) / Number(itemsPerPage || 1)))}
+                max={totalPages}
                 value={currentPage}
                 onChange={(e) => {
-                  const total = Math.max(1, Math.ceil(Number(stats.total || 0) / Number(itemsPerPage || 1)))
                   const n = Number(e.target.value)
-                  if (!isNaN(n)) setCurrentPage(Math.min(Math.max(1, n), total))
+                  if (!isNaN(n)) setCurrentPage(Math.min(Math.max(1, n), totalPages))
                 }}
                 className="w-10 h-6 border border-[#ECECEC] rounded-[8px] text-center text-[10px]"
                 aria-label="Current page"
               />
               <span className="text-[#9CA3AF]">/</span>
-              <span>{Math.max(1, Math.ceil(Number(stats.total || 0) / Number(itemsPerPage || 1)))}</span>
+              <span>{totalPages}</span>
             </div>
 
             <button 
-              onClick={() => setCurrentPage(prev => {
-                const total = Math.max(1, Math.ceil(Number(stats.total || 0) / Number(itemsPerPage || 1)))
-                return Math.min(total, prev + 1)
-              })}
-              disabled={currentPage >= Math.max(1, Math.ceil(Number(stats.total || 0) / Number(itemsPerPage || 1)))}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage >= totalPages}
               className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
