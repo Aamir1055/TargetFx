@@ -1184,32 +1184,7 @@ export default function LiveDealingModule() {
                   ))
                 )}
 
-                {/* Total Row */}
-                {sortedDeals.length > 0 && !loading && (
-                  <div 
-                    className="grid text-[10px] text-[#1A63BC] font-outfit bg-[#EFF4FB] border-t-2 border-[#1A63BC]"
-                    style={{
-                      gap: '0px', 
-                      gridGap: '0px', 
-                      columnGap: '0px',
-                      gridTemplateColumns
-                    }}
-                  >
-                    {activeColumns.map(col => (
-                      <div 
-                        key={col.key}
-                        className={`h-[28px] flex items-center justify-start px-2 font-semibold ${col.sticky ? 'sticky left-0 bg-[#EFF4FB] z-10' : ''}`}
-                        style={{
-                          border: 'none', 
-                          outline: 'none', 
-                          boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
-                        }}
-                      >
-                        {col.key === 'login' ? 'Total' : ''}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Total Row removed for mobile view */}
 
                 {/* Empty state */}
                 {sortedDeals.length === 0 && !loading && (

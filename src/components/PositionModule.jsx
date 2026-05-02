@@ -1540,26 +1540,7 @@ export default function PositionModule() {
                   ))
                 )}
 
-                {/* Table Footer */}
-                <div 
-                  className="grid bg-[#EFF4FB] text-[#1A63BC] text-[10px] font-semibold border-t-2 border-[#1A63BC]"
-                  style={{
-                    gap: '0px', 
-                    gridGap: '0px', 
-                    columnGap: '0px',
-                    gridTemplateColumns
-                  }}
-                >
-                  {activeColumns.map((col, idx) => (
-                    <div 
-                      key={col.key} 
-                      className={`h-[38px] flex items-center justify-start px-1 ${col.sticky ? 'sticky left-0 bg-[#EFF4FB] z-10' : ''}`}
-                      style={{border: 'none', outline: 'none', boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'}}
-                    >
-                      {idx === 0 ? 'Total' : (col.key === 'totalProfit' || col.key === 'profit') ? <span title={numericMode === 'compact' ? fmtMoneyFull(totalProfit) : undefined}>{fmtMoney(totalProfit)}</span> : '-'}
-                    </div>
-                  ))}
-                </div>
+                {/* Table Footer removed for mobile view */}
               </div>
             </div>
           </div>
@@ -1885,32 +1866,7 @@ export default function PositionModule() {
                     ))
                   )}
 
-                  {/* Footer */}
-                  {clientNetPaginatedPositions.length > 0 && (
-                    <div className="grid bg-[#EFF4FB] text-[#1A63BC] text-[10px] font-semibold h-[38px]" style={{
-                      gridTemplateColumns: [
-                        clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
-                        clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
-                        clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
-                        clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
-                        clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
-                        clientNetVisibleColumns.totalProfit ? 'minmax(80px, 1fr)' : '',
-                        clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
-                        clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
-                        clientNetVisibleColumns.totalPositions ? 'minmax(80px, 1fr)' : ''
-                      ].filter(Boolean).join(' ')
-                    }}>
-                      {clientNetVisibleColumns.login && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">Total</div>}
-                      {clientNetVisibleColumns.symbol && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.netType && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.netVolume && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{fmtMoney(mobileNetSourcePositions.reduce((s,p)=>s+p.netVolume,0))}</div>}
-                      {clientNetVisibleColumns.avgPrice && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">-</div>}
-                      {clientNetVisibleColumns.totalProfit && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{fmtMoney(mobileNetSourcePositions.reduce((s,p)=>s+p.totalProfit,0))}</div>}
-                      {clientNetVisibleColumns.totalStorage && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{fmtMoney(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalStorage||0),0))}</div>}
-                      {clientNetVisibleColumns.totalCommission && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{fmtMoney(mobileNetSourcePositions.reduce((s,p)=>s+(p.totalCommission||0),0))}</div>}
-                      {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 bg-[#EFF4FB] border-t-2 border-[#1A63BC]">{mobileNetSourcePositions.reduce((s,p)=>s+p.totalPositions,0)}</div>}
-                    </div>
-                  )}
+                  {/* Footer removed for mobile view */}
                 </div>
               </div>
             </div>

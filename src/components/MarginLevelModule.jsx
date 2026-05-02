@@ -708,37 +708,7 @@ export default function MarginLevelModule() {
                   ))
                 )}
 
-                {/* Total Row */}
-                {sortedAccounts.length > 0 && !loading?.accounts && (
-                  <div 
-                    className="grid text-[10px] text-[#1A63BC] font-outfit bg-[#EFF4FB] border-t-2 border-[#1A63BC]"
-                    style={{
-                      gap: '0px', 
-                      gridGap: '0px', 
-                      columnGap: '0px',
-                      gridTemplateColumns
-                    }}
-                  >
-                    {activeColumns.map(col => (
-                      <div 
-                        key={col.key}
-                        className={`h-[28px] flex items-center justify-start px-2 font-semibold ${col.sticky ? 'sticky left-0 bg-[#EFF4FB] z-10' : ''}`}
-                        style={{
-                          border: 'none', 
-                          outline: 'none', 
-                          boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
-                        }}
-                      >
-                        {col.key === 'login' ? 'Total' :
-                         col.key === 'balance' ? fmtMoney(sortedAccounts.reduce((s,a)=> s + (a.balance || 0), 0)) :
-                         col.key === 'equity' ? fmtMoney(sortedAccounts.reduce((s,a)=> s + (a.equity || 0), 0)) :
-                         col.key === 'margin' ? fmtMoney(sortedAccounts.reduce((s,a)=> s + (a.margin || 0), 0)) :
-                         col.key === 'marginFree' ? fmtMoney(sortedAccounts.reduce((s,a)=> s + (a.margin_free || a.marginFree || 0), 0)) :
-                         ''}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Total Row removed for mobile view */}
 
                 {/* Empty state */}
                 {sortedAccounts.length === 0 && !loading?.clients && (
