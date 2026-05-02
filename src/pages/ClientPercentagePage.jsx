@@ -66,7 +66,8 @@ const ClientPercentagePage = () => {
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
+  const canSetPercentage = user?.rights ? user.rights.includes('set_percentage') : true
   const [unauthorized, setUnauthorized] = useState(false)
   const [selectedLogin, setSelectedLogin] = useState(null)
   const [showGroupModal, setShowGroupModal] = useState(false)
@@ -940,6 +941,7 @@ const ClientPercentagePage = () => {
             {/* Action Buttons - All on right side */}
             <div className="flex items-center gap-2">
                   {/* Import CSV Button */}
+                  {canSetPercentage && (
                   <button
                     onClick={() => { setCsvData([]); setCsvError(''); if (csvFileRef.current) csvFileRef.current.value = ''; setShowImportModal(true) }}
                     className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
@@ -950,6 +952,7 @@ const ClientPercentagePage = () => {
                     </svg>
                     Import CSV
                   </button>
+                  )}
 
                   {/* Export Button (with dropdown) */}
                   <div className="relative" ref={exportMenuRef}>
@@ -1294,11 +1297,11 @@ const ClientPercentagePage = () => {
                           </th>
                         ); break
                         case 'updatedAt': cell = renderHeaderCell('updated_at', 'Last Updated'); break
-                        case 'actions': cell = (
+                        case 'actions': cell = canSetPercentage ? (
                           <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: '#2563eb' }}>
                             Actions
                           </th>
-                        ); break
+                        ) : null; break
                         default: cell = null
                       }
                       cell = applyPin(cell, col.key, true)
@@ -1417,7 +1420,7 @@ const ClientPercentagePage = () => {
                               {client.updated_at ? new Date(client.updated_at).toLocaleDateString('en-GB') : '-'}
                             </td>
                           ); break
-                          case 'actions': cell = (
+                          case 'actions': cell = canSetPercentage ? (
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <button
                                 onClick={() => handleEditClick(client)}
@@ -1429,7 +1432,7 @@ const ClientPercentagePage = () => {
                                 Edit
                               </button>
                             </td>
-                          ); break
+                          ) : null; break
                           default: cell = null
                         }
                         cell = applyPin(cell, col.key, false)

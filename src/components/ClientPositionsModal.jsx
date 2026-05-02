@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
+import { useAuth } from '../contexts/AuthContext'
 
 // Max number of deals to request in one fetch. Increase if needed.
 const CLIENT_DEALS_FETCH_LIMIT = 1000
 
 const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCache, allOrdersCache = [], onCacheUpdate }) => {
+  const { user } = useAuth()
   // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
   const [numericMode, setNumericMode] = useState(() => {
     try {
@@ -1826,6 +1828,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             >
               Deals ({totalDealsCount || deals.length})
             </button>
+            {(user?.rights ? ['deposit','withdrawal','credit_in','credit_out'].some(r => user.rights.includes(r)) : true) && (
             <button
               onClick={() => setActiveTab('funds')}
               className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
@@ -1836,6 +1839,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             >
               Money Transactions
             </button>
+            )}
+            {(user?.rights ? user.rights.includes('manage_rules') : true) && (
             <button
               onClick={() => setActiveTab('rules')}
               className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
@@ -1846,6 +1851,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             >
               Rules
             </button>
+            )}
           </div>
 
           {/* Controls for Positions Tab */}
@@ -3437,10 +3443,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       }}
                       className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     >
-                      <option value="deposit" className="text-gray-900">Deposit Funds</option>
-                      <option value="withdrawal" className="text-gray-900">Withdraw Funds</option>
-                      <option value="credit_in" className="text-gray-900">Credit In</option>
-                      <option value="credit_out" className="text-gray-900">Credit Out</option>
+                      {(user?.rights ? user.rights.includes('deposit') : true) && <option value="deposit" className="text-gray-900">Deposit Funds</option>}
+                      {(user?.rights ? user.rights.includes('withdrawal') : true) && <option value="withdrawal" className="text-gray-900">Withdraw Funds</option>}
+                      {(user?.rights ? user.rights.includes('credit_in') : true) && <option value="credit_in" className="text-gray-900">Credit In</option>}
+                      {(user?.rights ? user.rights.includes('credit_out') : true) && <option value="credit_out" className="text-gray-900">Credit Out</option>}
                     </select>
                   </div>
 

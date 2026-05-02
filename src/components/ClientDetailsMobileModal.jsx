@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { brokerAPI } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '-'
@@ -40,6 +41,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [availableRules, setAvailableRules] = useState([])
   const [clientRules, setClientRules] = useState([])
   const [rulesLoading, setRulesLoading] = useState(false)
+  const { user } = useAuth()
   const [selectedTimeParam, setSelectedTimeParam] = useState({})
   
   // Funds management state
@@ -1246,8 +1248,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               {[
                 { key: 'positions', label: 'Positions', count: filteredPositions.length },
                 { key: 'deals',     label: 'Deals',     count: hasAppliedFilter ? totalDealsCount : 0 },
-                { key: 'funds',     label: 'Money',     count: null },
-                { key: 'rules',     label: 'Rules',     count: null },
+                ...((user?.rights ? ['deposit','withdrawal','credit_in','credit_out'].some(r => user.rights.includes(r)) : true) ? [{ key: 'funds', label: 'Money', count: null }] : []),
+                ...((user?.rights ? user.rights.includes('manage_rules') : true) ? [{ key: 'rules', label: 'Rules', count: null }] : []),
               ].map(tab => {
                 const isActive = activeTab === tab.key
                 return (
@@ -1491,10 +1493,10 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                           }}
                           className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                         >
-                          <option value="deposit">Deposit Funds</option>
-                          <option value="withdrawal">Withdraw Funds</option>
-                          <option value="credit_in">Credit In</option>
-                          <option value="credit_out">Credit Out</option>
+                          {(user?.rights ? user.rights.includes('deposit') : true) && <option value="deposit">Deposit Funds</option>}
+                          {(user?.rights ? user.rights.includes('withdrawal') : true) && <option value="withdrawal">Withdraw Funds</option>}
+                          {(user?.rights ? user.rights.includes('credit_in') : true) && <option value="credit_in">Credit In</option>}
+                          {(user?.rights ? user.rights.includes('credit_out') : true) && <option value="credit_out">Credit Out</option>}
                         </select>
                       </div>
 
