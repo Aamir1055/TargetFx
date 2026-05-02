@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import Group8 from '../../Login Desktop Icons/Group 8.svg'
-import Group9 from '../../Login Desktop Icons/Group 9.svg'
-import Group10 from '../../Login Desktop Icons/Group 10.svg'
+import Group8 from '../assets/Group 8.svg'
+import Group9 from '../assets/Group 9.svg'
+import Group10 from '../assets/Group 10.svg'
 
 // Mobile-specific Login Page designed per Figma specs
 // Container: 412x923, rounded corners, layered ellipses, centered brand, hero + features, and form

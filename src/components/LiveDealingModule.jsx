@@ -529,12 +529,12 @@ export default function LiveDealingModule() {
   // Map card labels to icon file paths
   const getCardIcon = (label) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
-    if (label.includes('DEALS')) return `${baseUrl}Mobile cards icons/Brokers Eye Platform/Daily PNL.svg`
+    if (label.includes('DEALS')) return `${baseUrl}mobile-icons/P&L.svg`
     const iconMap = {
-      'UNIQUE LOGINS': `${baseUrl}Mobile cards icons/Total Clients.svg`,
-      'SYMBOLS': `${baseUrl}Mobile cards icons/Brokers Eye Platform/Group.svg`
+      'UNIQUE LOGINS': `${baseUrl}mobile-icons/Unique Logins.svg`,
+      'SYMBOLS': `${baseUrl}mobile-icons/Equity.svg`
     }
-    return iconMap[label] || `${baseUrl}Mobile cards icons/Total Clients.svg`
+    return iconMap[label] || `${baseUrl}mobile-icons/Clients.svg`
   }
 
   // Face cards data - use useMemo to avoid infinite loop

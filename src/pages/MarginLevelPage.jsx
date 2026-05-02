@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState, useMemo, Fragment, cloneElement } from 'react'
+import { useEffect, useRef, useState, useMemo, Fragment, cloneElement } from 'react'
 import { useGroups } from '../contexts/GroupContext'
 import { useAuth } from '../contexts/AuthContext'
 import { brokerAPI } from '../services/api'
@@ -54,7 +54,7 @@ const MarginLevelPage = () => {
   const [marginCallLoaded, setMarginCallLoaded] = useState(false)
   const [marginCallLoading, setMarginCallLoading] = useState(false)
   const { filterByActiveGroup, activeGroupFilters } = useGroups()
-  // WS connection state is no longer used here â€” keep a static placeholder so the indicator stays visible
+  // WS connection state is no longer used here — keep a static placeholder so the indicator stays visible
   const connectionState = 'connected'
 
   // Fetch margin-call clients from REST API. Used both for initial load and 2s polling.
@@ -633,14 +633,14 @@ const MarginLevelPage = () => {
   const getCardIcon = (cardTitle) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'Below 50%': `${baseUrl}Desktop cards icons/Total Equity.svg`,
-      'Avg Margin Level': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'Unique Logins': `${baseUrl}Desktop cards icons/Total Clients.svg`,
+      'Below 50%': `${baseUrl}desktop-icons/Below 50%.svg`,
+      'Avg Margin Level': `${baseUrl}desktop-icons/Avg Margin Level.svg`,
+      'Unique Logins': `${baseUrl}desktop-icons/Unique Logins.svg`,
     }
-    return iconMap[cardTitle] || `${baseUrl}Desktop cards icons/Total Clients.svg`
+    return iconMap[cardTitle] || `${baseUrl}desktop-icons/Clients.svg`
   }
 
-  // Show loading only on first load (no data yet) â€” prevent flickering on re-fetches
+  // Show loading only on first load (no data yet) — prevent flickering on re-fetches
   const isDataLoading = !marginCallLoaded && marginCallClients.length === 0
 
   // Helper function to render table header (sort & filter removed)

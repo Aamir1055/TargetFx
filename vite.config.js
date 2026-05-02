@@ -26,17 +26,16 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        globIgnores: ['**/Desktop cards icons/**', '**/Mobile cards icons/**', '**/Desktop*/**', '**/Mobile*/**'],
         navigateFallback: null, // Prevent service worker from intercepting navigation
         manifestTransforms: [
           async (entries) => {
-            // Filter out problematic assets (spaces encoded, percent chars, or icons folders)
+            // Filter out assets with problematic encoded characters
             const filtered = entries.filter((e) => {
               const url = e.url || ''
-              if (url.includes('Desktop%20cards%20icons') || url.includes('Mobile%20cards%20icons')) return false
-              if (url.includes('Desktop cards icons') || url.includes('Mobile cards icons')) return false
-              if (url.includes('%')) return false
+              if (url.includes('%25')) return false
               return true
             })
             return { manifest: filtered }

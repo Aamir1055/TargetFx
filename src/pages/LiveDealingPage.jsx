@@ -968,14 +968,14 @@ const LiveDealingPage = () => {
   const getCardIcon = (cardTitle) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'DEALS (24H)': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'DEALS (7D)': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'FILTERED DEALS': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'CONNECTION STATUS': `${baseUrl}Desktop cards icons/Total Credit.svg`,
-      'UNIQUE LOGINS': `${baseUrl}Desktop cards icons/Total Clients.svg`,
-      'SYMBOLS': `${baseUrl}Desktop cards icons/Total Equity.svg`,
+      'DEALS (24H)': `${baseUrl}desktop-icons/P&L.svg`,
+      'DEALS (7D)': `${baseUrl}desktop-icons/P&L.svg`,
+      'FILTERED DEALS': `${baseUrl}desktop-icons/P&L.svg`,
+      'CONNECTION STATUS': `${baseUrl}desktop-icons/Credit.svg`,
+      'UNIQUE LOGINS': `${baseUrl}desktop-icons/Unique Logins.svg`,
+      'SYMBOLS': `${baseUrl}desktop-icons/Equity.svg`,
     }
-    return iconMap[cardTitle] || `${baseUrl}Desktop cards icons/Total Clients.svg`
+    return iconMap[cardTitle] || `${baseUrl}desktop-icons/Clients.svg`
   }
 
   const handleRefresh = () => {

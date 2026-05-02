@@ -331,12 +331,12 @@ export default function ClientPercentageModule() {
   const getCardIcon = (label) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'TOTAL CLIENTS': `${baseUrl}Desktop cards icons/Total Clients.svg`,
-      'CUSTOM PERCENTAGES': `${baseUrl}Desktop cards icons/TOTAL COMMISION.svg`,
-      'USING DEFAULT': `${baseUrl}Desktop cards icons/AVAILABLE Commision.svg`,
-      'DEFAULT PERCENTAGE': `${baseUrl}Desktop cards icons/TOTAL COMMISION%25.svg`
+      'TOTAL CLIENTS': `${baseUrl}desktop-icons/Clients.svg`,
+      'CUSTOM PERCENTAGES': `${baseUrl}desktop-icons/Custom Percentages.svg`,
+      'USING DEFAULT': `${baseUrl}desktop-icons/Using Default.svg`,
+      'DEFAULT PERCENTAGE': `${baseUrl}desktop-icons/Default Percentage.svg`
     }
-    return iconMap[label] || `${baseUrl}Desktop cards icons/Total Clients.svg`
+    return iconMap[label] || `${baseUrl}desktop-icons/Clients.svg`
   }
   
   useEffect(() => {
@@ -1003,7 +1003,9 @@ export default function ClientPercentageModule() {
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
                   <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>{card.label}</span>
-                  <img src={getCardIcon(card.label)} alt="" style={{ width: '16px', height: '16px', objectFit: 'contain', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none' }} />
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '4px' }}>
+                    <img src={getCardIcon(card.label)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }} onError={(e) => { e.target.style.display = 'none' }} />
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
                   <span style={{

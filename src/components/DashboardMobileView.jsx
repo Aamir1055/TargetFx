@@ -177,57 +177,57 @@ export default function DashboardMobileView({
   const getCardIcon = (cardTitle) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'Total Clients': `${baseUrl}Desktop cards icons/Total Clients.svg`,
-      'Total Balance': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'Total Credit': `${baseUrl}Desktop cards icons/Total Credit.svg`,
-      'Total Equity': `${baseUrl}Desktop cards icons/Total Equity.svg`,
-      'PNL': `${baseUrl}Desktop cards icons/PNL.svg`,
-      'Floating Profit': `${baseUrl}Desktop cards icons/Floating Profit.svg`,
-      'Daily Deposit': `${baseUrl}Desktop cards icons/Daily Deposite.svg`,
-      'Daily Withdrawal': `${baseUrl}Desktop cards icons/Daily WITHDRAWL.svg`,
-      'Daily PnL': `${baseUrl}Desktop cards icons/Daily PNL.svg`,
-      'This Week PnL': `${baseUrl}Desktop cards icons/This week pnl.svg`,
-      'This Month PnL': `${baseUrl}Desktop cards icons/THIS MONTH PNL.svg`,
-      'Lifetime PnL': `${baseUrl}Desktop cards icons/LIFETIME PNL.svg`,
-      'Net DW': `${baseUrl}Desktop cards icons/NET WD.svg`,
-      'Total Commission': `${baseUrl}Desktop cards icons/TOTAL COMMISION.svg`,
-      'Available Commission': `${baseUrl}Desktop cards icons/AVAILABLE Commision.svg`,
-      'Total Commission %': `${baseUrl}Desktop cards icons/TOTAL COMMISION%25.svg`,
-      'Available Commission %': `${baseUrl}Desktop cards icons/AVAILABLE Commision%25.svg`,
-      'Blocked Commission': `${baseUrl}Desktop cards icons/Blocked commision.svg`,
-      'Daily Bonus IN': `${baseUrl}Desktop cards icons/Daily BONUS IN.svg`,
-      'Daily Bonus OUT': `${baseUrl}Desktop cards icons/Daily BONUS OUT.svg`,
-      'NET Daily Bonus': `${baseUrl}Desktop cards icons/Net Daily Bonus.svg`,
-      'Week Bonus IN': `${baseUrl}Desktop cards icons/Weekly bonus in.svg`,
-      'Week Bonus OUT': `${baseUrl}Desktop cards icons/WEEK BONUS OUT.svg`,
-      'NET Week Bonus': `${baseUrl}Desktop cards icons/NET WEEK BONUS.svg`,
-      'Monthly Bonus IN': `${baseUrl}Desktop cards icons/MONTHLY BONUS IN.svg`,
-      'Monthly Bonus OUT': `${baseUrl}Desktop cards icons/MONTHLY BONUS OUt.svg`,
-      'NET Monthly Bonus': `${baseUrl}Desktop cards icons/NET MONTHLY BONUS.svg`,
-      'Lifetime Bonus IN': `${baseUrl}Desktop cards icons/LIFETIME BONUS IN.svg`,
-      'Lifetime Bonus OUT': `${baseUrl}Desktop cards icons/LIFETIME BONUS OUT.svg`,
-      'NET Lifetime Bonus': `${baseUrl}Desktop cards icons/NET LIFETIME BONUS.svg`,
-      'Week Deposit': `${baseUrl}Desktop cards icons/WEEK DEPOSITE.svg`,
-      'Week Withdrawal': `${baseUrl}Desktop cards icons/WEEK WITHDRAWL.svg`,
-      'NET Week DW': `${baseUrl}Desktop cards icons/NET WEEK DAY.svg`,
-      'Monthly Deposit': `${baseUrl}Desktop cards icons/MONTLY DEPOSITE.svg`,
-      'Monthly Withdrawal': `${baseUrl}Desktop cards icons/MONTLY WITHDRAWL.svg`,
-      'NET Monthly DW': `${baseUrl}Desktop cards icons/NET MONTHLY DW.svg`,
-      'Lifetime Deposit': `${baseUrl}Desktop cards icons/Daily Deposite.svg`,
-      'Lifetime Withdrawal': `${baseUrl}Desktop cards icons/Daily WITHDRAWL.svg`,
-      'NET Lifetime DW': `${baseUrl}Desktop cards icons/NET WD.svg`,
-      'Weekly Credit IN': `${baseUrl}Desktop cards icons/WEEKLY Credit IN.svg`,
-      'Monthly Credit IN': `${baseUrl}Desktop cards icons/MONTHLY CREDIT IN.svg`,
-      'Lifetime Credit IN': `${baseUrl}Desktop cards icons/LIFETIME CREDIT IN.svg`,
-      'Weekly Credit OUT': `${baseUrl}Desktop cards icons/WEEKLY CREDIT OUT.svg`,
-      'Monthly Credit OUT': `${baseUrl}Desktop cards icons/MOnthly CREDIT OUT.svg`,
-      'Lifetime Credit OUT': `${baseUrl}Desktop cards icons/LIFETIME CREDIT OUT.svg`,
-      'NET Credit': `${baseUrl}Desktop cards icons/NET CREDIT.svg`,
-      'Previous Equity': `${baseUrl}Desktop cards icons/PREVIOUS EQUITY.svg`,
-      'Weekly Previous Equity': `${baseUrl}Desktop cards icons/Weekly PREVIOUS EQUITY.svg`,
-      'Monthly Previous Equity': `${baseUrl}Desktop cards icons/Monthly PREVIOUS EQUITY.svg`,
+      'Total Clients': `${baseUrl}desktop-icons/Clients.svg`,
+      'Total Balance': `${baseUrl}desktop-icons/Balance.svg`,
+      'Total Credit': `${baseUrl}desktop-icons/Credit.svg`,
+      'Total Equity': `${baseUrl}desktop-icons/Equity.svg`,
+      'PNL': `${baseUrl}desktop-icons/P&L.svg`,
+      'Floating Profit': `${baseUrl}desktop-icons/Floating PNL.svg`,
+      'Daily Deposit': `${baseUrl}desktop-icons/Daily Deposite.svg`,
+      'Daily Withdrawal': `${baseUrl}desktop-icons/Daily WITHDRAWL.svg`,
+      'Daily PnL': `${baseUrl}desktop-icons/Daily PNL.svg`,
+      'This Week PnL': `${baseUrl}desktop-icons/This week pnl.svg`,
+      'This Month PnL': `${baseUrl}desktop-icons/THIS MONTH PNL.svg`,
+      'Lifetime PnL': `${baseUrl}desktop-icons/LIFETIME PNL.svg`,
+      'Net DW': `${baseUrl}desktop-icons/NET WD.svg`,
+      'Total Commission': `${baseUrl}desktop-icons/TOTAL COMMISION.svg`,
+      'Available Commission': `${baseUrl}desktop-icons/AVAILABLE Commision.svg`,
+      'Total Commission %': `${baseUrl}desktop-icons/TOTAL COMMISION%25.svg`,
+      'Available Commission %': `${baseUrl}desktop-icons/AVAILABLE Commision%25.svg`,
+      'Blocked Commission': `${baseUrl}desktop-icons/Blocked commision.svg`,
+      'Daily Bonus IN': `${baseUrl}desktop-icons/Daily BONUS IN.svg`,
+      'Daily Bonus OUT': `${baseUrl}desktop-icons/Daily BONUS OUT.svg`,
+      'NET Daily Bonus': `${baseUrl}desktop-icons/Net Daily Bonus.svg`,
+      'Week Bonus IN': `${baseUrl}desktop-icons/Weekly bonus in.svg`,
+      'Week Bonus OUT': `${baseUrl}desktop-icons/WEEK BONUS OUT.svg`,
+      'NET Week Bonus': `${baseUrl}desktop-icons/NET WEEK BONUS.svg`,
+      'Monthly Bonus IN': `${baseUrl}desktop-icons/MONTHLY BONUS IN.svg`,
+      'Monthly Bonus OUT': `${baseUrl}desktop-icons/MONTHLY BONUS OUt.svg`,
+      'NET Monthly Bonus': `${baseUrl}desktop-icons/NET MONTHLY BONUS.svg`,
+      'Lifetime Bonus IN': `${baseUrl}desktop-icons/LIFETIME BONUS IN.svg`,
+      'Lifetime Bonus OUT': `${baseUrl}desktop-icons/LIFETIME BONUS OUT.svg`,
+      'NET Lifetime Bonus': `${baseUrl}desktop-icons/NET LIFETIME BONUS.svg`,
+      'Week Deposit': `${baseUrl}desktop-icons/WEEK DEPOSITE.svg`,
+      'Week Withdrawal': `${baseUrl}desktop-icons/WEEK WITHDRAWL.svg`,
+      'NET Week DW': `${baseUrl}desktop-icons/NET WEEK DAY.svg`,
+      'Monthly Deposit': `${baseUrl}desktop-icons/MONTLY DEPOSITE.svg`,
+      'Monthly Withdrawal': `${baseUrl}desktop-icons/MONTLY WITHDRAWL.svg`,
+      'NET Monthly DW': `${baseUrl}desktop-icons/NET MONTHLY DW.svg`,
+      'Lifetime Deposit': `${baseUrl}desktop-icons/Daily Deposite.svg`,
+      'Lifetime Withdrawal': `${baseUrl}desktop-icons/Daily WITHDRAWL.svg`,
+      'NET Lifetime DW': `${baseUrl}desktop-icons/NET WD.svg`,
+      'Weekly Credit IN': `${baseUrl}desktop-icons/WEEKLY Credit IN.svg`,
+      'Monthly Credit IN': `${baseUrl}desktop-icons/MONTHLY CREDIT IN.svg`,
+      'Lifetime Credit IN': `${baseUrl}desktop-icons/LIFETIME CREDIT IN.svg`,
+      'Weekly Credit OUT': `${baseUrl}desktop-icons/WEEKLY CREDIT OUT.svg`,
+      'Monthly Credit OUT': `${baseUrl}desktop-icons/MOnthly CREDIT OUT.svg`,
+      'Lifetime Credit OUT': `${baseUrl}desktop-icons/LIFETIME CREDIT OUT.svg`,
+      'NET Credit': `${baseUrl}desktop-icons/NET CREDIT.svg`,
+      'Previous Equity': `${baseUrl}desktop-icons/PREVIOUS EQUITY.svg`,
+      'Weekly Previous Equity': `${baseUrl}desktop-icons/Weekly PREVIOUS EQUITY.svg`,
+      'Monthly Previous Equity': `${baseUrl}desktop-icons/Monthly PREVIOUS EQUITY.svg`,
     }
-    return iconMap[cardTitle] || `${baseUrl}Desktop cards icons/Total Clients.svg` // Default icon
+    return iconMap[cardTitle] || `${baseUrl}desktop-icons/Clients.svg` // Default icon
   }
 
   // Render face card with updated UI matching Client2Module
@@ -309,11 +309,12 @@ export default function DashboardMobileView({
               </span>
             </div>
           </div>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1.5">
             <img 
               src={getCardIcon(card.title)} 
               alt={card.title}
               className="w-5 h-5"
+              style={{ filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
               onError={(e) => {
                 // Fallback to default icon if image fails to load
                 e.target.style.display = 'none'

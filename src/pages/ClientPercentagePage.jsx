@@ -757,12 +757,12 @@ const ClientPercentagePage = () => {
   // Get card icon path based on card title
   const getCardIcon = (cardTitle) => {
     const iconMap = {
-      'Total Clients': '/Desktop cards icons/Total Clients.svg',
-      'Custom Percentages': '/Desktop cards icons/TOTAL COMMISION.svg',
-      'Using Default': '/Desktop cards icons/AVAILABLE Commision.svg',
-      'Default Percentage': '/Desktop cards icons/TOTAL COMMISION%25.svg',
+      'Total Clients': '/desktop-icons/Clients.svg',
+      'Custom Percentages': '/desktop-icons/Custom Percentages.svg',
+      'Using Default': '/desktop-icons/Using Default.svg',
+      'Default Percentage': '/desktop-icons/Default Percentage.svg',
     }
-    return iconMap[cardTitle] || '/Desktop cards icons/Total Clients.svg'
+    return iconMap[cardTitle] || '/desktop-icons/Clients.svg'
   }
 
   // Sorting
@@ -1024,11 +1024,11 @@ const ClientPercentagePage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-1.5">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-none">Total Clients</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1">
                   <img 
                     src={getCardIcon('Total Clients')} 
                     alt="Total Clients"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
                     }}
@@ -1042,11 +1042,11 @@ const ClientPercentagePage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-1.5">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-none">Custom Percentages</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1">
                   <img 
                     src={getCardIcon('Custom Percentages')} 
                     alt="Custom Percentages"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                   />
                 </div>
               </div>
@@ -1057,11 +1057,11 @@ const ClientPercentagePage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-1.5">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-none">Using Default</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1">
                   <img 
                     src={getCardIcon('Using Default')} 
                     alt="Using Default"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                   />
                 </div>
               </div>
@@ -1072,11 +1072,11 @@ const ClientPercentagePage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-1.5">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-none">Default Percentage</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1">
                   <img 
                     src={getCardIcon('Default Percentage')} 
                     alt="Default Percentage"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                   />
                 </div>
               </div>

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import TwoFactorVerification from '../components/TwoFactorVerification'
-import Group8 from '../../Login Desktop Icons/Group 8.svg'
-import Group9 from '../../Login Desktop Icons/Group 9.svg'
-import Group10 from '../../Login Desktop Icons/Group 10.svg'
+import Group8 from '../assets/Group 8.svg'
+import Group9 from '../assets/Group 9.svg'
+import Group10 from '../assets/Group 10.svg'
 
 const LoginPage = () => {
   const [username, setUsername] = useState('')

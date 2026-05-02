@@ -1973,67 +1973,67 @@ const ClientsPage = () => {
   // Get icon path for each card based on title
   const getCardIcon = (cardTitle) => {
     const iconMap = {
-      'Total Clients': '/Desktop cards icons/Total Clients.svg',
-      'Total Balance': '/Desktop cards icons/Total Balance.svg',
-      'Total Credit': '/Desktop cards icons/Total Credit.svg',
-      'Total Equity': '/Desktop cards icons/Total Equity.svg',
-      'PNL': '/Desktop cards icons/PNL.svg',
-      'Floating Profit': '/Desktop cards icons/Floating Profit.svg',
-      'Daily Deposit': '/Desktop cards icons/Daily Deposite.svg',
-      'Daily Withdrawal': '/Desktop cards icons/Daily WITHDRAWL.svg',
-      'Daily PnL': '/Desktop cards icons/Daily PNL.svg',
-      'This Week PnL': '/Desktop cards icons/This week pnl.svg',
-      'This Month PnL': '/Desktop cards icons/THIS MONTH PNL.svg',
-      'Lifetime PnL': '/Desktop cards icons/LIFETIME PNL.svg',
-      'Daily Net D/W': '/Desktop cards icons/NET WD.svg',
-      'Total Rebate': '/Desktop cards icons/TOTAL COMMISION.svg',
-      'Available Rebate': '/Desktop cards icons/AVAILABLE Commision.svg',
-      'Total Rebate %': '/Desktop cards icons/TOTAL COMMISION%25.svg',
-      'Available Rebate %': '/Desktop cards icons/AVAILABLE Commision%25.svg',
-      'Blocked Rebate': '/Desktop cards icons/Blocked commision.svg',
-      'Daily Bonus IN': '/Desktop cards icons/Daily BONUS IN.svg',
-      'Daily Bonus OUT': '/Desktop cards icons/Daily BONUS OUT.svg',
-      'NET Daily Bonus': '/Desktop cards icons/Net Daily Bonus.svg',
-      'Week Bonus IN': '/Desktop cards icons/Weekly bonus in.svg',
-      'Week Bonus OUT': '/Desktop cards icons/WEEK BONUS OUT.svg',
-      'NET Week Bonus': '/Desktop cards icons/NET WEEK BONUS.svg',
-      'Monthly Bonus IN': '/Desktop cards icons/MONTHLY BONUS IN.svg',
-      'Monthly Bonus OUT': '/Desktop cards icons/MONTHLY BONUS OUt.svg',
-      'NET Monthly Bonus': '/Desktop cards icons/NET MONTHLY BONUS.svg',
-      'Lifetime Bonus IN': '/Desktop cards icons/LIFETIME BONUS IN.svg',
-      'Lifetime Bonus OUT': '/Desktop cards icons/LIFETIME BONUS OUT.svg',
-      'NET Lifetime Bonus': '/Desktop cards icons/NET LIFETIME BONUS.svg',
-      'Week Deposit': '/Desktop cards icons/WEEK DEPOSITE.svg',
-      'Week Withdrawal': '/Desktop cards icons/WEEK WITHDRAWL.svg',
-      'NET Week DW': '/Desktop cards icons/NET WEEK DAY.svg',
-      'Monthly Deposit': '/Desktop cards icons/MONTLY DEPOSITE.svg',
-      'Monthly Withdrawal': '/Desktop cards icons/MONTLY WITHDRAWL.svg',
-      'NET Monthly DW': '/Desktop cards icons/NET MONTHLY DW.svg',
-      'Lifetime Deposit': '/Desktop cards icons/Daily Deposite.svg',
-      'Lifetime Withdrawal': '/Desktop cards icons/Daily WITHDRAWL.svg',
-      'NET Lifetime DW': '/Desktop cards icons/NET WD.svg',
-      'Weekly Credit IN': '/Desktop cards icons/WEEKLY Credit IN.svg',
-      'Monthly Credit IN': '/Desktop cards icons/MONTHLY CREDIT IN.svg',
-      'Lifetime Credit IN': '/Desktop cards icons/LIFETIME CREDIT IN.svg',
-      'Weekly Credit OUT': '/Desktop cards icons/WEEKLY CREDIT OUT.svg',
-      'Monthly Credit OUT': '/Desktop cards icons/MOnthly CREDIT OUT.svg',
-      'Lifetime Credit OUT': '/Desktop cards icons/LIFETIME CREDIT OUT.svg',
-      'NET Credit': '/Desktop cards icons/NET CREDIT.svg',
-      'Previous Equity': '/Desktop cards icons/PREVIOUS EQUITY.svg',
-      'Weekly Previous Equity': '/Desktop cards icons/Weekly PREVIOUS EQUITY.svg',
-      'Monthly Previous Equity': '/Desktop cards icons/Monthly PREVIOUS EQUITY.svg',
-      'Book PnL': '/Desktop cards icons/PNL.svg',
-      'Daily Deposit %': '/Desktop cards icons/Daily Deposite.svg',
-      'Daily Withdrawal %': '/Desktop cards icons/Daily WITHDRAWL.svg',
-      'Total Balance %': '/Desktop cards icons/Total Balance.svg',
-      'Total Credit %': '/Desktop cards icons/Total Credit.svg',
-      'Total Equity %': '/Desktop cards icons/Total Equity.svg',
-      'PNL %': '/Desktop cards icons/PNL.svg',
-      'Floating Profit %': '/Desktop cards icons/Floating Profit.svg',
-      'Book PnL %': '/Desktop cards icons/PNL.svg',
-      'Net Lifetime PnL': '/Desktop cards icons/NET LIFETIME BONUS.svg',
+      'Total Clients': '/desktop-icons/Clients.svg',
+      'Total Balance': '/desktop-icons/Balance.svg',
+      'Total Credit': '/desktop-icons/Credit.svg',
+      'Total Equity': '/desktop-icons/Equity.svg',
+      'PNL': '/desktop-icons/P&L.svg',
+      'Floating Profit': '/desktop-icons/Floating PNL.svg',
+      'Daily Deposit': '/desktop-icons/Daily Deposite.svg',
+      'Daily Withdrawal': '/desktop-icons/Daily WITHDRAWL.svg',
+      'Daily PnL': '/desktop-icons/Daily PNL.svg',
+      'This Week PnL': '/desktop-icons/This week pnl.svg',
+      'This Month PnL': '/desktop-icons/THIS MONTH PNL.svg',
+      'Lifetime PnL': '/desktop-icons/LIFETIME PNL.svg',
+      'Daily Net D/W': '/desktop-icons/NET WD.svg',
+      'Total Rebate': '/desktop-icons/TOTAL COMMISION.svg',
+      'Available Rebate': '/desktop-icons/AVAILABLE Commision.svg',
+      'Total Rebate %': '/desktop-icons/TOTAL COMMISION%25.svg',
+      'Available Rebate %': '/desktop-icons/AVAILABLE Commision%25.svg',
+      'Blocked Rebate': '/desktop-icons/Blocked commision.svg',
+      'Daily Bonus IN': '/desktop-icons/Daily BONUS IN.svg',
+      'Daily Bonus OUT': '/desktop-icons/Daily BONUS OUT.svg',
+      'NET Daily Bonus': '/desktop-icons/Net Daily Bonus.svg',
+      'Week Bonus IN': '/desktop-icons/Weekly bonus in.svg',
+      'Week Bonus OUT': '/desktop-icons/WEEK BONUS OUT.svg',
+      'NET Week Bonus': '/desktop-icons/NET WEEK BONUS.svg',
+      'Monthly Bonus IN': '/desktop-icons/MONTHLY BONUS IN.svg',
+      'Monthly Bonus OUT': '/desktop-icons/MONTHLY BONUS OUt.svg',
+      'NET Monthly Bonus': '/desktop-icons/NET MONTHLY BONUS.svg',
+      'Lifetime Bonus IN': '/desktop-icons/LIFETIME BONUS IN.svg',
+      'Lifetime Bonus OUT': '/desktop-icons/LIFETIME BONUS OUT.svg',
+      'NET Lifetime Bonus': '/desktop-icons/NET LIFETIME BONUS.svg',
+      'Week Deposit': '/desktop-icons/WEEK DEPOSITE.svg',
+      'Week Withdrawal': '/desktop-icons/WEEK WITHDRAWL.svg',
+      'NET Week DW': '/desktop-icons/NET WEEK DAY.svg',
+      'Monthly Deposit': '/desktop-icons/MONTLY DEPOSITE.svg',
+      'Monthly Withdrawal': '/desktop-icons/MONTLY WITHDRAWL.svg',
+      'NET Monthly DW': '/desktop-icons/NET MONTHLY DW.svg',
+      'Lifetime Deposit': '/desktop-icons/Daily Deposite.svg',
+      'Lifetime Withdrawal': '/desktop-icons/Daily WITHDRAWL.svg',
+      'NET Lifetime DW': '/desktop-icons/NET WD.svg',
+      'Weekly Credit IN': '/desktop-icons/WEEKLY Credit IN.svg',
+      'Monthly Credit IN': '/desktop-icons/MONTHLY CREDIT IN.svg',
+      'Lifetime Credit IN': '/desktop-icons/LIFETIME CREDIT IN.svg',
+      'Weekly Credit OUT': '/desktop-icons/WEEKLY CREDIT OUT.svg',
+      'Monthly Credit OUT': '/desktop-icons/MOnthly CREDIT OUT.svg',
+      'Lifetime Credit OUT': '/desktop-icons/LIFETIME CREDIT OUT.svg',
+      'NET Credit': '/desktop-icons/NET CREDIT.svg',
+      'Previous Equity': '/desktop-icons/PREVIOUS EQUITY.svg',
+      'Weekly Previous Equity': '/desktop-icons/Weekly PREVIOUS EQUITY.svg',
+      'Monthly Previous Equity': '/desktop-icons/Monthly PREVIOUS EQUITY.svg',
+      'Book PnL': '/desktop-icons/P&L.svg',
+      'Daily Deposit %': '/desktop-icons/Daily Deposite.svg',
+      'Daily Withdrawal %': '/desktop-icons/Daily WITHDRAWL.svg',
+      'Total Balance %': '/desktop-icons/Balance.svg',
+      'Total Credit %': '/desktop-icons/Credit.svg',
+      'Total Equity %': '/desktop-icons/Equity.svg',
+      'PNL %': '/desktop-icons/P&L.svg',
+      'Floating Profit %': '/desktop-icons/Floating PNL.svg',
+      'Book PnL %': '/desktop-icons/P&L.svg',
+      'Net Lifetime PnL': '/desktop-icons/NET LIFETIME BONUS.svg',
     }
-    return iconMap[cardTitle] || '/Desktop cards icons/Total Clients.svg' // Default icon
+    return iconMap[cardTitle] || '/desktop-icons/Clients.svg' // Default icon
   }
 
   // Get face card configuration by ID (for draggable cards)
@@ -2880,11 +2880,11 @@ const ClientsPage = () => {
                       <div className="h-full flex flex-col justify-center">
                         <div className="flex items-start justify-between">
                           <span className="text-[#4B4B4B] text-[10px] font-semibold leading-[13px] pr-1 uppercase">{card.title}</span>
-                          <div className="w-[16px] h-[16px] rounded-[3px] flex items-center justify-center flex-shrink-0">
+                          <div className="w-[26px] h-[26px] rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1">
                             <img 
                               src={getCardIcon(card.title)} 
                               alt={card.title}
-                              style={{ width: '16px', height: '16px' }}
+                              style={{ width: '16px', height: '16px', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                               onError={(e) => {
                                 e.target.style.display = 'none'
                               }}
@@ -2977,11 +2977,11 @@ const ClientsPage = () => {
                       <div className="h-full flex flex-col justify-center">
                         <div className="flex items-start justify-between">
                           <span className="text-[#4B4B4B] text-[10px] font-semibold leading-[13px] pr-1 uppercase">{card.title}</span>
-                          <div className="w-[16px] h-[16px] rounded-[3px] flex items-center justify-center flex-shrink-0">
+                          <div className="w-[26px] h-[26px] rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1">
                             <img 
                               src={getCardIcon(card.title)} 
                               alt={card.title}
-                              style={{ width: '16px', height: '16px' }}
+                              style={{ width: '16px', height: '16px', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                               onError={(e) => {
                                 e.target.style.display = 'none'
                               }}
@@ -3080,11 +3080,11 @@ const ClientsPage = () => {
                         <div className="h-full flex flex-col justify-center">
                           <div className="flex items-start justify-between">
                             <span className="text-[#4B4B4B] text-[10px] font-semibold leading-[13px] pr-1 uppercase">{card.title}</span>
-                            <div className="w-[16px] h-[16px] rounded-[3px] flex items-center justify-center flex-shrink-0">
+                            <div className="w-[26px] h-[26px] rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1">
                               <img 
                                 src={getCardIcon(card.title)} 
                                 alt={card.title}
-                                style={{ width: '16px', height: '16px' }}
+                                style={{ width: '16px', height: '16px', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                                 onError={(e) => {
                                   e.target.style.display = 'none'
                                 }}

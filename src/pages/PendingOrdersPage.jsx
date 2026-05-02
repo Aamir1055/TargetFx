@@ -593,11 +593,13 @@ const PendingOrdersPage = () => {
   const getCardIcon = (cardTitle) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'Total Orders': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'Unique Logins': `${baseUrl}Desktop cards icons/Total Clients.svg`,
-      'Symbols': `${baseUrl}Desktop cards icons/Total Equity.svg`,
+      'Total Orders': `${baseUrl}desktop-icons/Total Orders.svg`,
+      'Unique Logins': `${baseUrl}desktop-icons/Unique Logins.svg`,
+      'Symbols': `${baseUrl}desktop-icons/Equity.svg`,
+      'Volume Current': `${baseUrl}desktop-icons/Volume Current.svg`,
+      'Volume Initial': `${baseUrl}desktop-icons/Volume Initial.svg`,
     }
-    return iconMap[cardTitle] || `${baseUrl}Desktop cards icons/Total Clients.svg`
+    return iconMap[cardTitle] || `${baseUrl}desktop-icons/Clients.svg`
   }
 
   const formatTime = (ts) => {
@@ -1188,11 +1190,11 @@ const PendingOrdersPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total Orders</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
                     src={getCardIcon('Total Orders')} 
                     alt="Total Orders"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
                     }}
@@ -1206,11 +1208,11 @@ const PendingOrdersPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Unique Logins</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
                     src={getCardIcon('Unique Logins')} 
                     alt="Unique Logins"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
                     }}
@@ -1224,11 +1226,11 @@ const PendingOrdersPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Volume Current</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
-                    src={getCardIcon('Unique Logins')} 
+                    src={getCardIcon('Volume Current')} 
                     alt="Volume Current"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
                     }}
@@ -1242,11 +1244,11 @@ const PendingOrdersPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Volume Initial</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
-                    src={getCardIcon('Symbols')} 
+                    src={getCardIcon('Volume Initial')} 
                     alt="Volume Initial"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
                     }}

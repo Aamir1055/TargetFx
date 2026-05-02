@@ -1193,20 +1193,23 @@ const PositionsPage = () => {
   const getCardIcon = (cardTitle) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'Total Positions': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'Floating Profit': `${baseUrl}Desktop cards icons/Floating Profit.svg`,
-      'Floating Profit %': `${baseUrl}Desktop cards icons/Floating Profit.svg`,
-      'Unique Logins': `${baseUrl}Desktop cards icons/Total Clients.svg`,
-      'Symbols': `${baseUrl}Desktop cards icons/Total Equity.svg`,
+      'Total Positions': `${baseUrl}desktop-icons/Total Positions.svg`,
+      'Floating Profit': `${baseUrl}desktop-icons/Floating PNL.svg`,
+      'Floating Profit %': `${baseUrl}desktop-icons/Floating PNL.svg`,
+      'Floating Combined': `${baseUrl}desktop-icons/Floating Combined.svg`,
+      'Floating INR': `${baseUrl}desktop-icons/Floating INR.svg`,
+      'Floating USD': `${baseUrl}desktop-icons/Floating USD.svg`,
+      'Unique Logins': `${baseUrl}desktop-icons/Unique Logins.svg`,
+      'Symbols': `${baseUrl}desktop-icons/Equity.svg`,
       // NET Position cards
-      'NET Symbols': `${baseUrl}Desktop cards icons/Total Clients.svg`,
-      'Total NET Volume': `${baseUrl}Desktop cards icons/Total Balance.svg`,
-      'Total NET P/L': `${baseUrl}Desktop cards icons/PNL.svg`,
-      'Total Logins': `${baseUrl}Desktop cards icons/Total Clients.svg`,
+      'NET Symbols': `${baseUrl}desktop-icons/Clients.svg`,
+      'Total NET Volume': `${baseUrl}desktop-icons/Volume Current.svg`,
+      'Total NET P/L': `${baseUrl}desktop-icons/Floating PNL.svg`,
+      'Total Logins': `${baseUrl}desktop-icons/Unique Logins.svg`,
       // Client NET cards
-      'Client NET Rows': `${baseUrl}Desktop cards icons/Total Clients.svg`,
+      'Client NET Rows': `${baseUrl}desktop-icons/Clients.svg`,
     }
-    return iconMap[cardTitle] || `${baseUrl}Desktop cards icons/Total Clients.svg`
+    return iconMap[cardTitle] || `${baseUrl}desktop-icons/Clients.svg`
   }
 
   // Helper function to adjust value for USC symbols (divide by 100)
@@ -2655,11 +2658,11 @@ const PositionsPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Total Positions</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
                     src={getCardIcon('Total Positions')} 
                     alt="Total Positions"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
                     }}
@@ -2680,11 +2683,11 @@ const PositionsPage = () => {
               <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                   <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating Combined</span>
-                  <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                  <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                     <img 
-                      src={getCardIcon('Floating Profit')} 
+                      src={getCardIcon('Floating Combined')} 
                       alt="Floating Combined"
-                      style={{ width: '100%', height: '100%' }}
+                      style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                       onError={(e) => {
                         e.target.style.display = 'none'
                       }}
@@ -2709,11 +2712,11 @@ const PositionsPage = () => {
               <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                   <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating Profit %</span>
-                  <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                  <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                     <img 
                       src={getCardIcon('Floating Profit %')} 
                       alt="Floating Profit %"
-                      style={{ width: '100%', height: '100%' }}
+                      style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                       onError={(e) => {
                         e.target.style.display = 'none'
                       }}
@@ -2735,11 +2738,11 @@ const PositionsPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating INR</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
-                    src={getCardIcon('Floating Profit')} 
+                    src={getCardIcon('Floating INR')} 
                     alt="Floating INR"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
                     }}
@@ -2760,11 +2763,11 @@ const PositionsPage = () => {
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating USD</span>
-                <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
-                    src={getCardIcon('Floating Profit')} 
+                    src={getCardIcon('Floating USD')} 
                     alt="Floating USD"
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                     onError={(e) => {
                       e.target.style.display = 'none'
                     }}
@@ -3263,11 +3266,11 @@ const PositionsPage = () => {
                   <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                       <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Client NET Rows</span>
-                      <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                      <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                         <img 
                           src={getCardIcon('Client NET Rows')} 
                           alt="Client NET Rows"
-                          style={{ width: '100%', height: '100%' }}
+                          style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                           onError={(e) => { e.target.style.display = 'none' }}
                         />
                       </div>
@@ -3281,11 +3284,11 @@ const PositionsPage = () => {
                   <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                       <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total NET Volume %' : 'Total NET Volume'}</span>
-                      <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                      <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                         <img 
                           src={getCardIcon('Total NET Volume')} 
                           alt="Total NET Volume"
-                          style={{ width: '100%', height: '100%' }}
+                          style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                           onError={(e) => { e.target.style.display = 'none' }}
                         />
                       </div>
@@ -3299,11 +3302,11 @@ const PositionsPage = () => {
                   <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                       <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">{displayMode === 'percentage' ? 'Total NET P/L %' : 'Total NET P/L'}</span>
-                      <div className="w-4 h-4 md:w-5 md:h-5 rounded-md flex items-center justify-center flex-shrink-0 ml-1">
+                      <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                         <img 
                           src={getCardIcon('Total NET P/L')} 
                           alt="Total NET P/L"
-                          style={{ width: '100%', height: '100%' }}
+                          style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                           onError={(e) => { e.target.style.display = 'none' }}
                         />
                       </div>

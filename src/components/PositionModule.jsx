@@ -804,12 +804,15 @@ export default function PositionModule() {
   const getCardIcon = (label) => {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'TOTAL': `${baseUrl}Mobile cards icons/Total Balance.svg`,
-      'NET VOLUME': `${baseUrl}Mobile cards icons/Total Equity.svg`,
-      'TOTAL PROFIT': `${baseUrl}Mobile cards icons/Floating Profit.svg`,
-      'UNIQUE LOGINS': `${baseUrl}Mobile cards icons/Total Clients.svg`
+      'TOTAL': `${baseUrl}mobile-icons/Total Positions.svg`,
+      'NET VOLUME': `${baseUrl}mobile-icons/Volume Current.svg`,
+      'TOTAL PROFIT': `${baseUrl}mobile-icons/Floating PNL.svg`,
+      'UNIQUE LOGINS': `${baseUrl}mobile-icons/Unique Logins.svg`,
+      'Floating Combined': `${baseUrl}mobile-icons/Floating Combined.svg`,
+      'Floating INR': `${baseUrl}mobile-icons/Floating INR.svg`,
+      'Floating USD': `${baseUrl}mobile-icons/Floating USD.svg`,
     }
-    return iconMap[label] || `${baseUrl}Mobile cards icons/Total Clients.svg`
+    return iconMap[label] || `${baseUrl}mobile-icons/Clients.svg`
   }
 
   // Face cards for NET view: use server totals once available (same as desktop)
@@ -1284,12 +1287,12 @@ export default function PositionModule() {
             scrollSnapAlign: 'start', flexShrink: 0, flex: 'none',
             userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'pan-x'
           }
-          const icon = (name) => `${import.meta.env.BASE_URL || '/'}Mobile cards icons/${name}.svg`
+          const icon = (name) => `${import.meta.env.BASE_URL || '/'}mobile-icons/${name}.svg`
           const fc = serverPositionsTotals
           const mobileCards = [
             {
               label: 'Total Positions',
-              icon: icon('Total Balance'),
+              icon: icon('Total Positions'),
               value: fmtMoney(netTotals?.total || 0),
               fullValue: netTotals?.total || 0,
               color: '#000000',
@@ -1297,7 +1300,7 @@ export default function PositionModule() {
             },
             {
               label: 'Floating Combined',
-              icon: icon('Floating Profit'),
+              icon: icon('Floating Combined'),
               value: fmtMoney(fc.floatingCombined),
               fullValue: fc.floatingCombined,
               color: fc.floatingCombined >= 0 ? '#16A34A' : '#DC2626',
@@ -1305,7 +1308,7 @@ export default function PositionModule() {
             },
             {
               label: 'Floating INR',
-              icon: icon('Floating Profit'),
+              icon: icon('Floating INR'),
               value: fmtMoney(fc.floatingINR),
               fullValue: fc.floatingINR,
               color: fc.floatingINR >= 0 ? '#16A34A' : '#DC2626',
@@ -1313,7 +1316,7 @@ export default function PositionModule() {
             },
             {
               label: 'Floating USD',
-              icon: icon('Floating Profit'),
+              icon: icon('Floating USD'),
               value: fmtMoney(fc.floatingUSD),
               fullValue: fc.floatingUSD,
               color: fc.floatingUSD >= 0 ? '#16A34A' : '#DC2626',
@@ -1327,8 +1330,8 @@ export default function PositionModule() {
                   <div key={card.label} style={cardStyle}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'none' }}>
                       <span style={{ color: '#4B4B4B', fontSize: '9px', fontWeight: 600, lineHeight: '12px', paddingRight: '4px' }}>{card.label}</span>
-                      <div style={{ width: '16px', height: '16px', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <img src={card.icon} alt="" style={{ width: '16px', height: '16px' }} onError={(e) => { e.target.style.display = 'none' }} />
+                      <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '4px' }}>
+                        <img src={card.icon} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }} onError={(e) => { e.target.style.display = 'none' }} />
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minHeight: '16px', pointerEvents: 'none' }}>
