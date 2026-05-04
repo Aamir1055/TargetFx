@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,7 +28,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }, [])
 
-  const [activeTab, setActiveTab] = useState('positions')
+  const [activeTab, setActiveTab] = useState('overview')
+  const [trendRange, setTrendRange] = useState('7d')
+  const [profitTrend, setProfitTrend] = useState([])
+  const [trendLoading, setTrendLoading] = useState(false)
   const [positions, setPositions] = useState([])
   const [orders, setOrders] = useState([])
   const [deals, setDeals] = useState([])
@@ -235,6 +238,40 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       fetchClientRules()
     }
   }, [])
+
+  // Fetch profit trend for overview tab
+  const fetchProfitTrend = async (range = '7d') => {
+    setTrendLoading(true)
+    try {
+      const now = Math.floor(Date.now() / 1000)
+      const days = range === '30d' ? 30 : 7
+      const from = now - days * 86400
+      const resp = await brokerAPI.getClientDeals(client.login, from, now, 10000, 0)
+      const dealsArr = resp?.deals ?? resp?.data?.deals ?? []
+      const byDate = {}
+      dealsArr.forEach(d => {
+        const ts = d.time || d.timestamp
+        if (!ts) return
+        const dt = new Date(ts * 1000)
+        const label = `${dt.getDate()} ${dt.toLocaleString('en',{month:'short'})}`
+        if (!byDate[label]) byDate[label] = { label, value: 0 }
+        byDate[label].value += Number(d.profit || 0)
+      })
+      const result = []
+      for (let i = days - 1; i >= 0; i--) {
+        const dt = new Date((now - i * 86400) * 1000)
+        const label = `${dt.getDate()} ${dt.toLocaleString('en',{month:'short'})}`
+        result.push(byDate[label] || { label, value: 0 })
+      }
+      setProfitTrend(result)
+    } catch {
+      setProfitTrend([])
+    } finally {
+      setTrendLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchProfitTrend(trendRange) }, [client.login, trendRange])
 
   // Refs that mirror the active search/sort state so the polling closure
   // can read the latest values without re-creating the timer on every change.
@@ -1809,6 +1846,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         <div className="flex-shrink-0 flex items-center justify-between border-b border-slate-200 px-2 bg-white shadow-sm">
           <div className="flex overflow-x-auto">
             <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+                activeTab === 'overview'
+                  ? 'border-blue-600 text-blue-600 bg-blue-50'
+                  : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
+              }`}
+            >
+              Overview
+            </button>
+            <button
               onClick={() => setActiveTab('positions')}
               className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
                 activeTab === 'positions'
@@ -2123,6 +2170,386 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
         {/* Tab Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6 min-h-0 bg-white">
+
+          {/* ───────────── OVERVIEW TAB ───────────── */}
+          {activeTab === 'overview' && (() => {
+            const acc = clientData || {}
+            const balance   = parseFloat(acc.balance   || 0)
+            const equity    = parseFloat(acc.equity    || 0)
+            const credit    = parseFloat(acc.credit    || 0)
+            const floating  = parseFloat(acc.profit    || acc.floating || 0)
+            const marginLevel = parseFloat(acc.margin_level || 0)
+            const commission  = parseFloat(acc.commission  || 0)
+            const margin      = parseFloat(acc.margin      || 0)
+            const marginFree  = parseFloat(acc.margin_free || 0)
+            const currency    = acc.currency || client?.currency || ''
+            const ds = dealStats || {}
+            const buyVol          = parseFloat(ds.buyVolume         ?? ds.buy_volume          ?? 0)
+            const sellVol         = parseFloat(ds.sellVolume        ?? ds.sell_volume         ?? 0)
+            const totalVolume     = buyVol + sellVol
+            const totalVolDisplay = totalVolume > 0 ? totalVolume : 1
+            const buyPct          = parseFloat(((buyVol  / totalVolDisplay) * 100).toFixed(1))
+            const sellPct         = parseFloat(((sellVol / totalVolDisplay) * 100).toFixed(1))
+            const winRate         = parseFloat(ds.winRate         ?? ds.win_rate         ?? 0)
+            const lossRate        = Math.max(0, 100 - winRate)
+            const totalDeals      = parseInt(ds.totalDeals        ?? ds.total_deals       ?? 0)
+            const profDeals       = parseInt(ds.profitableDealCount ?? ds.profitable_deal_count ?? 0)
+            const loseDeals       = parseInt(ds.losingDealCount   ?? ds.losing_deal_count  ?? 0)
+            const profitSum       = parseFloat(ds.profitableDealsSum ?? ds.profitable_deals_sum ?? 0)
+            const losingSum       = Math.abs(parseFloat(ds.losingDealsSum ?? ds.losingDealSum ?? ds.losing_deals_sum ?? 0))
+            const netPL           = profitSum - losingSum
+            const avgProfit       = parseFloat(ds.avgProfitPerDeal ?? ds.avg_profit_per_deal ?? 0)
+            const avgLoss         = parseFloat(ds.avgLossPerDeal   ?? ds.avg_loss_per_deal   ?? 0)
+            const maxProfit       = parseFloat(ds.maxProfit        ?? ds.max_profit          ?? 0)
+            const maxLoss         = parseFloat(ds.maxLoss          ?? ds.max_loss            ?? 0)
+            const allocTotal      = Math.abs(credit) + Math.abs(balance) + Math.abs(floating) || 1
+
+            // ── Precise SVG Donut ─────────────────────────────────────────────
+            const SvgDonut = ({ segments, size, sw, centerLine1, centerLine2 }) => {
+              const r    = (size - sw) / 2
+              const circ = 2 * Math.PI * r
+              const cx   = size / 2, cy = size / 2
+              let cumPct = 0
+              return (
+                <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
+                  {/* background track */}
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e2e8f0" strokeWidth={sw}/>
+                  {segments.map((seg, i) => {
+                    const pct = Math.max(0, seg.pct)
+                    const len = (pct / 100) * circ
+                    const off = (cumPct / 100) * circ
+                    cumPct += pct
+                    return (
+                      <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+                        stroke={seg.color} strokeWidth={sw}
+                        strokeDasharray={`${len} ${circ - len}`}
+                        strokeDashoffset={-(off) + circ * 0.25}
+                        strokeLinecap="butt"/>
+                    )
+                  })}
+                  {centerLine1 && <text x="50%" y={centerLine2 ? '44%' : '54%'} textAnchor="middle" dominantBaseline="middle" fontSize={size > 100 ? '11' : '10'} fontWeight="700" fill="#1e293b">{centerLine1}</text>}
+                  {centerLine2 && <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" fontSize={size > 100 ? '9' : '8'} fill="#64748b">{centerLine2}</text>}
+                </svg>
+              )
+            }
+
+            // ── Profit Trend Line Chart (SVG) ─────────────────────────────────
+            const ProfitTrendChart = ({ data, w = 200, h = 100 }) => {
+              if (!data || data.length < 2) return (
+                <div className="flex items-center justify-center h-full text-xs text-gray-400">No data</div>
+              )
+              const vals = data.map(d => d.value)
+              const minV = Math.min(...vals), maxV = Math.max(...vals)
+              const range = maxV - minV || 1
+              const padX = 8, padTop = 10, padBot = 8
+              const chartH = h - padTop - padBot
+              const pts = data.map((d, i) => ({
+                x: padX + (i / (data.length - 1)) * (w - padX * 2),
+                y: padTop + (1 - (d.value - minV) / range) * chartH,
+                v: d.value, label: d.label
+              }))
+              const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+              const areaPath = `${linePath} L${pts[pts.length-1].x.toFixed(1)},${h} L${pts[0].x.toFixed(1)},${h} Z`
+              // Y-axis tick values
+              const ticks = 4
+              const yTicks = Array.from({ length: ticks + 1 }, (_, i) => minV + (i / ticks) * range)
+              const fmtY = v => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0)
+              return (
+                <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
+                  <defs>
+                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25"/>
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02"/>
+                    </linearGradient>
+                  </defs>
+                  {/* Y grid lines */}
+                  {yTicks.map((v, i) => {
+                    const y = padTop + (1 - (v - minV) / range) * chartH
+                    return <line key={i} x1={padX} x2={w - padX} y1={y} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
+                  })}
+                  <path d={areaPath} fill="url(#trendGrad)"/>
+                  <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill="#3b82f6" stroke="white" strokeWidth="1.5"/>)}
+                </svg>
+              )
+            }
+
+            // ── Margin Usage BAR chart ────────────────────────────────────────
+            const MarginBarChart = ({ used, free }) => {
+              const maxVal = Math.max(Math.abs(used), Math.abs(free), 1)
+              const w = 160, h = 140, barW = 40, midY = h / 2
+              const usedH = (Math.abs(used) / maxVal) * (midY - 16)
+              const freeH = (Math.abs(free) / maxVal) * (midY - 16)
+              const fmtV = v => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0)
+              const ticks = [-maxVal * 0.75, -maxVal * 0.5, -maxVal * 0.25, 0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75]
+              return (
+                <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="w-full">
+                  {/* grid lines */}
+                  {ticks.map((v, i) => {
+                    const y = midY - (v / maxVal) * (midY - 16)
+                    return <line key={i} x1="30" x2={w - 10} y1={y} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
+                  })}
+                  {/* zero line */}
+                  <line x1="30" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
+                  {/* Used Margin bar – goes DOWN (negative) */}
+                  <rect x={w/2 - barW - 4} y={midY} width={barW} height={usedH} fill="#ef4444" rx="2"/>
+                  {/* Free Margin bar – goes UP (positive) */}
+                  <rect x={w/2 + 4} y={midY - freeH} width={barW} height={freeH} fill="#22c55e" rx="2"/>
+                  {/* value labels */}
+                  <text x={w/2 - barW/2 - 4} y={midY + usedH + 9} textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
+                  <text x={w/2 + barW/2 + 4} y={midY - freeH - 4} textAnchor="middle" fontSize="7" fill="#22c55e" fontWeight="600">{fmtV(free)}</text>
+                  {/* Y axis ticks */}
+                  {[0.5, 0, -0.5].map((f, i) => {
+                    const y = midY - f * (midY - 16)
+                    const v = f * maxVal
+                    return <text key={i} x="26" y={y + 3} textAnchor="end" fontSize="6.5" fill="#94a3b8">{fmtV(v)}</text>
+                  })}
+                  {/* X axis labels */}
+                  <text x={w/2 - barW/2 - 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Used Margin</text>
+                  <text x={w/2 + barW/2 + 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Free Margin</text>
+                </svg>
+              )
+            }
+
+            // ── Semi-circle Profitability gauge ───────────────────────────────
+            const SemiGauge = ({ profit, loss, net }) => {
+              const total = profit + loss || 1
+              const profPct = profit / total
+              const cx = 100, cy = 95, r = 70, sw = 18
+              const semicircle = Math.PI * r
+              const profLen = profPct * semicircle
+              const lossLen = semicircle - profLen
+              return (
+                <svg viewBox="0 0 200 105" className="w-full max-w-[200px] mx-auto">
+                  {/* background track */}
+                  <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
+                    fill="none" stroke="#e2e8f0" strokeWidth={sw} strokeLinecap="butt"/>
+                  {/* blue/purple profit arc */}
+                  <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
+                    fill="none" stroke="#6366f1" strokeWidth={sw} strokeLinecap="butt"
+                    strokeDasharray={`${profLen} ${semicircle}`}
+                    strokeDashoffset={0}/>
+                  {/* label */}
+                  <text x={cx} y={cy - 14} textAnchor="middle" fontSize="12" fontWeight="700" fill={net >= 0 ? '#16a34a' : '#dc2626'}>
+                    {fmtMoney(net)}
+                  </text>
+                  <text x={cx} y={cy - 1} textAnchor="middle" fontSize="8" fill="#64748b">Net P/L</text>
+                </svg>
+              )
+            }
+
+            return (
+              <div className="space-y-4">
+                {/* ── Row 1: Account Information + Account Allocation ── */}
+                <div className="grid grid-cols-5 gap-4">
+                  {/* Account Information – 2/5 width */}
+                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                      Account Information
+                    </h3>
+                    <div className="grid grid-cols-3 gap-x-4 gap-y-4">
+                      {[
+                        { label: 'Name',            value: acc.name || client?.name || '-' },
+                        { label: 'Account',         value: `${acc.login || client?.login || '-'}` },
+                        { label: 'Currency',        value: currency || '-' },
+                        { label: 'Equity',          value: fmtMoney(equity),      blue: true },
+                        { label: 'Margin Level',    value: marginLevel > 0 ? `${marginLevel.toFixed(0)}%` : '-', blue: true },
+                        { label: 'Total Commission',value: fmtMoney(commission),   blue: true },
+                      ].map(({ label, value, blue }) => (
+                        <div key={label}>
+                          <p className="text-[10px] text-slate-400 mb-0.5">{label}</p>
+                          <p className={`text-xs font-semibold ${blue ? 'text-blue-600' : 'text-slate-800'}`}>{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Account Allocation – 3/5 width */}
+                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Account Allocation</h3>
+                    <div className="flex items-center gap-6">
+                      <SvgDonut
+                        size={120} sw={20}
+                        segments={[
+                          { pct: parseFloat((Math.abs(credit)   / allocTotal * 100).toFixed(2)), color: '#6366f1' },
+                          { pct: parseFloat((Math.abs(balance)  / allocTotal * 100).toFixed(2)), color: '#22c55e' },
+                          { pct: parseFloat((Math.abs(floating) / allocTotal * 100).toFixed(2)), color: floating >= 0 ? '#3b82f6' : '#ef4444' },
+                        ]}
+                        centerLine1={fmtMoney(equity)}
+                        centerLine2="Total Equity"
+                      />
+                      <div className="flex-1 space-y-3">
+                        {[
+                          { label: 'Credit',          value: credit,   pct: Math.abs(credit)   / allocTotal * 100, color: '#6366f1' },
+                          { label: 'Balance',         value: balance,  pct: Math.abs(balance)  / allocTotal * 100, color: '#22c55e' },
+                          { label: 'Floating Profit', value: floating, pct: Math.abs(floating) / allocTotal * 100, color: floating >= 0 ? '#3b82f6' : '#ef4444' },
+                        ].map(({ label, value, pct, color }) => (
+                          <div key={label} className="flex items-center gap-3">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
+                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}/>
+                            </div>
+                            <span className="text-xs font-semibold text-slate-700 w-24 text-right">{fmtMoney(value)}</span>
+                            <span className="text-xs text-slate-400 w-12 text-right">{pct.toFixed(2)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Row 2: Profit Trend | Volume Overview | Margin Usage | Deals Summary ── */}
+                <div className="grid grid-cols-4 gap-4">
+                  {/* Profit Trend */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-bold text-slate-800">Profit Trend</h3>
+                      <select value={trendRange} onChange={e => setTrendRange(e.target.value)}
+                        className="text-xs border border-slate-200 rounded px-2 py-0.5 text-slate-600 bg-white focus:outline-none">
+                        <option value="7d">7 Days</option>
+                        <option value="30d">30 Days</option>
+                      </select>
+                    </div>
+                    <div className="h-[110px]">
+                      {trendLoading
+                        ? <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"/></div>
+                        : <ProfitTrendChart data={profitTrend} w={200} h={100}/>
+                      }
+                    </div>
+                    {profitTrend.length > 0 && (
+                      <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                        {profitTrend
+                          .filter((_, i) => i === 0 || i === Math.floor(profitTrend.length / 2) || i === profitTrend.length - 1)
+                          .map((d, i) => <span key={i}>{d.label}</span>)}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Volume Overview */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-3">Volume Overview</h3>
+                    <div className="flex flex-col items-center gap-3">
+                      <SvgDonut
+                        size={100} sw={18}
+                        segments={[
+                          { pct: buyPct,  color: '#3b82f6' },
+                          { pct: sellPct, color: '#ef4444' },
+                        ]}
+                        centerLine1={fmtMoney(totalVolume)}
+                        centerLine2="Total Volume"
+                      />
+                      <div className="w-full space-y-1.5">
+                        {[
+                          { label: 'Buy Volume',  val: buyVol,  pct: buyPct,  color: '#3b82f6' },
+                          { label: 'Sell Volume', val: sellVol, pct: sellPct, color: '#ef4444' },
+                        ].map(({ label, val, pct, color }) => (
+                          <div key={label} className="flex items-center gap-2 text-xs">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
+                            <span className="text-slate-500 flex-1">{label}</span>
+                            <span className="font-semibold text-slate-700">{fmtMoney(val)} ({pct}%)</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Margin Usage – vertical bar chart */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2">Margin Usage</h3>
+                    <div className="flex justify-center">
+                      <MarginBarChart used={margin} free={marginFree}/>
+                    </div>
+                  </div>
+
+                  {/* Deals Summary */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-3">Deals Summary</h3>
+                    <div className="flex items-start gap-3">
+                      <SvgDonut
+                        size={90} sw={16}
+                        segments={[
+                          { pct: parseFloat(winRate.toFixed(1)),  color: '#22c55e' },
+                          { pct: parseFloat(lossRate.toFixed(1)), color: '#ef4444' },
+                        ]}
+                        centerLine1={String(totalDeals)}
+                        centerLine2="Total Deals"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
+                          <div>
+                            <span className="text-slate-700 font-medium">Profitable Deals</span>
+                            <br/><span className="text-slate-500">{profDeals} ({winRate.toFixed(1)}%)</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"/>
+                          <div>
+                            <span className="text-slate-700 font-medium">Losing Deals</span>
+                            <br/><span className="text-slate-500">{loseDeals} ({lossRate.toFixed(1)}%)</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 mt-1">
+                          <div className="bg-green-50 rounded-lg p-1.5 text-center">
+                            <div className="text-[9px] text-green-600 font-medium">Win Rate</div>
+                            <div className="text-xs font-bold text-green-700">{winRate.toFixed(1)}%</div>
+                          </div>
+                          <div className="bg-red-50 rounded-lg p-1.5 text-center">
+                            <div className="text-[9px] text-red-500 font-medium">Loss Rate</div>
+                            <div className="text-xs font-bold text-red-600">{lossRate.toFixed(1)}%</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Row 3: Performance Overview + Profitability ── */}
+                <div className="grid grid-cols-5 gap-4">
+                  {/* Performance Overview – 3/5 width */}
+                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Performance Overview</h3>
+                    <div className="grid grid-cols-4 gap-3">
+                      {[
+                        { label: 'Avg Profit / Deal', value: avgProfit, color: 'text-green-600', bg: 'bg-green-50',
+                          icon: <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg> },
+                        { label: 'Avg Loss / Deal',   value: avgLoss,   color: 'text-red-600',   bg: 'bg-red-50',
+                          icon: <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m0 0h-4m4 0v4M5 20h14a2 2 0 002-2v-5a2 2 0 00-2-2H5a2 2 0 00-2 2v5a2 2 0 002 2z"/></svg> },
+                        { label: 'Max Profit',        value: maxProfit, color: 'text-green-700', bg: 'bg-green-50',
+                          icon: <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg> },
+                        { label: 'Max Loss',          value: maxLoss,   color: 'text-red-700',   bg: 'bg-red-50',
+                          icon: <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg> },
+                      ].map(({ label, value, color, bg, icon }) => (
+                        <div key={label} className={`${bg} rounded-xl p-3 flex flex-col items-center gap-2`}>
+                          {icon}
+                          <div className="text-[10px] text-slate-500 text-center leading-tight">{label}</div>
+                          <div className={`text-sm font-bold ${color}`}>{fmtMoney(value)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Profitability – 2/5 width */}
+                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2">Profitability</h3>
+                    <SemiGauge profit={profitSum} loss={losingSum} net={netPL}/>
+                    <div className="flex justify-around mt-1">
+                      <div className="text-center">
+                        <div className="text-[10px] text-slate-500">Profit Sum</div>
+                        <div className="text-sm font-bold text-green-600">{fmtMoney(profitSum)}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-[10px] text-slate-500">Losing Sum</div>
+                        <div className="text-sm font-bold text-red-600">-{fmtMoney(losingSum)}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
           {activeTab === 'positions' && (
             <div>
               {loading ? (
