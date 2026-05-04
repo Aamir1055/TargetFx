@@ -215,7 +215,9 @@ export default function Client2Module() {
     userLastUpdate: false,
     applied_percentage: false,
     applied_percentage_is_custom: false,
-    storage: false
+    storage: false,
+    tradingEnabled: false,
+    accountEnabled: false
   })
 
   // Fetch clients data via API
@@ -885,7 +887,9 @@ export default function Client2Module() {
     { key: 'userLastUpdate', label: 'User Last Update', width: '140px' },
     { key: 'applied_percentage', label: 'Applied Percentage', width: '120px' },
     { key: 'applied_percentage_is_custom', label: 'Is Custom Percentage', width: '140px' },
-    { key: 'storage', label: 'Storage', width: '80px' }
+    { key: 'storage', label: 'Storage', width: '80px' },
+    { key: 'tradingEnabled', label: 'Trading Enabled', width: '110px' },
+    { key: 'accountEnabled', label: 'Account Enabled', width: '110px' }
   ]
 
   // Helper function to format value based on percentage mode  
@@ -895,6 +899,13 @@ export default function Client2Module() {
     // Handle processorType boolean field
     if (key === 'processorType') {
       return value === true ? 'Connected' : 'Not Connected'
+    }
+
+    // Handle tradingEnabled / accountEnabled boolean fields
+    if (key === 'tradingEnabled' || key === 'accountEnabled') {
+      if (value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true') return 'Enabled'
+      if (value === false || value === 0 || value === '0' || String(value).toLowerCase() === 'false') return 'Disabled'
+      return String(value)
     }
     
     // If showPercent is true and this column supports percentage
@@ -1775,6 +1786,8 @@ export default function Client2Module() {
                 'Applied Percentage': 'applied_percentage',
                 'Is Custom Percentage': 'applied_percentage_is_custom',
                 'Storage': 'storage',
+                'Trading Enabled': 'tradingEnabled',
+                'Account Enabled': 'accountEnabled',
               }).filter(([label]) => 
                 !columnSearch || label.toLowerCase().includes(columnSearch.toLowerCase())
               );

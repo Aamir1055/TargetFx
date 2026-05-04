@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { brokerAPI } from './services/api'
 import { DataProvider } from './contexts/DataContext'
 import { GroupProvider } from './contexts/GroupContext'
 import { IBProvider } from './contexts/IBContext'
@@ -67,6 +68,7 @@ const ClientDashboardDesignCPage = lazy(() => import('./pages/ClientDashboardDes
 const AppContent = () => {
   const { isAuthenticated, loading } = useAuth()
   const [isMobile, setIsMobile] = useState(false)
+  const marginPollTimer = useRef(null)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -80,6 +82,35 @@ const AppContent = () => {
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // Global margin-level badge polling — runs every 3 minutes so the sidebar
+  // count stays up-to-date regardless of which page is active.
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const updateMarginCount = async () => {
+      try {
+        const res = await brokerAPI.getMarginCallClients()
+        const data = res?.data ?? res
+        const list = Array.isArray(data)
+          ? data
+          : (data?.clients ?? data?.accounts ?? data?.results ?? [])
+        const count = Array.isArray(list) ? list.length : 0
+        localStorage.setItem('marginLevelCount', String(count))
+        window.dispatchEvent(new CustomEvent('marginLevelCountChanged'))
+      } catch {
+        // Silently ignore — next poll will retry
+      }
+    }
+
+    // Fetch immediately then every 3 minutes
+    updateMarginCount()
+    marginPollTimer.current = setInterval(updateMarginCount, 3 * 60 * 1000)
+
+    return () => {
+      if (marginPollTimer.current) clearInterval(marginPollTimer.current)
+    }
+  }, [isAuthenticated])
 
   if (loading) {
     return <PageSkeleton />

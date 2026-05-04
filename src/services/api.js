@@ -262,6 +262,12 @@ ibApi.interceptors.response.use(
 
 // Auth API endpoints
 export const authAPI = {
+  // Get current broker profile (rights/permissions)
+  getMe: async () => {
+    const response = await api.get('/api/auth/broker/me')
+    return response.data
+  },
+
   // Login
   login: async (username, password) => {
     const response = await api.post('/api/auth/broker/login', {
@@ -503,7 +509,19 @@ export const brokerAPI = {
     const response = await api.get('/api/broker/clients/margin-call')
     return response.data
   },
-  
+
+  // Saved filters (groups) - GET
+  getSavedFilters: async () => {
+    const response = await api.get('/api/broker/saved-filters')
+    return response.data
+  },
+
+  // Saved filters (groups) - PUT (replaces entire list)
+  putSavedFilters: async (filters) => {
+    const response = await api.put('/api/broker/saved-filters', { filters })
+    return response.data
+  },
+
   // Get deals by login
   getDealsByLogin: async (login, limit = 1000) => {
     const response = await api.get(`/api/broker/clients/${login}/deals?limit=${limit}`)
