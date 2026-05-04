@@ -27,7 +27,7 @@ const formatDateToValue = (displayStr) => {
 }
 
 const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrdersCache = [] }) => {
-  const [activeTab, setActiveTab] = useState('positions')
+  const [activeTab, setActiveTab] = useState('overview')
   const [positions, setPositions] = useState([])
   const [orders, setOrders] = useState([])
   const [netPositions, setNetPositions] = useState([])
@@ -108,6 +108,11 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   // Deal stats from API
   const [dealStats, setDealStats] = useState(null)
 
+  // Overview tab: profit trend
+  const [trendRange, setTrendRange] = useState('7d')
+  const [profitTrend, setProfitTrend] = useState([])
+  const [trendLoading, setTrendLoading] = useState(false)
+
   // Summary stats
   const [stats, setStats] = useState({
     positionsCount: 0,
@@ -178,6 +183,44 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     timer = setTimeout(refresh, 2000)
     return () => { cancelled = true; if (timer) clearTimeout(timer) }
   }, [client?.login])
+
+  // Fetch profit trend (daily P&L) for the overview tab
+  const fetchProfitTrend = async (range = '7d') => {
+    setTrendLoading(true)
+    try {
+      const now = Math.floor(Date.now() / 1000)
+      const days = range === '30d' ? 30 : 7
+      const from = now - days * 86400
+      const resp = await brokerAPI.getClientDeals(client.login, from, now, 10000, 0)
+      const dealsArr = resp?.deals ?? resp?.data?.deals ?? []
+      const byDate = {}
+      dealsArr.forEach(d => {
+        const ts = d.time || d.timestamp
+        if (!ts) return
+        const dt = new Date(ts * 1000)
+        const key = `${dt.getDate()}/${dt.getMonth() + 1}`
+        if (!byDate[key]) byDate[key] = { label: key, value: 0, ts }
+        byDate[key].value += Number(d.profit || 0)
+      })
+      // Fill missing days with 0
+      const result = []
+      for (let i = days - 1; i >= 0; i--) {
+        const dt = new Date((now - i * 86400) * 1000)
+        const key = `${dt.getDate()}/${dt.getMonth() + 1}`
+        result.push(byDate[key] || { label: key, value: 0, ts: now - i * 86400 })
+      }
+      setProfitTrend(result)
+    } catch {
+      setProfitTrend([])
+    } finally {
+      setTrendLoading(false)
+    }
+  }
+
+  // Fetch profit trend on mount and when range changes
+  useEffect(() => {
+    fetchProfitTrend(trendRange)
+  }, [client.login, trendRange])
 
   // Reset pagination when tab changes
   useEffect(() => {
@@ -890,6 +933,359 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     return filteredDeals
   }, [filteredDeals])
 
+  const renderOverview = () => {
+    // Account data
+    const balance   = Number(clientData.balance   ?? client.balance   ?? 0)
+    const equity    = Number(clientData.equity     ?? client.equity    ?? 0)
+    const credit    = Number(clientData.credit     ?? client.credit    ?? 0)
+    const floating  = Number(clientData.profit     ?? clientData.floating ?? client.profit ?? 0)
+    const marginLvl = Number(clientData.margin_level ?? client.margin_level ?? clientData.marginLevel ?? 0)
+    const commission= Number(clientData.commission ?? client.commission ?? 0)
+    const margin    = Number(clientData.margin     ?? client.margin    ?? 0)
+    const marginFree= Number(clientData.margin_free ?? client.margin_free ?? clientData.marginFree ?? 0)
+    const currency  = clientData.currency ?? client.currency ?? ''
+    const name      = clientData.name     ?? client.name     ?? 'Unknown'
+    const login     = clientData.login    ?? client.login    ?? ''
+    const server    = clientData.server   ?? client.server   ?? ''
+
+    // Deal stats
+    const ds = dealStats || {}
+    const totalDeals       = Number(ds.totalDeals       ?? ds.total_deals            ?? 0)
+    const winRate          = Number(ds.winRate          ?? ds.win_rate               ?? 0)
+    const profitableDeals  = Number(ds.profitableDealCount ?? ds.profitable_deal_count ?? 0)
+    const losingDeals      = Number(ds.losingDealCount  ?? ds.losing_deal_count      ?? 0)
+    const profitSum        = Number(ds.profitableDealsSum ?? ds.profitSum ?? ds.profit_sum ?? 0)
+    const losingSum        = Number(ds.losingDealsSum   ?? ds.losingDealSum ?? ds.losingSum ?? ds.losing_sum ?? 0)
+    const avgProfit        = Number(ds.avgProfitPerDeal ?? ds.avg_profit_per_deal     ?? 0)
+    const avgLoss          = Number(ds.avgLossPerDeal   ?? ds.avg_loss_per_deal       ?? 0)
+    const maxProfit        = Number(ds.maxProfit        ?? ds.max_profit              ?? 0)
+    const maxLoss          = Number(ds.maxLoss          ?? ds.max_loss                ?? 0)
+    const buyVolume        = Number(ds.buyVolume        ?? ds.buy_volume             ?? 0)
+    const sellVolume       = Number(ds.sellVolume       ?? ds.sell_volume            ?? 0)
+    const totalVol         = buyVolume + sellVolume || 1
+    const netPL            = profitSum + losingSum
+
+    const lossRate = totalDeals > 0 ? (losingDeals / totalDeals * 100) : (100 - winRate)
+
+    const fmt = (n, d = 2) => formatNum(n, d)
+    const fmtPct = (n) => `${Number(n).toFixed(1)}%`
+
+    // ── SVG Donut ──────────────────────────────────────────────────────────────
+    const SvgDonut = ({ segments, size = 100, sw = 14, label, sublabel }) => {
+      const r = (size - sw) / 2
+      const circ = 2 * Math.PI * r
+      const cx = size / 2, cy = size / 2
+      const total = segments.reduce((s, seg) => s + Math.max(0, seg.v), 0) || 1
+      let acc = 0
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={sw} />
+          {segments.map((seg, i) => {
+            const pct = Math.max(0, seg.v) / total
+            const len = pct * circ
+            const off = -(acc / total) * circ
+            acc += Math.max(0, seg.v)
+            return (
+              <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+                stroke={seg.color} strokeWidth={sw}
+                strokeDasharray={`${len} ${circ - len}`}
+                strokeDashoffset={off}
+                transform={`rotate(-90 ${cx} ${cy})`}
+                strokeLinecap="butt" />
+            )
+          })}
+          {label && <text x={cx} y={cy - 5} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#111827">{label}</text>}
+          {sublabel && <text x={cx} y={cy + 10} textAnchor="middle" fontSize="9" fill="#6b7280">{sublabel}</text>}
+        </svg>
+      )
+    }
+
+    // ── SVG Line Chart ────────────────────────────────────────────────────────
+    const SvgLine = ({ data, w = 220, h = 70 }) => {
+      if (!data.length) return <div className="h-[70px] flex items-center justify-center text-xs text-gray-400">No data</div>
+      const vals = data.map(d => d.value)
+      const minV = Math.min(...vals), maxV = Math.max(...vals)
+      const rng = maxV - minV || 1
+      const step = w / Math.max(data.length - 1, 1)
+      const pts = data.map((d, i) => ({ x: i * step, y: h - ((d.value - minV) / rng) * (h - 8) - 4 }))
+      const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+      const areaD = `${pathD} L${pts[pts.length-1].x},${h} L0,${h} Z`
+      const hasNeg = vals.some(v => v < 0), hasPos = vals.some(v => v > 0)
+      const lineColor = hasNeg && !hasPos ? '#ef4444' : '#3b82f6'
+      return (
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
+          <defs>
+            <linearGradient id={`lg${w}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
+              <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={areaD} fill={`url(#lg${w})`} />
+          <path d={pathD} fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={lineColor} />)}
+        </svg>
+      )
+    }
+
+    // ── Allocation total for donut ─────────────────────────────────────────────
+    const allocTotal = Math.abs(credit) + Math.abs(balance) + Math.abs(floating)
+
+    return (
+      <div className="p-3 space-y-3 pb-6">
+
+        {/* ── Account Information ─────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Account Information</p>
+          <div className="grid grid-cols-3 gap-y-2 gap-x-2">
+            {[
+              { label: 'Name', value: name },
+              { label: 'Account', value: `${server ? server + ' - ' : ''}${login}` },
+              { label: 'Currency', value: currency || '–' },
+              { label: 'Equity', value: fmt(equity), color: equity >= 0 ? 'text-green-600' : 'text-red-600' },
+              { label: 'Margin Level', value: marginLvl ? fmtPct(marginLvl) : '–', color: marginLvl >= 100 ? 'text-green-600' : 'text-red-600' },
+              { label: 'Commission', value: fmt(commission) },
+            ].map(({ label, value, color }) => (
+              <div key={label}>
+                <p className="text-[9px] text-gray-400 leading-tight">{label}</p>
+                <p className={`text-[11px] font-semibold truncate ${color ?? 'text-gray-800'}`}>{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Account Allocation + Volume Overview ───────────────── */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Account Allocation */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Account Allocation</p>
+            <div className="flex items-center gap-2">
+              <SvgDonut
+                size={80} sw={12}
+                label={fmt(equity)}
+                sublabel="Total Equity"
+                segments={[
+                  { v: Math.abs(credit),   color: '#6366f1' },
+                  { v: Math.abs(balance),  color: '#22c55e' },
+                  { v: Math.abs(floating), color: floating >= 0 ? '#3b82f6' : '#ef4444' },
+                ]}
+              />
+              <div className="flex-1 space-y-1.5 min-w-0">
+                {[
+                  { label: 'Credit',          val: credit,   color: '#6366f1' },
+                  { label: 'Balance',         val: balance,  color: '#22c55e' },
+                  { label: 'Floating Profit', val: floating, color: floating >= 0 ? '#3b82f6' : '#ef4444' },
+                ].map(({ label, val, color }) => {
+                  const pct = allocTotal ? Math.abs(val) / allocTotal * 100 : 0
+                  return (
+                    <div key={label}>
+                      <div className="flex justify-between items-center mb-0.5">
+                        <span className="text-[9px] text-gray-500 truncate">{label}</span>
+                        <span className={`text-[9px] font-medium ${val >= 0 ? 'text-gray-700' : 'text-red-500'}`}>{val >= 0 ? fmtPct(pct) : `-${fmtPct(pct)}`}</span>
+                      </div>
+                      <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Volume Overview */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Volume Overview</p>
+            <div className="flex flex-col items-center gap-1">
+              <SvgDonut
+                size={80} sw={12}
+                label={`${((buyVolume / totalVol) * 100).toFixed(0)}%`}
+                sublabel="Buy"
+                segments={[
+                  { v: buyVolume,  color: '#3b82f6' },
+                  { v: sellVolume, color: '#ef4444' },
+                ]}
+              />
+              <div className="flex items-center gap-3 text-[9px]">
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                  <span className="text-gray-600">Buy <span className="font-semibold text-gray-800">{fmt(buyVolume)}</span></span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                  <span className="text-gray-600">Sell <span className="font-semibold text-gray-800">{fmt(sellVolume)}</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Profit Trend ──────────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Profit Trend</p>
+            <div className="flex items-center gap-1">
+              {['7d', '30d'].map(r => (
+                <button key={r} onClick={() => setTrendRange(r)}
+                  className={`px-2 py-0.5 rounded text-[9px] font-medium transition-colors ${trendRange === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                  {r === '7d' ? '7 Days' : '30 Days'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {trendLoading ? (
+            <div className="h-[70px] flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              <SvgLine data={profitTrend} w={260} h={70} />
+              <div className="flex justify-between mt-1">
+                {profitTrend.filter((_, i) => i % Math.max(1, Math.floor(profitTrend.length / 5)) === 0).map((d, i) => (
+                  <span key={i} className="text-[8px] text-gray-400">{d.label}</span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ── Margin Usage ──────────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Margin Usage</p>
+          {(() => {
+            const usedPct = margin + marginFree > 0 ? (margin / (margin + marginFree)) * 100 : 0
+            const freePct = 100 - usedPct
+            return (
+              <div className="space-y-2">
+                {[
+                  { label: 'Used Margin', val: margin,      pct: usedPct, color: '#ef4444' },
+                  { label: 'Free Margin', val: marginFree,  pct: freePct, color: '#22c55e' },
+                ].map(({ label, val, pct, color }) => (
+                  <div key={label}>
+                    <div className="flex justify-between text-[10px] mb-0.5">
+                      <span className="text-gray-500">{label}</span>
+                      <span className="font-semibold text-gray-700">{fmt(val)}</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+        </div>
+
+        {/* ── Deals Summary ──────────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Deals Summary</p>
+          <div className="flex items-center gap-3">
+            <SvgDonut
+              size={90} sw={14}
+              label={String(totalDeals)}
+              sublabel="Total Deals"
+              segments={[
+                { v: profitableDeals, color: '#22c55e' },
+                { v: losingDeals,     color: '#ef4444' },
+              ]}
+            />
+            <div className="flex-1 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                <span className="text-[9px] text-gray-500">Profitable Deals</span>
+                <span className="ml-auto text-[10px] font-bold text-green-600">{profitableDeals} ({fmtPct(winRate)})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                <span className="text-[9px] text-gray-500">Losing Deals</span>
+                <span className="ml-auto text-[10px] font-bold text-red-600">{losingDeals} ({fmtPct(lossRate)})</span>
+              </div>
+              <div className="h-px bg-gray-100 my-1" />
+              <div className="grid grid-cols-2 gap-1">
+                <div className="bg-green-50 rounded-lg p-1.5 text-center">
+                  <p className="text-[9px] text-green-600 font-medium">Win Rate</p>
+                  <p className="text-[11px] font-bold text-green-700">{fmtPct(winRate)}</p>
+                </div>
+                <div className="bg-red-50 rounded-lg p-1.5 text-center">
+                  <p className="text-[9px] text-red-500 font-medium">Loss Rate</p>
+                  <p className="text-[11px] font-bold text-red-600">{fmtPct(lossRate)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Performance Overview ──────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Performance Overview</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'Avg Profit / Deal', val: avgProfit,  color: 'text-green-600', bg: 'bg-green-50' },
+              { label: 'Avg Loss / Deal',   val: avgLoss,    color: 'text-red-600',   bg: 'bg-red-50'   },
+              { label: 'Max Profit',        val: maxProfit,  color: 'text-green-700', bg: 'bg-green-50' },
+              { label: 'Max Loss',          val: maxLoss,    color: 'text-red-700',   bg: 'bg-red-50'   },
+            ].map(({ label, val, color, bg }) => (
+              <div key={label} className={`${bg} rounded-lg p-2`}>
+                <p className="text-[9px] text-gray-500 mb-0.5">{label}</p>
+                <p className={`text-[12px] font-bold ${color}`}>{fmt(val)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Profitability ──────────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Profitability</p>
+          <div className="flex items-center gap-3">
+            {/* Semi-circle gauge */}
+            <div className="relative flex-shrink-0">
+              {(() => {
+                const size = 90, sw = 12, r = (size - sw) / 2
+                const cx = size / 2, cy = size / 2
+                const circ = 2 * Math.PI * r
+                const half = circ / 2
+                const total = Math.abs(profitSum) + Math.abs(losingSum) || 1
+                const profitPct = Math.abs(profitSum) / total
+                const profitLen = profitPct * half
+                const losingLen = (1 - profitPct) * half
+                return (
+                  <svg width={size} height={size / 2 + sw / 2 + 2} viewBox={`0 0 ${size} ${size / 2 + sw / 2 + 2}`}>
+                    {/* background arc */}
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={sw}
+                      strokeDasharray={`${half} ${circ}`} strokeDashoffset={0}
+                      transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt" />
+                    {/* profit arc (green) */}
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#22c55e" strokeWidth={sw}
+                      strokeDasharray={`${profitLen} ${circ - profitLen}`}
+                      strokeDashoffset={0}
+                      transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt" />
+                    {/* losing arc (red, continues from profit arc) */}
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ef4444" strokeWidth={sw}
+                      strokeDasharray={`${losingLen} ${circ - losingLen}`}
+                      strokeDashoffset={-profitLen}
+                      transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt" />
+                    <text x={cx} y={cy - 4} textAnchor="middle" fontSize="9" fontWeight="bold" fill="#111827">{fmt(netPL)}</text>
+                    <text x={cx} y={cy + 6} textAnchor="middle" fontSize="7.5" fill="#6b7280">Net P/L</text>
+                  </svg>
+                )
+              })()}
+            </div>
+            <div className="flex-1 space-y-2">
+              <div>
+                <p className="text-[9px] text-gray-400">Profit Sum</p>
+                <p className="text-[13px] font-bold text-green-600">{fmt(profitSum)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] text-gray-400">Losing Sum</p>
+                <p className="text-[13px] font-bold text-red-600">{fmt(losingSum)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    )
+  }
+
   const renderPositions = () => {
     const regularPositions = paginatedGroupedPositions.regularPositions
     const pendingOrders = paginatedGroupedPositions.pendingOrders
@@ -1294,6 +1690,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           <div className="-mx-4 border-b border-gray-200 overflow-x-auto scrollbar-hide">
             <div className="flex items-stretch px-2 min-w-max">
               {[
+                { key: 'overview',  label: 'Overview',  count: null },
                 { key: 'positions', label: 'Positions', count: filteredPositions.length },
                 { key: 'deals',     label: 'Deals',     count: hasAppliedFilter ? totalDealsCount : 0 },
                 ...((user?.rights ? ['deposit','withdrawal','credit_in','credit_out'].some(r => user.rights.includes(r)) : true) ? [{ key: 'funds', label: 'Money', count: null }] : []),
@@ -1327,6 +1724,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         </div>
 
         {/* Search */}
+        {activeTab !== 'overview' && (
         <div className="px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-2 mb-2">
             <div className="flex-1 min-w-0 h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center px-2 gap-1">
@@ -1391,6 +1789,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
             )}
           </div>
         </div>
+        )}
 
         {/* Date Filter for Deals Tab - Single Row Compact Design */}
         {activeTab === 'deals' && (
@@ -1498,6 +1897,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
             </div>
           ) : (
             <div className="bg-white relative min-w-full">
+              {activeTab === 'overview' && renderOverview()}
               {activeTab === 'positions' && renderPositions()}
               {activeTab === 'deals' && renderDeals()}
               
