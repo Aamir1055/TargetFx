@@ -2204,31 +2204,31 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             const maxLoss         = parseFloat(ds.maxLoss          ?? ds.max_loss            ?? 0)
             const allocTotal      = Math.abs(credit) + Math.abs(balance) + Math.abs(floating) || 1
 
-            // ── Precise SVG Donut ─────────────────────────────────────────────
+            // ── SVG Donut – rotate-transform approach (reliable across all browsers) ──
             const SvgDonut = ({ segments, size, sw, centerLine1, centerLine2 }) => {
               const r    = (size - sw) / 2
               const circ = 2 * Math.PI * r
               const cx   = size / 2, cy = size / 2
-              let cumPct = 0
+              let cumAngle = 0
               return (
                 <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
-                  {/* background track */}
-                  <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e2e8f0" strokeWidth={sw}/>
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={sw}/>
                   {segments.map((seg, i) => {
-                    const pct = Math.max(0, seg.pct)
-                    const len = (pct / 100) * circ
-                    const off = (cumPct / 100) * circ
-                    cumPct += pct
+                    const pct   = Math.max(0, seg.pct)
+                    const len   = (pct / 100) * circ
+                    const angle = cumAngle
+                    cumAngle   += (pct / 100) * 360
                     return (
                       <circle key={i} cx={cx} cy={cy} r={r} fill="none"
                         stroke={seg.color} strokeWidth={sw}
                         strokeDasharray={`${len} ${circ - len}`}
-                        strokeDashoffset={-(off) + circ * 0.25}
-                        strokeLinecap="butt"/>
+                        strokeDashoffset={circ * 0.25}
+                        strokeLinecap="butt"
+                        transform={`rotate(${angle}, ${cx}, ${cy})`}/>
                     )
                   })}
-                  {centerLine1 && <text x="50%" y={centerLine2 ? '44%' : '54%'} textAnchor="middle" dominantBaseline="middle" fontSize={size > 100 ? '11' : '10'} fontWeight="700" fill="#1e293b">{centerLine1}</text>}
-                  {centerLine2 && <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" fontSize={size > 100 ? '9' : '8'} fill="#64748b">{centerLine2}</text>}
+                  {centerLine1 && <text x={cx} y={centerLine2 ? cy - 5 : cy + 4} textAnchor="middle" fontSize={size > 100 ? '11' : '10'} fontWeight="700" fill="#1e293b">{centerLine1}</text>}
+                  {centerLine2 && <text x={cx} y={cy + 9} textAnchor="middle" fontSize={size > 100 ? '9' : '8'} fill="#64748b">{centerLine2}</text>}
                 </svg>
               )
             }
@@ -2292,12 +2292,12 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   {/* zero line */}
                   <line x1="30" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
                   {/* Used Margin bar – goes DOWN (negative) */}
-                  <rect x={w/2 - barW - 4} y={midY} width={barW} height={usedH} fill="#ef4444" rx="2"/>
+                  <rect x={w/2 - barW - 4} y={midY} width={barW} height={usedH} fill="#ef4444" rx="3"/>
                   {/* Free Margin bar – goes UP (positive) */}
-                  <rect x={w/2 + 4} y={midY - freeH} width={barW} height={freeH} fill="#22c55e" rx="2"/>
+                  <rect x={w/2 + 4} y={midY - freeH} width={barW} height={freeH} fill="#16a34a" rx="3"/>
                   {/* value labels */}
                   <text x={w/2 - barW/2 - 4} y={midY + usedH + 9} textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
-                  <text x={w/2 + barW/2 + 4} y={midY - freeH - 4} textAnchor="middle" fontSize="7" fill="#22c55e" fontWeight="600">{fmtV(free)}</text>
+                  <text x={w/2 + barW/2 + 4} y={midY - freeH - 4} textAnchor="middle" fontSize="7" fill="#16a34a" fontWeight="600">{fmtV(free)}</text>
                   {/* Y axis ticks */}
                   {[0.5, 0, -0.5].map((f, i) => {
                     const y = midY - f * (midY - 16)
@@ -2323,10 +2323,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 <svg viewBox="0 0 200 105" className="w-full max-w-[200px] mx-auto">
                   {/* background track */}
                   <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
-                    fill="none" stroke="#e2e8f0" strokeWidth={sw} strokeLinecap="butt"/>
-                  {/* blue/purple profit arc */}
+                    fill="none" stroke="#e5e7eb" strokeWidth={sw} strokeLinecap="round"/>
+                  {/* blue profit arc */}
                   <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
-                    fill="none" stroke="#6366f1" strokeWidth={sw} strokeLinecap="butt"
+                    fill="none" stroke="#3b82f6" strokeWidth={sw} strokeLinecap="round"
                     strokeDasharray={`${profLen} ${semicircle}`}
                     strokeDashoffset={0}/>
                   {/* label */}
@@ -2433,7 +2433,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       <SvgDonut
                         size={100} sw={18}
                         segments={[
-                          { pct: buyPct,  color: '#3b82f6' },
+                          { pct: buyPct,  color: '#2563eb' },
                           { pct: sellPct, color: '#ef4444' },
                         ]}
                         centerLine1={fmtMoney(totalVolume)}
@@ -2441,7 +2441,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       />
                       <div className="w-full space-y-1.5">
                         {[
-                          { label: 'Buy Volume',  val: buyVol,  pct: buyPct,  color: '#3b82f6' },
+                          { label: 'Buy Volume',  val: buyVol,  pct: buyPct,  color: '#2563eb' },
                           { label: 'Sell Volume', val: sellVol, pct: sellPct, color: '#ef4444' },
                         ].map(({ label, val, pct, color }) => (
                           <div key={label} className="flex items-center gap-2 text-xs">
