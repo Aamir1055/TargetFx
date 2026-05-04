@@ -262,6 +262,12 @@ ibApi.interceptors.response.use(
 
 // Auth API endpoints
 export const authAPI = {
+  // Get current broker profile (rights/permissions)
+  getMe: async () => {
+    const response = await api.get('/api/auth/broker/me')
+    return response.data
+  },
+
   // Login
   login: async (username, password) => {
     const response = await api.post('/api/auth/broker/login', {

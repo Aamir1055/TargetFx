@@ -228,6 +228,34 @@ export const AuthProvider = ({ children }) => {
     setLoading(false)
   }
 
+  // Refresh user rights from /api/auth/broker/me on every page load/refresh.
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const refreshRights = async () => {
+      try {
+        const res = await authAPI.getMe()
+        // Response may be wrapped: { status, data: { broker } } or { data: broker } or the broker directly
+        const broker =
+          res?.data?.broker ??
+          res?.broker ??
+          (res?.data && typeof res.data === 'object' && !Array.isArray(res.data) ? res.data : null)
+        if (broker && typeof broker === 'object') {
+          setUser((prev) => ({ ...prev, ...broker }))
+          localStorage.setItem('user_data', JSON.stringify({ ...(JSON.parse(localStorage.getItem('user_data') || '{}')), ...broker }))
+          console.log('[Auth] User rights refreshed from /api/auth/broker/me')
+        }
+      } catch (err) {
+        // 401 is handled globally by the axios interceptor (auto-logout)
+        if (err?.response?.status !== 401) {
+          console.warn('[Auth] Failed to refresh user rights:', err?.message)
+        }
+      }
+    }
+
+    refreshRights()
+  }, [isAuthenticated])
+
   const value = {
     user,
     isAuthenticated,

@@ -570,7 +570,11 @@ const Client2Page = () => {
           localStorage.removeItem('client2PageVisibleColumns')
           return getDefaultColumns()
         }
-        return parsed
+        // Merge in any new keys that were added after the last save (default to false)
+        const defaults = getDefaultColumns()
+        let merged = { ...parsed }
+        Object.keys(defaults).forEach(k => { if (!merged.hasOwnProperty(k)) merged[k] = defaults[k] })
+        return merged
       } catch (e) {
         console.error('Failed to parse saved columns:', e)
         localStorage.removeItem('client2PageVisibleColumns')
@@ -611,7 +615,9 @@ const Client2Page = () => {
       lifetimePnL: true,
       accountType: true,
       processorType: true,
-      pnl: true
+      pnl: true,
+      tradingEnabled: false,
+      accountEnabled: false
     }
   }
 
@@ -680,7 +686,9 @@ const Client2Page = () => {
     { key: 'userLastUpdate', label: 'User Last Update', type: 'timestamp' },
     { key: 'applied_percentage', label: 'Applied Percentage', type: 'float' },
     { key: 'applied_percentage_is_custom', label: 'Is Custom Percentage', type: 'text' },
-    { key: 'storage', label: 'Storage', type: 'float' }
+    { key: 'storage', label: 'Storage', type: 'float' },
+    { key: 'tradingEnabled', label: 'Trading Enabled', type: 'boolean' },
+    { key: 'accountEnabled', label: 'Account Enabled', type: 'boolean' }
   ]
 
   // Get visible columns list (moved here before being used in useEffect dependencies)
@@ -3528,6 +3536,13 @@ const Client2Page = () => {
       return '-'
     }
 
+    // tradingEnabled / accountEnabled: boolean → styled label
+    if (key === 'tradingEnabled' || key === 'accountEnabled') {
+      if (value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true') return 'Enabled'
+      if (value === false || value === 0 || value === '0' || String(value).toLowerCase() === 'false') return 'Disabled'
+      return String(value)
+    }
+
     // Processor Type: show friendly connection status labels
     if (key === 'processorType' || key === 'processor_type' || key === 'PROCESSOR_TYPE') {
       if (typeof value === 'boolean') {
@@ -3634,6 +3649,13 @@ const Client2Page = () => {
     return 'bg-gray-100 text-gray-700'
   }
 
+  const getBooleanChipClasses = (val) => {
+    const v = String(val || '').toLowerCase()
+    if (v === 'enabled') return 'bg-green-100 text-green-800'
+    if (v === 'disabled') return 'bg-red-100 text-red-800'
+    return 'bg-gray-100 text-gray-700'
+  }
+
   const getAccountTypeChipClasses = (type) => {
     const t = String(type || '').toUpperCase()
     // Account tier types
@@ -3697,100 +3719,98 @@ const Client2Page = () => {
   const getCardIcon = (cardLabel) => {
     // Normalize to uppercase for consistent matching
     const normalizedLabel = cardLabel.toUpperCase()
-    const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
-      'TOTAL CLIENTS': `${baseUrl}Desktop cards icons/Clients.svg`,
-      'ASSETS': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'BALANCE': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'BLOCKED COMMISSION': `${baseUrl}Desktop cards icons/Blocked commision.svg`,
-      'BLOCKED PROFIT': `${baseUrl}Desktop cards icons/Floating PNL.svg`,
-      'COMMISSION': `${baseUrl}Desktop cards icons/AVAILABLE Commision.svg`,
-      'THIS WEEK COMMISSION': `${baseUrl}Desktop cards icons/AVAILABLE Commision.svg`,
-      'THIS MONTH COMMISSION': `${baseUrl}Desktop cards icons/AVAILABLE Commision.svg`,
-      'LIFETIME COMMISSION': `${baseUrl}Desktop cards icons/AVAILABLE Commision.svg`,
-      'CREDIT': `${baseUrl}Desktop cards icons/Credit.svg`,
-      'DAILY BONUS IN': `${baseUrl}Desktop cards icons/Daily BONUS IN.svg`,
-      'DAILY BONUS OUT': `${baseUrl}Desktop cards icons/Daily BONUS OUT.svg`,
-      'DAILY CREDIT IN': `${baseUrl}Desktop cards icons/LIFETIME CREDIT IN.svg`,
-      'DAILY CREDIT OUT': `${baseUrl}Desktop cards icons/LIFETIME CREDIT OUT.svg`,
-      'DAILY DEPOSIT': `${baseUrl}Desktop cards icons/Daily Deposite.svg`,
-      'DAILY P&L': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'DAILY SO COMPENSATION IN': `${baseUrl}Desktop cards icons/Daily BONUS IN.svg`,
-      'DAILY SO COMPENSATION OUT': `${baseUrl}Desktop cards icons/Daily BONUS OUT.svg`,
-      'DAILY WITHDRAWAL': `${baseUrl}Desktop cards icons/Daily WITHDRAWL.svg`,
-      'DAILY NET D/W': `${baseUrl}Desktop cards icons/NET WD.svg`,
-      'NET DAILY BONUS': `${baseUrl}Desktop cards icons/Net Daily Bonus.svg`,
-      'EQUITY': `${baseUrl}Desktop cards icons/Equity.svg`,
-      'FLOATING P/L': `${baseUrl}Desktop cards icons/Floating PNL.svg`,
-      'FLOATING PNL': `${baseUrl}Desktop cards icons/Floating PNL.svg`,
-      'FLOATING': `${baseUrl}Desktop cards icons/Floating PNL.svg`,
-      'LIABILITIES': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'LIFETIME BONUS IN': `${baseUrl}Desktop cards icons/LIFETIME BONUS IN.svg`,
-      'LIFETIME BONUS OUT': `${baseUrl}Desktop cards icons/LIFETIME BONUS OUT.svg`,
-      'LIFETIME CREDIT IN': `${baseUrl}Desktop cards icons/LIFETIME CREDIT IN.svg`,
-      'LIFETIME CREDIT OUT': `${baseUrl}Desktop cards icons/LIFETIME CREDIT OUT.svg`,
-      'LIFETIME DEPOSIT': `${baseUrl}Desktop cards icons/Daily Deposite.svg`,
-      'LIFETIME P&L': `${baseUrl}Desktop cards icons/LIFETIME PNL.svg`,
-      'LIFETIME PNL': `${baseUrl}Desktop cards icons/LIFETIME PNL.svg`,
-      'LIFETIME SO COMPENSATION IN': `${baseUrl}Desktop cards icons/LIFETIME BONUS IN.svg`,
-      'LIFETIME SO COMPENSATION OUT': `${baseUrl}Desktop cards icons/LIFETIME BONUS OUT.svg`,
-      'LIFETIME WITHDRAWAL': `${baseUrl}Desktop cards icons/Daily WITHDRAWL.svg`,
-      'NET LIFETIME DW': `${baseUrl}Desktop cards icons/NET WD.svg`,
-      'MARGIN': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'MARGIN FREE': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'THIS MONTH BONUS IN': `${baseUrl}Desktop cards icons/MONTHLY BONUS IN.svg`,
-      'THIS MONTH BONUS OUT': `${baseUrl}Desktop cards icons/MONTHLY BONUS OUt.svg`,
-      'THIS MONTH CREDIT IN': `${baseUrl}Desktop cards icons/MONTHLY CREDIT IN.svg`,
-      'THIS MONTH CREDIT OUT': `${baseUrl}Desktop cards icons/MOnthly CREDIT OUT.svg`,
-      'THIS MONTH DEPOSIT': `${baseUrl}Desktop cards icons/MONTLY DEPOSITE.svg`,
-      'THIS MONTH P&L': `${baseUrl}Desktop cards icons/THIS MONTH PNL.svg`,
-      'THIS MONTH PNL': `${baseUrl}Desktop cards icons/THIS MONTH PNL.svg`,
-      'THIS MONTH SO COMPENSATION IN': `${baseUrl}Desktop cards icons/MONTHLY BONUS IN.svg`,
-      'THIS MONTH SO COMPENSATION OUT': `${baseUrl}Desktop cards icons/MONTHLY BONUS OUt.svg`,
-      'THIS MONTH WITHDRAWAL': `${baseUrl}Desktop cards icons/MONTLY WITHDRAWL.svg`,
-      // Correction and Swap (no dedicated icons; using generic ones)
-      'THIS WEEK CORRECTION': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'THIS MONTH CORRECTION': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'LIFETIME CORRECTION': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'THIS WEEK SWAP': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'THIS MONTH SWAP': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'LIFETIME SWAP': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'NET MONTHLY BONUS': `${baseUrl}Desktop cards icons/NET MONTHLY BONUS.svg`,
-      'NET MONTHLY DW': `${baseUrl}Desktop cards icons/NET MONTHLY DW.svg`,
-      'PROFIT': `${baseUrl}Desktop cards icons/Floating PNL.svg`,
-      'STORAGE': `${baseUrl}Desktop cards icons/Balance.svg`,
-      'THIS WEEK BONUS IN': `${baseUrl}Desktop cards icons/Weekly bonus in.svg`,
-      'THIS WEEK BONUS OUT': `${baseUrl}Desktop cards icons/WEEK BONUS OUT.svg`,
-      'THIS WEEK CREDIT IN': `${baseUrl}Desktop cards icons/WEEKLY Credit IN.svg`,
-      'THIS WEEK CREDIT OUT': `${baseUrl}Desktop cards icons/WEEKLY CREDIT OUT.svg`,
-      'THIS WEEK DEPOSIT': `${baseUrl}Desktop cards icons/WEEK DEPOSITE.svg`,
-      'THIS WEEK P&L': `${baseUrl}Desktop cards icons/This week pnl.svg`,
-      'THIS WEEK PNL': `${baseUrl}Desktop cards icons/This week pnl.svg`,
-      'THIS WEEK SO COMPENSATION IN': `${baseUrl}Desktop cards icons/Weekly bonus in.svg`,
-      'THIS WEEK SO COMPENSATION OUT': `${baseUrl}Desktop cards icons/WEEK BONUS OUT.svg`,
-      'THIS WEEK WITHDRAWAL': `${baseUrl}Desktop cards icons/WEEK WITHDRAWL.svg`,
-      'NET WEEK BONUS': `${baseUrl}Desktop cards icons/NET WEEK BONUS.svg`,
-      'NET WEEK DW': `${baseUrl}Desktop cards icons/NET WEEK DAY.svg`,
-      'NET LIFETIME BONUS': `${baseUrl}Desktop cards icons/LIFETIME BONUS IN.svg`,
-      'NET CREDIT': `${baseUrl}Desktop cards icons/Credit.svg`,
-      'BOOK PNL': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'BOOK P&L': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'AVAILABLE REBATE': `${baseUrl}Desktop cards icons/AVAILABLE Commision.svg`,
-      'TOTAL REBATE': `${baseUrl}Desktop cards icons/TOTAL COMMISION.svg`,
-      'NET LIFETIME PNL': `${baseUrl}Desktop cards icons/LIFETIME PNL.svg`,
-      'P&L': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'PNL': `${baseUrl}Desktop cards icons/P&L.svg`,
+      'TOTAL CLIENTS': `/desktop-icons/Clients.svg`,
+      'ASSETS': `/desktop-icons/Balance.svg`,
+      'BALANCE': `/desktop-icons/Balance.svg`,
+      'BLOCKED COMMISSION': `/desktop-icons/Blocked commision.svg`,
+      'BLOCKED PROFIT': `/desktop-icons/Floating PNL.svg`,
+      'COMMISSION': `/desktop-icons/AVAILABLE Commision.svg`,
+      'THIS WEEK COMMISSION': `/desktop-icons/AVAILABLE Commision.svg`,
+      'THIS MONTH COMMISSION': `/desktop-icons/AVAILABLE Commision.svg`,
+      'LIFETIME COMMISSION': `/desktop-icons/AVAILABLE Commision.svg`,
+      'CREDIT': `/desktop-icons/Credit.svg`,
+      'DAILY BONUS IN': `/desktop-icons/Daily BONUS IN.svg`,
+      'DAILY BONUS OUT': `/desktop-icons/Daily BONUS OUT.svg`,
+      'DAILY CREDIT IN': `/desktop-icons/LIFETIME CREDIT IN.svg`,
+      'DAILY CREDIT OUT': `/desktop-icons/LIFETIME CREDIT OUT.svg`,
+      'DAILY DEPOSIT': `/desktop-icons/Daily Deposite.svg`,
+      'DAILY P&L': `/desktop-icons/P&L.svg`,
+      'DAILY SO COMPENSATION IN': `/desktop-icons/Daily BONUS IN.svg`,
+      'DAILY SO COMPENSATION OUT': `/desktop-icons/Daily BONUS OUT.svg`,
+      'DAILY WITHDRAWAL': `/desktop-icons/Daily WITHDRAWL.svg`,
+      'DAILY NET D/W': `/desktop-icons/NET WD.svg`,
+      'NET DAILY BONUS': `/desktop-icons/Net Daily Bonus.svg`,
+      'EQUITY': `/desktop-icons/Equity.svg`,
+      'FLOATING P/L': `/desktop-icons/Floating PNL.svg`,
+      'FLOATING PNL': `/desktop-icons/Floating PNL.svg`,
+      'FLOATING': `/desktop-icons/Floating PNL.svg`,
+      'LIABILITIES': `/desktop-icons/Balance.svg`,
+      'LIFETIME BONUS IN': `/desktop-icons/LIFETIME BONUS IN.svg`,
+      'LIFETIME BONUS OUT': `/desktop-icons/LIFETIME BONUS OUT.svg`,
+      'LIFETIME CREDIT IN': `/desktop-icons/LIFETIME CREDIT IN.svg`,
+      'LIFETIME CREDIT OUT': `/desktop-icons/LIFETIME CREDIT OUT.svg`,
+      'LIFETIME DEPOSIT': `/desktop-icons/Daily Deposite.svg`,
+      'LIFETIME P&L': `/desktop-icons/LIFETIME PNL.svg`,
+      'LIFETIME PNL': `/desktop-icons/LIFETIME PNL.svg`,
+      'LIFETIME SO COMPENSATION IN': `/desktop-icons/LIFETIME BONUS IN.svg`,
+      'LIFETIME SO COMPENSATION OUT': `/desktop-icons/LIFETIME BONUS OUT.svg`,
+      'LIFETIME WITHDRAWAL': `/desktop-icons/Daily WITHDRAWL.svg`,
+      'NET LIFETIME DW': `/desktop-icons/NET WD.svg`,
+      'MARGIN': `/desktop-icons/Balance.svg`,
+      'MARGIN FREE': `/desktop-icons/Balance.svg`,
+      'THIS MONTH BONUS IN': `/desktop-icons/MONTHLY BONUS IN.svg`,
+      'THIS MONTH BONUS OUT': `/desktop-icons/MONTHLY BONUS OUt.svg`,
+      'THIS MONTH CREDIT IN': `/desktop-icons/MONTHLY CREDIT IN.svg`,
+      'THIS MONTH CREDIT OUT': `/desktop-icons/MOnthly CREDIT OUT.svg`,
+      'THIS MONTH DEPOSIT': `/desktop-icons/MONTLY DEPOSITE.svg`,
+      'THIS MONTH P&L': `/desktop-icons/THIS MONTH PNL.svg`,
+      'THIS MONTH PNL': `/desktop-icons/THIS MONTH PNL.svg`,
+      'THIS MONTH SO COMPENSATION IN': `/desktop-icons/MONTHLY BONUS IN.svg`,
+      'THIS MONTH SO COMPENSATION OUT': `/desktop-icons/MONTHLY BONUS OUt.svg`,
+      'THIS MONTH WITHDRAWAL': `/desktop-icons/MONTLY WITHDRAWL.svg`,
+      'THIS WEEK CORRECTION': `/desktop-icons/Balance.svg`,
+      'THIS MONTH CORRECTION': `/desktop-icons/Balance.svg`,
+      'LIFETIME CORRECTION': `/desktop-icons/Balance.svg`,
+      'THIS WEEK SWAP': `/desktop-icons/P&L.svg`,
+      'THIS MONTH SWAP': `/desktop-icons/P&L.svg`,
+      'LIFETIME SWAP': `/desktop-icons/P&L.svg`,
+      'NET MONTHLY BONUS': `/desktop-icons/NET MONTHLY BONUS.svg`,
+      'NET MONTHLY DW': `/desktop-icons/NET MONTHLY DW.svg`,
+      'PROFIT': `/desktop-icons/Floating PNL.svg`,
+      'STORAGE': `/desktop-icons/Balance.svg`,
+      'THIS WEEK BONUS IN': `/desktop-icons/Weekly bonus in.svg`,
+      'THIS WEEK BONUS OUT': `/desktop-icons/WEEK BONUS OUT.svg`,
+      'THIS WEEK CREDIT IN': `/desktop-icons/WEEKLY Credit IN.svg`,
+      'THIS WEEK CREDIT OUT': `/desktop-icons/WEEKLY CREDIT OUT.svg`,
+      'THIS WEEK DEPOSIT': `/desktop-icons/WEEK DEPOSITE.svg`,
+      'THIS WEEK P&L': `/desktop-icons/This week pnl.svg`,
+      'THIS WEEK PNL': `/desktop-icons/This week pnl.svg`,
+      'THIS WEEK SO COMPENSATION IN': `/desktop-icons/Weekly bonus in.svg`,
+      'THIS WEEK SO COMPENSATION OUT': `/desktop-icons/WEEK BONUS OUT.svg`,
+      'THIS WEEK WITHDRAWAL': `/desktop-icons/WEEK WITHDRAWL.svg`,
+      'NET WEEK BONUS': `/desktop-icons/NET WEEK BONUS.svg`,
+      'NET WEEK DW': `/desktop-icons/NET WEEK DAY.svg`,
+      'NET LIFETIME BONUS': `/desktop-icons/LIFETIME BONUS IN.svg`,
+      'NET CREDIT': `/desktop-icons/Credit.svg`,
+      'BOOK PNL': `/desktop-icons/P&L.svg`,
+      'BOOK P&L': `/desktop-icons/P&L.svg`,
+      'AVAILABLE REBATE': `/desktop-icons/AVAILABLE Commision.svg`,
+      'TOTAL REBATE': `/desktop-icons/TOTAL COMMISION.svg`,
+      'NET LIFETIME PNL': `/desktop-icons/LIFETIME PNL.svg`,
+      'P&L': `/desktop-icons/P&L.svg`,
+      'PNL': `/desktop-icons/P&L.svg`,
       // Percentage variants
-      'AVAILABLE REBATE %': `${baseUrl}Desktop cards icons/AVAILABLE Commision%25.svg`,
-      'TOTAL REBATE %': `${baseUrl}Desktop cards icons/TOTAL COMMISION%25.svg`,
-      'NET LIFETIME PNL %': `${baseUrl}Desktop cards icons/LIFETIME PNL.svg`,
-      'BOOK PNL %': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'BOOK P&L %': `${baseUrl}Desktop cards icons/P&L.svg`,
-      'DAILY DEPOSIT %': `${baseUrl}Desktop cards icons/Daily Deposite.svg`,
-      'DAILY WITHDRAWAL %': `${baseUrl}Desktop cards icons/Daily WITHDRAWL.svg`,
-      'LIFETIME PNL %': `${baseUrl}Desktop cards icons/LIFETIME PNL.svg`,
+      'AVAILABLE REBATE %': `/desktop-icons/AVAILABLE Commision%.svg`,
+      'TOTAL REBATE %': `/desktop-icons/TOTAL COMMISION%.svg`,
+      'NET LIFETIME PNL %': `/desktop-icons/LIFETIME PNL.svg`,
+      'BOOK PNL %': `/desktop-icons/P&L.svg`,
+      'BOOK P&L %': `/desktop-icons/P&L.svg`,
+      'DAILY DEPOSIT %': `/desktop-icons/Daily Deposite.svg`,
+      'DAILY WITHDRAWAL %': `/desktop-icons/Daily WITHDRAWL.svg`,
+      'LIFETIME PNL %': `/desktop-icons/LIFETIME PNL.svg`,
     }
-    return iconMap[normalizedLabel] || `${baseUrl}Desktop cards icons/Clients.svg`
+    return iconMap[normalizedLabel] || `/desktop-icons/Clients.svg`
   }
 
   // Save card visibility to localStorage whenever it changes
@@ -4752,8 +4772,8 @@ const Client2Page = () => {
                               <div className="flex items-center gap-2 justify-between min-w-0">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <div
-                                    className={`flex items-center gap-1 flex-1 ${isSorting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-                                    onClick={() => handleSort(col.key)}
+                                    className={`flex items-center gap-1 flex-1 ${(col.key === 'tradingEnabled' || col.key === 'accountEnabled') ? 'cursor-default' : isSorting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                                    onClick={() => (col.key !== 'tradingEnabled' && col.key !== 'accountEnabled') && handleSort(col.key)}
                                   >
                                     <span
                                       className="truncate"
@@ -4778,7 +4798,7 @@ const Client2Page = () => {
                                 )}
 
                                 {/* Filter Icon - Just icon, no box */}
-                                <div className="relative" ref={el => {
+                                {(col.key !== 'tradingEnabled' && col.key !== 'accountEnabled') && <div className="relative" ref={el => {
                                   if (!filterRefs.current) filterRefs.current = {}
                                   filterRefs.current[col.key] = el
                                 }}>
@@ -5441,7 +5461,7 @@ const Client2Page = () => {
                                       document.body
                                     )
                                   })()}
-                                </div>
+                                </div>}
                               </div>
                               {/* Column Resizer Handle - Excel-like */}
                               <div
@@ -5607,6 +5627,10 @@ const Client2Page = () => {
                                   </span>
                                 ) : col.key === 'accountType' ? (
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getAccountTypeChipClasses(cellValue)}`}>
+                                    {cellValue}
+                                  </span>
+                                ) : (col.key === 'tradingEnabled' || col.key === 'accountEnabled') ? (
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getBooleanChipClasses(cellValue)}`}>
                                     {cellValue}
                                   </span>
                                 ) : (
