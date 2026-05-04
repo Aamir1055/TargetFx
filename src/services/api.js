@@ -504,6 +504,12 @@ export const brokerAPI = {
     return response.data
   },
 
+  // Get client PnL overview (profit trend)
+  getClientPnlOverview: async (login, from, to) => {
+    const response = await api.get(`/api/broker/clients/${login}/pnl-overview`, { params: { from, to } })
+    return response.data
+  },
+
   // Get clients in margin call (margin level page data)
   getMarginCallClients: async () => {
     const response = await api.get('/api/broker/clients/margin-call')
