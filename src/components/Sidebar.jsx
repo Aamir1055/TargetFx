@@ -140,9 +140,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
         <div className="flex flex-col flex-1">
           <div className={`flex items-center ${isOpen ? 'px-4' : 'px-2'} py-4 border-b border-slate-200`}>
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+              <img src={`${baseUrl}Favicon.svg`} alt="Broker Eyes" className="w-6 h-6" style={{ filter: 'brightness(0) invert(1)' }} />
             </div>
             {isOpen && (
               <div className="ml-3">
