@@ -2038,7 +2038,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 : client.login}
             </h2>
             <div className="flex items-center gap-4 mt-2">
-              <p className="text-[11px] text-blue-100">{client.email || 'No email'}</p>
               {client.lastAccess && (
                 <p className="text-[11px] text-blue-100">
                   Last Access: <span className="font-semibold text-white">{formatTime(client.lastAccess)}</span>
@@ -2485,9 +2484,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             }
 
             return (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {/* ── Row 1: Account Information + Account Allocation ── */}
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-5 gap-5">
                   {/* Account Information – 2/5 width */}
                   <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -2495,7 +2494,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       Account Information
                     </h3>
                     <div className="divide-y divide-slate-200">
-                      {/* Row 1 */}
                       <div className="grid grid-cols-3 divide-x divide-slate-200 pb-4">
                         {[
                           { label: 'Name',     value: acc.name || client?.name || '-' },
@@ -2503,20 +2501,19 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           { label: 'Currency', value: currency || '-' },
                         ].map(({ label, value }, i) => (
                           <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
-                            <p className="text-[10px] text-slate-400 mb-0.5">{label}</p>
+                            <p className="text-[10px] text-slate-400 mb-1">{label}</p>
                             <p className="text-xs font-semibold text-slate-800">{value}</p>
                           </div>
                         ))}
                       </div>
-                      {/* Row 2 */}
                       <div className="grid grid-cols-3 divide-x divide-slate-200 pt-4">
                         {[
-                          { label: 'Equity',           value: fmtMoney(equity),                                            color: 'text-blue-600' },
-                          { label: 'Margin Level',     value: marginLevel > 0 ? `${marginLevel.toFixed(0)}%` : '-',        color: marginLevel > 0 && marginLevel < 50 ? 'text-red-500' : 'text-green-600' },
-                          { label: 'Total Commission', value: fmtMoney(commission),                                         color: 'text-blue-600' },
+                          { label: 'Equity',           value: fmtMoney(equity),                                       color: 'text-blue-600' },
+                          { label: 'Margin Level',     value: marginLevel > 0 ? `${marginLevel.toFixed(0)}%` : '-',   color: marginLevel > 0 && marginLevel < 50 ? 'text-red-500' : 'text-green-600' },
+                          { label: 'Total Commission', value: fmtMoney(commission),                                    color: 'text-blue-600' },
                         ].map(({ label, value, color }, i) => (
                           <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
-                            <p className="text-[10px] text-slate-400 mb-0.5">{label}</p>
+                            <p className="text-[10px] text-slate-400 mb-1">{label}</p>
                             <p className={`text-xs font-semibold ${color}`}>{value}</p>
                           </div>
                         ))}
@@ -2560,10 +2557,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 </div>
 
                 {/* ── Row 2: Profit Trend | Volume Overview | Margin Usage | Deals Summary ── */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-4 gap-5">
                   {/* Profit Trend */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
                       <h3 className="text-sm font-bold text-slate-800">Profit Trend</h3>
                       <select value={trendRange} onChange={e => setTrendRange(e.target.value)}
                         className="text-xs border border-slate-200 rounded px-2 py-0.5 text-slate-600 bg-white focus:outline-none">
@@ -2578,12 +2575,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       }
                     </div>
                     {profitTrend.length > 0 && (
-                      <div className="flex justify-between text-[10px] text-slate-400 mt-1 pl-10 pr-1">
+                      <div className="flex justify-between text-[10px] text-slate-400 mt-2 pl-10 pr-1">
                         {(() => {
                           const n = profitTrend.length
-                          const indices = n <= 3
-                            ? profitTrend.map((_, i) => i)
-                            : [0, Math.floor(n / 2), n - 1]
+                          const indices = n <= 3 ? profitTrend.map((_, i) => i) : [0, Math.floor(n / 2), n - 1]
                           return indices.map(i => <span key={i}>{profitTrend[i].label}</span>)
                         })()}
                       </div>
@@ -2591,9 +2586,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   </div>
 
                   {/* Volume Overview */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-3">Volume Overview</h3>
-                    <div className="flex flex-col items-center gap-3">
+                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Volume Overview</h3>
+                    <div className="flex flex-col items-center gap-4">
                       <SvgDonut
                         size={100} sw={18}
                         segments={[
@@ -2603,7 +2598,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         centerLine1={fmtMoney(totalVolume)}
                         centerLine2="Total Volume"
                       />
-                      <div className="w-full space-y-1.5">
+                      <div className="w-full space-y-2">
                         {[
                           { label: 'Buy Volume',  val: buyVol,  pct: buyPct,  color: '#2563eb' },
                           { label: 'Sell Volume', val: sellVol, pct: sellPct, color: '#ef4444' },
@@ -2618,28 +2613,42 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     </div>
                   </div>
 
-                  {/* Margin Usage – vertical bar chart */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Margin Usage</h3>
+                  {/* Margin Usage */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Margin Usage</h3>
                     <div className="flex justify-center">
                       <MarginBarChart used={margin} free={marginFree}/>
                     </div>
                   </div>
 
                   {/* Deals Summary */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-3">Deals Summary</h3>
+                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Deals Summary</h3>
                     <div className="flex items-start gap-3">
-                      <SvgDonut
-                        size={90} sw={16}
-                        segments={[
-                          { pct: parseFloat(winRate.toFixed(1)),  color: '#22c55e', label: 'Profitable Deals', value: `${profDeals} deals` },
-                          { pct: parseFloat(lossRate.toFixed(1)), color: '#ef4444', label: 'Losing Deals',     value: `${loseDeals} deals` },
-                        ]}
-                        centerLine1={String(totalDeals)}
-                        centerLine2="Total Deals"
-                      />
-                      <div className="flex-1 space-y-2">
+                      {/* Left: donut + win/loss rate below */}
+                      <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                        <SvgDonut
+                          size={90} sw={16}
+                          segments={[
+                            { pct: parseFloat(winRate.toFixed(1)),  color: '#22c55e', label: 'Profitable Deals', value: `${profDeals} deals` },
+                            { pct: parseFloat(lossRate.toFixed(1)), color: '#ef4444', label: 'Losing Deals',     value: `${loseDeals} deals` },
+                          ]}
+                          centerLine1={String(totalDeals)}
+                          centerLine2="Total Deals"
+                        />
+                        <div className="flex justify-center gap-1.5">
+                          <div className="bg-green-50 rounded-lg px-3 py-1.5 text-center">
+                            <div className="text-[9px] text-green-600 font-medium">Win Rate</div>
+                            <div className="text-xs font-bold text-green-700">{winRate.toFixed(1)}%</div>
+                          </div>
+                          <div className="bg-red-50 rounded-lg px-3 py-1.5 text-center">
+                            <div className="text-[9px] text-red-500 font-medium">Loss Rate</div>
+                            <div className="text-xs font-bold text-red-600">{lossRate.toFixed(1)}%</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Right: deal counts */}
+                      <div className="flex-1 space-y-2 pt-1">
                         <div className="flex items-center gap-1.5 text-xs">
                           <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
                           <div>
@@ -2654,27 +2663,17 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                             <br/><span className="text-slate-500">{loseDeals} ({lossRate.toFixed(1)}%)</span>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-1 mt-1">
-                          <div className="bg-green-50 rounded-lg p-1.5 text-center">
-                            <div className="text-[9px] text-green-600 font-medium">Win Rate</div>
-                            <div className="text-xs font-bold text-green-700">{winRate.toFixed(1)}%</div>
-                          </div>
-                          <div className="bg-red-50 rounded-lg p-1.5 text-center">
-                            <div className="text-[9px] text-red-500 font-medium">Loss Rate</div>
-                            <div className="text-xs font-bold text-red-600">{lossRate.toFixed(1)}%</div>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* ── Row 3: Performance Overview + Profitability ── */}
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-5 gap-5">
                   {/* Performance Overview – 3/5 width */}
-                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col">
                     <h3 className="text-sm font-bold text-slate-800 mb-4">Performance Overview</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="flex-1 grid grid-cols-4 gap-4 items-center content-center">
                       {[
                         { label: 'Avg Profit / Deal', value: avgProfit, color: 'text-green-600', bg: 'bg-green-50',
                           icon: <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg> },
@@ -2685,7 +2684,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         { label: 'Max Loss',          value: maxLoss,   color: 'text-red-700',   bg: 'bg-red-50',
                           icon: <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg> },
                       ].map(({ label, value, color, bg, icon }) => (
-                        <div key={label} className={`${bg} rounded-xl p-3 flex flex-col items-center gap-2`}>
+                        <div key={label} className={`${bg} rounded-xl p-4 flex flex-col items-center gap-2`}>
                           {icon}
                           <div className="text-[10px] text-slate-500 text-center leading-tight">{label}</div>
                           <div className={`text-sm font-bold ${color}`}>{fmtMoney(value)}</div>
@@ -2696,15 +2695,15 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
                   {/* Profitability – 2/5 width */}
                   <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Profitability</h3>
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Profitability</h3>
                     <SemiGauge profit={profitSum} loss={losingSum} net={netPL}/>
-                    <div className="flex justify-around mt-1">
+                    <div className="flex justify-around mt-3">
                       <div className="text-center">
-                        <div className="text-[10px] text-slate-500">Profit Sum</div>
+                        <div className="text-[10px] text-slate-500 mb-1">Profit Sum</div>
                         <div className="text-sm font-bold text-green-600">{fmtMoney(profitSum)}</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-[10px] text-slate-500">Losing Sum</div>
+                        <div className="text-[10px] text-slate-500 mb-1">Losing Sum</div>
                         <div className="text-sm font-bold text-red-600">-{fmtMoney(losingSum)}</div>
                       </div>
                     </div>
