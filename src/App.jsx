@@ -83,29 +83,47 @@ const AppContent = () => {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Global margin-level badge polling — runs every 3 minutes so the sidebar
-  // count stays up-to-date regardless of which page is active.
+  // Global margin-level polling — runs every 3 minutes regardless of which page is active.
+  // Stores the full client list in localStorage so any page can read fresh data on mount.
   useEffect(() => {
     if (!isAuthenticated) return
 
-    const updateMarginCount = async () => {
+    const updateMarginData = async () => {
       try {
         const res = await brokerAPI.getMarginCallClients()
         const data = res?.data ?? res
         const list = Array.isArray(data)
           ? data
           : (data?.clients ?? data?.accounts ?? data?.results ?? [])
-        const count = Array.isArray(list) ? list.length : 0
+        const clients = Array.isArray(list) ? list : []
+
+        // Mirror the same filter used in MarginLevelPage: only count clients
+        // whose margin level is defined, non-zero, and below 50%.
+        const getML = (obj) => {
+          let val = obj?.margin_level ?? obj?.marginLevel ?? obj?.margin_percent ?? obj?.marginPercent ?? obj?.margin
+          if (val == null) return undefined
+          val = parseFloat(val)
+          return isNaN(val) ? undefined : val
+        }
+        const marginAlertClients = clients.filter(c => {
+          const ml = getML(c)
+          return ml !== undefined && ml !== 0 && ml < 50
+        })
+        const count = marginAlertClients.length
+
         localStorage.setItem('marginLevelCount', String(count))
+        localStorage.setItem('marginLevelData', JSON.stringify(clients))
+        localStorage.setItem('marginLevelLastUpdated', String(Date.now()))
         window.dispatchEvent(new CustomEvent('marginLevelCountChanged'))
+        window.dispatchEvent(new CustomEvent('marginLevelDataChanged', { detail: { clients, count } }))
       } catch {
         // Silently ignore — next poll will retry
       }
     }
 
     // Fetch immediately then every 3 minutes
-    updateMarginCount()
-    marginPollTimer.current = setInterval(updateMarginCount, 3 * 60 * 1000)
+    updateMarginData()
+    marginPollTimer.current = setInterval(updateMarginData, 3 * 60 * 1000)
 
     return () => {
       if (marginPollTimer.current) clearInterval(marginPollTimer.current)

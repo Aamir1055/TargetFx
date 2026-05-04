@@ -480,9 +480,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   useEffect(() => { debouncedSearchQueryRef.current = debouncedSearchQuery }, [debouncedSearchQuery])
   useEffect(() => { positionsSortColumnRef.current = positionsSortColumn }, [positionsSortColumn])
 
-  // Poll overview API every 2s while the modal is open to keep positions + account data live
+  // Poll overview API every 2s while the modal is open to keep positions + account data live.
+  // Stops automatically when the Overview tab is open (React unmounts/remounts the effect
+  // when activeTab changes, so switching back to any other tab restarts polling instantly).
   useEffect(() => {
-    if (!client?.login) return
+    if (!client?.login || activeTab === 'overview') return
     let timer = null
     let cancelled = false
 
@@ -538,7 +540,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [client?.login])
+  }, [client?.login, activeTab])
 
   // Toggle column visibility
   const togglePositionsColumn = (columnKey) => {
@@ -2033,9 +2035,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         <div className="flex-shrink-0 flex items-center justify-between p-4 border-b-2 border-slate-200 bg-blue-600">
           <div>
             <h2 className="text-lg font-bold text-white tracking-tight">
-              {(client?.name && String(client.name).trim().length > 0)
-                ? `${client.name} - ${client.login}`
-                : client.login}
+              {(() => {
+                const name = (clientData?.name || client?.name || '').trim()
+                return name.length > 0 ? `${name} - ${client.login}` : client.login
+              })()}
             </h2>
             <div className="flex items-center gap-4 mt-2">
               {client.lastAccess && (
@@ -2393,8 +2396,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             const floating  = parseFloat(acc.profit    || acc.floating || 0)
             const marginLevel = parseFloat(acc.margin_level || 0)
             const commission  = parseFloat(acc.commission  || 0)
-            const margin      = parseFloat(acc.margin      || 0)
-            const marginFree  = parseFloat(acc.margin_free || 0)
+            const margin      = 0 // TODO: dedicated margin API
+            const marginFree  = 0 // TODO: dedicated margin API
             const currency    = acc.currency || client?.currency || ''
             const ds = dealStats || {}
             const buyVol          = parseFloat(ds.buyVolume         ?? ds.buy_volume          ?? 0)
