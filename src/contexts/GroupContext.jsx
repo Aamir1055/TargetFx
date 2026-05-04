@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+﻿import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { brokerAPI } from '../services/api'
 
 const GroupContext = createContext()
 
@@ -10,214 +11,191 @@ export const useGroups = () => {
   return context
 }
 
+// Helper: serialize groups list to the API format
+const toApiFilters = (groups) =>
+  groups.map(g => ({
+    name: g.name,
+    loginIds: (g.loginIds || []).map(String),
+    range: g.range || null,
+    createdAt: g.createdAt || new Date().toISOString(),
+    updatedAt: g.updatedAt || new Date().toISOString()
+  }))
+
+// Helper: parse API response into internal group objects
+const fromApiFilters = (filters) => {
+  if (!Array.isArray(filters)) return []
+  return filters.map(f => ({
+    name: f.name,
+    loginIds: Array.isArray(f.loginIds) ? f.loginIds : [],
+    range: f.range || null,
+    createdAt: f.createdAt || new Date().toISOString(),
+    updatedAt: f.updatedAt || new Date().toISOString()
+  }))
+}
+
 export const GroupProvider = ({ children }) => {
-  // Unified groups stored in localStorage - works across all modules
+  // Seed from localStorage so UI is instant on first render (avoids empty flash)
   const [groups, setGroups] = useState(() => {
     try {
       const saved = localStorage.getItem('unifiedLoginGroups')
-      const loadedGroups = saved ? JSON.parse(saved) : []
-      console.log('Loading unified login groups from localStorage:', loadedGroups.length, 'groups found')
-      return loadedGroups
-    } catch (error) {
-      console.error('Failed to load unified login groups:', error)
+      return saved ? JSON.parse(saved) : []
+    } catch {
       return []
     }
   })
 
+  // Track whether the initial API fetch has completed
+  const [groupsLoaded, setGroupsLoaded] = useState(false)
 
-  // Track active group per module (e.g., { clients: 'Group1', positions: 'Group2' })
-  // Clear on page refresh - no persistence
+  // Ref for debouncing the PUT call (avoid hammering on rapid mutations)
+  const syncTimerRef = useRef(null)
+
+  // Track active group per module — cleared on page refresh
   const [activeGroupFilters, setActiveGroupFilters] = useState({})
 
-  // Clear group filters from localStorage on page refresh
+  // Clear stale active filters from localStorage on mount
   useEffect(() => {
-    localStorage.removeItem('activeGroupFilters');
-  }, []);
+    localStorage.removeItem('activeGroupFilters')
+  }, [])
 
-  // Save to localStorage whenever groups change
+  // ── API: load groups on mount ─────────────────────────────────────────────
   useEffect(() => {
-    try {
-      localStorage.setItem('unifiedLoginGroups', JSON.stringify(groups))
-      console.log('Saved unified login groups to localStorage:', groups.length, 'groups')
-    } catch (error) {
-      console.error('Failed to save unified login groups:', error)
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await brokerAPI.getSavedFilters()
+        if (cancelled) return
+        // Response shape: { filters: [...] } or { data: { filters: [...] } } or just [...]
+        const raw = res?.data?.filters ?? res?.filters ?? res?.data ?? res
+        const loaded = fromApiFilters(Array.isArray(raw) ? raw : [])
+        setGroups(loaded)
+        // Mirror into localStorage as a cache
+        try { localStorage.setItem('unifiedLoginGroups', JSON.stringify(loaded)) } catch {}
+        console.log('[Groups] Loaded from API:', loaded.length, 'groups')
+      } catch (err) {
+        console.warn('[Groups] Failed to load from API, using localStorage cache:', err?.message)
+      } finally {
+        if (!cancelled) setGroupsLoaded(true)
+      }
     }
-  }, [groups])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
-  // Save active group filters to localStorage whenever they change
+  // ── API: persist groups whenever they change (debounced 400 ms) ───────────
+  const syncToApi = useCallback((nextGroups) => {
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    syncTimerRef.current = setTimeout(async () => {
+      try {
+        await brokerAPI.putSavedFilters(toApiFilters(nextGroups))
+        console.log('[Groups] Synced to API:', nextGroups.length, 'groups')
+      } catch (err) {
+        console.warn('[Groups] Failed to sync to API:', err?.message)
+      }
+    }, 400)
+  }, [])
+
+  // Mirror to localStorage + trigger API sync whenever groups state changes
   useEffect(() => {
-    try {
-      localStorage.setItem('activeGroupFilters', JSON.stringify(activeGroupFilters))
-      console.log('Saved active group filters to localStorage:', activeGroupFilters)
-    } catch (error) {
-      console.error('Failed to save active group filters:', error)
-    }
-  }, [activeGroupFilters])
+    if (!groupsLoaded) return // Don't overwrite API data before first load
+    try { localStorage.setItem('unifiedLoginGroups', JSON.stringify(groups)) } catch {}
+    syncToApi(groups)
+  }, [groups, groupsLoaded, syncToApi])
 
-  // Create a new group
+  // ── Mutations ─────────────────────────────────────────────────────────────
+
   const createGroup = (groupName, loginIds) => {
-    if (!groupName.trim()) {
-      console.error('Group name cannot be empty')
-      return false
-    }
-
-    if (!Array.isArray(loginIds) || loginIds.length === 0) {
-      console.error('Login IDs must be a non-empty array')
-      return false
-    }
-
-    // Check if group name already exists
-    if (groups.some(g => g.name === groupName.trim())) {
-      console.error('Group name already exists')
-      return false
-    }
+    if (!groupName.trim()) { console.error('Group name cannot be empty'); return false }
+    if (!Array.isArray(loginIds) || loginIds.length === 0) { console.error('Login IDs must be a non-empty array'); return false }
+    if (groups.some(g => g.name === groupName.trim())) { console.error('Group name already exists'); return false }
 
     const newGroup = {
       name: groupName.trim(),
-      loginIds: [...new Set(loginIds)], // Remove duplicates
-      range: null, // Will be set if it's a range-based group
+      loginIds: [...new Set(loginIds)],
+      range: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-
     setGroups(prev => [...prev, newGroup])
     console.log('Group created:', newGroup)
     return true
   }
 
-  // Create a range-based group (stores only from/to, not all IDs)
   const createRangeGroup = (groupName, fromValue, toValue) => {
-    if (!groupName.trim()) {
-      console.error('Group name cannot be empty')
-      return false
-    }
-
+    if (!groupName.trim()) { console.error('Group name cannot be empty'); return false }
     const from = parseInt(fromValue)
     const to = parseInt(toValue)
-
-    if (isNaN(from) || isNaN(to) || from > to) {
-      console.error('Invalid range values')
-      return false
-    }
-
-    // Check if group name already exists
-    if (groups.some(g => g.name === groupName.trim())) {
-      console.error('Group name already exists')
-      return false
-    }
+    if (isNaN(from) || isNaN(to) || from > to) { console.error('Invalid range values'); return false }
+    if (groups.some(g => g.name === groupName.trim())) { console.error('Group name already exists'); return false }
 
     const newGroup = {
       name: groupName.trim(),
-      loginIds: [], // Empty for range-based groups
-      range: { from, to }, // Store only the range
+      loginIds: [],
+      range: { from, to },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-
     setGroups(prev => [...prev, newGroup])
     console.log('Range group created:', newGroup)
     return true
   }
 
-  // Update an existing group (supports both manual and range groups)
   const updateGroup = (oldGroupName, newGroupName, newLoginIds = null, newRange = null) => {
-    // Check if new name conflicts with existing group (except itself)
     if (newGroupName !== oldGroupName && groups.some(g => g.name === newGroupName.trim())) {
-      console.error('Group name already exists')
-      return false
+      console.error('Group name already exists'); return false
     }
 
     setGroups(prev => prev.map(g => {
-      if (g.name === oldGroupName) {
-        const updated = {
-          ...g,
-          name: newGroupName.trim(),
-          updatedAt: new Date().toISOString()
-        }
-        
-        // Update based on type
-        if (newRange) {
-          updated.range = newRange
-          updated.loginIds = []
-        } else if (newLoginIds) {
-          updated.loginIds = [...new Set(newLoginIds)]
-          updated.range = null
-        }
-        
-        return updated
-      }
-      return g
+      if (g.name !== oldGroupName) return g
+      const updated = { ...g, name: newGroupName.trim(), updatedAt: new Date().toISOString() }
+      if (newRange) { updated.range = newRange; updated.loginIds = [] }
+      else if (newLoginIds) { updated.loginIds = [...new Set(newLoginIds)]; updated.range = null }
+      return updated
     }))
 
-    // Update active filters if group name changed
     if (oldGroupName !== newGroupName) {
       setActiveGroupFilters(prev => {
-        const updated = { ...prev }
-        Object.keys(updated).forEach(module => {
-          if (updated[module] === oldGroupName) {
-            updated[module] = newGroupName
-          }
-        })
-        return updated
+        const next = { ...prev }
+        Object.keys(next).forEach(mod => { if (next[mod] === oldGroupName) next[mod] = newGroupName })
+        return next
       })
     }
-    
     console.log('Group updated:', oldGroupName, '->', newGroupName)
     return true
   }
 
-  // Delete a group
   const deleteGroup = (groupName) => {
     setGroups(prev => prev.filter(g => g.name !== groupName))
-    
-    // Clear active filter in all modules if we're deleting an active group
     setActiveGroupFilters(prev => {
-      const updated = { ...prev }
-      Object.keys(updated).forEach(module => {
-        if (updated[module] === groupName) {
-          updated[module] = null
-        }
-      })
-      return updated
+      const next = { ...prev }
+      Object.keys(next).forEach(mod => { if (next[mod] === groupName) next[mod] = null })
+      return next
     })
-    
     console.log('Group deleted:', groupName)
     return true
   }
 
-  // Set active group for all modules (global filter)
+  // ── Read-only helpers ─────────────────────────────────────────────────────
+
   const setActiveGroupFilter = (moduleName, groupName) => {
-    // Apply the same group filter to all known modules
     setActiveGroupFilters(prev => ({
       ...prev,
-      clients: groupName,
-      positions: groupName,
-      client2: groupName,
-      pendingorders: groupName,
-      'pending-orders': groupName,
-      marginlevel: groupName,
-      'margin-level': groupName,
-      livedealing: groupName,
-      'live-dealing': groupName,
-      clientpercentage: groupName,
-      'client-percentage': groupName,
-      'ib-commissions': groupName,
-      dashboard: groupName
+      clients: groupName, positions: groupName, client2: groupName,
+      pendingorders: groupName, 'pending-orders': groupName,
+      marginlevel: groupName, 'margin-level': groupName,
+      livedealing: groupName, 'live-dealing': groupName,
+      clientpercentage: groupName, 'client-percentage': groupName,
+      'ib-commissions': groupName, dashboard: groupName
     }))
   }
 
-  // Get active group for a specific module
-  const getActiveGroupFilter = (moduleName) => {
-    return activeGroupFilters[moduleName] || null
-  }
+  const getActiveGroupFilter = (moduleName) => activeGroupFilters[moduleName] || null
 
-  // Get login IDs for a specific group (expands range-based groups)
   const getGroupLogins = (groupName) => {
     const group = groups.find(g => g.name === groupName)
     if (!group) return []
     if (group.range) {
-      const from = Number(group.range.from)
-      const to = Number(group.range.to)
+      const from = Number(group.range.from), to = Number(group.range.to)
       if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return []
       const logins = []
       for (let i = from; i <= to; i++) logins.push(i)
@@ -226,56 +204,33 @@ export const GroupProvider = ({ children }) => {
     return Array.isArray(group.loginIds) ? group.loginIds : []
   }
 
-  // Check if a login is in the active group (supports both manual and range groups)
   const isLoginInActiveGroup = (login, moduleName) => {
     const activeFilter = activeGroupFilters[moduleName]
-    if (!activeFilter) return true // No filter = show all
-    
+    if (!activeFilter) return true
     const group = groups.find(g => g.name === activeFilter)
     if (!group) return false
-
-    // Check if it's a range-based group
     if (group.range) {
-      const loginNum = Number(login)
-      const from = Number(group.range.from)
-      const to = Number(group.range.to)
+      const loginNum = Number(login), from = Number(group.range.from), to = Number(group.range.to)
       if (!Number.isFinite(loginNum) || !Number.isFinite(from) || !Number.isFinite(to)) return false
       return loginNum >= from && loginNum <= to
     }
-
-    // Manual selection group
-    const groupLogins = group.loginIds
-    return groupLogins.includes(String(login)) || groupLogins.includes(Number(login))
+    return group.loginIds.includes(String(login)) || group.loginIds.includes(Number(login))
   }
 
-  // Filter items by active group (works for any array with login field)
   const filterByActiveGroup = useCallback((items, loginField = 'login', moduleName) => {
     const activeFilter = activeGroupFilters[moduleName]
     if (!activeFilter) return items
-    
-    return items.filter(item => {
-      const itemLogin = item[loginField]
-      return isLoginInActiveGroup(itemLogin, moduleName)
-    })
+    return items.filter(item => isLoginInActiveGroup(item[loginField], moduleName))
   }, [activeGroupFilters, groups])
 
-  // Generate login range (e.g., "1,30" -> [1, 2, 3, ..., 30])
   const generateLoginRange = (rangeString) => {
     try {
       const parts = rangeString.split(',').map(s => s.trim())
       if (parts.length !== 2) return []
-      
-      const start = parseInt(parts[0])
-      const count = parseInt(parts[1])
-      
+      const start = parseInt(parts[0]), count = parseInt(parts[1])
       if (isNaN(start) || isNaN(count) || count <= 0) return []
-      
       const logins = []
-      for (let i = start; i < start + count; i++) {
-        logins.push(i)
-      }
-      
-      console.log(`Generated login range from "${rangeString}":`, logins.length, 'logins')
+      for (let i = start; i < start + count; i++) logins.push(i)
       return logins
     } catch (error) {
       console.error('Error generating login range:', error)
@@ -284,18 +239,10 @@ export const GroupProvider = ({ children }) => {
   }
 
   const value = {
-    groups,
-    activeGroupFilters,
-    setActiveGroupFilter,
-    getActiveGroupFilter,
-    createGroup,
-    createRangeGroup,
-    updateGroup,
-    deleteGroup,
-    getGroupLogins,
-    isLoginInActiveGroup,
-    filterByActiveGroup,
-    generateLoginRange
+    groups, groupsLoaded, activeGroupFilters,
+    setActiveGroupFilter, getActiveGroupFilter,
+    createGroup, createRangeGroup, updateGroup, deleteGroup,
+    getGroupLogins, isLoginInActiveGroup, filterByActiveGroup, generateLoginRange
   }
 
   return (

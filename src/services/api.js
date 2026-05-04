@@ -509,7 +509,19 @@ export const brokerAPI = {
     const response = await api.get('/api/broker/clients/margin-call')
     return response.data
   },
-  
+
+  // Saved filters (groups) - GET
+  getSavedFilters: async () => {
+    const response = await api.get('/api/broker/saved-filters')
+    return response.data
+  },
+
+  // Saved filters (groups) - PUT (replaces entire list)
+  putSavedFilters: async (filters) => {
+    const response = await api.put('/api/broker/saved-filters', { filters })
+    return response.data
+  },
+
   // Get deals by login
   getDealsByLogin: async (login, limit = 1000) => {
     const response = await api.get(`/api/broker/clients/${login}/deals?limit=${limit}`)
