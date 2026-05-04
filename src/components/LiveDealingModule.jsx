@@ -904,7 +904,7 @@ export default function LiveDealingModule() {
                         : 'hover:bg-[#F8F8F8]'
                     }`}
                   >
-                    <div className="flex-shrink-0">{item.icon}</div>
+                    <div className="flex-shrink-0"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/${{'/dashboard':'Dashboard','/client2':'Clients','/positions':'Positions','/pending-orders':'Pending-Orders','/margin-level':'Margin-Level','/live-dealing':'Live-Dealing','/client-percentage':'Client-Percentage','/settings':'Settings'}[item.path]}.svg`} alt={item.label} style={{filter:'brightness(0)'}} className="w-5 h-5"/></div>
                     <span className={`text-sm ${
                       item.active ? 'text-[#1A63BC] font-semibold' : 'text-[#404040]'
                     }`}>

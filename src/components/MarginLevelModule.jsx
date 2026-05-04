@@ -4,9 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { brokerAPI } from '../services/api'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
-import GroupModal from './GroupModal'
-import LoginGroupsModal from './LoginGroupsModal'
-import LoginGroupModal from './LoginGroupModal'
+
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
 import { useGroups } from '../contexts/GroupContext'
 import { applyCumulativeFilters, applySearchFilter, applySorting } from '../utils/mobileFilters'
@@ -47,23 +45,18 @@ export default function MarginLevelModule() {
   const positions = []
   const orders = []
   const loading = { accounts: !marginCallLoaded, clients: !marginCallLoaded }
-  const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
+  const { filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isGroupOpen, setIsGroupOpen] = useState(false)
-  const [isLoginGroupsOpen, setIsLoginGroupsOpen] = useState(false)
-  const [isLoginGroupModalOpen, setIsLoginGroupModalOpen] = useState(false)
-  const [editingGroup, setEditingGroup] = useState(null)
+
   const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
     // Pending apply tracking
     const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
     const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
-    const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
-    const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
   const carouselRef = useRef(null)
 
@@ -161,8 +154,6 @@ export default function MarginLevelModule() {
   useEffect(() => {
     const handler = () => {
       setIsFilterOpen(false)
-      setIsLoginGroupsOpen(false)
-      setIsLoginGroupModalOpen(false)
       setIsCustomizeOpen(true)
     }
     if (typeof window !== 'undefined') {
@@ -491,7 +482,7 @@ export default function MarginLevelModule() {
                     }}
                     className={`flex items-center gap-3 px-4 h-[37px] text-[10px] ${item.active ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                   >
-                    <span className="w-5 h-5 flex items-center justify-center">{item.icon}</span>
+                    <span className="w-5 h-5 flex items-center justify-center"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/${{'/dashboard':'Dashboard','/client2':'Clients','/positions':'Positions','/pending-orders':'Pending-Orders','/margin-level':'Margin-Level','/live-dealing':'Live-Dealing','/client-percentage':'Client-Percentage','/settings':'Settings'}[item.path]}.svg`} alt={item.label} style={{filter:'brightness(0)'}} className="w-5 h-5"/></span>
                     <span>{item.label}</span>
                   </button>
                 ))}
@@ -794,32 +785,20 @@ export default function MarginLevelModule() {
           setIsCustomizeOpen(false)
           setIsFilterOpen(true)
         }}
-        onGroupsClick={() => {
-          setIsCustomizeOpen(false)
-          setIsLoginGroupsOpen(true)
-        }}
         onReset={() => {
           setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
-          setActiveGroupFilter('marginlevel', null)
           setHasPendingFilterChanges(false)
-          setHasPendingGroupChanges(false)
           setPendingFilterDraft(null)
-          setPendingGroupDraft(null)
         }}
         onApply={() => {
           if (hasPendingFilterChanges && pendingFilterDraft) {
             setFilters(pendingFilterDraft)
           }
-          if (hasPendingGroupChanges) {
-            setActiveGroupFilter('marginlevel', pendingGroupDraft ? pendingGroupDraft.name : null)
-          }
           setIsCustomizeOpen(false)
           setHasPendingFilterChanges(false)
-          setHasPendingGroupChanges(false)
           setPendingFilterDraft(null)
-          setPendingGroupDraft(null)
         }}
-        hasPendingChanges={hasPendingFilterChanges || hasPendingGroupChanges}
+        hasPendingChanges={hasPendingFilterChanges}
       />
 
       {/* Filter Modal */}
@@ -840,74 +819,6 @@ export default function MarginLevelModule() {
       />
 
       {/* Group Modal */}
-      <GroupModal
-        isOpen={isGroupOpen}
-        onClose={() => setIsGroupOpen(false)}
-        availableItems={ibFilteredAccounts}
-        loginField="login"
-        displayField="name"
-      />
-
-      {/* Login Groups Modal */}
-      <LoginGroupsModal
-        isOpen={isLoginGroupsOpen}
-        onClose={() => setIsLoginGroupsOpen(false)}
-        groups={groups.map(g => ({
-          ...g,
-          loginCount: g.range 
-            ? (g.range.to - g.range.from + 1) 
-            : g.loginIds.length
-        }))}
-        activeGroupName={getActiveGroupFilter('marginlevel')}
-        onSelectGroup={(group) => {
-          if (group === null) {
-            setActiveGroupFilter('marginlevel', null)
-          } else {
-            setActiveGroupFilter('marginlevel', group.name)
-          }
-          setIsLoginGroupsOpen(false)
-          setHasPendingGroupChanges(false)
-          setPendingGroupDraft(null)
-        }}
-        onCreateGroup={() => {
-          setIsLoginGroupsOpen(false)
-          setEditingGroup(null)
-          setIsLoginGroupModalOpen(true)
-        }}
-        onEditGroup={(group) => {
-          setIsLoginGroupsOpen(false)
-          setEditingGroup(group)
-          setIsLoginGroupModalOpen(true)
-        }}
-        onDeleteGroup={(group) => {
-          deleteGroup(group.name)
-          setIsLoginGroupsOpen(false)
-        }}
-        onPendingChange={(hasPending, draftName) => {
-          setHasPendingGroupChanges(hasPending)
-          setPendingGroupDraft(draftName ? { name: draftName } : null)
-        }}
-      />
-
-
-      {/* Login Group Modal */}
-      <LoginGroupModal
-        isOpen={isLoginGroupModalOpen}
-        onClose={() => {
-          setIsLoginGroupModalOpen(false)
-          setEditingGroup(null)
-        }}
-        onSave={() => {
-          setIsLoginGroupModalOpen(false)
-          setEditingGroup(null)
-          setIsLoginGroupsOpen(true)
-        }}
-        onBack={() => {
-          setIsLoginGroupsOpen(true)
-        }}
-        editGroup={editingGroup}
-      />
-
       {/* Client Details Modal */}
       {selectedClient && (
         <ClientDetailsMobileModal

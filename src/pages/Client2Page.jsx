@@ -4021,72 +4021,6 @@ const Client2Page = () => {
                   moduleName="client2"
                 />
 
-                {/* Percentage Toggle */}
-                <button
-                  role="switch"
-                  aria-checked={cardFilterPercentMode}
-                  onClick={() => {
-                    setCardFilterPercentMode(v => !v)
-                    fetchClients(false)
-                  }}
-                  title="Toggle percentage mode"
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-300 ease-in-out focus:outline-none ${
-                    cardFilterPercentMode ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow-md ring-0 transition duration-300 ease-in-out ${
-                      cardFilterPercentMode ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  >
-                    <span className={`text-[9px] font-bold ${cardFilterPercentMode ? 'text-blue-600' : 'text-gray-500'}`}>%</span>
-                  </span>
-                </button>
-
-                {/* Download Button */}
-                <div className="relative" ref={exportMenuRef}>
-                  <button
-                    onClick={() => setShowExportMenu(!showExportMenu)}
-                    className="h-8 w-8 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
-                    title="Download as Excel (CSV)"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M10 3v10m0 0l-4-4m4 4l4-4" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <rect x="4" y="15" width="12" height="2" rx="1" fill="#4B5563"/>
-                    </svg>
-                  </button>
-
-                  {showExportMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-[#E5E7EB] z-50 overflow-hidden">
-                      <div className="py-1">
-                        <button
-                          onClick={() => handleExportToExcel('table')}
-                          className="w-full text-left px-4 py-2 text-sm text-[#374151] hover:bg-gray-50 transition-colors flex items-center gap-2"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <rect x="2" y="3" width="12" height="10" stroke="#4B5563" strokeWidth="1" rx="1" fill="none"/>
-                            <line x1="2" y1="6" x2="14" y2="6" stroke="#4B5563" strokeWidth="1"/>
-                            <line x1="6" y1="3" x2="6" y2="13" stroke="#4B5563" strokeWidth="1"/>
-                          </svg>
-                          Download Table Columns
-                        </button>
-                        <button
-                          onClick={() => handleExportToExcel('all')}
-                          className="w-full text-left px-4 py-2 text-sm text-[#374151] hover:bg-gray-50 transition-colors flex items-center gap-2"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <rect x="1" y="2" width="14" height="12" stroke="#4B5563" strokeWidth="1" rx="1" fill="none"/>
-                            <line x1="1" y1="5" x2="15" y2="5" stroke="#4B5563" strokeWidth="1"/>
-                            <line x1="5" y1="2" x2="5" y2="14" stroke="#4B5563" strokeWidth="1"/>
-                            <line x1="10" y1="2" x2="10" y2="14" stroke="#4B5563" strokeWidth="1"/>
-                          </svg>
-                          Download All Columns
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 {/* Currency Mode segmented control */}
 
                 {/* Card Filter Button */}
@@ -4253,19 +4187,71 @@ const Client2Page = () => {
                 )}
               </div>
 
-              {/* Cards Toggle Button with Switch */}
+              {/* Percentage Toggle */}
               <button
-                onClick={() => setShowFaceCards(v => !v)}
-                className="h-8 px-2.5 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors"
-                title={showFaceCards ? "Hide cards" : "Show cards"}
+                role="switch"
+                aria-checked={cardFilterPercentMode}
+                onClick={() => {
+                  setCardFilterPercentMode(v => !v)
+                  fetchClients(false)
+                }}
+                title="Toggle percentage mode"
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-300 ease-in-out focus:outline-none ${
+                  cardFilterPercentMode ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
               >
-                <span className="text-xs font-medium text-[#374151]">Cards</span>
-                <div className={`relative inline-flex h-4 w-8 items-center rounded-full transition-colors ${showFaceCards ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                  <span
-                    className={`inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform ${showFaceCards ? 'translate-x-4' : 'translate-x-0.5'}`}
-                  />
-                </div>
+                <span
+                  className={`pointer-events-none inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow-md ring-0 transition duration-300 ease-in-out ${
+                    cardFilterPercentMode ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                >
+                  <span className={`text-[9px] font-bold ${cardFilterPercentMode ? 'text-blue-600' : 'text-gray-500'}`}>%</span>
+                </span>
               </button>
+
+              {/* Download Button */}
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="h-8 w-8 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
+                  title="Download as Excel (CSV)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 3v10m0 0l-4-4m4 4l4-4" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <rect x="4" y="15" width="12" height="2" rx="1" fill="#4B5563"/>
+                  </svg>
+                </button>
+
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-[#E5E7EB] z-50 overflow-hidden">
+                    <div className="py-1">
+                      <button
+                        onClick={() => handleExportToExcel('table')}
+                        className="w-full text-left px-4 py-2 text-sm text-[#374151] hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <rect x="2" y="3" width="12" height="10" stroke="#4B5563" strokeWidth="1" rx="1" fill="none"/>
+                          <line x1="2" y1="6" x2="14" y2="6" stroke="#4B5563" strokeWidth="1"/>
+                          <line x1="6" y1="3" x2="6" y2="13" stroke="#4B5563" strokeWidth="1"/>
+                        </svg>
+                        Download Table Columns
+                      </button>
+                      <button
+                        onClick={() => handleExportToExcel('all')}
+                        className="w-full text-left px-4 py-2 text-sm text-[#374151] hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <rect x="1" y="2" width="14" height="12" stroke="#4B5563" strokeWidth="1" rx="1" fill="none"/>
+                          <line x1="1" y1="5" x2="15" y2="5" stroke="#4B5563" strokeWidth="1"/>
+                          <line x1="5" y1="2" x2="5" y2="14" stroke="#4B5563" strokeWidth="1"/>
+                          <line x1="10" y1="2" x2="10" y2="14" stroke="#4B5563" strokeWidth="1"/>
+                        </svg>
+                        Download All Columns
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Refresh Button */}
               <button

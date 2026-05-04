@@ -7,8 +7,7 @@ import PageSizeSelect from '../components/PageSizeSelect'
 import WebSocketIndicator from '../components/WebSocketIndicator'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
-import GroupSelector from '../components/GroupSelector'
-import GroupModal from '../components/GroupModal'
+
 import MarginLevelModule from '../components/MarginLevelModule'
 import ColumnChooserList from '../components/ColumnChooserList'
 import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
@@ -87,8 +86,6 @@ const MarginLevelPage = () => {
   })
   const [error, setError] = useState('')
   const [selectedLogin, setSelectedLogin] = useState(null) // For login details modal
-  const [showGroupModal, setShowGroupModal] = useState(false)
-  const [editingGroup, setEditingGroup] = useState(null)
   const hasInitialLoad = useRef(false)
 
   // Mirror selectedLogin into a ref so the polling closure always reads the latest value
@@ -696,17 +693,6 @@ const MarginLevelPage = () => {
 
             {/* Action Buttons - All on right side */}
             <div className="flex items-center gap-2">
-                  <GroupSelector 
-                    moduleName="marginlevel" 
-                    onCreateClick={() => {
-                      setEditingGroup(null)
-                      setShowGroupModal(true)
-                    }}
-                    onEditClick={(group) => {
-                      setEditingGroup(group)
-                      setShowGroupModal(true)
-                    }}
-                  />
                   {/* Refresh Button */}
                   <button
                     onClick={() => {
@@ -963,20 +949,6 @@ const MarginLevelPage = () => {
         </div>
       </main>
       
-      {/* Group Modal */}
-      <GroupModal
-        isOpen={showGroupModal}
-        onClose={() => {
-          setShowGroupModal(false)
-          setEditingGroup(null)
-        }}
-        availableItems={filtered}
-        loginField="login"
-        displayField="name"
-        secondaryField="group"
-        editGroup={editingGroup}
-      />
-
       {/* Client Positions Modal */}
       {selectedLogin && (
         <ClientPositionsModal
