@@ -290,15 +290,15 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Search and filter states for deals
   const [dealsSearchQuery, setDealsSearchQuery] = useState('')
+  const [dealsInputValue, setDealsInputValue] = useState('')
   const [dealsColumnFilters, setDealsColumnFilters] = useState({})
   const [showDealsFilterDropdown, setShowDealsFilterDropdown] = useState(null)
-  const [showDealsSearchSuggestions, setShowDealsSearchSuggestions] = useState(false)
   const dealsFilterRefs = useRef({})
   const dealsSearchRef = useRef(null)
   
   // Pagination states for deals
   const [dealsCurrentPage, setDealsCurrentPage] = useState(1)
-  const [dealsItemsPerPage, setDealsItemsPerPage] = useState(10)
+  const [dealsItemsPerPage, setDealsItemsPerPage] = useState(100)
   
   // Pagination states for positions
   const [positionsCurrentPage, setPositionsCurrentPage] = useState(1)
@@ -399,13 +399,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   })
 
   // Build dynamic page-size options for Deals based on total rows
-  const getDealsPageSizeOptions = (total) => {
-    const base = [10, 25, 50, 100, 200]
-    let options = base.filter(n => n <= total)
-    if (total > 0 && options.length === 0) {
-      options = [total]
-    }
-    return options
+  const getDealsPageSizeOptions = () => {
+    return [25, 50, 100, 500]
   }
 
   // Build dynamic page-size options for Positions based on total rows
@@ -602,9 +597,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setShowSearchSuggestions(false)
       }
-      if (dealsSearchRef.current && !dealsSearchRef.current.contains(event.target)) {
-        setShowDealsSearchSuggestions(false)
-      }
       if (positionsColumnSelectorRef.current && !positionsColumnSelectorRef.current.contains(event.target)) {
         setShowPositionsColumnSelector(false)
       }
@@ -613,11 +605,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       }
     }
     
-    if (showFilterDropdown || showDealsFilterDropdown || showSearchSuggestions || showDealsSearchSuggestions || showPositionsColumnSelector || showDealStatsFilter) {
+    if (showFilterDropdown || showDealsFilterDropdown || showSearchSuggestions || showPositionsColumnSelector || showDealStatsFilter) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showFilterDropdown, showDealsFilterDropdown, showSearchSuggestions, showDealsSearchSuggestions, showPositionsColumnSelector, showDealStatsFilter])
+  }, [showFilterDropdown, showDealsFilterDropdown, showSearchSuggestions, showPositionsColumnSelector, showDealStatsFilter])
 
   // Persist visibilities
   useEffect(() => {
@@ -980,18 +972,35 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     return body
   }
 
-  const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null, overrides = {}) => {
+  const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null, searchOverride = undefined) => {
     try {
       setDealsLoading(true)
       setError('')
 
       const itemsLimit = limit || dealsItemsPerPage
-      const pageNum = page || dealsCurrentPage
-      const body = buildDealsRequestBody(fromTimestamp, toTimestamp, pageNum, itemsLimit, overrides)
+      // searchOverride allows callers to pass an explicit query (including '') to bypass stale closure state
+      const activeSearch = searchOverride !== undefined ? searchOverride : dealsSearchQuery
 
-      const response = await brokerAPI.searchClientDeals(client.login, body)
-      const clientDeals = response?.deals ?? response?.data?.deals ?? []
-      const total = response?.total ?? response?.count ?? response?.data?.total ?? response?.data?.count ?? clientDeals.length
+      let response
+      if (activeSearch && activeSearch.trim()) {
+        // Use POST search endpoint when a search query is active
+        response = await brokerAPI.searchClientDeals(client.login, {
+          search: activeSearch.trim(),
+          from: fromTimestamp,
+          to: toTimestamp,
+          page,
+          limit: itemsLimit,
+        })
+      } else {
+        // Plain GET with pagination
+        response = await brokerAPI.getClientDealsPaged(
+          client.login, fromTimestamp, toTimestamp, page, itemsLimit
+        )
+      }
+      // Response shape: { data: { deals, total, page, limit }, ... } or flat
+      const payload = response?.data ?? response
+      const clientDeals = payload?.deals ?? []
+      const total = payload?.total ?? clientDeals.length
 
       setDeals(clientDeals)
       setAllDeals(clientDeals)
@@ -1213,7 +1222,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
     if (hasAppliedFilter && currentDateFilter.from !== 0) {
       setDealsCurrentPage(1)
-      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { sortBy: column, sortOrder: nextDir })
+      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage)
     }
   }
 
@@ -1618,12 +1627,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         ...prev,
         [columnKey]: updated.length > 0 ? updated : undefined
       }
-      // Server-side re-fetch with new filters (skip for time column — client-side only)
-      if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
+      // Reset to page 1 on filter change (client-side filter)
+      if (columnKey !== 'time' && hasAppliedFilter) {
         setDealsCurrentPage(1)
-        setTimeout(() => {
-          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { filters: next })
-        }, 0)
       }
       return next
     })
@@ -1633,11 +1639,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     setDealsColumnFilters(prev => {
       const next = { ...prev }
       delete next[columnKey]
-      if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
+      if (columnKey !== 'time' && hasAppliedFilter) {
         setDealsCurrentPage(1)
-        setTimeout(() => {
-          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { filters: next })
-        }, 0)
       }
       return next
     })
@@ -1687,52 +1690,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }
 
   // Get search suggestions for deals
-  const getDealsSearchSuggestions = () => {
-    if (!dealsSearchQuery.trim() || dealsSearchQuery.length < 1) {
-      return []
-    }
-    
-    const query = dealsSearchQuery.toLowerCase().trim()
-    const uniqueValues = new Map() // Use Map to track type and avoid duplicates
-    
-    // Use deals array instead of filteredDeals to avoid circular dependency
-    if (!deals || deals.length === 0) {
-      return []
-    }
-    
-    deals.forEach(deal => {
-      const symbol = String(deal.symbol || '')
-      const action = getDealActionLabel(deal.action)
-      const dealNum = String(deal.deal || '')
-      const order = deal.order > 0 ? String(deal.order) : ''
-      const position = deal.position > 0 ? String(deal.position) : ''
-      const time = formatDate(deal.time)
-      
-      // Check each field and add to suggestions if matches
-      if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
-        uniqueValues.set(symbol, { type: 'Symbol', value: symbol, priority: 1 })
-      }
-      if (action && action.toLowerCase().includes(query) && !uniqueValues.has(action)) {
-        uniqueValues.set(action, { type: 'Action', value: action, priority: 2 })
-      }
-      if (dealNum && dealNum.includes(query) && !uniqueValues.has(`#${dealNum}`)) {
-        uniqueValues.set(`#${dealNum}`, { type: 'Deal', value: `#${dealNum}`, priority: 3 })
-      }
-      if (order && order.includes(query) && !uniqueValues.has(`#${order}`)) {
-        uniqueValues.set(`#${order}`, { type: 'Order', value: `#${order}`, priority: 4 })
-      }
-      if (position && position.includes(query) && !uniqueValues.has(`#${position}`)) {
-        uniqueValues.set(`#${position}`, { type: 'Position', value: `#${position}`, priority: 5 })
-      }
-      if (time && time.toLowerCase().includes(query) && !uniqueValues.has(time)) {
-        uniqueValues.set(time, { type: 'Time', value: time, priority: 6 })
-      }
-    })
-    
-    return Array.from(uniqueValues.values())
-      .sort((a, b) => a.priority - b.priority)
-      .slice(0, 8)
-  }
+
 
   // Apply search and filters to positions and orders combined
   const filteredPositions = useMemo(() => {
@@ -1974,30 +1932,23 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     return filtered
   })()
 
-  // Apply pagination to deals (server-side pagination, so use filteredDealsResult directly)
-  // For display purposes, calculate total pages from server's total count
-  const dealsTotalPages = Math.ceil(totalDealsCount / dealsItemsPerPage)
-  const displayedDeals = filteredDealsResult
+  // Pagination:
+  // - When search/filter/sort active: paginate client-side over filteredDealsResult
+  // - When plain fetch: use server total for page count, show current page slice
+  const hasClientFilter = !!(dealsSearchQuery.trim() || dealsSortColumn ||
+    Object.values(dealsColumnFilters || {}).some(v => v && v.length > 0))
+  const dealsTotalPages = hasClientFilter
+    ? Math.ceil(filteredDealsResult.length / dealsItemsPerPage) || 1
+    : Math.ceil(totalDealsCount / dealsItemsPerPage) || 1
+  const dealsStartIdx = (dealsCurrentPage - 1) * dealsItemsPerPage
+  const displayedDeals = hasClientFilter
+    ? filteredDealsResult.slice(dealsStartIdx, dealsStartIdx + dealsItemsPerPage)
+    : filteredDealsResult
 
   // Reset to page 1 when search/filter context changes
   useEffect(() => {
     setDealsCurrentPage(1)
   }, [hasAppliedFilter])
-
-  // Debounced server re-fetch when search query changes
-  const dealsSearchTimeoutRef = useRef(null)
-  const dealsSearchInitRef = useRef(true)
-  useEffect(() => {
-    if (dealsSearchInitRef.current) { dealsSearchInitRef.current = false; return }
-    if (!hasAppliedFilter || currentDateFilter.from === 0) return
-    clearTimeout(dealsSearchTimeoutRef.current)
-    dealsSearchTimeoutRef.current = setTimeout(() => {
-      setDealsCurrentPage(1)
-      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { search: dealsSearchQuery })
-    }, 400)
-    return () => clearTimeout(dealsSearchTimeoutRef.current)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealsSearchQuery])
 
   // Fetch deals when page or items per page changes (but not on initial tab switch)
   useEffect(() => {
@@ -2010,9 +1961,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   // Keep page-size selection valid when total deals count changes
   useEffect(() => {
     const total = totalDealsCount || filteredDealsResult.length
-    const options = getDealsPageSizeOptions(total)
-    if (options.length > 0 && (!options.includes(dealsItemsPerPage) || dealsItemsPerPage > total)) {
-      setDealsItemsPerPage(options[0] || 50)
+    const options = getDealsPageSizeOptions()
+    if (options.length > 0 && !options.includes(dealsItemsPerPage)) {
+      setDealsItemsPerPage(100)
       setDealsCurrentPage(1)
     }
   }, [totalDealsCount, filteredDealsResult.length])
@@ -2129,7 +2080,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           onCacheUpdate(null)
         }
         
-        await fetchDeals()
+        await fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
       }, 1000)
     } catch (error) {
       setOperationError(error.response?.data?.message || 'Operation failed. Please try again.')
@@ -3577,7 +3528,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           onChange={(e) => setDealsItemsPerPage(parseInt(e.target.value))}
                           className="px-1.5 py-0.5 text-xs border border-gray-300 rounded bg-white text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                         >
-                          {getDealsPageSizeOptions(totalDealsCount || filteredDealsResult.length).map((opt) => (
+                          {getDealsPageSizeOptions().map((opt) => (
                             <option key={opt} value={opt}>{opt}</option>
                           ))}
                         </select>
@@ -3683,55 +3634,64 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               ) : (
                 <>
                   {/* Search Bar */}
-                  <div className="mb-4 flex items-center gap-3">
-                    <div className="relative flex-1" ref={dealsSearchRef}>
-                      <div className="relative">
-                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="mb-4 flex items-center gap-2">
+                    <div className="relative flex-1 flex items-center border border-gray-300 rounded-full focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white" ref={dealsSearchRef}>
+                      {/* Static search icon inside on the left */}
+                      <span className="pl-3 text-gray-400 pointer-events-none shrink-0">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input
-                          type="text"
-                          value={dealsSearchQuery}
-                          onChange={(e) => setDealsSearchQuery(e.target.value)}
-                          onFocus={() => setShowDealsSearchSuggestions(true)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Escape') {
-                              setShowDealsSearchSuggestions(false);
+                      </span>
+                      <input
+                        type="text"
+                        value={dealsInputValue}
+                        onChange={(e) => setDealsInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            setDealsSearchQuery(dealsInputValue)
+                            setDealsCurrentPage(1)
+                            if (hasAppliedFilter && currentDateFilter.from !== 0) {
+                              fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
+                            }
+                          }
+                        }}
+                        placeholder="Search Deals by symbol..."
+                        className="flex-1 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 outline-none bg-transparent"
+                      />
+                      {/* Clear button */}
+                      {dealsInputValue && (
+                        <button
+                          onClick={() => {
+                            setDealsInputValue('')
+                            setDealsSearchQuery('')
+                            setDealsCurrentPage(1)
+                            if (hasAppliedFilter && currentDateFilter.from !== 0) {
+                              fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, '')
                             }
                           }}
-                          placeholder="Search deals by time, symbol, or action..."
-                          className="w-full pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700 placeholder:text-gray-400"
-                        />
-                        {dealsSearchQuery && (
-                          <button
-                            onClick={() => setDealsSearchQuery('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Search Suggestions Dropdown */}
-                      {showDealsSearchSuggestions && dealsSearchQuery && getDealsSearchSuggestions().length > 0 && (
-                        <div className="absolute z-[60] mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          {getDealsSearchSuggestions().map((suggestion, index) => (
-                            <button
-                              key={index}
-                              onClick={() => {
-                                setDealsSearchQuery(suggestion.value);
-                                setShowDealsSearchSuggestions(false);
-                              }}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 border-b border-gray-100 last:border-b-0"
-                            >
-                              <span className="text-gray-700">{suggestion.value}</span>
-                              <span className="ml-auto text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{suggestion.type}</span>
-                            </button>
-                          ))}
-                        </div>
+                          className="px-1 text-gray-400 hover:text-gray-600 shrink-0"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       )}
+                      {/* Blue search button inside on the right */}
+                      <button
+                        onClick={() => {
+                          setDealsSearchQuery(dealsInputValue)
+                          setDealsCurrentPage(1)
+                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
+                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
+                          }
+                        }}
+                        className="mr-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0 rounded-xl"
+                        title="Search"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </button>
                     </div>
                     <div className="text-sm text-gray-600 whitespace-nowrap">
                       {displayedDeals.length} of {totalDealsCount} deals
@@ -3747,8 +3707,13 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       <p className="text-gray-400 text-xs mb-3">Try different search terms or clear filters</p>
                       <button
                         onClick={() => {
+                          setDealsInputValue('');
                           setDealsSearchQuery('');
                           setDealsColumnFilters({});
+                          setDealsCurrentPage(1)
+                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
+                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, '')
+                          }
                         }}
                         className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
                       >
