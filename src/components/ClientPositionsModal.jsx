@@ -542,6 +542,41 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }, [client?.login, activeTab])
 
+  // Poll overview API every 1s while the Overview tab is active to keep account + deal stats live.
+  useEffect(() => {
+    if (!client?.login || activeTab !== 'overview') return
+    let timer = null
+    let cancelled = false
+
+    const refreshOverview = async () => {
+      if (cancelled) return
+      try {
+        const raw = await brokerAPI.getClientOverview(client.login)
+        if (cancelled) return
+        const data = raw?.data ?? raw
+        const account = data?.account ?? data?.client ?? data?.info ?? {}
+        const topLevelStats = {}
+        const statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
+                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
+        statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
+        if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
+          setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
+        }
+        const stats = data?.dealsStats ?? data?.dealStats ?? data?.deal_stats ?? data?.stats ?? data?.analytics ?? null
+        if (stats) setDealStats(stats)
+      } catch {
+        // silently ignore
+      }
+      if (!cancelled) timer = setTimeout(refreshOverview, 1000)
+    }
+
+    timer = setTimeout(refreshOverview, 1000)
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [client?.login, activeTab])
+
   // Toggle column visibility
   const togglePositionsColumn = (columnKey) => {
     setPositionsVisibleColumns(prev => {
@@ -4202,114 +4237,44 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 // Detect desktop view (for Max Profit/Loss placement)
                 const isDesktop = window.innerWidth > 768
                 
-                // Build first row: fixed position & money cards
-                const row1 = []
-                const totalPL = positions.reduce((sum, p) => sum + (p.profit || 0), 0)
-                const lifetime = Number(clientData?.lifetimePnL ?? clientData?.pnl ?? 0)
-                const floating = Number(clientData?.floatingProfit ?? clientData?.floating ?? totalPL)
-                const bookPnL = lifetime + floating
-                
-                // Invert lifetime and bookPnL for display (negative shows as positive, positive shows as negative)
-                const displayLifetime = -lifetime
-                const displayBookPnL = -bookPnL
+                // Show only account money fields in the positions summary bar
+                const balance    = Number(clientData?.balance    ?? 0)
+                const credit     = Number(clientData?.credit     ?? 0)
+                const equity     = Number(clientData?.equity     ?? 0)
+                const marginUsed = Number(clientData?.margin     ?? 0)
+                const marginFreeVal = Number(clientData?.margin_free ?? clientData?.marginFree ?? 0)
+                const marginLvl  = Number(clientData?.margin_level ?? clientData?.marginLevel ?? 0)
 
-                if (fixedCardVisibility.pf_totalPositions) {
-                  row1.push({ label: 'Positions', value: String(positions.length), labelClass: 'text-blue-700', accent: 'border-blue-300' })
-                }
-                if (fixedCardVisibility.pf_totalVolume) {
-                  const vol = positions.reduce((sum, p) => sum + (p.volume || 0), 0)
-                  row1.push({ label: 'Total Volume', value: fmtVolume(vol), labelClass: 'text-indigo-700', accent: 'border-indigo-300' })
-                }
-                if (fixedCardVisibility.pf_totalPL) {
-                  row1.push({ label: 'Floating Profit', value: fmtMoney(totalPL), labelClass: totalPL >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(totalPL), accent: totalPL >= 0 ? 'border-emerald-400' : 'border-red-400' })
-                }
-                if (fixedCardVisibility.pf_balance) {
-                  row1.push({ label: 'Balance', value: fmtMoney(clientData?.balance), labelClass: 'text-cyan-700', accent: 'border-cyan-300' })
-                }
-                if (fixedCardVisibility.pf_credit) {
-                  row1.push({ label: 'Credit', value: fmtMoney(clientData?.credit), labelClass: 'text-violet-700', accent: 'border-violet-300' })
-                }
-                if (fixedCardVisibility.pf_equity) {
-                  row1.push({ label: 'Equity', value: fmtMoney(clientData?.equity), labelClass: 'text-green-700', accent: 'border-green-300' })
-                }
-
-                // Build second row: Deals Summary (six face cards from GET stats)
-                const keys = dealStats ? Object.keys(dealStats) : []
-                const visibleKeys = keys.filter(k => dealStatVisibility[k])
-                const baseKeys = visibleKeys.length ? visibleKeys : Object.keys(defaultDealStatVisibility)
-                // Filter out maxProfit and maxLoss from deals summary since they're already in position metrics
-                // Also filter out blocked keys (totalPnL, totalStorage, winRate) per requirements
-                const filteredBaseKeys = baseKeys.filter(k => k !== 'maxProfit' && k !== 'maxLoss' && !blockedDealStatKeys.has(k))
-                const preferredOrder = ['totalCommission','totalDeals','totalVolume','winRate','averageProfitPerDeal','averageVolumePerDeal','buyDeals','buyVolume','losingDealCount','losingDealSum','losingDealsSum','profitableDealCount','profitableDealsSum','profitDealSum','profitDealsSum','sellDeals','sellVolume']
-                const toRender = [
-                  ...preferredOrder.filter(k => filteredBaseKeys.includes(k)),
-                  ...filteredBaseKeys.filter(k => !preferredOrder.includes(k))
+                const summaryRow = [
+                  { label: 'Balance',      value: fmtMoney(balance),     labelClass: 'text-cyan-700',   accent: 'border-cyan-300'   },
+                  { label: 'Credit',       value: fmtMoney(credit),      labelClass: 'text-violet-700', accent: 'border-violet-300' },
+                  { label: 'Equity',       value: fmtMoney(equity),      labelClass: 'text-green-700',  accent: 'border-green-300'  },
+                  { label: 'Margin',       value: fmtMoney(marginUsed),  labelClass: 'text-orange-700', accent: 'border-orange-300' },
+                  { label: 'Free Margin',  value: fmtMoney(marginFreeVal), labelClass: 'text-teal-700', accent: 'border-teal-300'   },
+                  { label: 'Margin Level', value: marginLvl ? `${marginLvl.toFixed(2)}%` : '-', labelClass: marginLvl > 0 && marginLvl < 100 ? 'text-red-700' : 'text-blue-700', accent: marginLvl > 0 && marginLvl < 100 ? 'border-red-400' : 'border-blue-300' },
                 ]
+
+                const row1 = summaryRow
                 const row2 = []
-                const dealAccent = (k, v) => {
-                  if (k === 'totalCommission') return 'border-amber-400'
-                  if (k === 'totalDeals') return 'border-blue-300'
-                  if (k === 'totalPnL') return (Number(v || 0) >= 0) ? 'border-emerald-400' : 'border-red-400'
-                  if (k === 'totalStorage') return (Number(v || 0) >= 0) ? 'border-teal-400' : 'border-orange-400'
-                  if (k === 'totalVolume') return 'border-indigo-300'
-                  if (k === 'winRate') return (Number(v || 0) >= 50) ? 'border-green-400' : 'border-orange-400'
-                  return 'border-gray-200'
-                }
-                toRender.forEach((key) => {
-                  const styles = getDealStatStyle(key, dealStats?.[key])
-                  row2.push({ label: toTitle(key), value: formatStatValue(key, dealStats?.[key]), labelClass: styles.label, valueClass: styles.value, accent: dealAccent(key, dealStats?.[key]) })
-                })
-                
-                // Add Max Profit and Max Loss to second row (desktop only)
-                if (isDesktop) {
-                  if (fixedCardVisibility.pf_maxProfit) {
-                    const maxProfit = Number(dealStats?.maxProfit ?? 0)
-                    row2.push({ label: 'Max Profit', value: fmtMoney(maxProfit), labelClass: maxProfit >= 0 ? 'text-emerald-700' : 'text-gray-700', valueClass: getProfitColor(maxProfit), accent: maxProfit >= 0 ? 'border-emerald-400' : 'border-gray-300' })
-                  }
-                  if (fixedCardVisibility.pf_maxLoss) {
-                    const maxLoss = Number(dealStats?.maxLoss ?? 0)
-                    row2.push({ label: 'Max Loss', value: fmtMoney(maxLoss), labelClass: maxLoss < 0 ? 'text-red-700' : 'text-gray-700', valueClass: getProfitColor(maxLoss), accent: maxLoss < 0 ? 'border-red-400' : 'border-gray-300' })
-                  }
-                }
 
                 if (!row1.length && !row2.length) return null
 
                 return (
-                  <div className="space-y-2">
-                    {(() => {
-                      const all = [...row1, ...row2]
-                      const total = all.length
-                      // Split into 2 rows: row1 uses ceil(total/2) cols, row2 uses the rest
-                      const r1Count = Math.ceil(total / 2)
-                      const r2Count = total - r1Count
-                      const firstHalf = all.slice(0, r1Count)
-                      const secondHalf = all.slice(r1Count)
-                      return (
-                        <>
-                          {firstHalf.length > 0 && (
-                            <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${r1Count}, minmax(0, 1fr))` }}>
-                              {firstHalf.map((it, idx) => (
-                                <div key={`fc1-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
-                                  <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>
-                                  <p className={`text-xs font-bold ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {secondHalf.length > 0 && (
-                            <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${r2Count}, minmax(0, 1fr))` }}>
-                              {secondHalf.map((it, idx) => (
-                                <div key={`fc2-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
-                                  <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>
-                                  <p className={`text-xs font-bold ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      )
-                    })()}
-                    {dealStatsError && <p className="text-[11px] text-red-600">{dealStatsError}</p>}
+                  <div className="px-1 pb-1">
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                      {[...row1, ...row2].map((it, idx) => (
+                          <div
+                            key={`fc-${it.label}-${idx}`}
+                            className="relative rounded-xl border border-gray-100 shadow-sm bg-white px-3 py-2.5 flex flex-col gap-0.5 overflow-hidden"
+                          >
+                            {/* coloured left accent bar */}
+                            <span className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl ${it.accent?.replace('border-', 'bg-') || 'bg-gray-300'}`} />
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{it.label}</p>
+                            <p className={`text-sm font-bold leading-tight ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
+                          </div>
+                      ))}
+                    </div>
+                    {dealStatsError && <p className="text-[11px] text-red-600 mt-1">{dealStatsError}</p>}
                   </div>
                 )
               })()}
