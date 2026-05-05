@@ -462,11 +462,10 @@ export const brokerAPI = {
     throw new Error('All client deals endpoint attempts failed')
   },
 
-  // Get client deals with pagination (uses GET endpoint)
-  getClientDealsWithPagination: async (login, from, to, page = 1, limit = 15) => {
-    const response = await api.get(`/api/broker/clients/${login}/deals`, {
-      params: { from, to, page, limit }
-    })
+  // Search/filter/sort client deals via POST (server-side)
+  // Body: { search, filters: [{field, operator, value}], sortBy, sortOrder, from, to, page, limit }
+  searchClientDeals: async (login, body = {}) => {
+    const response = await api.post(`/api/broker/clients/${login}/deals`, body)
     return response.data
   },
 
