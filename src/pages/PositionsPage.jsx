@@ -1557,7 +1557,7 @@ const PositionsPage = () => {
     const totalPositions = serverTotalPositions
     // Invert profit to show broker perspective (client loss = broker gain)
     const totalFloatingProfit = -(serverTotals.profit || 0)
-    const totalFloatingProfitPercentage = -ibFilteredPositions.reduce((sum, p) => sum + (p.profit_percentage || 0), 0)
+    const totalFloatingProfitPercentage = -((rawClients || []).reduce((sum, c) => sum + (c.profit_percentage || 0), 0))
     const uniqueLogins = Number(serverTotals.uniqueLogins || 0)
     const uniqueSymbols = new Set(ibFilteredPositions.map(p => p.symbol)).size
     const totalVolume = Number(serverTotals.volume || 0)
@@ -1577,7 +1577,7 @@ const PositionsPage = () => {
       floatingINR,
       floatingUSD
     }
-  }, [ibFilteredPositions, serverTotalPositions, serverTotals])
+  }, [ibFilteredPositions, serverTotalPositions, serverTotals, rawClients])
   
   // Handle column header click for sorting
   const handleSort = (columnKey) => {
@@ -2523,63 +2523,6 @@ const PositionsPage = () => {
                 NET Position
               </button>
 
-              {/* Date Filter Button */}
-              <div className="relative" ref={dateFilterRef}>
-                <button
-                  onClick={() => setIsDateFilterOpen(v => !v)}
-                  className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
-                    dateFilter 
-                      ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700' 
-                      : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
-                  }`}
-                  title="Filter by Date Range"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  {dateFilter ? `${dateFilter} Days` : 'Date Filter'}
-                </button>
-
-                {isDateFilterOpen && (
-                  <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
-                    {[3, 5, 7].map(days => (
-                      <button
-                        key={days}
-                        onClick={() => {
-                          setDateFilter(days)
-                          setCurrentPage(1)
-                          setIsDateFilterOpen(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-blue-50 flex items-center justify-between ${
-                          dateFilter === days ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-                        }`}
-                      >
-                        <span>{days} Days</span>
-                        {dateFilter === days && (
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                    ))}
-                    {dateFilter && (
-                      <>
-                        <div className="border-t border-gray-100 my-1" />
-                        <button
-                          onClick={() => {
-                            setDateFilter(null)
-                            setCurrentPage(1)
-                            setIsDateFilterOpen(false)
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
-                        >
-                          Clear filter
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
 
 
               {/* Percentage Toggle Switch */}
@@ -2707,15 +2650,15 @@ const PositionsPage = () => {
               </div>
             )}
             
-            {/* Total Floating Profit Percentage - shown in 'percentage' mode */}
+            {/* Total Floating Combined - shown in 'percentage' mode */}
             {displayMode === 'percentage' && (
               <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                  <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating Profit %</span>
+                  <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating Combined %</span>
                   <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                     <img 
-                      src={getCardIcon('Floating Profit %')} 
-                      alt="Floating Profit %"
+                      src={getCardIcon('Floating Combined')} 
+                      alt="Floating Combined"
                       style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                       onError={(e) => {
                         e.target.style.display = 'none'
@@ -2727,9 +2670,10 @@ const PositionsPage = () => {
                   <div className="h-6" />
                 ) : (
                   <div className={`text-sm md:text-base font-bold flex items-center gap-1.5 leading-none ${
-                    summaryStats.totalFloatingProfitPercentage >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
+                    summaryStats.floatingCombined >= 0 ? 'text-[#16A34A]' : 'text-[#DC2626]'
                   }`}>
-                    <span>{formatIndianNumber(Math.abs(summaryStats.totalFloatingProfitPercentage), 2)}</span>
+                    <span className="inline-flex items-center leading-none flex-shrink-0" style={{ fontSize: '0.85em' }} aria-label={summaryStats.floatingCombined >= 0 ? 'up' : 'down'}>{summaryStats.floatingCombined >= 0 ? '▲' : '▼'}</span>
+                    <span title={numericMode === 'compact' ? fmtMoneyFull(summaryStats.floatingCombined) : undefined}>{fmtMoney(summaryStats.floatingCombined)}</span>
                   </div>
                 )}
               </div>
@@ -2737,7 +2681,7 @@ const PositionsPage = () => {
             
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating INR</span>
+                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating INR{displayMode === 'percentage' ? ' %' : ''}</span>
                 <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
                     src={getCardIcon('Floating INR')} 
@@ -2762,7 +2706,7 @@ const PositionsPage = () => {
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating USD</span>
+                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating USD{displayMode === 'percentage' ? ' %' : ''}</span>
                 <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 ml-1 p-1">
                   <img 
                     src={getCardIcon('Floating USD')} 
