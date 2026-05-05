@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
 import { useAuth } from '../contexts/AuthContext'
@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 // Max number of deals to request in one fetch. Increase if needed.
 const CLIENT_DEALS_FETCH_LIMIT = 1000
 
-// ── Profit Trend Chart with hover crosshair ─────────────────────────────────
+// -- Profit Trend Chart with hover crosshair ---------------------------------
 const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
   const [hovered, setHovered] = useState(null)
   const wrapRef = useRef(null)
@@ -14,7 +14,7 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
   if (!data || data.length < 2) return (
     <div className="flex items-center justify-center h-full text-xs text-gray-400">No data</div>
   )
-  const padL = 46, padR = 8, padTop = 8, padBot = 4
+  const padL = 32, padR = 6, padTop = 6, padBot = 2
   const chartW = w - padL - padR
   const chartH = h - padTop - padBot
   const vals = data.map(d => d.value)
@@ -99,7 +99,7 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
             </g>
           )
         })}
-        {/* Area fills – one per consecutive same-color group */}
+        {/* Area fills � one per consecutive same-color group */}
         {areaGroups.map((g, gi) => {
           const gPts = pts.slice(g.start, g.end + 1)
           const d = [
@@ -109,7 +109,7 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
           ].join(' ')
           return <path key={gi} d={d} fill={`url(#${g.color === '#ef4444' ? 'trendGradRed' : 'trendGradBlue'})`}/>
         })}
-        {/* Line segments – each colored by direction */}
+        {/* Line segments � each colored by direction */}
         {pts.slice(0, -1).map((p, i) => (
           <line key={i}
             x1={p.x.toFixed(1)} y1={p.y.toFixed(1)}
@@ -153,7 +153,7 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
   )
 }
 
-// ── SVG Donut with hover tooltip ─────────────────────────────────────────────
+// -- SVG Donut with hover tooltip ---------------------------------------------
 const SvgDonut = ({ segments, size, sw, centerLine1, centerLine2 }) => {
   const [tooltip, setTooltip] = useState(null)
   const wrapRef = useRef(null)
@@ -504,7 +504,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
           setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
         }
-        // Don't overwrite positions if user has an active search or sort —
+        // Don't overwrite positions if user has an active search or sort �
         // the search API owns the positions list in that case.
         const apiActive =
           (debouncedSearchQueryRef.current && debouncedSearchQueryRef.current.trim().length > 0) ||
@@ -631,7 +631,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     // When a search or sort is active, positions are loaded via API. Skip cache.
     const apiActive = (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) || !!positionsSortColumn
     if (apiActive) return
-    // Skip if no cache provided — overview poller owns position data in that case
+    // Skip if no cache provided � overview poller owns position data in that case
     if (!allPositionsCache || allPositionsCache.length === 0) return
     const clientPositions = allPositionsCache.filter(pos => pos.login === client.login)
     setPositions(clientPositions)
@@ -990,16 +990,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   const fetchAvailableRules = async () => {
     try {
-      console.log('[ClientPositionsModal] 🔍 Fetching available rules...')
+      console.log('[ClientPositionsModal] ?? Fetching available rules...')
       setRulesLoading(true)
       const response = await brokerAPI.getAvailableRules()
-      console.log('[ClientPositionsModal] ✅ Rules response:', response)
+      console.log('[ClientPositionsModal] ? Rules response:', response)
       if (response.status === 'success') {
         setAvailableRules(response.data.rules || [])
-        console.log('[ClientPositionsModal] 📋 Available rules set:', response.data.rules?.length || 0)
+        console.log('[ClientPositionsModal] ?? Available rules set:', response.data.rules?.length || 0)
       }
     } catch (error) {
-      console.error('[ClientPositionsModal] ❌ Failed to fetch available rules:', error)
+      console.error('[ClientPositionsModal] ? Failed to fetch available rules:', error)
     } finally {
       setRulesLoading(false)
     }
@@ -1007,24 +1007,24 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   const fetchClientRules = async () => {
     try {
-      console.log('[ClientPositionsModal] 🔍 Fetching client rules for login:', client.login)
+      console.log('[ClientPositionsModal] ?? Fetching client rules for login:', client.login)
       const response = await brokerAPI.getClientRules(client.login)
-      console.log('[ClientPositionsModal] ✅ Client rules response:', response)
+      console.log('[ClientPositionsModal] ? Client rules response:', response)
       if (response.status === 'success') {
         const rules = response.data.rules || []
-        console.log('[ClientPositionsModal] 📋 Setting client rules to:', rules.map(r => ({ code: r.rule_code, name: r.rule_name })))
+        console.log('[ClientPositionsModal] ?? Setting client rules to:', rules.map(r => ({ code: r.rule_code, name: r.rule_name })))
         setClientRules(rules)
-        console.log('[ClientPositionsModal] 📋 Client rules state updated. Count:', rules.length)
+        console.log('[ClientPositionsModal] ?? Client rules state updated. Count:', rules.length)
       }
     } catch (error) {
-      console.error('[ClientPositionsModal] ❌ Failed to fetch client rules:', error)
+      console.error('[ClientPositionsModal] ? Failed to fetch client rules:', error)
       setClientRules([])
     }
   }
 
   const handleApplyRule = async (rule) => {
     try {
-      console.log('[ClientPositionsModal] ➕ Applying/Activating rule:', rule.rule_code, 'for login:', client.login)
+      console.log('[ClientPositionsModal] ? Applying/Activating rule:', rule.rule_code, 'for login:', client.login)
       setRulesLoading(true)
       
       // Find the matching available rule to check if time parameter is required
@@ -1041,12 +1041,12 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         return
       }
 
-      console.log('[ClientPositionsModal] 📤 Sending apply request with time:', timeParameter)
+      console.log('[ClientPositionsModal] ?? Sending apply request with time:', timeParameter)
       const response = await brokerAPI.applyClientRule(client.login, rule.rule_code, timeParameter)
-      console.log('[ClientPositionsModal] ✅ Apply rule response:', response)
+      console.log('[ClientPositionsModal] ? Apply rule response:', response)
       
       if (response.status === 'success') {
-        console.log('[ClientPositionsModal] 📋 Rule applied/activated successfully')
+        console.log('[ClientPositionsModal] ?? Rule applied/activated successfully')
         // Clear selected time parameter after successful application
         setSelectedTimeParam(prev => {
           const updated = { ...prev }
@@ -1055,13 +1055,13 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         })
         // Refresh client rules from API to get updated is_active status
         await fetchClientRules()
-        console.log('[ClientPositionsModal] ✅ Rule application completed')
+        console.log('[ClientPositionsModal] ? Rule application completed')
       } else {
-        console.error('[ClientPositionsModal] ❌ Apply rule failed:', response.message)
+        console.error('[ClientPositionsModal] ? Apply rule failed:', response.message)
         alert(response.message || 'Failed to apply rule')
       }
     } catch (error) {
-      console.error('[ClientPositionsModal] ❌ Error applying rule:', error)
+      console.error('[ClientPositionsModal] ? Error applying rule:', error)
       alert('Failed to apply rule: ' + (error.response?.data?.message || error.message))
     } finally {
       setRulesLoading(false)
@@ -1070,22 +1070,22 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   const handleRemoveRule = async (ruleCode) => {
     try {
-      console.log('[ClientPositionsModal] 🗑️ Deactivating rule:', ruleCode, 'for login:', client.login)
+      console.log('[ClientPositionsModal] ??? Deactivating rule:', ruleCode, 'for login:', client.login)
       setRulesLoading(true)
       const response = await brokerAPI.removeClientRule(client.login, ruleCode)
-      console.log('[ClientPositionsModal] ✅ Remove rule response:', response)
+      console.log('[ClientPositionsModal] ? Remove rule response:', response)
       
       if (response.status === 'success') {
-        console.log('[ClientPositionsModal] 📋 Rule deactivated successfully')
+        console.log('[ClientPositionsModal] ?? Rule deactivated successfully')
         // Refresh client rules from API to get updated is_active status
         await fetchClientRules()
-        console.log('[ClientPositionsModal] ✅ Rule deactivation completed')
+        console.log('[ClientPositionsModal] ? Rule deactivation completed')
       } else {
-        console.error('[ClientPositionsModal] ❌ Remove rule failed:', response.message)
+        console.error('[ClientPositionsModal] ? Remove rule failed:', response.message)
         alert(response.message || 'Failed to remove rule')
       }
     } catch (error) {
-      console.error('[ClientPositionsModal] ❌ Error removing rule:', error)
+      console.error('[ClientPositionsModal] ? Error removing rule:', error)
       alert('Failed to remove rule: ' + (error.response?.data?.message || error.message))
     } finally {
       setRulesLoading(false)
@@ -1110,14 +1110,14 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
     return `${sign}${abs.toFixed(2)}`
   }
-  // Money: compact-aware (profit, storage, commission, balance, equity …)
+  // Money: compact-aware (profit, storage, commission, balance, equity �)
   const fmtMoney = (n) => {
     const num = parseFloat(n || 0)
     if (numericMode === 'compact') return formatCompactIndian(num)
     return formatCurrency(num)
   }
   const fmtMoneyFull = (n) => formatCurrency(parseFloat(n || 0))
-  // Volume: compact when ≥ 1000
+  // Volume: compact when = 1000
   const fmtVolume = (n, digits = 2) => {
     const num = Number(n)
     if (Number.isNaN(num)) return '-'
@@ -1128,7 +1128,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     const num = Number(n)
     return Number.isNaN(num) ? '-' : num.toFixed(digits)
   }
-  // Price: compact only when ≥ 1000 (small forex prices untouched)
+  // Price: compact only when = 1000 (small forex prices untouched)
   const fmtPrice = (n, digits = 5) => {
     const num = Number(n)
     if (Number.isNaN(num)) return '-'
@@ -2098,7 +2098,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           <div className="flex overflow-x-auto">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+              className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
                 activeTab === 'overview'
                   ? 'border-blue-600 text-blue-600 bg-blue-50'
                   : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
@@ -2108,7 +2108,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             </button>
             <button
               onClick={() => setActiveTab('positions')}
-              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+              className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
                 activeTab === 'positions'
                   ? 'border-blue-600 text-blue-600 bg-blue-50'
                   : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
@@ -2118,7 +2118,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             </button>
             <button
               onClick={() => setActiveTab('deals')}
-              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+              className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
                 activeTab === 'deals'
                   ? 'border-blue-600 text-blue-600 bg-blue-50'
                   : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
@@ -2129,7 +2129,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             {(user?.rights ? ['deposit','withdrawal','credit_in','credit_out'].some(r => user.rights.includes(r)) : true) && (
             <button
               onClick={() => setActiveTab('funds')}
-              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+              className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
                 activeTab === 'funds'
                   ? 'border-blue-600 text-blue-600 bg-blue-50'
                   : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
@@ -2141,7 +2141,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             {(user?.rights ? user.rights.includes('manage_rules') : true) && (
             <button
               onClick={() => setActiveTab('rules')}
-              className={`px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+              className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
                 activeTab === 'rules'
                   ? 'border-blue-600 text-blue-600 bg-blue-50'
                   : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
@@ -2420,9 +2420,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         </div>
 
         {/* Tab Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-6 min-h-0 bg-white">
+        <div className="flex-1 overflow-y-auto p-4 min-h-0 bg-white">
 
-          {/* ───────────── OVERVIEW TAB ───────────── */}
+          {/* ------------- OVERVIEW TAB ------------- */}
           {activeTab === 'overview' && (() => {
             const acc = clientData || {}
             const balance   = parseFloat(acc.balance   || 0)
@@ -2457,10 +2457,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
             // ProfitTrendChart is defined at module level
 
-            // ── Margin Usage BAR chart ────────────────────────────────────────
+            // -- Margin Usage BAR chart ----------------------------------------
             const MarginBarChart = ({ used, free }) => {
               const maxVal = Math.max(Math.abs(used), Math.abs(free), 1)
-              const w = 160, h = 140, barW = 40, midY = h / 2
+              const w = 160, h = 90, barW = 38, midY = h / 2
               const usedH = (Math.abs(used) / maxVal) * (midY - 16)
               const freeH = (Math.abs(free) / maxVal) * (midY - 16)
               const fmtV = v => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0)
@@ -2474,9 +2474,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   })}
                   {/* zero line */}
                   <line x1="30" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
-                  {/* Used Margin bar – goes DOWN (negative) */}
+                  {/* Used Margin bar � goes DOWN (negative) */}
                   <rect x={w/2 - barW - 4} y={midY} width={barW} height={usedH} fill="#ef4444" rx="3"/>
-                  {/* Free Margin bar – goes UP (positive) */}
+                  {/* Free Margin bar � goes UP (positive) */}
                   <rect x={w/2 + 4} y={midY - freeH} width={barW} height={freeH} fill="#16a34a" rx="3"/>
                   {/* value labels */}
                   <text x={w/2 - barW/2 - 4} y={midY + usedH + 9} textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
@@ -2494,16 +2494,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               )
             }
 
-            // ── Semi-circle Profitability gauge ───────────────────────────────
+            // -- Semi-circle Profitability gauge -------------------------------
             const SemiGauge = ({ profit, loss, net }) => {
               const total = profit + loss || 1
               const profPct = profit / total
-              const cx = 100, cy = 95, r = 70, sw = 18
+              const cx = 100, cy = 72, r = 55, sw = 14
               const semicircle = Math.PI * r
               const profLen = profPct * semicircle
               const lossLen = semicircle - profLen
               return (
-                <svg viewBox="0 0 200 105" className="w-full max-w-[200px] mx-auto">
+                <svg viewBox="0 0 200 82" className="w-full max-w-[180px] mx-auto">
                   {/* background track */}
                   <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
                     fill="none" stroke="#e5e7eb" strokeWidth={sw} strokeLinecap="round"/>
@@ -2522,17 +2522,17 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             }
 
             return (
-              <div className="space-y-5">
-                {/* ── Row 1: Account Information + Account Allocation ── */}
-                <div className="grid grid-cols-5 gap-5">
-                  {/* Account Information – 2/5 width */}
-                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <div className="space-y-2">
+                {/* -- Row 1: Account Information + Account Allocation -- */}
+                <div className="grid grid-cols-5 gap-2">
+                  {/* Account Information � 2/5 width */}
+                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
                       <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                       Account Information
                     </h3>
                     <div className="divide-y divide-slate-200">
-                      <div className="grid grid-cols-3 divide-x divide-slate-200 pb-4">
+                      <div className="grid grid-cols-3 divide-x divide-slate-200 pb-2">
                         {[
                           { label: 'Name',     value: acc.name || client?.name || '-' },
                           { label: 'Account',  value: `${acc.login || client?.login || '-'}` },
@@ -2544,7 +2544,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           </div>
                         ))}
                       </div>
-                      <div className="grid grid-cols-3 divide-x divide-slate-200 pt-4">
+                      <div className="grid grid-cols-3 divide-x divide-slate-200 pt-2">
                         {[
                           { label: 'Equity',           value: fmtMoney(equity),                                       color: 'text-blue-600' },
                           { label: 'Margin Level',     value: marginLevel > 0 ? `${marginLevel.toFixed(0)}%` : '-',   color: marginLevel > 0 && marginLevel < 50 ? 'text-red-500' : 'text-green-600' },
@@ -2559,12 +2559,12 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     </div>
                   </div>
 
-                  {/* Account Allocation – 3/5 width */}
-                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Account Allocation</h3>
-                    <div className="flex items-center gap-6">
+                  {/* Account Allocation � 3/5 width */}
+                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2">Account Allocation</h3>
+                    <div className="flex items-center gap-4">
                       <SvgDonut
-                        size={120} sw={20}
+                        size={100} sw={18}
                         segments={[
                           { pct: parseFloat((Math.abs(credit)   / allocTotal * 100).toFixed(2)), color: '#6366f1', label: 'Credit',          value: fmtMoney(credit) },
                           { pct: parseFloat((Math.abs(balance)  / allocTotal * 100).toFixed(2)), color: '#22c55e', label: 'Balance',         value: fmtMoney(balance) },
@@ -2573,7 +2573,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         centerLine1={fmtMoney(equity)}
                         centerLine2="Total Equity"
                       />
-                      <div className="flex-1 space-y-3">
+                      <div className="flex-1 space-y-2">
                         {[
                           { label: 'Credit',          value: credit,   pct: Math.abs(credit)   / allocTotal * 100, color: '#6366f1' },
                           { label: 'Balance',         value: balance,  pct: Math.abs(balance)  / allocTotal * 100, color: '#22c55e' },
@@ -2594,11 +2594,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   </div>
                 </div>
 
-                {/* ── Row 2: Profit Trend | Volume Overview | Margin Usage | Deals Summary ── */}
-                <div className="grid grid-cols-4 gap-5">
+                {/* -- Row 2: Profit Trend | Volume Overview | Margin Usage | Deals Summary -- */}
+                <div className="grid grid-cols-4 gap-2">
                   {/* Profit Trend */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-bold text-slate-800">Profit Trend</h3>
                       <select value={trendRange} onChange={e => setTrendRange(e.target.value)}
                         className="text-xs border border-slate-200 rounded px-2 py-0.5 text-slate-600 bg-white focus:outline-none">
@@ -2606,10 +2606,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         <option value="30d">30 Days</option>
                       </select>
                     </div>
-                    <div className="h-[110px]">
+                    <div className="h-[80px]">
                       {trendLoading
                         ? <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"/></div>
-                        : <ProfitTrendChart data={profitTrend} w={220} h={110}/>
+                        : <ProfitTrendChart data={profitTrend} w={220} h={80}/>
                       }
                     </div>
                     {profitTrend.length > 0 && (
@@ -2624,11 +2624,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   </div>
 
                   {/* Volume Overview */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Volume Overview</h3>
-                    <div className="flex flex-col items-center gap-4">
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2">Volume Overview</h3>
+                    <div className="flex items-center justify-center gap-3">
                       <SvgDonut
-                        size={100} sw={18}
+                        size={108} sw={18}
                         segments={[
                           { pct: buyPct,  color: '#2563eb', label: 'Buy Volume',  value: fmtMoney(buyVol) },
                           { pct: sellPct, color: '#ef4444', label: 'Sell Volume', value: fmtMoney(sellVol) },
@@ -2636,15 +2636,17 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         centerLine1={fmtMoney(totalVolume)}
                         centerLine2="Total Volume"
                       />
-                      <div className="w-full space-y-2">
+                      <div className="space-y-2">
                         {[
                           { label: 'Buy Volume',  val: buyVol,  pct: buyPct,  color: '#2563eb' },
                           { label: 'Sell Volume', val: sellVol, pct: sellPct, color: '#ef4444' },
                         ].map(({ label, val, pct, color }) => (
-                          <div key={label} className="flex items-center gap-2 text-xs">
-                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
-                            <span className="text-slate-500 flex-1">{label}</span>
-                            <span className="font-semibold text-slate-700">{fmtMoney(val)} ({pct}%)</span>
+                          <div key={label} className="text-xs">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
+                              <span className="text-slate-500">{label}</span>
+                            </div>
+                            <div className="font-semibold text-slate-700 pl-3.5">{fmtMoney(val)} <span className="text-slate-400">({pct}%)</span></div>
                           </div>
                         ))}
                       </div>
@@ -2652,97 +2654,104 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   </div>
 
                   {/* Margin Usage */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Margin Usage</h3>
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2">Margin Usage</h3>
                     <div className="flex justify-center">
                       <MarginBarChart used={margin} free={marginFree}/>
                     </div>
                   </div>
 
                   {/* Deals Summary */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Deals Summary</h3>
-                    <div className="flex items-start gap-3">
-                      {/* Left: donut + win/loss rate below */}
-                      <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                        <SvgDonut
-                          size={90} sw={16}
-                          segments={[
-                            { pct: parseFloat(winRate.toFixed(1)),  color: '#22c55e', label: 'Profitable Deals', value: `${profDeals} deals` },
-                            { pct: parseFloat(lossRate.toFixed(1)), color: '#ef4444', label: 'Losing Deals',     value: `${loseDeals} deals` },
-                          ]}
-                          centerLine1={String(totalDeals)}
-                          centerLine2="Total Deals"
-                        />
-                        <div className="flex justify-center gap-1.5">
-                          <div className="bg-green-50 rounded-lg px-3 py-1.5 text-center">
-                            <div className="text-[9px] text-green-600 font-medium">Win Rate</div>
-                            <div className="text-xs font-bold text-green-700">{winRate.toFixed(1)}%</div>
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2">Deals Summary</h3>
+                    <div className="flex items-center justify-center gap-3">
+                      <SvgDonut
+                        size={108} sw={18}
+                        segments={[
+                          { pct: parseFloat(winRate.toFixed(1)),  color: '#22c55e', label: 'Profitable Deals', value: `${profDeals} deals` },
+                          { pct: parseFloat(lossRate.toFixed(1)), color: '#ef4444', label: 'Losing Deals',     value: `${loseDeals} deals` },
+                        ]}
+                        centerLine1={String(totalDeals)}
+                        centerLine2="Total Deals"
+                      />
+                      <div className="space-y-2">
+                        <div className="text-xs">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
+                            <span className="text-slate-500">Profitable Deals</span>
                           </div>
-                          <div className="bg-red-50 rounded-lg px-3 py-1.5 text-center">
-                            <div className="text-[9px] text-red-500 font-medium">Loss Rate</div>
-                            <div className="text-xs font-bold text-red-600">{lossRate.toFixed(1)}%</div>
-                          </div>
+                          <div className="font-semibold text-slate-700 pl-3.5">{profDeals} <span className="text-green-600">({winRate.toFixed(1)}%)</span></div>
                         </div>
-                      </div>
-                      {/* Right: deal counts */}
-                      <div className="flex-1 space-y-2 pt-1">
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
-                          <div>
-                            <span className="text-slate-700 font-medium">Profitable Deals</span>
-                            <br/><span className="text-slate-500">{profDeals} ({winRate.toFixed(1)}%)</span>
+                        <div className="text-xs">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"/>
+                            <span className="text-slate-500">Losing Deals</span>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"/>
-                          <div>
-                            <span className="text-slate-700 font-medium">Losing Deals</span>
-                            <br/><span className="text-slate-500">{loseDeals} ({lossRate.toFixed(1)}%)</span>
-                          </div>
+                          <div className="font-semibold text-slate-700 pl-3.5">{loseDeals} <span className="text-red-500">({lossRate.toFixed(1)}%)</span></div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* ── Row 3: Performance Overview + Profitability ── */}
-                <div className="grid grid-cols-5 gap-5">
+                {/* -- Row 3: Performance Overview + Profitability -- */}
+                <div className="grid grid-cols-5 gap-2">
                   {/* Performance Overview – 3/5 width */}
-                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Performance Overview</h3>
-                    <div className="flex-1 grid grid-cols-4 gap-4 items-center content-center">
+                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-3">Performance Overview</h3>
+                    <div className="grid grid-cols-4 gap-3">
                       {[
-                        { label: 'Avg Profit / Deal', value: avgProfit, color: 'text-green-600', bg: 'bg-green-50',
-                          icon: <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg> },
-                        { label: 'Avg Loss / Deal',   value: avgLoss,   color: 'text-red-600',   bg: 'bg-red-50',
-                          icon: <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m0 0h-4m4 0v4M5 20h14a2 2 0 002-2v-5a2 2 0 00-2-2H5a2 2 0 00-2 2v5a2 2 0 002 2z"/></svg> },
-                        { label: 'Max Profit',        value: maxProfit, color: 'text-green-700', bg: 'bg-green-50',
-                          icon: <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg> },
-                        { label: 'Max Loss',          value: maxLoss,   color: 'text-red-700',   bg: 'bg-red-50',
-                          icon: <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg> },
-                      ].map(({ label, value, color, bg, icon }) => (
-                        <div key={label} className={`${bg} rounded-xl p-4 flex flex-col items-center gap-2`}>
-                          {icon}
-                          <div className="text-[10px] text-slate-500 text-center leading-tight">{label}</div>
-                          <div className={`text-sm font-bold ${color}`}>{fmtMoney(value)}</div>
+                        {
+                          label: 'Avg Profit / Deal', value: avgProfit, valueColor: 'text-green-600',
+                          iconBg: 'bg-green-50', iconColor: 'text-green-500',
+                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        },
+                        {
+                          label: 'Avg Loss / Deal', value: avgLoss, valueColor: 'text-red-600',
+                          iconBg: 'bg-red-50', iconColor: 'text-red-500',
+                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                        },
+                        {
+                          label: 'Max Profit', value: maxProfit, valueColor: 'text-green-600',
+                          iconBg: 'bg-green-50', iconColor: 'text-green-500',
+                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        },
+                        {
+                          label: 'Max Loss', value: maxLoss, valueColor: 'text-red-600',
+                          iconBg: 'bg-red-50', iconColor: 'text-red-500',
+                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                        },
+                      ].map(({ label, value, valueColor, iconBg, iconColor, icon }) => (
+                        <div key={label} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>
+                              <svg className={`w-4 h-4 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">{icon}</svg>
+                            </div>
+                            <span className="text-xs text-slate-500 leading-tight">{label}</span>
+                          </div>
+                          <div className={`text-base font-bold ${valueColor}`}>{fmtMoney(value)}</div>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   {/* Profitability – 2/5 width */}
-                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Profitability</h3>
-                    <SemiGauge profit={profitSum} loss={losingSum} net={netPL}/>
-                    <div className="flex justify-around mt-3">
-                      <div className="text-center">
-                        <div className="text-[10px] text-slate-500 mb-1">Profit Sum</div>
-                        <div className="text-sm font-bold text-green-600">{fmtMoney(profitSum)}</div>
+                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-2">Profitability</h3>
+                    <div className="flex items-center gap-2">
+                      {/* Profit Sum – left */}
+                      <div className="flex-1 flex flex-col items-center justify-center py-3 px-2">
+                        <div className="text-[10px] text-green-600 font-semibold uppercase tracking-wide mb-1">Profit Sum</div>
+                        <div className="text-sm font-bold text-green-600 text-center">{fmtMoney(profitSum)}</div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-[10px] text-slate-500 mb-1">Losing Sum</div>
-                        <div className="text-sm font-bold text-red-600">-{fmtMoney(losingSum)}</div>
+                      {/* Gauge – center */}
+                      <div className="flex flex-col items-center flex-shrink-0">
+                        <SemiGauge profit={profitSum} loss={losingSum} net={netPL}/>
+                      </div>
+                      {/* Losing Sum – right */}
+                      <div className="flex-1 flex flex-col items-center justify-center py-3 px-2">
+                        <div className="text-[10px] text-red-500 font-semibold uppercase tracking-wide mb-1">Losing Sum</div>
+                        <div className="text-sm font-bold text-red-500 text-center">-{fmtMoney(losingSum)}</div>
                       </div>
                     </div>
                   </div>
@@ -4227,8 +4236,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
         </div>
 
-        {/* Summary Cards - Fixed at Bottom */}
-  <div className="flex-shrink-0 p-1.5 bg-slate-50 border-t-2 border-blue-200">
+        {/* Summary Cards - Fixed at Bottom (hidden on overview tab) */}
+  {activeTab !== 'overview' && <div className="flex-shrink-0 p-1.5 bg-slate-50 border-t-2 border-blue-200">
           {/* Show face cards even if there are no open positions (missing values default to 0) */}
           {activeTab === 'positions' && (
             <div className="space-y-1">
@@ -4340,7 +4349,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           )}
 
 
-        </div>
+        </div>}
 
       </div>
     </div>
