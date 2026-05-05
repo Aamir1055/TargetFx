@@ -400,7 +400,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Build dynamic page-size options for Deals based on total rows
   const getDealsPageSizeOptions = (total) => {
-    const base = [10, 25, 50, 100, 200]
+    const base = [10, 15, 25, 50, 100, 200]
     let options = base.filter(n => n <= total)
     if (total > 0 && options.length === 0) {
       options = [total]
@@ -936,60 +936,47 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }
 
-  // Map UI action label ("Buy", "Sell", "Balance", ...) to server action enum ("BUY", "SELL", "BALANCE", ...)
-  const actionLabelToServer = (label) => {
-    if (label == null) return label
-    return String(label).toUpperCase()
-  }
-
-  // Build POST body for /api/broker/clients/{login}/deals from current UI state (with optional overrides)
-  const buildDealsRequestBody = (fromTs, toTs, page, limit, overrides = {}) => {
-    const body = {
-      from: fromTs,
-      to: toTs,
-      page,
-      limit,
-    }
-
-    const search = overrides.search !== undefined ? overrides.search : dealsSearchQuery
-    if (search && String(search).trim()) body.search = String(search).trim()
-
-    const sortBy = overrides.sortBy !== undefined ? overrides.sortBy : dealsSortColumn
-    const sortOrder = overrides.sortOrder !== undefined ? overrides.sortOrder : dealsSortDirection
-    if (sortBy) {
-      body.sortBy = sortBy
-      body.sortOrder = sortOrder || 'desc'
-    }
-
-    const colFilters = overrides.filters !== undefined ? overrides.filters : dealsColumnFilters
-    const apiFilters = []
-    Object.entries(colFilters || {}).forEach(([field, values]) => {
-      if (!values || values.length === 0) return
-      if (field === 'action') {
-        apiFilters.push({ field: 'action', operator: 'in', value: values.map(actionLabelToServer) })
-      } else if (field === 'symbol') {
-        apiFilters.push({ field: 'symbol', operator: 'in', value: values })
-      } else if (field === 'time') {
-        // Time column filter uses formatted strings — cannot be sent to server, leave as client-side
-      } else {
-        apiFilters.push({ field, operator: 'in', value: values })
-      }
-    })
-    if (apiFilters.length > 0) body.filters = apiFilters
-
-    return body
-  }
-
   const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null, overrides = {}) => {
     try {
       setDealsLoading(true)
       setError('')
 
       const itemsLimit = limit || dealsItemsPerPage
-      const pageNum = page || dealsCurrentPage
-      const body = buildDealsRequestBody(fromTimestamp, toTimestamp, pageNum, itemsLimit, overrides)
 
-      const response = await brokerAPI.searchClientDeals(client.login, body)
+      // Resolve values — overrides take priority so callers can pass latest state
+      const search = overrides.search !== undefined ? overrides.search : dealsSearchQuery
+      const sortBy = overrides.sortBy !== undefined ? overrides.sortBy : dealsSortColumn
+      const sortOrder = overrides.sortOrder !== undefined ? overrides.sortOrder : dealsSortDirection
+      const colFilters = overrides.colFilters !== undefined ? overrides.colFilters : dealsColumnFilters
+
+      const hasSearch = search && search.trim().length > 0
+      const hasFilters = Object.values(colFilters || {}).some(v => v && v.length > 0)
+      const hasSort = !!sortBy
+
+      let response
+
+      if (hasSearch || hasFilters || hasSort) {
+        // Server-side search/filter/sort via POST
+        const body = { from: fromTimestamp, to: toTimestamp, page, limit: itemsLimit }
+        if (hasSearch) body.search = search.trim()
+        if (hasSort) { body.sortBy = sortBy; body.sortOrder = sortOrder || 'desc' }
+        const apiFilters = []
+        Object.entries(colFilters || {}).forEach(([field, values]) => {
+          if (!values || values.length === 0) return
+          if (field === 'time') return  // time filter stays client-side
+          if (field === 'action') {
+            apiFilters.push({ field, operator: 'in', value: values.map(v => String(v).toUpperCase()) })
+          } else {
+            apiFilters.push({ field, operator: 'in', value: values })
+          }
+        })
+        if (apiFilters.length > 0) body.filters = apiFilters
+        response = await brokerAPI.searchClientDeals(client.login, body)
+      } else {
+        // Plain fetch via GET
+        response = await brokerAPI.getClientDealsWithPagination(client.login, fromTimestamp, toTimestamp, page, itemsLimit)
+      }
+
       const clientDeals = response?.deals ?? response?.data?.deals ?? []
       const total = response?.total ?? response?.count ?? response?.data?.total ?? response?.data?.count ?? clientDeals.length
 
@@ -1200,7 +1187,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }
 
-  // Sorting handler for deals — triggers server-side re-fetch
+  // Sorting handler for deals — re-fetches from server
   const handleDealsSort = (column) => {
     let nextDir
     if (dealsSortColumn === column) {
@@ -1618,12 +1605,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         ...prev,
         [columnKey]: updated.length > 0 ? updated : undefined
       }
-      // Server-side re-fetch with new filters (skip for time column — client-side only)
-      if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
+      if (hasAppliedFilter && currentDateFilter.from !== 0) {
         setDealsCurrentPage(1)
-        setTimeout(() => {
-          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { filters: next })
-        }, 0)
+        setTimeout(() => fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { colFilters: next }), 0)
       }
       return next
     })
@@ -1633,11 +1617,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     setDealsColumnFilters(prev => {
       const next = { ...prev }
       delete next[columnKey]
-      if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
+      if (hasAppliedFilter && currentDateFilter.from !== 0) {
         setDealsCurrentPage(1)
-        setTimeout(() => {
-          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { filters: next })
-        }, 0)
+        setTimeout(() => fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { colFilters: next }), 0)
       }
       return next
     })
@@ -1858,131 +1840,12 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }, [filteredPositions.length])
 
-  // Apply search and filters to deals
-  const filteredDealsResult = (() => {
-    if (!hasAppliedFilter) return []
-    
-    let filtered = [...filteredDeals]
+  // Server handles filtering/sorting — just show what came back from the API
+  const filteredDealsResult = hasAppliedFilter ? filteredDeals : []
 
-    if (dealsSearchQuery.trim()) {
-      const query = dealsSearchQuery.toLowerCase()
-      // Strip # prefix if present for numeric field matching
-      const numericQuery = query.startsWith('#') ? query.slice(1) : query
-      
-      filtered = filtered.filter(deal => {
-        return (
-          deal.symbol?.toLowerCase().includes(query) ||
-          String(deal.deal).includes(numericQuery) ||
-          String(deal.position).includes(numericQuery) ||
-          String(deal.order || '').includes(numericQuery) ||
-          getDealActionLabel(deal.action).toLowerCase().includes(query) ||
-          String(deal.volume).includes(query)
-        )
-      })
-    }
-
-    Object.entries(dealsColumnFilters).forEach(([columnKey, selectedValues]) => {
-      if (selectedValues && selectedValues.length > 0) {
-        filtered = filtered.filter(deal => {
-          let value
-          if (columnKey === 'action') {
-            value = getDealActionLabel(deal.action)
-          } else if (columnKey === 'symbol') {
-            value = deal.symbol
-          } else if (columnKey === 'time') {
-            value = formatDate(deal.time)
-          }
-          return selectedValues.includes(value)
-        })
-      }
-    })
-
-    // Apply sorting
-    if (dealsSortColumn) {
-      filtered.sort((a, b) => {
-        let aValue, bValue
-        
-        switch (dealsSortColumn) {
-          case 'time':
-            aValue = a.time || 0
-            bValue = b.time || 0
-            break
-          case 'deal':
-            aValue = a.deal || 0
-            bValue = b.deal || 0
-            break
-          case 'order':
-            aValue = a.order || 0
-            bValue = b.order || 0
-            break
-          case 'position':
-            aValue = a.position || 0
-            bValue = b.position || 0
-            break
-          case 'symbol':
-            aValue = (a.symbol || '').toLowerCase()
-            bValue = (b.symbol || '').toLowerCase()
-            break
-          case 'action':
-            aValue = getDealActionLabel(a.action)
-            bValue = getDealActionLabel(b.action)
-            break
-          case 'entry':
-            aValue = getDealEntryLabel(a.entry)
-            bValue = getDealEntryLabel(b.entry)
-            break
-          case 'volume':
-            aValue = a.volume || 0
-            bValue = b.volume || 0
-            break
-          case 'price':
-            aValue = a.price || 0
-            bValue = b.price || 0
-            break
-          case 'profit':
-            aValue = a.profit || 0
-            bValue = b.profit || 0
-            break
-          case 'storage':
-            aValue = a.storage || 0
-            bValue = b.storage || 0
-            break
-          case 'commission':
-            aValue = a.commission || 0
-            bValue = b.commission || 0
-            break
-          case 'comment':
-            aValue = (a.comment || '').toLowerCase()
-            bValue = (b.comment || '').toLowerCase()
-            break
-          default:
-            return 0
-        }
-
-        if (typeof aValue === 'string') {
-          return dealsSortDirection === 'asc' 
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue)
-        } else {
-          return dealsSortDirection === 'asc'
-            ? aValue - bValue
-            : bValue - aValue
-        }
-      })
-    }
-
-    return filtered
-  })()
-
-  // Apply pagination to deals (server-side pagination, so use filteredDealsResult directly)
-  // For display purposes, calculate total pages from server's total count
-  const dealsTotalPages = Math.ceil(totalDealsCount / dealsItemsPerPage)
+  // Server-side pagination: total pages from server's total count
+  const dealsTotalPages = Math.ceil(totalDealsCount / dealsItemsPerPage) || 1
   const displayedDeals = filteredDealsResult
-
-  // Reset to page 1 when search/filter context changes
-  useEffect(() => {
-    setDealsCurrentPage(1)
-  }, [hasAppliedFilter])
 
   // Debounced server re-fetch when search query changes
   const dealsSearchTimeoutRef = useRef(null)
@@ -1999,23 +1862,24 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealsSearchQuery])
 
-  // Fetch deals when page or items per page changes (but not on initial tab switch)
+  // Re-fetch when page changes
   useEffect(() => {
     if (activeTab === 'deals' && hasAppliedFilter && currentDateFilter.from !== 0 && hasAutoLoadedDeals.current) {
       fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealsCurrentPage, dealsItemsPerPage])
+  }, [dealsCurrentPage])
 
-  // Keep page-size selection valid when total deals count changes
+  // Re-fetch when items-per-page changes (reset to page 1)
   useEffect(() => {
-    const total = totalDealsCount || filteredDealsResult.length
-    const options = getDealsPageSizeOptions(total)
-    if (options.length > 0 && (!options.includes(dealsItemsPerPage) || dealsItemsPerPage > total)) {
-      setDealsItemsPerPage(options[0] || 50)
+    if (activeTab === 'deals' && hasAppliedFilter && currentDateFilter.from !== 0 && hasAutoLoadedDeals.current) {
       setDealsCurrentPage(1)
+      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage)
     }
-  }, [totalDealsCount, filteredDealsResult.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealsItemsPerPage])
+
+
 
   // Column resize handlers for positions
   const handlePositionsResizeStart = (e, columnKey) => {
@@ -2129,7 +1993,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           onCacheUpdate(null)
         }
         
-        await fetchDeals()
+        if (currentDateFilter.from !== 0) {
+          await fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
+        }
       }, 1000)
     } catch (error) {
       setOperationError(error.response?.data?.message || 'Operation failed. Please try again.')
