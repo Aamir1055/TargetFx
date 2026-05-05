@@ -122,6 +122,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     balance: 0,
     credit: 0,
     equity: 0,
+    margin: 0,
+    marginFree: 0,
+    marginLevel: 0,
     totalVolume: 0,
     totalDeals: 0,
     winRate: 0
@@ -447,6 +450,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         balance: Number(merged.balance ?? 0),
         credit: Number(merged.credit ?? 0),
         equity: Number(merged.equity ?? 0),
+        margin: Number(merged.margin ?? 0),
+        marginFree: Number(merged.margin_free ?? merged.marginFree ?? 0),
+        marginLevel: Number(merged.margin_level ?? merged.marginLevel ?? 0),
         totalVolume: 0,
         totalDeals: 0,
         winRate: 0
@@ -510,6 +516,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         balance: Number(effectiveAccount.balance ?? client.balance ?? 0),
         credit: Number(effectiveAccount.credit ?? client.credit ?? 0),
         equity: Number(effectiveAccount.equity ?? client.equity ?? 0),
+        margin: Number(effectiveAccount.margin ?? client.margin ?? 0),
+        marginFree: Number(effectiveAccount.margin_free ?? effectiveAccount.marginFree ?? client.margin_free ?? client.marginFree ?? 0),
+        marginLevel: Number(effectiveAccount.margin_level ?? effectiveAccount.marginLevel ?? client.margin_level ?? client.marginLevel ?? 0),
         totalVolume,
         totalDeals: dealsData.length,
         winRate
@@ -994,35 +1003,64 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 strokeLinecap="butt" />
             )
           })}
-          {label && <text x={cx} y={cy - 5} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#111827">{label}</text>}
-          {sublabel && <text x={cx} y={cy + 10} textAnchor="middle" fontSize="9" fill="#6b7280">{sublabel}</text>}
+          {label && (() => {
+            const maxW = r * 1.75
+            const fits = label.length * 6.5 <= maxW
+            if (fits) return <text x={cx} y={sublabel ? cy - 6 : cy + 4} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#111827">{label}</text>
+            const mid = Math.floor(label.length / 2)
+            const commas = []
+            for (let i = 0; i < label.length; i++) if (label[i] === ',') commas.push(i)
+            const sp = commas.length ? commas.reduce((b, p) => Math.abs(p - mid) < Math.abs(b - mid) ? p : b, commas[0]) : mid
+            const l1 = label.slice(0, sp)
+            const l2 = label.slice(sp + 1)
+            const fs = 8
+            const yOff = sublabel ? cy - 11 : cy - 4
+            return (
+              <text textAnchor="middle" fontSize={fs} fontWeight="bold" fill="#111827">
+                <tspan x={cx} y={yOff}>{l1}</tspan>
+                <tspan x={cx} dy={fs + 2}>{l2}</tspan>
+              </text>
+            )
+          })()}
+          {sublabel && <text x={cx} y={label && label.length * 6.5 > r * 1.75 ? cy + 12 : cy + 10} textAnchor="middle" fontSize="9" fill="#6b7280">{sublabel}</text>}
         </svg>
       )
     }
 
     // ── SVG Line Chart ────────────────────────────────────────────────────────
     const SvgLine = ({ data, w = 220, h = 70 }) => {
-      if (!data.length) return <div className="h-[70px] flex items-center justify-center text-xs text-gray-400">No data</div>
+      if (!data || !data.length) return <div className="h-[70px] flex items-center justify-center text-xs text-gray-400">No data</div>
       const vals = data.map(d => d.value)
       const minV = Math.min(...vals), maxV = Math.max(...vals)
       const rng = maxV - minV || 1
       const step = w / Math.max(data.length - 1, 1)
       const pts = data.map((d, i) => ({ x: i * step, y: h - ((d.value - minV) / rng) * (h - 8) - 4 }))
-      const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-      const areaD = `${pathD} L${pts[pts.length-1].x},${h} L0,${h} Z`
-      const hasNeg = vals.some(v => v < 0), hasPos = vals.some(v => v > 0)
-      const lineColor = hasNeg && !hasPos ? '#ef4444' : '#3b82f6'
+      const segColor = (i) => data[i + 1].value >= data[i].value ? '#3b82f6' : '#ef4444'
       return (
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
           <defs>
-            <linearGradient id={`lg${w}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
-              <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
-            </linearGradient>
+            {pts.slice(0, -1).map((_, i) => (
+              <linearGradient key={i} id={`lgm${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={segColor(i)} stopOpacity="0.18" />
+                <stop offset="100%" stopColor={segColor(i)} stopOpacity="0" />
+              </linearGradient>
+            ))}
           </defs>
-          <path d={areaD} fill={`url(#lg${w})`} />
-          <path d={pathD} fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={lineColor} />)}
+          {pts.slice(0, -1).map((p, i) => (
+            <path key={`a${i}`}
+              d={`M${p.x.toFixed(1)},${p.y.toFixed(1)} L${pts[i+1].x.toFixed(1)},${pts[i+1].y.toFixed(1)} L${pts[i+1].x.toFixed(1)},${h} L${p.x.toFixed(1)},${h} Z`}
+              fill={`url(#lgm${i})`} />
+          ))}
+          {pts.slice(0, -1).map((p, i) => (
+            <line key={`l${i}`}
+              x1={p.x.toFixed(1)} y1={p.y.toFixed(1)}
+              x2={pts[i+1].x.toFixed(1)} y2={pts[i+1].y.toFixed(1)}
+              stroke={segColor(i)} strokeWidth="2" strokeLinecap="round" />
+          ))}
+          {pts.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r="2.5"
+              fill={i < pts.length - 1 ? segColor(i) : segColor(i - 1)} />
+          ))}
         </svg>
       )
     }
@@ -2091,41 +2129,36 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           )}
         </div>
 
-        {/* Summary Cards - Different for Positions vs NET Position tab */}
+        {/* Summary Cards - Positions tab */}
         {activeTab === 'positions' && (
           <div className="px-4 py-3 bg-white border-t border-gray-200 flex-shrink-0">
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Lifetime PnL</p>
-                <p className={`text-sm font-bold truncate ${stats.lifetimePnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatNum(stats.lifetimePnL)}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Floating Profit</p>
-                <p className={`text-sm font-bold truncate ${stats.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatNum(stats.totalPnL)}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Balance</p>
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Balance</p>
                 <p className="text-sm font-bold text-gray-900 truncate">{formatNum(stats.balance)}</p>
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 mt-2">
               <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Equity</p>
-                <p className="text-sm font-bold text-gray-900 truncate">{formatNum(stats.equity)}</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Credit</p>
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Credit</p>
                 <p className="text-sm font-bold text-gray-900 truncate">{formatNum(stats.credit)}</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[10px] text-gray-600 uppercase font-semibold">Book PnL</p>
-                <p className={`text-sm font-bold truncate ${stats.bookPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatNum(stats.bookPnL)}
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Equity</p>
+                <p className="text-sm font-bold text-gray-900 truncate">{formatNum(stats.equity)}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              <div className="bg-gray-50 rounded-lg p-2">
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Margin</p>
+                <p className="text-sm font-bold text-gray-900 truncate">{formatNum(stats.margin)}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-2">
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Free Margin</p>
+                <p className="text-sm font-bold text-gray-900 truncate">{formatNum(stats.marginFree)}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-2">
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Margin Level</p>
+                <p className={`text-sm font-bold truncate ${stats.marginLevel >= 100 ? 'text-green-600' : stats.marginLevel > 0 ? 'text-orange-500' : 'text-gray-900'}`}>
+                  {stats.marginLevel > 0 ? `${Number(stats.marginLevel).toFixed(1)}%` : '–'}
                 </p>
               </div>
             </div>
