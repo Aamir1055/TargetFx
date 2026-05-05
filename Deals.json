@@ -1,0 +1,534 @@
+{
+  "v": 12,
+  "id": "cmo02u51403ldgb1lnw3kknmf",
+  "name": "Deals",
+  "folders": [
+    {
+      "v": 12,
+      "id": "cmoreaeic0xaeh01lv565udn4",
+      "name": "Client Deals - GET (Backward Compatible)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "name": "Get Client Deals (GET - default)",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [
+            {
+              "key": "from",
+              "value": "0",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "to",
+              "value": "<<$timestamp>>",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "50",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "variables": [],
+      "description": null,
+      "preRequestScript": "",
+      "testScript": ""
+    },
+    {
+      "v": 12,
+      "id": "cmoreaej30xahh01lk5yrv42b",
+      "name": "Client Deals - POST (Search/Filter/Sort)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "name": "Search deals by symbol",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals/search",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n    \"search\": \"GOLDOCT\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter by action (BUY/SELL only)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"action\",\n            \"operator\": \"in\",\n            \"value\": [\"BUY\", \"SELL\"]\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter by profit > 0 (profitable deals)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"profit\",\n            \"operator\": \"greater_than\",\n            \"value\": 0\n        }\n    ],\n    \"sortBy\": \"profit\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter by entry type (IN only)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"entry\",\n            \"operator\": \"equal\",\n            \"value\": \"IN\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter by volume range",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"volume\",\n            \"operator\": \"greater_than_equal\",\n            \"value\": 0.1\n        },\n        {\n            \"field\": \"volume\",\n            \"operator\": \"less_than_equal\",\n            \"value\": 10.0\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter by symbol (contains)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"symbol\",\n            \"operator\": \"contains\",\n            \"value\": \"USD\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Sort by volume descending",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"sortBy\": \"volume\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Sort by time ascending (oldest first)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"sortBy\": \"time\",\n    \"sortOrder\": \"asc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Combined: search + filter + sort + time range",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"search\": \"EUR\",\n    \"filters\": [\n        {\n            \"field\": \"action\",\n            \"operator\": \"in\",\n            \"value\": [\"BUY\", \"SELL\"]\n        },\n        {\n            \"field\": \"profit\",\n            \"operator\": \"not_equal\",\n            \"value\": 0\n        }\n    ],\n    \"sortBy\": \"profit\",\n    \"sortOrder\": \"desc\",\n    \"from\": 1714500000,\n    \"to\": 1746300000,\n    \"page\": 1,\n    \"limit\": 100\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter by comment (contains)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"comment\",\n            \"operator\": \"contains\",\n            \"value\": \"tp\"\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter by deal ID",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/clients/<<client_login>>/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"deal\",\n            \"operator\": \"equal\",\n            \"value\": 12345\n        }\n    ],\n    \"page\": 1,\n    \"limit\": 10\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "variables": [],
+      "description": null,
+      "preRequestScript": "",
+      "testScript": ""
+    },
+    {
+      "v": 12,
+      "id": "cmoreaelc0xb4h01lg2y8umfk",
+      "name": "All Broker Deals - GET (Backward Compatible)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "name": "Get All Broker Deals (GET - default)",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/broker/deals",
+          "params": [
+            {
+              "key": "from",
+              "value": "0",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "to",
+              "value": "<<$timestamp>>",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "50",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "variables": [],
+      "description": null,
+      "preRequestScript": "",
+      "testScript": ""
+    },
+    {
+      "v": 12,
+      "id": "cmoreaem20xb7h01lczi23hw8",
+      "name": "All Broker Deals - POST (Search/Filter/Sort)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "name": "Search all deals by symbol",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/deals/search",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"search\": \"66663209\",\n  \"page\": 1,\n  \"limit\": 50,\n  \"from\": <<$timestamp>> - 10000,\n  \"to\": <<$timestamp>>\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter all deals by action (BUY/SELL)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"action\",\n            \"operator\": \"in\",\n            \"value\": [\"BUY\", \"SELL\"]\n        }\n    ],\n    \"sortBy\": \"time\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter all deals - profitable only, sorted by profit",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"action\",\n            \"operator\": \"in\",\n            \"value\": [\"BUY\", \"SELL\"]\n        },\n        {\n            \"field\": \"profit\",\n            \"operator\": \"greater_than\",\n            \"value\": 0\n        }\n    ],\n    \"sortBy\": \"profit\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Filter all deals - BALANCE operations only",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"filters\": [\n        {\n            \"field\": \"action\",\n            \"operator\": \"equal\",\n            \"value\": \"BALANCE\"\n        }\n    ],\n    \"sortBy\": \"time\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Combined: search + filter + sort + time range (all deals)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"search\": \"GBP\",\n    \"filters\": [\n        {\n            \"field\": \"action\",\n            \"operator\": \"in\",\n            \"value\": [\"BUY\", \"SELL\"]\n        },\n        {\n            \"field\": \"volume\",\n            \"operator\": \"greater_than_equal\",\n            \"value\": 0.01\n        },\n        {\n            \"field\": \"entry\",\n            \"operator\": \"equal\",\n            \"value\": \"OUT\"\n        }\n    ],\n    \"sortBy\": \"volume\",\n    \"sortOrder\": \"desc\",\n    \"from\": 1714500000,\n    \"to\": 1746300000,\n    \"page\": 1,\n    \"limit\": 100\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        },
+        {
+          "v": "17",
+          "name": "Sort all deals by commission",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/broker/deals",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "text/plain",
+            "body": "{\n    \"sortBy\": \"commission\",\n    \"sortOrder\": \"desc\",\n    \"page\": 1,\n    \"limit\": 50\n}"
+          },
+          "requestVariables": [],
+          "responses": {},
+          "description": null
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "variables": [],
+      "description": null,
+      "preRequestScript": "",
+      "testScript": ""
+    }
+  ],
+  "requests": [],
+  "auth": {
+    "authType": "inherit",
+    "authActive": true
+  },
+  "headers": [],
+  "variables": [],
+  "description": "Endpoints for accessing deal history for broker's accessible clients.",
+  "preRequestScript": "",
+  "testScript": ""
+}

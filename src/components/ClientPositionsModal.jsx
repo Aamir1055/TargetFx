@@ -480,11 +480,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   useEffect(() => { debouncedSearchQueryRef.current = debouncedSearchQuery }, [debouncedSearchQuery])
   useEffect(() => { positionsSortColumnRef.current = positionsSortColumn }, [positionsSortColumn])
 
-  // Poll overview API every 2s while the modal is open to keep positions + account data live.
-  // Stops automatically when the Overview tab is open (React unmounts/remounts the effect
-  // when activeTab changes, so switching back to any other tab restarts polling instantly).
+  // Poll overview API every 2s while the Positions tab is active to keep positions + account data live.
   useEffect(() => {
-    if (!client?.login || activeTab === 'overview') return
+    if (!client?.login || activeTab !== 'positions') return
     let timer = null
     let cancelled = false
 
@@ -938,20 +936,63 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }
 
-  const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null) => {
+  // Map UI action label ("Buy", "Sell", "Balance", ...) to server action enum ("BUY", "SELL", "BALANCE", ...)
+  const actionLabelToServer = (label) => {
+    if (label == null) return label
+    return String(label).toUpperCase()
+  }
+
+  // Build POST body for /api/broker/clients/{login}/deals from current UI state (with optional overrides)
+  const buildDealsRequestBody = (fromTs, toTs, page, limit, overrides = {}) => {
+    const body = {
+      from: fromTs,
+      to: toTs,
+      page,
+      limit,
+    }
+
+    const search = overrides.search !== undefined ? overrides.search : dealsSearchQuery
+    if (search && String(search).trim()) body.search = String(search).trim()
+
+    const sortBy = overrides.sortBy !== undefined ? overrides.sortBy : dealsSortColumn
+    const sortOrder = overrides.sortOrder !== undefined ? overrides.sortOrder : dealsSortDirection
+    if (sortBy) {
+      body.sortBy = sortBy
+      body.sortOrder = sortOrder || 'desc'
+    }
+
+    const colFilters = overrides.filters !== undefined ? overrides.filters : dealsColumnFilters
+    const apiFilters = []
+    Object.entries(colFilters || {}).forEach(([field, values]) => {
+      if (!values || values.length === 0) return
+      if (field === 'action') {
+        apiFilters.push({ field: 'action', operator: 'in', value: values.map(actionLabelToServer) })
+      } else if (field === 'symbol') {
+        apiFilters.push({ field: 'symbol', operator: 'in', value: values })
+      } else if (field === 'time') {
+        // Time column filter uses formatted strings — cannot be sent to server, leave as client-side
+      } else {
+        apiFilters.push({ field, operator: 'in', value: values })
+      }
+    })
+    if (apiFilters.length > 0) body.filters = apiFilters
+
+    return body
+  }
+
+  const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null, overrides = {}) => {
     try {
       setDealsLoading(true)
       setError('')
-      
-      // Calculate offset based on page and items per page
+
       const itemsLimit = limit || dealsItemsPerPage
-      const offset = (page - 1) * itemsLimit
-      
-      // Fetch deals from API with specific date range and pagination
-      const response = await brokerAPI.getClientDeals(client.login, fromTimestamp, toTimestamp, itemsLimit, offset)
+      const pageNum = page || dealsCurrentPage
+      const body = buildDealsRequestBody(fromTimestamp, toTimestamp, pageNum, itemsLimit, overrides)
+
+      const response = await brokerAPI.searchClientDeals(client.login, body)
       const clientDeals = response?.deals ?? response?.data?.deals ?? []
       const total = response?.total ?? response?.count ?? response?.data?.total ?? response?.data?.count ?? clientDeals.length
-      
+
       setDeals(clientDeals)
       setAllDeals(clientDeals)
       setFilteredDeals(clientDeals)
@@ -1159,15 +1200,20 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }
 
-  // Sorting handler for deals
+  // Sorting handler for deals — triggers server-side re-fetch
   const handleDealsSort = (column) => {
+    let nextDir
     if (dealsSortColumn === column) {
-      // Toggle direction if same column
-      setDealsSortDirection(dealsSortDirection === 'asc' ? 'desc' : 'asc')
+      nextDir = dealsSortDirection === 'asc' ? 'desc' : 'asc'
+      setDealsSortDirection(nextDir)
     } else {
-      // New column, default to descending on first click
+      nextDir = 'desc'
       setDealsSortColumn(column)
-      setDealsSortDirection('desc')
+      setDealsSortDirection(nextDir)
+    }
+    if (hasAppliedFilter && currentDateFilter.from !== 0) {
+      setDealsCurrentPage(1)
+      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { sortBy: column, sortOrder: nextDir })
     }
   }
 
@@ -1568,19 +1614,32 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       const updated = current.includes(value)
         ? current.filter(v => v !== value)
         : [...current, value]
-      
-      return {
+      const next = {
         ...prev,
         [columnKey]: updated.length > 0 ? updated : undefined
       }
+      // Server-side re-fetch with new filters (skip for time column — client-side only)
+      if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
+        setDealsCurrentPage(1)
+        setTimeout(() => {
+          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { filters: next })
+        }, 0)
+      }
+      return next
     })
   }
 
   const clearDealsColumnFilter = (columnKey) => {
     setDealsColumnFilters(prev => {
-      const updated = { ...prev }
-      delete updated[columnKey]
-      return updated
+      const next = { ...prev }
+      delete next[columnKey]
+      if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
+        setDealsCurrentPage(1)
+        setTimeout(() => {
+          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { filters: next })
+        }, 0)
+      }
+      return next
     })
   }
 
@@ -1920,16 +1979,32 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const dealsTotalPages = Math.ceil(totalDealsCount / dealsItemsPerPage)
   const displayedDeals = filteredDealsResult
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when search/filter context changes
   useEffect(() => {
     setDealsCurrentPage(1)
-  }, [dealsSearchQuery, hasAppliedFilter])
+  }, [hasAppliedFilter])
+
+  // Debounced server re-fetch when search query changes
+  const dealsSearchTimeoutRef = useRef(null)
+  const dealsSearchInitRef = useRef(true)
+  useEffect(() => {
+    if (dealsSearchInitRef.current) { dealsSearchInitRef.current = false; return }
+    if (!hasAppliedFilter || currentDateFilter.from === 0) return
+    clearTimeout(dealsSearchTimeoutRef.current)
+    dealsSearchTimeoutRef.current = setTimeout(() => {
+      setDealsCurrentPage(1)
+      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { search: dealsSearchQuery })
+    }, 400)
+    return () => clearTimeout(dealsSearchTimeoutRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealsSearchQuery])
 
   // Fetch deals when page or items per page changes (but not on initial tab switch)
   useEffect(() => {
     if (activeTab === 'deals' && hasAppliedFilter && currentDateFilter.from !== 0 && hasAutoLoadedDeals.current) {
       fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealsCurrentPage, dealsItemsPerPage])
 
   // Keep page-size selection valid when total deals count changes
