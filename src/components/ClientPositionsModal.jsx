@@ -28,8 +28,8 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
   const pts = data.map((d, i) => ({ x: toX(i), y: toY(d.value), v: d.value, label: d.label }))
   const baseY = toY(minV)
 
-  // Per-segment color: red if going DOWN, blue if going up/flat
-  const segColors = pts.slice(0, -1).map((_, i) => pts[i + 1].v < pts[i].v ? '#ef4444' : '#3b82f6')
+  // Per-segment color: red if EITHER endpoint value is negative, blue otherwise
+  const segColors = pts.slice(0, -1).map((_, i) => (pts[i].v < 0 || pts[i + 1].v < 0) ? '#ef4444' : '#3b82f6')
 
   // Group consecutive same-color segments for area fills
   const areaGroups = []
@@ -39,8 +39,8 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
     else areaGroups.push({ color, start: i, end: i + 1 })
   })
 
-  // Dot color: color of the outgoing segment; last dot uses incoming segment
-  const dotColor = i => segColors[Math.min(i, segColors.length - 1)]
+  // Dot color: red if this point's value is negative, blue otherwise
+  const dotColor = i => pts[i].v < 0 ? '#ef4444' : '#3b82f6'
 
   const fmtY = v => {
     const abs = Math.abs(v)
@@ -1933,10 +1933,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   })()
 
   // Pagination:
-  // - When search/filter/sort active: paginate client-side over filteredDealsResult
-  // - When plain fetch: use server total for page count, show current page slice
-  const hasClientFilter = !!(dealsSearchQuery.trim() || dealsSortColumn ||
-    Object.values(dealsColumnFilters || {}).some(v => v && v.length > 0))
+  // - search, sort, and action filter are server-side → use totalDealsCount
+  // - Only symbol/time column filters are client-side → paginate over filteredDealsResult
+  const hasClientFilter = !!(
+    Object.entries(dealsColumnFilters || {}).some(([k, v]) => k !== 'action' && v && v.length > 0)
+  )
   const dealsTotalPages = hasClientFilter
     ? Math.ceil(filteredDealsResult.length / dealsItemsPerPage) || 1
     : Math.ceil(totalDealsCount / dealsItemsPerPage) || 1
@@ -2455,10 +2456,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             const equity    = parseFloat(acc.equity    || 0)
             const credit    = parseFloat(acc.credit    || 0)
             const floating  = parseFloat(acc.profit    || acc.floating || 0)
-            const marginLevel = parseFloat(acc.margin_level || 0)
+            const marginLevel = parseFloat(acc.margin_level ?? acc.marginLevel ?? 0)
             const commission  = parseFloat(acc.commission  || 0)
-            const margin      = 0 // TODO: dedicated margin API
-            const marginFree  = 0 // TODO: dedicated margin API
+            const margin      = parseFloat(acc.margin ?? acc.used_margin ?? acc.usedMargin ?? 0)
+            const marginFree  = parseFloat(acc.margin_free ?? acc.marginFree ?? acc.free_margin ?? acc.freeMargin ?? 0)
             const currency    = acc.currency || client?.currency || ''
             const ds = dealStats || {}
             const buyVol          = parseFloat(ds.buyVolume         ?? ds.buy_volume          ?? 0)
@@ -2485,38 +2486,77 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
             // -- Margin Usage BAR chart ----------------------------------------
             const MarginBarChart = ({ used, free }) => {
+              const [hoveredBar, setHoveredBar] = useState(null) // 'used' | 'free' | null
               const maxVal = Math.max(Math.abs(used), Math.abs(free), 1)
               const w = 160, h = 90, barW = 38, midY = h / 2
               const usedH = (Math.abs(used) / maxVal) * (midY - 16)
               const freeH = (Math.abs(free) / maxVal) * (midY - 16)
               const fmtV = v => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0)
               const ticks = [-maxVal * 0.75, -maxVal * 0.5, -maxVal * 0.25, 0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75]
+
+              const usedX = w/2 - barW - 4
+              const freeX = w/2 + 4
+              const tooltip = hoveredBar === 'used'
+                ? { x: usedX + barW/2, y: midY + usedH + 4, label: 'Used Margin', value: fmtMoney(used), color: '#ef4444' }
+                : hoveredBar === 'free'
+                ? { x: freeX + barW/2, y: midY - freeH - 4, label: 'Free Margin', value: fmtMoney(free), color: '#16a34a' }
+                : null
+
               return (
-                <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="w-full">
-                  {/* grid lines */}
-                  {ticks.map((v, i) => {
-                    const y = midY - (v / maxVal) * (midY - 16)
-                    return <line key={i} x1="30" x2={w - 10} y1={y} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
-                  })}
-                  {/* zero line */}
-                  <line x1="30" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
-                  {/* Used Margin bar � goes DOWN (negative) */}
-                  <rect x={w/2 - barW - 4} y={midY} width={barW} height={usedH} fill="#ef4444" rx="3"/>
-                  {/* Free Margin bar � goes UP (positive) */}
-                  <rect x={w/2 + 4} y={midY - freeH} width={barW} height={freeH} fill="#16a34a" rx="3"/>
-                  {/* value labels */}
-                  <text x={w/2 - barW/2 - 4} y={midY + usedH + 9} textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
-                  <text x={w/2 + barW/2 + 4} y={midY - freeH - 4} textAnchor="middle" fontSize="7" fill="#16a34a" fontWeight="600">{fmtV(free)}</text>
-                  {/* Y axis ticks */}
-                  {[0.5, 0, -0.5].map((f, i) => {
-                    const y = midY - f * (midY - 16)
-                    const v = f * maxVal
-                    return <text key={i} x="26" y={y + 3} textAnchor="end" fontSize="6.5" fill="#94a3b8">{fmtV(v)}</text>
-                  })}
-                  {/* X axis labels */}
-                  <text x={w/2 - barW/2 - 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Used Margin</text>
-                  <text x={w/2 + barW/2 + 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Free Margin</text>
-                </svg>
+                <div className="relative w-full">
+                  <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="w-full">
+                    {/* grid lines */}
+                    {ticks.map((v, i) => {
+                      const y = midY - (v / maxVal) * (midY - 16)
+                      return <line key={i} x1="30" x2={w - 10} y1={y} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
+                    })}
+                    {/* zero line */}
+                    <line x1="30" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
+                    {/* Used Margin bar — goes DOWN (negative) */}
+                    <rect
+                      x={usedX} y={midY} width={barW} height={usedH}
+                      fill="#ef4444" rx="3"
+                      style={{ cursor: 'pointer', opacity: hoveredBar && hoveredBar !== 'used' ? 0.6 : 1 }}
+                      onMouseEnter={() => setHoveredBar('used')}
+                      onMouseLeave={() => setHoveredBar(null)}
+                    />
+                    {/* Free Margin bar — goes UP (positive) */}
+                    <rect
+                      x={freeX} y={midY - freeH} width={barW} height={freeH}
+                      fill="#16a34a" rx="3"
+                      style={{ cursor: 'pointer', opacity: hoveredBar && hoveredBar !== 'free' ? 0.6 : 1 }}
+                      onMouseEnter={() => setHoveredBar('free')}
+                      onMouseLeave={() => setHoveredBar(null)}
+                    />
+                    {/* value labels */}
+                    <text x={w/2 - barW/2 - 4} y={midY + usedH + 9} textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
+                    <text x={w/2 + barW/2 + 4} y={midY - freeH - 4} textAnchor="middle" fontSize="7" fill="#16a34a" fontWeight="600">{fmtV(free)}</text>
+                    {/* Y axis ticks */}
+                    {[0.5, 0, -0.5].map((f, i) => {
+                      const y = midY - f * (midY - 16)
+                      const v = f * maxVal
+                      return <text key={i} x="26" y={y + 3} textAnchor="end" fontSize="6.5" fill="#94a3b8">{fmtV(v)}</text>
+                    })}
+                    {/* X axis labels */}
+                    <text x={w/2 - barW/2 - 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Used Margin</text>
+                    <text x={w/2 + barW/2 + 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Free Margin</text>
+                  </svg>
+                  {tooltip && (
+                    <div
+                      className="absolute pointer-events-none bg-slate-900/95 text-white rounded-md px-2 py-1 shadow-lg border border-slate-700 z-20"
+                      style={{
+                        left: `${(tooltip.x / w) * 100}%`,
+                        top: hoveredBar === 'used' ? `${(tooltip.y / h) * 100}%` : 'auto',
+                        bottom: hoveredBar === 'free' ? `${((h - tooltip.y) / h) * 100}%` : 'auto',
+                        transform: 'translateX(-50%)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <div className="text-[10px] font-semibold" style={{ color: tooltip.color }}>{tooltip.label}</div>
+                      <div className="text-[11px] font-bold">{tooltip.value}</div>
+                    </div>
+                  )}
+                </div>
               )
             }
 
@@ -2715,6 +2755,17 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           </div>
                           <div className="font-semibold text-slate-700 pl-3.5">{loseDeals} <span className="text-red-500">({lossRate.toFixed(1)}%)</span></div>
                         </div>
+                      </div>
+                    </div>
+                    {/* Win/Loss Rate badges */}
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="bg-green-50 border border-green-200 rounded-lg px-2 py-1.5 text-center">
+                        <div className="text-[10px] font-semibold text-green-700">Win Rate</div>
+                        <div className="text-sm font-bold text-green-700">{winRate.toFixed(1)}%</div>
+                      </div>
+                      <div className="bg-red-50 border border-red-200 rounded-lg px-2 py-1.5 text-center">
+                        <div className="text-[10px] font-semibold text-red-700">Loss Rate</div>
+                        <div className="text-sm font-bold text-red-700">{lossRate.toFixed(1)}%</div>
                       </div>
                     </div>
                   </div>
@@ -3583,10 +3634,74 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 </div>
               )}
 
+              {/* Search Bar — shown above table for loading / empty / data states */}
+              {hasAppliedFilter && (
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="relative flex-1 flex items-center border border-gray-300 rounded-full focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white" ref={dealsSearchRef}>
+                    <span className="pl-3 text-gray-400 pointer-events-none shrink-0">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      value={dealsInputValue}
+                      onChange={(e) => setDealsInputValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setDealsSearchQuery(dealsInputValue)
+                          setDealsCurrentPage(1)
+                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
+                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
+                          }
+                        }
+                      }}
+                      placeholder="Search Deals by symbol..."
+                      className="flex-1 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 outline-none bg-transparent"
+                    />
+                    {dealsInputValue && (
+                      <button
+                        onClick={() => {
+                          setDealsInputValue('')
+                          setDealsSearchQuery('')
+                          setDealsCurrentPage(1)
+                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
+                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, '')
+                          }
+                        }}
+                        className="px-1 text-gray-400 hover:text-gray-600 shrink-0"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setDealsSearchQuery(dealsInputValue)
+                        setDealsCurrentPage(1)
+                        if (hasAppliedFilter && currentDateFilter.from !== 0) {
+                          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
+                        }
+                      }}
+                      className="mr-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0 rounded-xl"
+                      title="Search"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600 whitespace-nowrap">
+                    {displayedDeals.length} of {totalDealsCount} deals
+                  </div>
+                </div>
+              )}
+
               {dealsLoading ? (
                 <>
                   {/* Show table structure with loading bar */}
-                  <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 relative">
+                  <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 min-h-[60vh] md:min-h-96 relative">
                     <table className="min-w-full table-fixed divide-y divide-gray-200">
                       <thead className="bg-blue-600 sticky top-0 z-10 shadow-md">
                         <tr>
@@ -3624,79 +3739,39 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   <p className="text-gray-400 text-xs">Choose a date range and click Apply to view deals</p>
                 </div>
               ) : filteredDeals.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  <p className="text-gray-500 text-sm">No deals found for the selected date range</p>
-                  <p className="text-gray-400 text-xs mt-1">Try adjusting your date range</p>
+                <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 min-h-[60vh] md:min-h-96 relative">
+                  <table className="min-w-full table-fixed divide-y divide-gray-200">
+                    <thead className="bg-blue-600 sticky top-0 z-10 shadow-md">
+                      <tr>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Time</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Deal</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Order</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Position</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Symbol</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Action</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Volume</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Price</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Commission</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Storage</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Profit</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Comment</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                      <tr>
+                        <td colSpan="12" className="px-6 py-12 text-center">
+                          <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          <p className="text-gray-500 text-sm">No deals found for the selected date range</p>
+                          <p className="text-gray-400 text-xs mt-1">Try adjusting your date range</p>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               ) : (
                 <>
-                  {/* Search Bar */}
-                  <div className="mb-4 flex items-center gap-2">
-                    <div className="relative flex-1 flex items-center border border-gray-300 rounded-full focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white" ref={dealsSearchRef}>
-                      {/* Static search icon inside on the left */}
-                      <span className="pl-3 text-gray-400 pointer-events-none shrink-0">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                      </span>
-                      <input
-                        type="text"
-                        value={dealsInputValue}
-                        onChange={(e) => setDealsInputValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            setDealsSearchQuery(dealsInputValue)
-                            setDealsCurrentPage(1)
-                            if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                              fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
-                            }
-                          }
-                        }}
-                        placeholder="Search Deals by symbol..."
-                        className="flex-1 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 outline-none bg-transparent"
-                      />
-                      {/* Clear button */}
-                      {dealsInputValue && (
-                        <button
-                          onClick={() => {
-                            setDealsInputValue('')
-                            setDealsSearchQuery('')
-                            setDealsCurrentPage(1)
-                            if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                              fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, '')
-                            }
-                          }}
-                          className="px-1 text-gray-400 hover:text-gray-600 shrink-0"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                      {/* Blue search button inside on the right */}
-                      <button
-                        onClick={() => {
-                          setDealsSearchQuery(dealsInputValue)
-                          setDealsCurrentPage(1)
-                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
-                          }
-                        }}
-                        className="mr-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0 rounded-xl"
-                        title="Search"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="text-sm text-gray-600 whitespace-nowrap">
-                      {displayedDeals.length} of {totalDealsCount} deals
-                    </div>
-                  </div>
 
                   {displayedDeals.length === 0 ? (
                     <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
@@ -3722,7 +3797,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     </div>
                   ) : (
                     <>
-                      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 relative">
+                      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 min-h-[60vh] md:min-h-96 relative">
                         <table className="min-w-full table-fixed divide-y divide-gray-200">
                           <thead className="bg-blue-600 sticky top-0 z-10 shadow-md">
                             <tr>
@@ -4368,18 +4443,23 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               const totalCommission = displayedDeals.reduce((sum, d) => sum + (d.commission || 0), 0)
               const totalProfit = displayedDeals.reduce((sum, d) => sum + (d.profit || 0), 0)
               const row = [
-                { label: 'Total Deals', value: String(totalDeals), labelClass: 'text-blue-700', valueClass: 'text-blue-900', accent: 'border-blue-300' },
-                { label: 'Total Volume', value: fmtVolume(totalVolume), labelClass: 'text-indigo-700', valueClass: 'text-indigo-900', accent: 'border-indigo-300' },
-                { label: 'Total Commission', value: fmtMoney(totalCommission), labelClass: 'text-amber-700', valueClass: 'text-amber-900', accent: 'border-amber-400' },
-                { label: 'Floating Profit', value: fmtMoney(totalProfit), labelClass: totalProfit >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(totalProfit), accent: totalProfit >= 0 ? 'border-emerald-400' : 'border-red-400' }
+                { label: 'Total Deals', value: String(totalDeals), accent: 'border-blue-300' },
+                { label: 'Total Volume', value: fmtVolume(totalVolume), accent: 'border-indigo-300' },
+                { label: 'Total Commission', value: fmtMoney(totalCommission), accent: 'border-amber-400' },
+                { label: 'Floating Profit', value: fmtMoney(totalProfit), accent: totalProfit >= 0 ? 'border-emerald-400' : 'border-red-400' }
               ]
               return (
-                <div className="space-y-2">
-                  <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
+                <div className="px-1 pb-1">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {row.map((it, idx) => (
-                      <div key={`deals-r-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
-                        <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>
-                        <p className={`text-xs font-bold ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
+                      <div
+                        key={`deals-r-${it.label}-${idx}`}
+                        className="relative rounded-xl border border-gray-100 shadow-sm bg-white px-3 py-2.5 flex flex-col gap-0.5 overflow-hidden"
+                      >
+                        {/* coloured left accent bar */}
+                        <span className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl ${it.accent?.replace('border-', 'bg-') || 'bg-gray-300'}`} />
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{it.label}</p>
+                        <p className="text-sm font-bold leading-tight text-gray-800">{it.value}</p>
                       </div>
                     ))}
                   </div>
