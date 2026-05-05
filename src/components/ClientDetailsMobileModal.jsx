@@ -112,6 +112,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [trendRange, setTrendRange] = useState('7d')
   const [profitTrend, setProfitTrend] = useState([])
   const [trendLoading, setTrendLoading] = useState(false)
+  const [trendHoverIdx, setTrendHoverIdx] = useState(null)
 
   // Summary stats
   const [stats, setStats] = useState({
@@ -178,7 +179,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         }
         const updatedPositions = data?.positions ?? data?.open_positions ?? data?.data?.positions ?? null
         if (Array.isArray(updatedPositions)) setPositions(updatedPositions)
-        const overviewStats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
+        const overviewStats = data?.dealsStats ?? data?.dealStats ?? data?.deal_stats ?? data?.stats ?? data?.analytics ?? null
         if (overviewStats) setDealStats(overviewStats)
       } catch { /* silently ignore */ }
       if (!cancelled) timer = setTimeout(refresh, 2000)
@@ -420,7 +421,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           positionsData = overviewPositions
           setPositions(overviewPositions)
         }
-        const overviewStats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
+        const overviewStats = data?.dealsStats ?? data?.dealStats ?? data?.deal_stats ?? data?.stats ?? data?.analytics ?? null
         if (overviewStats) setDealStats(overviewStats)
       } catch (e) {
         console.warn('[ClientDetailsMobileModal] overview fetch failed, using cache', e)
@@ -941,9 +942,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const balance   = Number(clientData.balance   ?? client.balance   ?? 0)
     const equity    = Number(clientData.equity     ?? client.equity    ?? 0)
     const credit    = Number(clientData.credit     ?? client.credit    ?? 0)
-    const floating  = Number(clientData.profit     ?? clientData.floating ?? client.profit ?? 0)
+    const floating  = Number(clientData.floatingProfit ?? clientData.floating ?? clientData.profit ?? client.floatingProfit ?? client.floating ?? client.profit ?? 0)
     const marginLvl = Number(clientData.margin_level ?? client.margin_level ?? clientData.marginLevel ?? 0)
-    const commission= Number(clientData.commission ?? client.commission ?? 0)
     const margin    = Number(clientData.margin     ?? client.margin    ?? 0)
     const marginFree= Number(clientData.margin_free ?? client.margin_free ?? clientData.marginFree ?? 0)
     const currency  = clientData.currency ?? client.currency ?? ''
@@ -953,22 +953,24 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
 
     // Deal stats
     const ds = dealStats || {}
-    const totalDeals       = Number(ds.totalDeals       ?? ds.total_deals            ?? 0)
-    const winRate          = Number(ds.winRate          ?? ds.win_rate               ?? 0)
+    const commission= Number(ds.totalCommission ?? ds.total_commission ?? clientData.commission ?? client.commission ?? 0)
+    const totalDeals       = Number(ds.totalDeals        ?? ds.total_deals             ?? 0)
+    const winRate          = Number(ds.winRate           ?? ds.win_rate                ?? 0)
     const profitableDeals  = Number(ds.profitableDealCount ?? ds.profitable_deal_count ?? 0)
-    const losingDeals      = Number(ds.losingDealCount  ?? ds.losing_deal_count      ?? 0)
+    const losingDeals      = Number(ds.losingDealCount   ?? ds.losing_deal_count       ?? 0)
     const profitSum        = Number(ds.profitableDealsSum ?? ds.profitSum ?? ds.profit_sum ?? 0)
-    const losingSum        = Number(ds.losingDealsSum   ?? ds.losingDealSum ?? ds.losingSum ?? ds.losing_sum ?? 0)
-    const avgProfit        = Number(ds.avgProfitPerDeal ?? ds.avg_profit_per_deal     ?? 0)
-    const avgLoss          = Number(ds.avgLossPerDeal   ?? ds.avg_loss_per_deal       ?? 0)
-    const maxProfit        = Number(ds.maxProfit        ?? ds.max_profit              ?? 0)
-    const maxLoss          = Number(ds.maxLoss          ?? ds.max_loss                ?? 0)
-    const buyVolume        = Number(ds.buyVolume        ?? ds.buy_volume             ?? 0)
-    const sellVolume       = Number(ds.sellVolume       ?? ds.sell_volume            ?? 0)
-    const totalVol         = buyVolume + sellVolume || 1
+    const losingSum        = Number(ds.losingDealsSum    ?? ds.losingDealSum ?? ds.losingSum ?? ds.losing_sum ?? 0)
+    const avgProfit        = Number(ds.averageProfitPerDeal ?? ds.avgProfitPerDeal ?? ds.average_profit_per_deal ?? ds.avg_profit_per_deal ?? 0)
+    const avgLoss          = Number(ds.averageLossPerDeal   ?? ds.avgLossPerDeal  ?? ds.average_loss_per_deal  ?? ds.avg_loss_per_deal  ?? 0)
+    const maxProfit        = Number(ds.maxProfit         ?? ds.max_profit               ?? 0)
+    const maxLoss          = Number(ds.maxLoss           ?? ds.max_loss                 ?? 0)
+    const buyVolume        = Number(ds.buyVolume         ?? ds.buy_volume              ?? 0)
+    const sellVolume       = Number(ds.sellVolume        ?? ds.sell_volume             ?? 0)
+    const totalVol         = Number(ds.totalVolume ?? ds.total_volume ?? (buyVolume + sellVolume)) || 1
     const netPL            = profitSum + losingSum
 
-    const lossRate = totalDeals > 0 ? (losingDeals / totalDeals * 100) : (100 - winRate)
+    const computedWinRate  = totalDeals > 0 ? (profitableDeals / totalDeals * 100) : (Number(ds.winRate ?? ds.win_rate ?? 0))
+    const lossRate         = totalDeals > 0 ? (losingDeals / totalDeals * 100) : (100 - computedWinRate)
 
     const fmt = (n, d = 2) => formatNum(n, d)
     const fmtPct = (n) => `${Number(n).toFixed(1)}%`
@@ -1022,11 +1024,12 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     }
 
     // ── SVG Line Chart ────────────────────────────────────────────────────────
-    const SvgLine = ({ data, w = 220, h = 70 }) => {
+    // Color: blue if pnl >= 0, red if pnl < 0. Hover tooltip shows date + value.
+    const SvgLine = ({ data, w = 220, h = 70, hoverIdx, setHoverIdx }) => {
       if (!data || !data.length) return <div className="h-[70px] flex items-center justify-center text-xs text-gray-400">No data</div>
       if (data.length === 1) return (
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-          <circle cx={w / 2} cy={h / 2} r="3" fill="#3b82f6" />
+          <circle cx={w / 2} cy={h / 2} r="3" fill={data[0].value >= 0 ? '#3b82f6' : '#ef4444'} />
         </svg>
       )
       const vals = data.map(d => d.value)
@@ -1034,9 +1037,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       const rng = maxV - minV || 1
       const step = w / Math.max(data.length - 1, 1)
       const pts = data.map((d, i) => ({ x: i * step, y: h - ((d.value - minV) / rng) * (h - 8) - 4 }))
-      const segColor = (i) => i >= 0 && i < data.length - 1
-        ? (data[i + 1].value >= data[i].value ? '#3b82f6' : '#ef4444')
-        : '#3b82f6'
+      const segColor = (i) => data[i]?.value >= 0 ? '#3b82f6' : '#ef4444'
+      const ptColor  = (i) => data[i]?.value >= 0 ? '#3b82f6' : '#ef4444'
       return (
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
           <defs>
@@ -1059,15 +1061,37 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               stroke={segColor(i)} strokeWidth="2" strokeLinecap="round" />
           ))}
           {pts.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r="2.5"
-              fill={i < pts.length - 1 ? segColor(i) : segColor(i - 1)} />
+            <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={ptColor(i)} />
           ))}
+          {/* Invisible hover targets per point */}
+          {setHoverIdx && pts.map((p, i) => (
+            <circle key={`h${i}`} cx={p.x} cy={p.y} r="14"
+              fill="transparent" style={{ cursor: 'crosshair' }}
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)} />
+          ))}
+          {/* Tooltip inside SVG */}
+          {hoverIdx != null && pts[hoverIdx] && (() => {
+            const p = pts[hoverIdx]
+            const d = data[hoverIdx]
+            const tipLabel = `${d.label}: ${fmt(d.value)}`
+            const tipW = Math.max(tipLabel.length * 5.2 + 16, 64)
+            const tx = Math.min(Math.max(p.x, tipW / 2 + 4), w - tipW / 2 - 4)
+            const ty = p.y > 26 ? p.y - 20 : p.y + 22
+            return (
+              <g pointerEvents="none">
+                <rect x={tx - tipW / 2} y={ty - 12} width={tipW} height="17" rx="4" fill="#1f2937" opacity="0.92" />
+                <text x={tx} y={ty + 1} textAnchor="middle" fontSize="8" fill="white" fontWeight="600">{tipLabel}</text>
+              </g>
+            )
+          })()}
         </svg>
       )
     }
 
     // ── Allocation total for donut ─────────────────────────────────────────────
-    const allocTotal = Math.abs(credit) + Math.abs(balance) + Math.abs(floating)
+    // Use equity as the base so percentages of credit/balance/floating are relative to equity
+    const allocTotal = Math.abs(equity) || (Math.abs(credit) + Math.abs(balance) + Math.abs(floating)) || 1
 
     return (
       <div className="p-3 space-y-3 pb-6">
@@ -1082,7 +1106,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               { label: 'Currency', value: currency || '–' },
               { label: 'Equity', value: fmt(equity), color: equity >= 0 ? 'text-green-600' : 'text-red-600' },
               { label: 'Margin Level', value: marginLvl ? fmtPct(marginLvl) : '–', color: marginLvl >= 100 ? 'text-green-600' : 'text-red-600' },
-              { label: 'Commission', value: fmt(commission) },
+              { label: 'Total Commission', value: fmt(commission) },
             ].map(({ label, value, color }) => (
               <div key={label}>
                 <p className="text-[9px] text-gray-400 leading-tight">{label}</p>
@@ -1119,7 +1143,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                     <div key={label}>
                       <div className="flex justify-between items-center mb-0.5">
                         <span className="text-[9px] text-gray-500 truncate">{label}</span>
-                        <span className={`text-[9px] font-medium ${val >= 0 ? 'text-gray-700' : 'text-red-500'}`}>{val >= 0 ? fmtPct(pct) : `-${fmtPct(pct)}`}</span>
+                        <span className={`text-[9px] font-medium ${val >= 0 ? 'text-gray-700' : 'text-red-500'}`}>{fmt(val)} ({val >= 0 ? fmtPct(pct) : `-${fmtPct(pct)}`})</span>
                       </div>
                       <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
@@ -1137,12 +1161,13 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
             <div className="flex flex-col items-center gap-1">
               <SvgDonut
                 size={80} sw={12}
-                label={`${((buyVolume / totalVol) * 100).toFixed(0)}%`}
-                sublabel="Buy"
-                segments={[
-                  { v: buyVolume,  color: '#3b82f6' },
-                  { v: sellVolume, color: '#ef4444' },
-                ]}
+                label={fmt(Number(ds.totalVolume ?? ds.total_volume ?? (buyVolume + sellVolume)), 2)}
+                sublabel="Total"
+                segments={
+                  buyVolume > 0 || sellVolume > 0
+                    ? [{ v: buyVolume, color: '#3b82f6' }, { v: sellVolume, color: '#ef4444' }]
+                    : [{ v: Number(ds.totalVolume ?? ds.total_volume ?? 1), color: '#3b82f6' }]
+                }
               />
               <div className="flex items-center gap-3 text-[9px]">
                 <div className="flex items-center gap-1">
@@ -1177,7 +1202,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
             </div>
           ) : (
             <>
-              <SvgLine data={profitTrend} w={260} h={70} />
+              <SvgLine data={profitTrend} w={260} h={70} hoverIdx={trendHoverIdx} setHoverIdx={setTrendHoverIdx} />
               <div className="flex justify-between mt-1">
                 {profitTrend.filter((_, i) => i % Math.max(1, Math.floor(profitTrend.length / 5)) === 0).map((d, i) => (
                   <span key={i} className="text-[8px] text-gray-400">{d.label}</span>
@@ -1231,7 +1256,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                 <span className="text-[9px] text-gray-500">Profitable Deals</span>
-                <span className="ml-auto text-[10px] font-bold text-green-600">{profitableDeals} ({fmtPct(winRate)})</span>
+                <span className="ml-auto text-[10px] font-bold text-green-600">{profitableDeals} ({fmtPct(computedWinRate)})</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
@@ -1242,7 +1267,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               <div className="grid grid-cols-2 gap-1">
                 <div className="bg-green-50 rounded-lg p-1.5 text-center">
                   <p className="text-[9px] text-green-600 font-medium">Win Rate</p>
-                  <p className="text-[11px] font-bold text-green-700">{fmtPct(winRate)}</p>
+                  <p className="text-[11px] font-bold text-green-700">{fmtPct(computedWinRate)}</p>
                 </div>
                 <div className="bg-red-50 rounded-lg p-1.5 text-center">
                   <p className="text-[9px] text-red-500 font-medium">Loss Rate</p>
