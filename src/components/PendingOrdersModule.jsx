@@ -47,7 +47,7 @@ const formatTime = (ts) => {
 export default function PendingOrdersModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
-  const { orders, clients, loading, positions } = useData()
+  const { orders, clients, rawClients, loading, positions } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, getGroupLogins, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
@@ -256,6 +256,14 @@ export default function PendingOrdersModule() {
     }, 180)
   }
 
+  // Build a login→client map from all available sources so name shows immediately on click
+  const clientNameMap = useMemo(() => {
+    const map = new Map()
+    rawClients.forEach(c => { if (c?.login) map.set(String(c.login), c) })
+    clients.forEach(c => { if (c?.login && (c.name || c.fullName)) map.set(String(c.login), c) })
+    return map
+  }, [rawClients, clients])
+
   // Apply cumulative filters: Customize View -> IB -> Group
   const ibFilteredOrders = useMemo(() => {
     return applyCumulativeFilters(orders, {
@@ -458,7 +466,7 @@ export default function PendingOrdersModule() {
               boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
             }}
             onClick={() => {
-              const fullClient = clients.find(c => String(c.login) === String(order.login))
+              const fullClient = clientNameMap.get(String(order.login)) || clients.find(c => String(c.login) === String(order.login))
               setSelectedClient(fullClient || { login: order.login, email: order.email || '', name: '' })
             }}
           >

@@ -152,9 +152,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     fetchClientRules()
   }, [client.login])
 
-  // Poll overview API every 2s while modal is open (mirrors desktop)
+  // Poll overview API every 2s — only while Overview tab is active
   useEffect(() => {
-    if (!client?.login) return
+    if (!client?.login || activeTab !== 'overview') return
     let timer = null
     let cancelled = false
     const refresh = async () => {
@@ -166,18 +166,18 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         const account = data?.account ?? data?.client ?? data?.info ?? {}
         if (account && Object.keys(account).length > 0) {
           setClientData(prev => ({ ...prev, ...account }))
-          // Keep face card stats in sync with live polling data
           setStats(prev => ({
             ...prev,
             balance: Number(account.balance ?? prev.balance),
             credit: Number(account.credit ?? prev.credit),
             equity: Number(account.equity ?? prev.equity),
+            margin: Number(account.margin ?? prev.margin),
+            marginFree: Number(account.margin_free ?? account.marginFree ?? prev.marginFree),
+            marginLevel: Number(account.margin_level ?? account.marginLevel ?? prev.marginLevel),
           }))
         }
         const updatedPositions = data?.positions ?? data?.open_positions ?? data?.data?.positions ?? null
-        if (Array.isArray(updatedPositions)) {
-          setPositions(updatedPositions)
-        }
+        if (Array.isArray(updatedPositions)) setPositions(updatedPositions)
         const overviewStats = data?.stats ?? data?.deal_stats ?? data?.dealStats ?? data?.analytics ?? null
         if (overviewStats) setDealStats(overviewStats)
       } catch { /* silently ignore */ }
@@ -185,33 +185,24 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     }
     timer = setTimeout(refresh, 2000)
     return () => { cancelled = true; if (timer) clearTimeout(timer) }
-  }, [client?.login])
+  }, [client?.login, activeTab])
 
-  // Fetch profit trend (daily P&L) for the overview tab
+  // Fetch profit trend using pnl-overview API — only when Overview tab is active
   const fetchProfitTrend = async (range = '7d') => {
     setTrendLoading(true)
     try {
       const now = Math.floor(Date.now() / 1000)
       const days = range === '30d' ? 30 : 7
       const from = now - days * 86400
-      const resp = await brokerAPI.getClientDeals(client.login, from, now, 10000, 0)
-      const dealsArr = resp?.deals ?? resp?.data?.deals ?? []
-      const byDate = {}
-      dealsArr.forEach(d => {
-        const ts = d.time || d.timestamp
-        if (!ts) return
-        const dt = new Date(ts * 1000)
-        const key = `${dt.getDate()}/${dt.getMonth() + 1}`
-        if (!byDate[key]) byDate[key] = { label: key, value: 0, ts }
-        byDate[key].value += Number(d.profit || 0)
-      })
-      // Fill missing days with 0
-      const result = []
-      for (let i = days - 1; i >= 0; i--) {
-        const dt = new Date((now - i * 86400) * 1000)
-        const key = `${dt.getDate()}/${dt.getMonth() + 1}`
-        result.push(byDate[key] || { label: key, value: 0, ts: now - i * 86400 })
-      }
+      const resp = await brokerAPI.getClientPnlOverview(client.login, from, now)
+      const daysArr = resp?.data?.days ?? resp?.days ?? []
+      const result = daysArr.map(d => ({
+        label: (() => {
+          const dt = new Date(d.date)
+          return `${dt.getDate()}/${dt.getMonth() + 1}`
+        })(),
+        value: Number(d.pnl ?? 0),
+      }))
       setProfitTrend(result)
     } catch {
       setProfitTrend([])
@@ -220,10 +211,10 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     }
   }
 
-  // Fetch profit trend on mount and when range changes
+  // Fetch profit trend only when on overview tab or when range changes while on overview
   useEffect(() => {
-    fetchProfitTrend(trendRange)
-  }, [client.login, trendRange])
+    if (activeTab === 'overview') fetchProfitTrend(trendRange)
+  }, [client.login, trendRange, activeTab])
 
   // Reset pagination when tab changes
   useEffect(() => {
@@ -464,13 +455,16 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       setFromDate(formatDateToDisplay(todayStr))
       setToDate(formatDateToDisplay(todayStr))
       
-      // Fetch deals for today by default, passing positionsData so it can calculate stats correctly
+      // Pre-set today's date range so Deals tab loads it on first switch (without fetching now)
       const startOfDay = new Date(today)
       startOfDay.setHours(0, 0, 0, 0)
       const endOfDay = new Date(today)
       endOfDay.setHours(23, 59, 59, 999)
-      
-      await fetchDealsWithDateFilter(Math.floor(startOfDay.getTime() / 1000), Math.floor(endOfDay.getTime() / 1000), 1, positionsData, overviewAccount)
+      const fromTs = Math.floor(startOfDay.getTime() / 1000)
+      const toTs = Math.floor(endOfDay.getTime() / 1000)
+      setCurrentDateFilter({ from: fromTs, to: toTs })
+      setHasAppliedFilter(true)
+      // Deals are fetched lazily when user switches to the Deals tab
       
       setLoading(false)
     } catch (error) {
@@ -1030,12 +1024,19 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     // ── SVG Line Chart ────────────────────────────────────────────────────────
     const SvgLine = ({ data, w = 220, h = 70 }) => {
       if (!data || !data.length) return <div className="h-[70px] flex items-center justify-center text-xs text-gray-400">No data</div>
+      if (data.length === 1) return (
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+          <circle cx={w / 2} cy={h / 2} r="3" fill="#3b82f6" />
+        </svg>
+      )
       const vals = data.map(d => d.value)
       const minV = Math.min(...vals), maxV = Math.max(...vals)
       const rng = maxV - minV || 1
       const step = w / Math.max(data.length - 1, 1)
       const pts = data.map((d, i) => ({ x: i * step, y: h - ((d.value - minV) / rng) * (h - 8) - 4 }))
-      const segColor = (i) => data[i + 1].value >= data[i].value ? '#3b82f6' : '#ef4444'
+      const segColor = (i) => i >= 0 && i < data.length - 1
+        ? (data[i + 1].value >= data[i].value ? '#3b82f6' : '#ef4444')
+        : '#3b82f6'
       return (
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
           <defs>
@@ -1712,12 +1713,12 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
               <span className="text-lg font-semibold text-gray-600">
-                {(client.name || client.fullName || 'U')[0].toUpperCase()}
+                {(clientData.name || client.name || client.fullName || String(client.login || 'U'))[0].toUpperCase()}
               </span>
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900">
-                {client.name || client.fullName || 'Unknown'}
+                {clientData.name || client.name || client.fullName || String(client.login || '')}
               </h3>
               <p className="text-sm text-gray-600">{client.login}</p>
               <p className="text-xs text-gray-500">{client.email || '-'}</p>

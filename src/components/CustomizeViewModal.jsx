@@ -294,64 +294,7 @@ const CustomizeViewModal = ({
             </>
           )}
 
-          {/* Date Filter option */}
-          {onDateFilterClick && (
-            <>
-              <button
-                onClick={() => handleOptionClick(onDateFilterClick)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  width: '100%',
-                  padding: '10px 0',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  marginBottom: '12px',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '32px',
-                    height: '32px',
-                    background: 'rgba(230, 238, 248, 0.44)',
-                    borderRadius: '8px',
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                    <rect x="3" y="4" width="12" height="11" rx="2" stroke="#999999" strokeWidth="1.5" />
-                    <path d="M3 7h12M6 2v3M12 2v3" stroke="#999999" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                </div>
-                <span
-                  style={{
-                    fontFamily: 'Outfit, sans-serif',
-                    fontWeight: 400,
-                    fontSize: '16px',
-                    lineHeight: '20px',
-                    color: '#1B2D45',
-                    textAlign: 'left',
-                  }}
-                >
-                  Date Filter
-                </span>
-              </button>
 
-              {/* Divider */}
-              <div
-                style={{
-                  width: '100%',
-                  height: '1px',
-                  background: '#F2F2F7',
-                  margin: '12px 0',
-                }}
-              />
-            </>
-          )}
 
           {/* Groups option */}
           {onGroupsClick && (

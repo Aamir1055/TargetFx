@@ -47,7 +47,7 @@ const formatTime = (timestamp) => {
 export default function LiveDealingModule() {
   const navigate = useNavigate()
   const { logout } = useAuth()
-  const { positions: cachedPositions, clients, orders } = useData()
+  const { positions: cachedPositions, clients, rawClients, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
@@ -195,6 +195,14 @@ export default function LiveDealingModule() {
       localStorage.setItem(WS_CACHE_KEY, JSON.stringify(list))
     } catch {}
   }
+
+  // Build a login→client map from all available sources so name shows immediately on click
+  const clientNameMap = useMemo(() => {
+    const map = new Map()
+    rawClients.forEach(c => { if (c?.login) map.set(String(c.login), c) })
+    clients.forEach(c => { if (c?.login && (c.name || c.fullName)) map.set(String(c.login), c) })
+    return map
+  }, [rawClients, clients])
 
   // Fetch deals from API (24h by default)
   const fetchDeals = async () => {
@@ -680,7 +688,7 @@ export default function LiveDealingModule() {
               boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
             }}
             onClick={() => {
-              const fullClient = clients.find(c => String(c.login) === String(deal.login))
+              const fullClient = clientNameMap.get(String(deal.login)) || clients.find(c => String(c.login) === String(deal.login))
               setSelectedClient(fullClient || { login: deal.login, email: deal.email || '', name: '' })
             }}
           >

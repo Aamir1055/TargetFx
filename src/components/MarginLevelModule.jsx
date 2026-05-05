@@ -45,7 +45,7 @@ export default function MarginLevelModule() {
   const positions = []
   const orders = []
   const loading = { accounts: !marginCallLoaded, clients: !marginCallLoaded }
-  const { filterByActiveGroup, activeGroupFilters } = useGroups()
+  const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter, setActiveGroupFilter } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)

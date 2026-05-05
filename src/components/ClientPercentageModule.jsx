@@ -34,7 +34,7 @@ export default function ClientPercentageModule() {
   const navigate = useNavigate()
   const { logout, user } = useAuth()
   const canSetPercentage = user?.rights ? user.rights.includes('set_percentage') : true
-  const { positions: cachedPositions, clients: cachedClients, orders } = useData()
+  const { positions: cachedPositions, clients: cachedClients, rawClients, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
@@ -423,6 +423,8 @@ export default function ClientPercentageModule() {
             }}
             onClick={() => {
               const fullClient = allClients.find(c => String(c.login) === String(value))
+                || rawClients.find(c => String(c.login) === String(value))
+                || cachedClients.find(c => String(c.login) === String(value))
               setSelectedClientForDetails(fullClient || { login: value, email: '', name: '' })
             }}
           >
