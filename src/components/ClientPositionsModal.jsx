@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
 import { useAuth } from '../contexts/AuthContext'
@@ -99,7 +99,7 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
             </g>
           )
         })}
-        {/* Area fills � one per consecutive same-color group */}
+        {/* Area fills ï¿½ one per consecutive same-color group */}
         {areaGroups.map((g, gi) => {
           const gPts = pts.slice(g.start, g.end + 1)
           const d = [
@@ -109,7 +109,7 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
           ].join(' ')
           return <path key={gi} d={d} fill={`url(#${g.color === '#ef4444' ? 'trendGradRed' : 'trendGradBlue'})`}/>
         })}
-        {/* Line segments � each colored by direction */}
+        {/* Line segments ï¿½ each colored by direction */}
         {pts.slice(0, -1).map((p, i) => (
           <line key={i}
             x1={p.x.toFixed(1)} y1={p.y.toFixed(1)}
@@ -502,7 +502,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
           setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
         }
-        // Don't overwrite positions if user has an active search or sort �
+        // Don't overwrite positions if user has an active search or sort ï¿½
         // the search API owns the positions list in that case.
         const apiActive =
           (debouncedSearchQueryRef.current && debouncedSearchQueryRef.current.trim().length > 0) ||
@@ -629,7 +629,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     // When a search or sort is active, positions are loaded via API. Skip cache.
     const apiActive = (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) || !!positionsSortColumn
     if (apiActive) return
-    // Skip if no cache provided � overview poller owns position data in that case
+    // Skip if no cache provided ï¿½ overview poller owns position data in that case
     if (!allPositionsCache || allPositionsCache.length === 0) return
     const clientPositions = allPositionsCache.filter(pos => pos.login === client.login)
     setPositions(clientPositions)
@@ -970,7 +970,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       } else if (field === 'symbol') {
         apiFilters.push({ field: 'symbol', operator: 'in', value: values })
       } else if (field === 'time') {
-        // Time column filter uses formatted strings — cannot be sent to server, leave as client-side
+        // Time column filter uses formatted strings â€” cannot be sent to server, leave as client-side
       } else {
         apiFilters.push({ field, operator: 'in', value: values })
       }
@@ -1151,7 +1151,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
     return `${sign}${abs.toFixed(2)}`
   }
-  // Money: compact-aware (profit, storage, commission, balance, equity �)
+  // Money: compact-aware (profit, storage, commission, balance, equity ï¿½)
   const fmtMoney = (n) => {
     const num = parseFloat(n || 0)
     if (numericMode === 'compact') return formatCompactIndian(num)
@@ -1200,7 +1200,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }
 
-  // Sorting handler for deals — triggers server-side re-fetch
+  // Sorting handler for deals â€” triggers server-side re-fetch
   const handleDealsSort = (column) => {
     let nextDir
     if (dealsSortColumn === column) {
@@ -1618,7 +1618,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         ...prev,
         [columnKey]: updated.length > 0 ? updated : undefined
       }
-      // Server-side re-fetch with new filters (skip for time column — client-side only)
+      // Server-side re-fetch with new filters (skip for time column â€” client-side only)
       if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
         setDealsCurrentPage(1)
         setTimeout(() => {
@@ -2499,338 +2499,355 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
           {/* ------------- OVERVIEW TAB ------------- */}
           {activeTab === 'overview' && (() => {
-            const acc = clientData || {}
-            const balance   = parseFloat(acc.balance   || 0)
-            const equity    = parseFloat(acc.equity    || 0)
-            const credit    = parseFloat(acc.credit    || 0)
-            const floating  = parseFloat(acc.profit    || acc.floating || 0)
-            const marginLevel = parseFloat(acc.margin_level || 0)
-            const commission  = parseFloat(acc.commission  || 0)
-            const margin      = 0 // TODO: dedicated margin API
-            const marginFree  = 0 // TODO: dedicated margin API
-            const currency    = acc.currency || client?.currency || ''
+            // Account data â€” same as mobile
+            const balance    = Number(clientData?.balance    ?? client?.balance    ?? 0)
+            const equity     = Number(clientData?.equity     ?? client?.equity     ?? 0)
+            const credit     = Number(clientData?.credit     ?? client?.credit     ?? 0)
+            const floating   = Number(clientData?.profit     ?? clientData?.floating ?? client?.profit ?? 0)
+            const marginLvl  = Number(clientData?.margin_level ?? client?.margin_level ?? clientData?.marginLevel ?? 0)
+            const commission = Number(clientData?.commission ?? client?.commission ?? 0)
+            const margin     = Number(clientData?.margin     ?? client?.margin     ?? 0)
+            const marginFree = Number(clientData?.margin_free ?? client?.margin_free ?? clientData?.marginFree ?? 0)
+            const currency   = clientData?.currency ?? client?.currency ?? ''
+            const name       = clientData?.name     ?? client?.name     ?? 'Unknown'
+            const login      = clientData?.login    ?? client?.login    ?? ''
+
+            // Deal stats â€” same as mobile
             const ds = dealStats || {}
-            const buyVol          = parseFloat(ds.buyVolume         ?? ds.buy_volume          ?? 0)
-            const sellVol         = parseFloat(ds.sellVolume        ?? ds.sell_volume         ?? 0)
-            const totalVolume     = buyVol + sellVol
-            const totalVolDisplay = totalVolume > 0 ? totalVolume : 1
-            const buyPct          = parseFloat(((buyVol  / totalVolDisplay) * 100).toFixed(1))
-            const sellPct         = parseFloat(((sellVol / totalVolDisplay) * 100).toFixed(1))
-            const winRate         = parseFloat(ds.winRate         ?? ds.win_rate         ?? 0)
-            const lossRate        = Math.max(0, 100 - winRate)
-            const totalDeals      = parseInt(ds.totalDeals        ?? ds.total_deals       ?? 0)
-            const profDeals       = parseInt(ds.profitableDealCount ?? ds.profitable_deal_count ?? 0)
-            const loseDeals       = parseInt(ds.losingDealCount   ?? ds.losing_deal_count  ?? 0)
-            const profitSum       = parseFloat(ds.profitableDealsSum ?? ds.profitable_deals_sum ?? 0)
-            const losingSum       = Math.abs(parseFloat(ds.losingDealsSum ?? ds.losingDealSum ?? ds.losing_deals_sum ?? 0))
-            const netPL           = profitSum - losingSum
-            const avgProfit       = parseFloat(ds.averageProfitPerDeal ?? ds.avgProfitPerDeal ?? ds.avg_profit_per_deal ?? acc.averageProfitPerDeal ?? acc.average_profit_per_deal ?? 0)
-            const avgLoss         = parseFloat(ds.averageLossPerDeal   ?? ds.avgLossPerDeal   ?? ds.avg_loss_per_deal   ?? acc.averageLossPerDeal   ?? acc.average_loss_per_deal   ?? 0)
-            const maxProfit       = parseFloat(ds.maxProfit            ?? ds.max_profit       ?? acc.maxProfit          ?? acc.max_profit           ?? 0)
-            const maxLoss         = parseFloat(ds.maxLoss              ?? ds.max_loss         ?? acc.maxLoss            ?? acc.max_loss             ?? 0)
+            const totalDeals      = Number(ds.totalDeals        ?? ds.total_deals            ?? 0)
+            const winRate         = Number(ds.winRate           ?? ds.win_rate               ?? 0)
+            const profitableDeals = Number(ds.profitableDealCount ?? ds.profitable_deal_count ?? 0)
+            const losingDeals     = Number(ds.losingDealCount   ?? ds.losing_deal_count      ?? 0)
+            const profitSum       = Number(ds.profitableDealsSum ?? ds.profitSum ?? ds.profit_sum ?? 0)
+            const losingSum       = Number(ds.losingDealsSum    ?? ds.losingDealSum ?? ds.losingSum ?? ds.losing_sum ?? 0)
+            const avgProfit       = Number(ds.avgProfitPerDeal  ?? ds.avg_profit_per_deal    ?? 0)
+            const avgLoss         = Number(ds.avgLossPerDeal    ?? ds.avg_loss_per_deal      ?? 0)
+            const maxProfit       = Number(ds.maxProfit         ?? ds.max_profit             ?? 0)
+            const maxLoss         = Number(ds.maxLoss           ?? ds.max_loss               ?? 0)
+            const buyVolume       = Number(ds.buyVolume         ?? ds.buy_volume             ?? 0)
+            const sellVolume      = Number(ds.sellVolume        ?? ds.sell_volume            ?? 0)
+            const totalVol        = buyVolume + sellVolume || 1
+            const netPL           = profitSum + losingSum
+            const lossRate        = totalDeals > 0 ? (losingDeals / totalDeals * 100) : (100 - winRate)
             const allocTotal      = Math.abs(credit) + Math.abs(balance) + Math.abs(floating) || 1
 
-            // ProfitTrendChart is defined at module level
+            const fmt    = (n) => fmtMoney(n)
+            const fmtPct = (n) => `${Number(n).toFixed(1)}%`
 
-            // -- Margin Usage BAR chart ----------------------------------------
-            const MarginBarChart = ({ used, free }) => {
-              const maxVal = Math.max(Math.abs(used), Math.abs(free), 1)
-              const w = 160, h = 90, barW = 38, midY = h / 2
-              const usedH = (Math.abs(used) / maxVal) * (midY - 16)
-              const freeH = (Math.abs(free) / maxVal) * (midY - 16)
-              const fmtV = v => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0)
-              const ticks = [-maxVal * 0.75, -maxVal * 0.5, -maxVal * 0.25, 0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75]
+            // â”€â”€ SVG Donut â€” same as mobile (uses v not pct) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            const SvgDonutLocal = ({ segments, size = 100, sw = 14, label, sublabel }) => {
+              const r = (size - sw) / 2
+              const circ = 2 * Math.PI * r
+              const cx = size / 2, cy = size / 2
+              const total = segments.reduce((s, seg) => s + Math.max(0, seg.v), 0) || 1
+              let acc2 = 0
               return (
-                <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="w-full">
-                  {/* grid lines */}
-                  {ticks.map((v, i) => {
-                    const y = midY - (v / maxVal) * (midY - 16)
-                    return <line key={i} x1="30" x2={w - 10} y1={y} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
+                <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={sw}/>
+                  {segments.map((seg, i) => {
+                    const pct = Math.max(0, seg.v) / total
+                    const len = pct * circ
+                    const off = -(acc2 / total) * circ
+                    acc2 += Math.max(0, seg.v)
+                    return (
+                      <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+                        stroke={seg.color} strokeWidth={sw}
+                        strokeDasharray={`${len} ${circ - len}`}
+                        strokeDashoffset={off}
+                        transform={`rotate(-90 ${cx} ${cy})`}
+                        strokeLinecap="butt"/>
+                    )
                   })}
-                  {/* zero line */}
-                  <line x1="30" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
-                  {/* Used Margin bar � goes DOWN (negative) */}
-                  <rect x={w/2 - barW - 4} y={midY} width={barW} height={usedH} fill="#ef4444" rx="3"/>
-                  {/* Free Margin bar � goes UP (positive) */}
-                  <rect x={w/2 + 4} y={midY - freeH} width={barW} height={freeH} fill="#16a34a" rx="3"/>
-                  {/* value labels */}
-                  <text x={w/2 - barW/2 - 4} y={midY + usedH + 9} textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
-                  <text x={w/2 + barW/2 + 4} y={midY - freeH - 4} textAnchor="middle" fontSize="7" fill="#16a34a" fontWeight="600">{fmtV(free)}</text>
-                  {/* Y axis ticks */}
-                  {[0.5, 0, -0.5].map((f, i) => {
-                    const y = midY - f * (midY - 16)
-                    const v = f * maxVal
-                    return <text key={i} x="26" y={y + 3} textAnchor="end" fontSize="6.5" fill="#94a3b8">{fmtV(v)}</text>
-                  })}
-                  {/* X axis labels */}
-                  <text x={w/2 - barW/2 - 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Used Margin</text>
-                  <text x={w/2 + barW/2 + 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Free Margin</text>
+                  {label    && <text x={cx} y={cy - 5}  textAnchor="middle" fontSize="11" fontWeight="bold" fill="#111827">{label}</text>}
+                  {sublabel && <text x={cx} y={cy + 10} textAnchor="middle" fontSize="9"  fill="#6b7280">{sublabel}</text>}
                 </svg>
               )
             }
 
-            // -- Semi-circle Profitability gauge -------------------------------
-            const SemiGauge = ({ profit, loss, net }) => {
-              const total = profit + loss || 1
-              const profPct = profit / total
-              const cx = 100, cy = 72, r = 55, sw = 14
-              const semicircle = Math.PI * r
-              const profLen = profPct * semicircle
-              const lossLen = semicircle - profLen
+            // â”€â”€ SVG Line Chart â€” same as mobile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            const SvgLineLocal = ({ data, w = 260, h = 70 }) => {
+              if (!data || !data.length) return <div className="h-[70px] flex items-center justify-center text-xs text-gray-400">No data</div>
+              const vals = data.map(d => d.value)
+              const minV = Math.min(...vals), maxV = Math.max(...vals)
+              const rng  = maxV - minV || 1
+              const step = w / Math.max(data.length - 1, 1)
+              const pts  = data.map((d, i) => ({ x: i * step, y: h - ((d.value - minV) / rng) * (h - 8) - 4 }))
+              const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+              const areaD = `${pathD} L${pts[pts.length-1].x},${h} L0,${h} Z`
+              const hasNeg = vals.some(v => v < 0), hasPos = vals.some(v => v > 0)
+              const lineColor = hasNeg && !hasPos ? '#ef4444' : '#3b82f6'
               return (
-                <svg viewBox="0 0 200 82" className="w-full max-w-[180px] mx-auto">
-                  {/* background track */}
-                  <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
-                    fill="none" stroke="#e5e7eb" strokeWidth={sw} strokeLinecap="round"/>
-                  {/* blue profit arc */}
-                  <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
-                    fill="none" stroke="#3b82f6" strokeWidth={sw} strokeLinecap="round"
-                    strokeDasharray={`${profLen} ${semicircle}`}
-                    strokeDashoffset={0}/>
-                  {/* label */}
-                  <text x={cx} y={cy - 14} textAnchor="middle" fontSize="12" fontWeight="700" fill={net >= 0 ? '#16a34a' : '#dc2626'}>
-                    {fmtMoney(net)}
-                  </text>
-                  <text x={cx} y={cy - 1} textAnchor="middle" fontSize="8" fill="#64748b">Net P/L</text>
+                <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
+                  <defs>
+                    <linearGradient id="lgDesktop" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%"   stopColor={lineColor} stopOpacity="0.25"/>
+                      <stop offset="100%" stopColor={lineColor} stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d={areaD} fill="url(#lgDesktop)"/>
+                  <path d={pathD} fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={lineColor}/>)}
                 </svg>
               )
             }
 
             return (
-              <div className="space-y-2">
-                {/* -- Row 1: Account Information + Account Allocation -- */}
-                <div className="grid grid-cols-5 gap-2">
-                  {/* Account Information � 2/5 width */}
-                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                      Account Information
-                    </h3>
-                    <div className="divide-y divide-slate-200">
-                      <div className="grid grid-cols-3 divide-x divide-slate-200 pb-2">
-                        {[
-                          { label: 'Name',     value: acc.name || client?.name || '-' },
-                          { label: 'Account',  value: `${acc.login || client?.login || '-'}` },
-                          { label: 'Currency', value: currency || '-' },
-                        ].map(({ label, value }, i) => (
-                          <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
-                            <p className="text-[10px] text-slate-400 mb-1">{label}</p>
-                            <p className="text-xs font-semibold text-slate-800">{value}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-3 divide-x divide-slate-200 pt-2">
-                        {[
-                          { label: 'Equity',           value: fmtMoney(equity),                                       color: 'text-blue-600' },
-                          { label: 'Margin Level',     value: marginLevel > 0 ? `${marginLevel.toFixed(0)}%` : '-',   color: marginLevel > 0 && marginLevel < 50 ? 'text-red-500' : 'text-green-600' },
-                          { label: 'Total Commission', value: fmtMoney(commission),                                    color: 'text-blue-600' },
-                        ].map(({ label, value, color }, i) => (
-                          <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
-                            <p className="text-[10px] text-slate-400 mb-1">{label}</p>
-                            <p className={`text-xs font-semibold ${color}`}>{value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+              <div className="space-y-3 pb-4">
 
-                  {/* Account Allocation � 3/5 width */}
-                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Account Allocation</h3>
-                    <div className="flex items-center gap-4">
-                      <SvgDonut
-                        size={100} sw={18}
-                        segments={[
-                          { pct: parseFloat((Math.abs(credit)   / allocTotal * 100).toFixed(2)), color: '#6366f1', label: 'Credit',          value: fmtMoney(credit) },
-                          { pct: parseFloat((Math.abs(balance)  / allocTotal * 100).toFixed(2)), color: '#22c55e', label: 'Balance',         value: fmtMoney(balance) },
-                          { pct: parseFloat((Math.abs(floating) / allocTotal * 100).toFixed(2)), color: floating >= 0 ? '#3b82f6' : '#ef4444', label: 'Floating Profit', value: fmtMoney(floating) },
-                        ]}
-                        centerLine1={fmtMoney(equity)}
-                        centerLine2="Total Equity"
-                      />
-                      <div className="flex-1 space-y-2">
-                        {[
-                          { label: 'Credit',          value: credit,   pct: Math.abs(credit)   / allocTotal * 100, color: '#6366f1' },
-                          { label: 'Balance',         value: balance,  pct: Math.abs(balance)  / allocTotal * 100, color: '#22c55e' },
-                          { label: 'Floating Profit', value: floating, pct: Math.abs(floating) / allocTotal * 100, color: floating >= 0 ? '#3b82f6' : '#ef4444' },
-                        ].map(({ label, value, pct, color }) => (
-                          <div key={label} className="flex items-center gap-3">
-                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
-                            <span className="text-xs text-slate-600 w-24 flex-shrink-0">{label}</span>
-                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}/>
-                            </div>
-                            <span className="text-xs font-semibold text-slate-700 w-24 text-right">{fmtMoney(value)}</span>
-                            <span className="text-xs text-slate-400 w-12 text-right">{pct.toFixed(2)}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* â”€â”€ Row 1: Account Info + Account Allocation + Volume Overview â”€â”€ */}
+                <div className="grid grid-cols-3 gap-3">
 
-                {/* -- Row 2: Profit Trend | Volume Overview | Margin Usage | Deals Summary -- */}
-                <div className="grid grid-cols-4 gap-2">
-                  {/* Profit Trend */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-bold text-slate-800">Profit Trend</h3>
-                      <select value={trendRange} onChange={e => setTrendRange(e.target.value)}
-                        className="text-xs border border-slate-200 rounded px-2 py-0.5 text-slate-600 bg-white focus:outline-none">
-                        <option value="7d">7 Days</option>
-                        <option value="30d">30 Days</option>
-                      </select>
-                    </div>
-                    <div className="h-[80px]">
-                      {trendLoading
-                        ? <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"/></div>
-                        : <ProfitTrendChart data={profitTrend} w={220} h={80}/>
-                      }
-                    </div>
-                    {profitTrend.length > 0 && (
-                      <div className="flex justify-between text-[10px] text-slate-400 mt-2 pl-10 pr-1">
-                        {(() => {
-                          const n = profitTrend.length
-                          const indices = n <= 3 ? profitTrend.map((_, i) => i) : [0, Math.floor(n / 2), n - 1]
-                          return indices.map(i => <span key={i}>{profitTrend[i].label}</span>)
-                        })()}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Volume Overview */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Volume Overview</h3>
-                    <div className="flex items-center justify-center gap-3">
-                      <SvgDonut
-                        size={108} sw={18}
-                        segments={[
-                          { pct: buyPct,  color: '#2563eb', label: 'Buy Volume',  value: fmtMoney(buyVol) },
-                          { pct: sellPct, color: '#ef4444', label: 'Sell Volume', value: fmtMoney(sellVol) },
-                        ]}
-                        centerLine1={fmtMoney(totalVolume)}
-                        centerLine2="Total Volume"
-                      />
-                      <div className="space-y-2">
-                        {[
-                          { label: 'Buy Volume',  val: buyVol,  pct: buyPct,  color: '#2563eb' },
-                          { label: 'Sell Volume', val: sellVol, pct: sellPct, color: '#ef4444' },
-                        ].map(({ label, val, pct, color }) => (
-                          <div key={label} className="text-xs">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
-                              <span className="text-slate-500">{label}</span>
-                            </div>
-                            <div className="font-semibold text-slate-700 pl-3.5">{fmtMoney(val)} <span className="text-slate-400">({pct}%)</span></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Margin Usage */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Margin Usage</h3>
-                    <div className="flex justify-center">
-                      <MarginBarChart used={margin} free={marginFree}/>
-                    </div>
-                  </div>
-
-                  {/* Deals Summary */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Deals Summary</h3>
-                    <div className="flex items-center justify-center gap-3">
-                      <SvgDonut
-                        size={108} sw={18}
-                        segments={[
-                          { pct: parseFloat(winRate.toFixed(1)),  color: '#22c55e', label: 'Profitable Deals', value: `${profDeals} deals` },
-                          { pct: parseFloat(lossRate.toFixed(1)), color: '#ef4444', label: 'Losing Deals',     value: `${loseDeals} deals` },
-                        ]}
-                        centerLine1={String(totalDeals)}
-                        centerLine2="Total Deals"
-                      />
-                      <div className="space-y-2">
-                        <div className="text-xs">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
-                            <span className="text-slate-500">Profitable Deals</span>
-                          </div>
-                          <div className="font-semibold text-slate-700 pl-3.5">{profDeals} <span className="text-green-600">({winRate.toFixed(1)}%)</span></div>
-                        </div>
-                        <div className="text-xs">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"/>
-                            <span className="text-slate-500">Losing Deals</span>
-                          </div>
-                          <div className="font-semibold text-slate-700 pl-3.5">{loseDeals} <span className="text-red-500">({lossRate.toFixed(1)}%)</span></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* -- Row 3: Performance Overview + Profitability -- */}
-                <div className="grid grid-cols-5 gap-2">
-                  {/* Performance Overview – 3/5 width */}
-                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-3">Performance Overview</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                  {/* Account Information */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Account Information</p>
+                    <div className="grid grid-cols-3 gap-y-2 gap-x-2">
                       {[
-                        {
-                          label: 'Avg Profit / Deal', value: avgProfit, valueColor: 'text-green-600',
-                          iconBg: 'bg-green-50', iconColor: 'text-green-500',
-                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                        },
-                        {
-                          label: 'Avg Loss / Deal', value: avgLoss, valueColor: 'text-red-600',
-                          iconBg: 'bg-red-50', iconColor: 'text-red-500',
-                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
-                        },
-                        {
-                          label: 'Max Profit', value: maxProfit, valueColor: 'text-green-600',
-                          iconBg: 'bg-green-50', iconColor: 'text-green-500',
-                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                        },
-                        {
-                          label: 'Max Loss', value: maxLoss, valueColor: 'text-red-600',
-                          iconBg: 'bg-red-50', iconColor: 'text-red-500',
-                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
-                        },
-                      ].map(({ label, value, valueColor, iconBg, iconColor, icon }) => (
-                        <div key={label} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>
-                              <svg className={`w-4 h-4 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">{icon}</svg>
-                            </div>
-                            <span className="text-xs text-slate-500 leading-tight">{label}</span>
-                          </div>
-                          <div className={`text-base font-bold ${valueColor}`}>{fmtMoney(value)}</div>
+                        { label: 'Name',          value: name },
+                        { label: 'Account',       value: login || 'â€“' },
+                        { label: 'Currency',      value: currency || 'â€“' },
+                        { label: 'Equity',        value: fmt(equity),    color: equity >= 0 ? 'text-green-600' : 'text-red-600' },
+                        { label: 'Margin Level',  value: marginLvl ? fmtPct(marginLvl) : 'â€“', color: marginLvl >= 100 ? 'text-green-600' : 'text-red-600' },
+                        { label: 'Commission',    value: fmt(commission) },
+                      ].map(({ label, value, color }) => (
+                        <div key={label}>
+                          <p className="text-[9px] text-gray-400 leading-tight">{label}</p>
+                          <p className={`text-[11px] font-semibold truncate ${color ?? 'text-gray-800'}`}>{value}</p>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Profitability – 2/5 width */}
-                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Profitability</h3>
+                  {/* Account Allocation */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Account Allocation</p>
                     <div className="flex items-center gap-2">
-                      {/* Profit Sum – left */}
-                      <div className="flex-1 flex flex-col items-center justify-center py-3 px-2">
-                        <div className="text-[10px] text-green-600 font-semibold uppercase tracking-wide mb-1">Profit Sum</div>
-                        <div className="text-sm font-bold text-green-600 text-center">{fmtMoney(profitSum)}</div>
+                      <SvgDonutLocal
+                        size={80} sw={12}
+                        label={fmt(equity)}
+                        sublabel="Total Equity"
+                        segments={[
+                          { v: Math.abs(credit),   color: '#6366f1' },
+                          { v: Math.abs(balance),  color: '#22c55e' },
+                          { v: Math.abs(floating), color: floating >= 0 ? '#3b82f6' : '#ef4444' },
+                        ]}
+                      />
+                      <div className="flex-1 space-y-1.5 min-w-0">
+                        {[
+                          { label: 'Credit',          val: credit,   color: '#6366f1' },
+                          { label: 'Balance',         val: balance,  color: '#22c55e' },
+                          { label: 'Floating Profit', val: floating, color: floating >= 0 ? '#3b82f6' : '#ef4444' },
+                        ].map(({ label, val, color }) => {
+                          const pct = allocTotal ? Math.abs(val) / allocTotal * 100 : 0
+                          return (
+                            <div key={label}>
+                              <div className="flex justify-between items-center mb-0.5">
+                                <span className="text-[9px] text-gray-500 truncate">{label}</span>
+                                <span className={`text-[9px] font-medium ${val >= 0 ? 'text-gray-700' : 'text-red-500'}`}>{val >= 0 ? fmtPct(pct) : `-${fmtPct(pct)}`}</span>
+                              </div>
+                              <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}/>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                      {/* Gauge – center */}
-                      <div className="flex flex-col items-center flex-shrink-0">
-                        <SemiGauge profit={profitSum} loss={losingSum} net={netPL}/>
-                      </div>
-                      {/* Losing Sum – right */}
-                      <div className="flex-1 flex flex-col items-center justify-center py-3 px-2">
-                        <div className="text-[10px] text-red-500 font-semibold uppercase tracking-wide mb-1">Losing Sum</div>
-                        <div className="text-sm font-bold text-red-500 text-center">-{fmtMoney(losingSum)}</div>
+                    </div>
+                  </div>
+
+                  {/* Volume Overview */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Volume Overview</p>
+                    <div className="flex flex-col items-center gap-1">
+                      <SvgDonutLocal
+                        size={80} sw={12}
+                        label={`${((buyVolume / totalVol) * 100).toFixed(0)}%`}
+                        sublabel="Buy"
+                        segments={[
+                          { v: buyVolume,  color: '#3b82f6' },
+                          { v: sellVolume, color: '#ef4444' },
+                        ]}
+                      />
+                      <div className="flex items-center gap-3 text-[9px]">
+                        <div className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block"/>
+                          <span className="text-gray-600">Buy <span className="font-semibold text-gray-800">{fmt(buyVolume)}</span></span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>
+                          <span className="text-gray-600">Sell <span className="font-semibold text-gray-800">{fmt(sellVolume)}</span></span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* â”€â”€ Row 2: Profit Trend + Margin Usage + Deals Summary â”€â”€ */}
+                <div className="grid grid-cols-3 gap-3">
+
+                  {/* Profit Trend */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Profit Trend</p>
+                      <div className="flex items-center gap-1">
+                        {['7d', '30d'].map(r => (
+                          <button key={r} onClick={() => setTrendRange(r)}
+                            className={`px-2 py-0.5 rounded text-[9px] font-medium transition-colors ${trendRange === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                            {r === '7d' ? '7 Days' : '30 Days'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {trendLoading ? (
+                      <div className="h-[70px] flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                      </div>
+                    ) : (
+                      <>
+                        <SvgLineLocal data={profitTrend} w={260} h={70}/>
+                        <div className="flex justify-between mt-1">
+                          {profitTrend.filter((_, i) => i % Math.max(1, Math.floor(profitTrend.length / 5)) === 0).map((d, i) => (
+                            <span key={i} className="text-[8px] text-gray-400">{d.label}</span>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Margin Usage */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Margin Usage</p>
+                    {(() => {
+                      const usedPct = margin + marginFree > 0 ? (margin / (margin + marginFree)) * 100 : 0
+                      const freePct = 100 - usedPct
+                      return (
+                        <div className="space-y-2">
+                          {[
+                            { label: 'Used Margin', val: margin,     pct: usedPct, color: '#ef4444' },
+                            { label: 'Free Margin', val: marginFree, pct: freePct, color: '#22c55e' },
+                          ].map(({ label, val, pct, color }) => (
+                            <div key={label}>
+                              <div className="flex justify-between text-[10px] mb-0.5">
+                                <span className="text-gray-500">{label}</span>
+                                <span className="font-semibold text-gray-700">{fmt(val)}</span>
+                              </div>
+                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}/>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+
+                  {/* Deals Summary */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Deals Summary</p>
+                    <div className="flex items-center gap-3">
+                      <SvgDonutLocal
+                        size={90} sw={14}
+                        label={String(totalDeals)}
+                        sublabel="Total Deals"
+                        segments={[
+                          { v: profitableDeals, color: '#22c55e' },
+                          { v: losingDeals,     color: '#ef4444' },
+                        ]}
+                      />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
+                          <span className="text-[9px] text-gray-500">Profitable Deals</span>
+                          <span className="ml-auto text-[10px] font-bold text-green-600">{profitableDeals} ({fmtPct(winRate)})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"/>
+                          <span className="text-[9px] text-gray-500">Losing Deals</span>
+                          <span className="ml-auto text-[10px] font-bold text-red-600">{losingDeals} ({fmtPct(lossRate)})</span>
+                        </div>
+                        <div className="h-px bg-gray-100 my-1"/>
+                        <div className="grid grid-cols-2 gap-1">
+                          <div className="bg-green-50 rounded-lg p-1.5 text-center">
+                            <p className="text-[9px] text-green-600 font-medium">Win Rate</p>
+                            <p className="text-[11px] font-bold text-green-700">{fmtPct(winRate)}</p>
+                          </div>
+                          <div className="bg-red-50 rounded-lg p-1.5 text-center">
+                            <p className="text-[9px] text-red-500 font-medium">Loss Rate</p>
+                            <p className="text-[11px] font-bold text-red-600">{fmtPct(lossRate)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* â”€â”€ Row 3: Performance Overview + Profitability â”€â”€ */}
+                <div className="grid grid-cols-2 gap-3">
+
+                  {/* Performance Overview */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Performance Overview</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Avg Profit / Deal', val: avgProfit, color: 'text-green-600', bg: 'bg-green-50' },
+                        { label: 'Avg Loss / Deal',   val: avgLoss,   color: 'text-red-600',   bg: 'bg-red-50'   },
+                        { label: 'Max Profit',        val: maxProfit, color: 'text-green-700', bg: 'bg-green-50' },
+                        { label: 'Max Loss',          val: maxLoss,   color: 'text-red-700',   bg: 'bg-red-50'   },
+                      ].map(({ label, val, color, bg }) => (
+                        <div key={label} className={`${bg} rounded-lg p-2`}>
+                          <p className="text-[9px] text-gray-500 mb-0.5">{label}</p>
+                          <p className={`text-[12px] font-bold ${color}`}>{fmt(val)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Profitability â€” same as mobile (green/red arcs) */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Profitability</p>
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex-shrink-0">
+                        {(() => {
+                          const size = 110, sw = 14, r = (size - sw) / 2
+                          const cx = size / 2, cy = size / 2
+                          const circ = 2 * Math.PI * r
+                          const half = circ / 2
+                          const total = Math.abs(profitSum) + Math.abs(losingSum) || 1
+                          const profitPct = Math.abs(profitSum) / total
+                          const profitLen = profitPct * half
+                          const losingLen = (1 - profitPct) * half
+                          return (
+                            <svg width={size} height={size / 2 + sw / 2 + 2} viewBox={`0 0 ${size} ${size / 2 + sw / 2 + 2}`}>
+                              <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={sw}
+                                strokeDasharray={`${half} ${circ}`} strokeDashoffset={0}
+                                transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt"/>
+                              <circle cx={cx} cy={cy} r={r} fill="none" stroke="#22c55e" strokeWidth={sw}
+                                strokeDasharray={`${profitLen} ${circ - profitLen}`}
+                                strokeDashoffset={0}
+                                transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt"/>
+                              <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ef4444" strokeWidth={sw}
+                                strokeDasharray={`${losingLen} ${circ - losingLen}`}
+                                strokeDashoffset={-profitLen}
+                                transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt"/>
+                              <text x={cx} y={cy - 4}  textAnchor="middle" fontSize="10" fontWeight="bold" fill="#111827">{fmt(netPL)}</text>
+                              <text x={cx} y={cy + 7}  textAnchor="middle" fontSize="8"  fill="#6b7280">Net P/L</text>
+                            </svg>
+                          )
+                        })()}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <p className="text-[9px] text-gray-400">Profit Sum</p>
+                          <p className="text-[13px] font-bold text-green-600">{fmt(profitSum)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-gray-400">Losing Sum</p>
+                          <p className="text-[13px] font-bold text-red-600">{fmt(losingSum)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )
           })()}
