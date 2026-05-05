@@ -1000,25 +1000,20 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
             )
           })}
           {label && (() => {
-            const maxW = r * 1.75
-            const fits = label.length * 6.5 <= maxW
-            if (fits) return <text x={cx} y={sublabel ? cy - 6 : cy + 4} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#111827">{label}</text>
-            const mid = Math.floor(label.length / 2)
-            const commas = []
-            for (let i = 0; i < label.length; i++) if (label[i] === ',') commas.push(i)
-            const sp = commas.length ? commas.reduce((b, p) => Math.abs(p - mid) < Math.abs(b - mid) ? p : b, commas[0]) : mid
-            const l1 = label.slice(0, sp)
-            const l2 = label.slice(sp + 1)
-            const fs = 8
-            const yOff = sublabel ? cy - 11 : cy - 4
+            // inner diameter available for text
+            const innerD = (r - sw / 2) * 1.6
+            // scale font size down until it fits, min 6px
+            let fs = 11
+            const charW = 0.6
+            while (fs > 6 && label.length * fs * charW > innerD) fs--
+            const textW = Math.min(label.length * fs * charW, innerD)
+            const ly = sublabel ? cy - 4 : cy + fs * 0.36
             return (
-              <text textAnchor="middle" fontSize={fs} fontWeight="bold" fill="#111827">
-                <tspan x={cx} y={yOff}>{l1}</tspan>
-                <tspan x={cx} dy={fs + 2}>{l2}</tspan>
-              </text>
+              <text x={cx} y={ly} textAnchor="middle" fontSize={fs} fontWeight="bold" fill="#111827"
+                textLength={textW} lengthAdjust="spacingAndGlyphs">{label}</text>
             )
           })()}
-          {sublabel && <text x={cx} y={label && label.length * 6.5 > r * 1.75 ? cy + 12 : cy + 10} textAnchor="middle" fontSize="9" fill="#6b7280">{sublabel}</text>}
+          {sublabel && <text x={cx} y={cy + 11} textAnchor="middle" fontSize="9" fill="#6b7280">{sublabel}</text>}
         </svg>
       )
     }
