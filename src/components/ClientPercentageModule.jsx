@@ -810,7 +810,7 @@ export default function ClientPercentageModule() {
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-hidden flex flex-col">
         {/* Action Buttons + View All */}
         <div className="px-5 pt-3 pb-2">
           <div className="flex items-center justify-between mb-3">
@@ -903,28 +903,6 @@ export default function ClientPercentageModule() {
                   </div>
                 )}
               </div>
-              {/* Groups Button */}
-              <button
-                onClick={() => setIsLoginGroupsOpen(true)}
-                className={`h-8 px-2 rounded-lg border shadow-sm flex items-center gap-1 transition-colors text-[10px] font-medium relative flex-shrink-0 ${
-                  getActiveGroupFilter('clientpercentage')
-                    ? 'bg-blue-50 border-blue-300 text-[#2563EB]'
-                    : 'bg-white border-[#E5E7EB] hover:bg-gray-50 text-[#374151]'
-                }`}
-                title="Groups"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="7" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
-                  <circle cx="14" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M1 17c0-3.314 2.686-6 6-6h6c3.314 0 6 2.686 6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                Groups
-                {getActiveGroupFilter('clientpercentage') && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-blue-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1">
-                    1
-                  </span>
-                )}
-              </button>
               <button
                 onClick={() => window.location.reload()}
                 disabled={loading}
@@ -1029,43 +1007,41 @@ export default function ClientPercentageModule() {
         </div>
 
         {/* Search and Pagination Controls */}
-        <div className="px-4 pb-2">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 min-w-0 h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center px-2 gap-1">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="flex-shrink-0">
-                <circle cx="6" cy="6" r="4" stroke="#9CA3AF" strokeWidth="1.5"/>
-                <path d="M9 9L12 12" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round"/>
+        <div className="mx-1 sm:mx-4 mb-1 px-3 py-3 sm:p-4">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex-1 min-w-0 h-7 sm:h-10 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md px-2 sm:px-3 flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 18 18" fill="none" className="flex-shrink-0 text-[#9CA3AF]">
+                <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
               <input 
-                type="text"
+                placeholder="Search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search"
-                className="flex-1 min-w-0 text-[11px] text-[#000000] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit"
-                style={{ color: '#000000' }}
+                className="flex-1 min-w-0 text-[11px] sm:text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit focus:ring-0"
               />
             </div>
             <button 
               onClick={() => setIsColumnSelectorOpen(true)}
-              className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50">
-              <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                <rect x="3" y="5" width="4" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
-                <rect x="8.5" y="5" width="4" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
-                <rect x="14" y="5" width="3" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
+              className="h-7 w-7 sm:h-10 sm:w-10 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
+              title="Show/Hide Columns">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="3" width="4" height="10" rx="1" stroke="#4B5563" strokeWidth="1.2"/>
+                <rect x="8" y="3" width="6" height="10" rx="1" stroke="#4B5563" strokeWidth="1.2"/>
               </svg>
             </button>
             <button 
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-7 w-7 sm:h-10 sm:w-10 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                <path d="M12 14L8 10L12 6" stroke="#4B4B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                <path d="M12 14L8 10L12 6" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
 
             {/* Page indicator */}
-            <div className="px-2 text-[10px] font-medium text-[#4B4B4B] flex items-center gap-1">
+            <div className="px-1 text-[11px] font-medium text-[#374151] flex items-center gap-1">
               <input
                 type="number"
                 min={1}
@@ -1075,33 +1051,34 @@ export default function ClientPercentageModule() {
                   const n = Number(e.target.value)
                   if (!isNaN(n)) setCurrentPage(Math.min(Math.max(1, n), totalPages))
                 }}
-                className="w-10 h-6 border border-[#ECECEC] rounded-[8px] text-center text-[10px]"
+                className="w-10 h-7 border border-[#E5E7EB] rounded-lg text-center text-[11px] font-semibold text-[#1F2937]"
                 aria-label="Current page"
               />
               <span className="text-[#9CA3AF]">/</span>
-              <span>{totalPages}</span>
+              <span className="text-[#6B7280]">{totalPages}</span>
             </div>
 
             <button 
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage >= totalPages}
-              className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-7 w-7 sm:h-10 sm:w-10 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                <path d="M8 6L12 10L8 14" stroke="#4B4B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                <path d="M8 6L12 10L8 14" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
           </div>
         </div>
 
         {/* Table */}
-        <div className="pb-4" style={{ maxWidth: '100vw', overflow: 'hidden' }}>
-          <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] overflow-hidden">
-            <div className="w-full overflow-x-auto overflow-y-visible" style={{
+        <div className="flex-1 overflow-hidden" style={{ maxWidth: '100vw' }}>
+          <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] h-full">
+            <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
               WebkitOverflowScrolling: 'touch',
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#CBD5E0 #F7FAFC',
-              touchAction: 'pan-x pan-y'
+              scrollbarWidth: 'none',
+              paddingRight: '8px',
+              paddingBottom: '8px',
+              maxHeight: 'calc(100vh - 280px)'
             }}>
               <div className="relative" style={{ minWidth: 'max-content' }}>
                 {/* Table Header */}
@@ -1552,7 +1529,7 @@ export default function ClientPercentageModule() {
         <div className="fixed inset-0 z-30">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/25"
+            className="absolute inset-0 bg-black/10"
             onClick={() => setIsSidebarOpen(false)}
           />
           {/* Drawer */}

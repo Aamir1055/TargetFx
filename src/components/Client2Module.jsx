@@ -295,16 +295,18 @@ export default function Client2Module() {
         abortControllerRef.current.abort()
       }
       abortControllerRef.current = new AbortController()
-      
-      // Use searchClients to get totals data with percentage parameter
-      const response = await brokerAPI.searchClients(payload, { signal: abortControllerRef.current.signal })
+
+      // Run API call and minimum skeleton timer in parallel (initial load only)
+      const minTimer = isInitialLoad ? new Promise(r => setTimeout(r, 600)) : Promise.resolve()
+      const [response] = await Promise.all([
+        brokerAPI.searchClients(payload, { signal: abortControllerRef.current.signal }),
+        minTimer
+      ])
       
       // Ignore response if it's from an outdated request (stale data)
+      // Do NOT clear isLoading here — the newer request owns the loading state
       if (currentRequestId !== requestIdRef.current) {
         console.log('[Client2Module] Ignoring stale response from request', currentRequestId, '(current:', requestIdRef.current, ')')
-        if (isInitialLoad) {
-          setIsLoading(false)
-        }
         return
       }
       
@@ -342,10 +344,8 @@ export default function Client2Module() {
       // Ignore request cancellations caused by AbortController
       const isCanceled = error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED' || /aborted|canceled/i.test(error?.message || '')
       if (isCanceled) {
+        // Do NOT clear isLoading — the replacement request that triggered this abort owns the loading state
         console.log('[Client2Module] Request canceled (expected during rapid filtering)')
-        if (isInitialLoad) {
-          setIsLoading(false)
-        }
         isFetchingRef.current = false
         return
       }
@@ -1411,12 +1411,12 @@ export default function Client2Module() {
 
           {/* Table area */}
           <div className="relative">
-            <div className="w-full overflow-x-auto overflow-y-visible" style={{
+            <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
             WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#CBD5E0 #F7FAFC',
-            paddingRight: '0px',
-            paddingLeft: '0px'
+            scrollbarWidth: 'none',
+            paddingRight: '8px',
+            paddingBottom: '8px',
+            maxHeight: 'calc(100vh - 280px)'
           }}>
             <div className="relative" style={{ minWidth: 'max-content' }}>
               {/* Header row */}
@@ -1447,19 +1447,20 @@ export default function Client2Module() {
               
               {/* Rows */}
               {isLoading ? (
-                // Skeleton loading for table rows
+                // Skeleton loading rows — same shimmer as MarginLevelModule
                 <>
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
                     <div key={`skeleton-row-${i}`} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
-                      {visibleColumnsList.map((col, colIdx) => (
+                      {visibleColumnsList.map((col) => (
                         <div 
                           key={col.key}
-                          className={`h-[38px] flex items-center justify-start px-2 ${
-                            col.sticky ? 'sticky left-0 bg-white z-10' : ''
-                          }`}
+                          className={`h-[38px] flex items-center justify-start px-2 ${col.sticky ? 'sticky left-0 bg-white z-10' : ''}`}
                           style={{border: 'none', outline: 'none', boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'}}
                         >
-                          <div className="h-3 w-full max-w-[80%] bg-gray-200 rounded animate-pulse"></div>
+                          <div 
+                            className="h-3 w-full max-w-[80%] bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded"
+                            style={{ backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }}
+                          />
                         </div>
                       ))}
                     </div>
