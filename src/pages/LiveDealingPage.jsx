@@ -1515,15 +1515,15 @@ const LiveDealingPage = () => {
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">VALUE</label>
                       <input
-                        type={columnKey === 'time' ? 'datetime-local' : 'number'}
-                        step={columnKey === 'time' ? '1' : 'any'}
-                        placeholder={columnKey === 'time' ? 'Select date and time' : 'Enter value'}
+                        type={columnKey === 'time' ? 'date' : 'number'}
+                        step={columnKey === 'time' ? undefined : 'any'}
+                        placeholder={columnKey === 'time' ? 'Select date' : 'Enter value'}
                         value={columnKey === 'time' && customFilterValue1 ?
                           (() => {
                             const timestamp = Number(customFilterValue1)
                             if (isNaN(timestamp)) return customFilterValue1
                             const date = new Date(timestamp * 1000)
-                            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`
+                            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
                           })()
                           : customFilterValue1
                         }
@@ -1531,7 +1531,8 @@ const LiveDealingPage = () => {
                           setCustomFilterColumn(columnKey)
                           if (columnKey === 'time') {
                             const dateValue = e.target.value
-                            setCustomFilterValue1(dateValue ? String(Math.floor(new Date(dateValue).getTime() / 1000)) : '')
+                            // Use start-of-day timestamp for the selected date
+                            setCustomFilterValue1(dateValue ? String(Math.floor(new Date(dateValue + 'T00:00:00').getTime() / 1000)) : '')
                           } else {
                             setCustomFilterValue1(e.target.value)
                           }
@@ -1552,15 +1553,15 @@ const LiveDealingPage = () => {
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">AND</label>
                         <input
-                          type={columnKey === 'time' ? 'datetime-local' : 'number'}
-                          step={columnKey === 'time' ? '1' : 'any'}
-                          placeholder={columnKey === 'time' ? 'Select date and time' : 'Enter value'}
+                          type={columnKey === 'time' ? 'date' : 'number'}
+                          step={columnKey === 'time' ? undefined : 'any'}
+                          placeholder={columnKey === 'time' ? 'Select date' : 'Enter value'}
                           value={columnKey === 'time' && customFilterValue2 ?
                             (() => {
                               const timestamp = Number(customFilterValue2)
                               if (isNaN(timestamp)) return customFilterValue2
                               const date = new Date(timestamp * 1000)
-                              return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`
+                              return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
                             })()
                             : customFilterValue2
                           }
@@ -1568,7 +1569,8 @@ const LiveDealingPage = () => {
                             setCustomFilterColumn(columnKey)
                             if (columnKey === 'time') {
                               const dateValue = e.target.value
-                              setCustomFilterValue2(dateValue ? String(Math.floor(new Date(dateValue).getTime() / 1000)) : '')
+                              // Use end-of-day timestamp for the "to" date in between filter
+                              setCustomFilterValue2(dateValue ? String(Math.floor(new Date(dateValue + 'T23:59:59').getTime() / 1000)) : '')
                             } else {
                               setCustomFilterValue2(e.target.value)
                             }
