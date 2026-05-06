@@ -1214,21 +1214,35 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
             const usedPct = margin + marginFree > 0 ? (margin / (margin + marginFree)) * 100 : 0
             const freePct = 100 - usedPct
             return (
-              <div className="space-y-2">
-                {[
-                  { label: 'Used Margin', val: margin,      pct: usedPct, color: '#ef4444' },
-                  { label: 'Free Margin', val: marginFree,  pct: freePct, color: '#22c55e' },
-                ].map(({ label, val, pct, color }) => (
-                  <div key={label}>
-                    <div className="flex justify-between text-[10px] mb-0.5">
-                      <span className="text-gray-500">{label}</span>
-                      <span className="font-semibold text-gray-700">{fmt(val)}</span>
+              <div className="flex items-center gap-3">
+                <SvgDonut
+                  size={80} sw={12}
+                  label={fmt(margin + marginFree)}
+                  sublabel="Total"
+                  segments={[
+                    { v: margin,     color: '#ef4444' },
+                    { v: marginFree, color: '#22c55e' },
+                  ]}
+                />
+                <div className="flex-1 space-y-2">
+                  {[
+                    { label: 'Used Margin', val: margin,     pct: usedPct, color: 'bg-red-500',   text: 'text-red-600' },
+                    { label: 'Free Margin', val: marginFree, pct: freePct, color: 'bg-green-500', text: 'text-green-600' },
+                  ].map(({ label, val, pct, color, text }) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-[9px] mb-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
+                          <span className="text-gray-500">{label}</span>
+                        </div>
+                        <span className={`font-bold ${text}`}>{fmt(val)}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                      </div>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )
           })()}
