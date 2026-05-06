@@ -592,10 +592,12 @@ export default function MarginLevelModule() {
         {/* Table */}
         <div>
           <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden">
-            <div className="w-full overflow-x-auto overflow-y-visible" style={{
+            <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
               WebkitOverflowScrolling: 'touch',
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#CBD5E0 #F7FAFC'
+              scrollbarWidth: 'none',
+              paddingRight: '8px',
+              paddingBottom: '8px',
+              maxHeight: 'calc(100vh - 280px)'
             }}>
               <div className="relative" style={{ minWidth: 'max-content' }}>
                 {/* Table Header */}

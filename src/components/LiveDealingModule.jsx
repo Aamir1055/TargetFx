@@ -68,6 +68,7 @@ export default function LiveDealingModule() {
   const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 15
+  const [totalDealsCount, setTotalDealsCount] = useState(0)
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
   const [isMobileView, setIsMobileView] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
@@ -204,8 +205,8 @@ export default function LiveDealingModule() {
     return map
   }, [rawClients, clients])
 
-  // Fetch deals from API (24h by default)
-  const fetchDeals = async () => {
+  // Fetch deals from API — server-side pagination (15 per page)
+  const fetchDeals = async (page = 1) => {
     try {
       setLoading(true)
       let from, to
@@ -233,17 +234,15 @@ export default function LiveDealingModule() {
         from = nowUTC - (24 * 60 * 60)
       }
       
-      console.log('[LiveDealingModule] 📅 Fetching deals with time range:', {
-        filter: timeFilter,
-        from,
-        to,
-        fromDate: new Date(from * 1000).toISOString(),
-        toDate: new Date(to * 1000).toISOString()
-      })
-      
-      const response = await brokerAPI.getAllDeals(from, to, 10000)
+      const MAX_RECORDS = 1000
+      const offset = (page - 1) * itemsPerPage
+      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, offset)
       const dealsData = response.data?.deals || response.deals || []
-      
+      // Cap total at 1000 records
+      const apiTotal = response.data?.total ?? response.total ?? null
+      const rawTotal = apiTotal != null ? Number(apiTotal) : ((page - 1) * itemsPerPage + dealsData.length)
+      setTotalDealsCount(Math.min(rawTotal, MAX_RECORDS))
+
       // Transform deals
       const transformedDeals = dealsData.map(deal => ({
         id: deal.deal || deal.id,
@@ -251,23 +250,11 @@ export default function LiveDealingModule() {
         login: deal.login,
         rawData: deal
       }))
-      
+
       // Sort newest first
       transformedDeals.sort((a, b) => b.timestamp - a.timestamp)
-      
-      // Merge with WebSocket cache
-      const wsCached = loadWsCache()
-      const apiDealIds = new Set(transformedDeals.map(d => d.id))
-      const relevantCachedDeals = wsCached.filter(d => {
-        if (!d || !d.id) return false
-        if (apiDealIds.has(d.id)) return false
-        const dealTime = d.timestamp || 0
-        return dealTime >= from && dealTime <= to
-      })
-      
-      const merged = [...relevantCachedDeals, ...transformedDeals]
-      saveWsCache(relevantCachedDeals.slice(0, 200))
-      setDeals(merged)
+
+      setDeals(transformedDeals)
       setLoading(false)
     } catch (error) {
       console.error('[LiveDealingModule] Error fetching deals:', error)
@@ -275,10 +262,16 @@ export default function LiveDealingModule() {
     }
   }
 
-  // Initial fetch and refetch when time filter changes
+  // Reset to page 1 and re-fetch when time filter changes
   useEffect(() => {
-    fetchDeals()
+    setCurrentPage(1)
+    fetchDeals(1)
   }, [timeFilter, appliedFromDate, appliedToDate])
+
+  // Re-fetch when page changes (skip page 1 since time-filter effect handles that)
+  useEffect(() => {
+    if (currentPage > 1) fetchDeals(currentPage)
+  }, [currentPage])
 
   // WebSocket subscription
   useEffect(() => {
@@ -1014,11 +1007,10 @@ export default function LiveDealingModule() {
                   <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
                 <input 
-                  type="text"
+                  placeholder="Search"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search"
-                  className="flex-1 min-w-0 text-[11px] sm:text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit focus:ring-0"
+                  className="flex-1 min-w-0 text-[11px] sm:text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit focus:ring-0" 
                 />
               </div>
               
@@ -1051,11 +1043,12 @@ export default function LiveDealingModule() {
                 <input
                   type="number"
                   min="1"
-                  max={Math.ceil(sortedDeals.length / itemsPerPage)}
+                  max={Math.ceil(totalDealsCount / itemsPerPage) || 1}
                   value={currentPage}
                   onChange={(e) => {
                     const page = Number(e.target.value);
-                    if (!isNaN(page) && page >= 1 && page <= Math.ceil(sortedDeals.length / itemsPerPage)) {
+                    const maxPage = Math.ceil(totalDealsCount / itemsPerPage) || 1;
+                    if (!isNaN(page) && page >= 1 && page <= maxPage) {
                       setCurrentPage(page);
                     }
                   }}
@@ -1063,15 +1056,15 @@ export default function LiveDealingModule() {
                   aria-label="Current page"
                 />
                 <span className="text-[#9CA3AF]">/</span>
-                <span>{Math.ceil(sortedDeals.length / itemsPerPage)}</span>
+                <span>{Math.ceil(totalDealsCount / itemsPerPage) || 1}</span>
               </div>
 
               {/* Next button */}
               <button 
-                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(sortedDeals.length / itemsPerPage), prev + 1))}
-                disabled={currentPage >= Math.ceil(sortedDeals.length / itemsPerPage)}
+                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalDealsCount / itemsPerPage) || 1, prev + 1))}
+                disabled={currentPage >= (Math.ceil(totalDealsCount / itemsPerPage) || 1)}
                 className={`h-7 w-7 sm:h-10 sm:w-10 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center transition-colors flex-shrink-0 ${
-                  currentPage >= Math.ceil(sortedDeals.length / itemsPerPage) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'
+                  currentPage >= (Math.ceil(totalDealsCount / itemsPerPage) || 1) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'
                 }`}
               >
                 <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
@@ -1085,12 +1078,12 @@ export default function LiveDealingModule() {
         <div className="bg-white shadow-sm border border-blue-100 overflow-hidden mx-1 sm:mx-4">
 
             {/* Table Data */}
-            <div className="w-full overflow-x-auto overflow-y-visible" style={{
+            <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
             WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#CBD5E0 #F7FAFC',
-            paddingRight: '0px',
-            paddingLeft: '0px'
+            scrollbarWidth: 'none',
+            paddingRight: '8px',
+            paddingBottom: '8px',
+            maxHeight: 'calc(100vh - 280px)'
           }}>
             <div className="relative" style={{ minWidth: 'max-content' }}>
               <style>{`
@@ -1172,7 +1165,7 @@ export default function LiveDealingModule() {
                     ))}
                   </>
                 ) : (
-                  sortedDeals.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((deal) => (
+                  sortedDeals.map((deal) => (
                     <div 
                       key={deal.id} 
                       className={`grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] ${newDealIds.has(deal.id) ? 'new-deal-blink' : 'hover:bg-[#F8FAFC] transition-colors'}`}

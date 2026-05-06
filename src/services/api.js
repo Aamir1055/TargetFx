@@ -478,22 +478,32 @@ export const brokerAPI = {
     return response.data
   },
 
-  // Get latest deals (for live dealing page) via POST /api/broker/deals/search
-  // Server-side pagination: ONE call per page. Caller passes `page` (1-based).
-  getAllDeals: async (from, to, limit = 100, page = 1, extraBody = {}) => {
-    const pageLimit = Math.min(limit || 100, Math.max(limit || 100, 1))
-    const body = {
-      from,
-      to,
-      page,
-      limit: pageLimit,
-      sortBy: 'deal_time',
-      sortOrder: 'desc',
-      ...extraBody,
+  // Get all recent deals (for live dealing page)
+  getAllDeals: async (from, to, limit = 100, offset = 0) => {
+    const endpoints = [
+      `/api/broker/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`,
+      `/api/broker/deals?from=${from}&to=${to}&limit=${limit}`,
+      `/api/broker/deals?from=${from}&to=${to}`,
+      `/api/broker/trading/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`,
+      `/api/broker/deals/recent?limit=${limit}`,
+      `/api/broker/deals`,
+      `/api/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`
+    ]
+    
+    for (let i = 0; i < endpoints.length; i++) {
+      try {
+        const endpoint = endpoints[i]
+        if (DEBUG_LOGS) console.log(`[API] Trying endpoint ${i + 1}/${endpoints.length}: ${endpoint}`)
+        const response = await api.get(endpoint)
+        if (DEBUG_LOGS) console.log(`[API] ✅ SUCCESS! Endpoint works: ${endpoint}`)
+        if (DEBUG_LOGS) console.log('[API] Response data:', response.data)
+        return response.data
+      } catch (error) {
+        if (DEBUG_LOGS) console.log(`[API] ❌ Endpoint ${i + 1} failed (${endpoints[i]}):`, error.response?.status || error.code || error.message)
+        // Continue to next endpoint
+      }
     }
-    if (DEBUG_LOGS) console.log(`[API] POST /api/broker/deals/search page=${page} limit=${pageLimit}`)
-    const response = await api.post('/api/broker/deals/search', body)
-    return response.data
+    throw new Error('All deal endpoints failed')
   },
   
   // Get positions by login

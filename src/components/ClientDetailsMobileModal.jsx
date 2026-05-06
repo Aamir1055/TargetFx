@@ -70,7 +70,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(12)
+  const [itemsPerPage] = useState(15)
 
   // Sorting states
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })

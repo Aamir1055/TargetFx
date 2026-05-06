@@ -18,8 +18,10 @@ import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.js
 const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
 
 const LiveDealingPage = () => {
-  // Detect mobile device
-  const [isMobile, setIsMobile] = useState(false)
+  // Detect mobile device — initialize synchronously so the correct view renders on first paint
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  )
   // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
   const [numericMode, setNumericMode] = useState(() => {
     try {
@@ -66,13 +68,13 @@ const LiveDealingPage = () => {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const hasInitialLoad = useRef(false)
   const isInitialMount = useRef(true)
+  const isPageEffectFirstRun = useRef(true)
+  const isAuthEffectFirstRun = useRef(true)
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(100)
-  // Server-side pagination: track highest page known to have data (cap: 1000 total rows)
-  const TOTAL_DEAL_CAP = 1000
-  const [maxKnownPage, setMaxKnownPage] = useState(() => Math.ceil(1000 / 100))
+  const [itemsPerPage, setItemsPerPage] = useState(15)
+  const [totalDealsCount, setTotalDealsCount] = useState(0)
   
   // Sorting states
   const [sortColumn, setSortColumn] = useState('time')
@@ -480,18 +482,30 @@ const LiveDealingPage = () => {
     localStorage.setItem('liveDealingPageVisibleColumns', JSON.stringify(visibleColumns))
   }, [visibleColumns])
 
-  // Refetch deals when time filter or pagination changes
+  // Reset to page 1 and refetch when time filter changes; refetch when page/itemsPerPage changes
   useEffect(() => {
-    // Skip on initial mount
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
     }
-    if (hasInitialLoad.current) {
-      console.log('[LiveDealing] ⏰ Time filter or page changed:', timeFilter, currentPage, itemsPerPage)
-      fetchAllDealsOnce()
+    if (!hasInitialLoad.current) return
+    // If the time filter changed, reset to page 1 (the page change will trigger another run)
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+      return
     }
-  }, [timeFilter, appliedFromDate, appliedToDate, currentPage, itemsPerPage, columnFilters, sortColumn, sortDirection])
+    fetchAllDealsOnce()
+  }, [timeFilter, appliedFromDate, appliedToDate])
+
+  // API call on every page or itemsPerPage change
+  useEffect(() => {
+    if (isPageEffectFirstRun.current) {
+      isPageEffectFirstRun.current = false
+      return
+    }
+    if (!hasInitialLoad.current) return
+    fetchAllDealsOnce()
+  }, [currentPage, itemsPerPage])
   
   // Close filter menu when clicking outside
   useEffect(() => {
@@ -529,11 +543,12 @@ const LiveDealingPage = () => {
   }, [showSuggestions])
 
   useEffect(() => {
+    // Skip entirely when the mobile view is active — LiveDealingModule handles its own fetch
+    if (isMobile) return
+
+    // Initial fetch — runs once on mount only
     if (!hasInitialLoad.current) {
       hasInitialLoad.current = true
-      console.log('[LiveDealing] 🚀 Initial load started')
-      const cachedDeals = loadWsCache()
-      console.log('[LiveDealing] 💾 Loaded', cachedDeals.length, 'deals from cache')
       const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
       if (isAuthenticated && !unauthorized && !hidden) {
         fetchAllDealsOnce()
@@ -569,7 +584,7 @@ const LiveDealingPage = () => {
       unsubscribeDealDeleted()
       unsubscribeDealDelete()
     }
-  }, [isAuthenticated, unauthorized])
+  }, [])
 
   useEffect(() => {
     const onRefreshed = () => setUnauthorized(false)
@@ -584,6 +599,10 @@ const LiveDealingPage = () => {
 
   useEffect(() => {
     if (!isAuthenticated || unauthorized) return
+    if (isAuthEffectFirstRun.current) {
+      isAuthEffectFirstRun.current = false
+      return
+    }
     if (!hasInitialLoad.current) return
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
     if (hidden) return
@@ -653,56 +672,17 @@ const LiveDealingPage = () => {
         fromDate: new Date(from * 1000).toISOString(),
         toDate: new Date(to * 1000).toISOString()
       })
-
-      // Recompute `to` immediately before the network call to ensure it is the latest possible moment
-      // Add 2-hour forward buffer to `to` to account for server timezone offset
-      if (timeFilter !== 'custom') {
-        const latestNow = Math.floor(Date.now() / 1000)
-        const window = to - from
-        to = latestNow + (2 * 60 * 60)
-        from = to - window
-      }
-
-      // Build column filters for API
-      const apiFilters = []
-      Object.entries(columnFilters).forEach(([key, values]) => {
-        if (key.endsWith('_custom')) {
-          // Custom text/number filter
-          const field = key.replace('_custom', '')
-          const cfg = values
-          if (!cfg) return
-          if (cfg.isText) {
-            const opMap = { equal: 'equal', notEqual: 'not_equal', contains: 'contains', startsWith: 'starts_with', endsWith: 'ends_with' }
-            apiFilters.push({ field, operator: opMap[cfg.type] || cfg.type, value: cfg.value1 })
-          } else {
-            const opMap = { equal: 'equal', notEqual: 'not_equal', lessThan: 'less_than', greaterThan: 'greater_than', between: 'between' }
-            if (cfg.type === 'between' && cfg.value2 != null) {
-              apiFilters.push({ field, operator: 'greater_than_equal', value: cfg.value1 })
-              apiFilters.push({ field, operator: 'less_than_equal', value: cfg.value2 })
-            } else {
-              apiFilters.push({ field, operator: opMap[cfg.type] || cfg.type, value: cfg.value1 })
-            }
-          }
-        } else if (Array.isArray(values) && values.length > 0) {
-          // Checkbox filter — map UI column key to API field
-          const fieldMap = { deal: 'deal', login: 'login', action: 'action', symbol: 'symbol', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage' }
-          const field = fieldMap[key] || key
-          apiFilters.push({ field, operator: 'in', value: values })
-        }
-      })
-
-      // Map sort column to API field name
-      const sortFieldMap = { time: 'deal_time', deal: 'deal', login: 'login', action: 'action', symbol: 'symbol', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage' }
-      const apiSortBy = sortFieldMap[sortColumn] || sortColumn || 'deal_time'
-      const apiSortOrder = sortDirection || 'desc'
-
-      const extraBody = { sortBy: apiSortBy, sortOrder: apiSortOrder }
-      if (apiFilters.length > 0) extraBody.filters = apiFilters
-
-      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage, extraBody)
+      
+      // Fetch 15 records for the current page; total is capped at 1000
+      const MAX_RECORDS = 1000
+      const offset = (currentPage - 1) * itemsPerPage
+      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, offset)
 
       const dealsData = response.data?.deals || response.deals || []
-
+      const apiTotal = response.data?.total ?? response.total ?? null
+      const rawTotal = apiTotal != null ? Number(apiTotal) : ((currentPage - 1) * itemsPerPage + dealsData.length)
+      setTotalDealsCount(Math.min(rawTotal, MAX_RECORDS))
+      
       // Transform deals
       const transformedDeals = dealsData.map(deal => ({
         id: deal.deal || deal.id,
@@ -717,47 +697,7 @@ const LiveDealingPage = () => {
       // Sort newest first
       transformedDeals.sort((a, b) => b.time - a.time)
 
-      // Update maxKnownPage — always hard-capped at TOTAL_DEAL_CAP / PAGE_LIMIT (max 1000 records shown)
-      const PAGE_LIMIT = itemsPerPage
-      const MAX_PAGES = Math.ceil(TOTAL_DEAL_CAP / PAGE_LIMIT)
-      // Try to get server's total record count from various response shapes
-      const serverTotal = response.total ?? response.totalCount ?? response.data?.total ?? response.data?.totalCount
-      if (serverTotal != null && Number.isFinite(Number(serverTotal))) {
-        // Use server total but cap at 1000
-        setMaxKnownPage(Math.min(MAX_PAGES, Math.max(1, Math.ceil(Math.min(Number(serverTotal), TOTAL_DEAL_CAP) / PAGE_LIMIT))))
-      } else if (transformedDeals.length < PAGE_LIMIT) {
-        // This page is not full → it is the last page
-        setMaxKnownPage(Math.min(MAX_PAGES, currentPage))
-      } else {
-        // Full page → assume more pages up to MAX_PAGES
-        setMaxKnownPage(MAX_PAGES)
-      }
-
-      // Only merge WebSocket cached deals on page 1 (latest page)
-      if (currentPage === 1) {
-        const wsCached = loadWsCache()
-        const apiDealIds = new Set(transformedDeals.map(d => d.id))
-        const relevantCachedDeals = wsCached.filter(d => {
-          if (!d || !d.id) return false
-          if (apiDealIds.has(d.id)) return false
-          const dealTime = d.time || d.rawData?.time || 0
-          return dealTime >= from && dealTime <= to
-        })
-
-        console.log('[LiveDealing] 📊 API returned', transformedDeals.length, 'deals (page', currentPage + ')')
-        console.log('[LiveDealing] 💾 Cache had', wsCached.length, 'deals')
-        console.log('[LiveDealing] ✅ Keeping', relevantCachedDeals.length, 'cached deals not in API')
-
-        const merged = [
-          ...relevantCachedDeals,
-          ...transformedDeals
-        ]
-        saveWsCache(relevantCachedDeals.slice(0, 200))
-        setDeals(merged)
-      } else {
-        console.log('[LiveDealing] 📊 API returned', transformedDeals.length, 'deals (page', currentPage + ')')
-        setDeals(transformedDeals)
-      }
+      setDeals(transformedDeals)
 
       setLoading(false)
       setPageLoading(false)
@@ -1031,7 +971,6 @@ const LiveDealingPage = () => {
 
   const handleRefresh = () => {
     console.log('[LiveDealing] 🔄 Refresh: Reloading all deals from API')
-    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage))
     if (currentPage !== 1) setCurrentPage(1)
     else fetchAllDealsOnce()
   }
@@ -1287,18 +1226,13 @@ const LiveDealingPage = () => {
     return Array.from(suggestions).slice(0, 10)
   }
   
-  // Server-side pagination: each fetch returns ~100 deals for currentPage.
-  // totalPages comes from maxKnownPage (capped at 10 = 1000 deals max).
-  // Filtering/sorting is applied client-side over the current page only.
-  const totalPages = Math.max(1, Math.min(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage), maxKnownPage))
+  // Server-side pagination capped at 1000 records total
+  const totalPages = Math.ceil(totalDealsCount / itemsPerPage) || 1
   const displayedDeals = sortedDeals
-  const startIndex = 0
-  const endIndex = displayedDeals.length
 
   const handleItemsPerPageChange = (value) => {
     setItemsPerPage(value)
     setCurrentPage(1)
-    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / value))
   }
 
   const handlePageChange = (page) => {
@@ -1308,12 +1242,10 @@ const LiveDealingPage = () => {
   // Reset to first page when display mode changes
   useEffect(() => {
     setCurrentPage(1)
-    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage))
   }, [displayMode])
 
   // Reset pagination when time filter changes
   useEffect(() => {
-    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage))
     setCurrentPage(1)
   }, [timeFilter, appliedFromDate, appliedToDate])
 

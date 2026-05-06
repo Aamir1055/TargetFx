@@ -3,6 +3,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lock viewport — prevents browser-level scrollbar on all mobile modules */
+html, body {
+  overflow: hidden;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Unified loading dialog: indeterminate progress bar */
 @keyframes loading-bar-indeterminate {
   0%   { left: -33%; }
