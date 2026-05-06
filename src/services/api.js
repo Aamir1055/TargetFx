@@ -479,31 +479,19 @@ export const brokerAPI = {
   },
 
   // Get all recent deals (for live dealing page)
-  getAllDeals: async (from, to, limit = 100, offset = 0) => {
-    const endpoints = [
-      `/api/broker/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`,
-      `/api/broker/deals?from=${from}&to=${to}&limit=${limit}`,
-      `/api/broker/deals?from=${from}&to=${to}`,
-      `/api/broker/trading/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`,
-      `/api/broker/deals/recent?limit=${limit}`,
-      `/api/broker/deals`,
-      `/api/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`
-    ]
-    
-    for (let i = 0; i < endpoints.length; i++) {
-      try {
-        const endpoint = endpoints[i]
-        if (DEBUG_LOGS) console.log(`[API] Trying endpoint ${i + 1}/${endpoints.length}: ${endpoint}`)
-        const response = await api.get(endpoint)
-        if (DEBUG_LOGS) console.log(`[API] ✅ SUCCESS! Endpoint works: ${endpoint}`)
-        if (DEBUG_LOGS) console.log('[API] Response data:', response.data)
-        return response.data
-      } catch (error) {
-        if (DEBUG_LOGS) console.log(`[API] ❌ Endpoint ${i + 1} failed (${endpoints[i]}):`, error.response?.status || error.code || error.message)
-        // Continue to next endpoint
-      }
+  getAllDeals: async (from, to, limit = 100, page = 1) => {
+    const body = {
+      from,
+      to,
+      page,
+      limit,
+      sortBy: 'time',
+      sortOrder: 'desc'
     }
-    throw new Error('All deal endpoints failed')
+    if (DEBUG_LOGS) console.log('[API] POST /api/broker/deals/search', body)
+    const response = await api.post('/api/broker/deals/search', body)
+    if (DEBUG_LOGS) console.log('[API] Response data:', response.data)
+    return response.data
   },
   
   // Get positions by login

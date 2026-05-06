@@ -70,6 +70,7 @@ const LiveDealingPage = () => {
   const isInitialMount = useRef(true)
   const isPageEffectFirstRun = useRef(true)
   const isAuthEffectFirstRun = useRef(true)
+  const fetchRef = useRef(null) // always holds latest fetchAllDealsOnce
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -482,6 +483,11 @@ const LiveDealingPage = () => {
     localStorage.setItem('liveDealingPageVisibleColumns', JSON.stringify(visibleColumns))
   }, [visibleColumns])
 
+  // Keep fetchRef always pointing to the latest fetchAllDealsOnce (fixes stale closure in interval)
+  useEffect(() => {
+    fetchRef.current = fetchAllDealsOnce
+  })
+
   // Reset to page 1 and refetch when time filter changes; refetch when page/itemsPerPage changes
   useEffect(() => {
     if (isInitialMount.current) {
@@ -572,8 +578,16 @@ const LiveDealingPage = () => {
     
     const unsubscribeDealDeleted = websocketService.subscribe('DEAL_DELETED', handleDealDeleteEvent)
     const unsubscribeDealDelete = websocketService.subscribe('DEAL_DELETE', handleDealDeleteEvent)
-    
+
+    // Refresh every minute so the 24h window slides forward in time
+    const timeWindowInterval = setInterval(() => {
+      if (!isMobile && hasInitialLoad.current && fetchRef.current) {
+        fetchRef.current()
+      }
+    }, 60000)
+
     return () => {
+      clearInterval(timeWindowInterval)
       unsubscribeConnectionState()
       unsubscribeDealAdded()
       unsubscribeDealCreated()
@@ -644,14 +658,15 @@ const LiveDealingPage = () => {
       
       let from, to
 
-      // Calculate time range based on filter
-      // `to` is always computed as the exact current UTC second at API call time
+      // Calculate time range based on filter, recalculated on every call
       if (timeFilter === '24h') {
-        to = Math.floor(Date.now() / 1000)
-        from = to - (24 * 60 * 60)
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (24 * 60 * 60)
+        to = now
       } else if (timeFilter === '7d') {
-        to = Math.floor(Date.now() / 1000)
-        from = to - (7 * 24 * 60 * 60)
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (7 * 24 * 60 * 60)
+        to = now
       } else if (timeFilter === 'custom' && appliedFromDate && appliedToDate) {
         const fromDate = parseDateInput(appliedFromDate)
         const toDate = parseDateInput(appliedToDate)
@@ -661,8 +676,9 @@ const LiveDealingPage = () => {
         from = Math.floor(fromDate.getTime() / 1000)
         to = Math.floor(toDate.getTime() / 1000)
       } else {
-        to = Math.floor(Date.now() / 1000)
-        from = to - (24 * 60 * 60)
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (24 * 60 * 60)
+        to = now
       }
 
       console.log('[LiveDealing] 📅 Time range:', {
@@ -673,15 +689,13 @@ const LiveDealingPage = () => {
         toDate: new Date(to * 1000).toISOString()
       })
       
-      // Fetch 15 records for the current page; total is capped at 1000
-      const MAX_RECORDS = 1000
-      const offset = (currentPage - 1) * itemsPerPage
-      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, offset)
+      // Fetch deals using the user-selected row limit and current page
+      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage)
 
       const dealsData = response.data?.deals || response.deals || []
       const apiTotal = response.data?.total ?? response.total ?? null
-      const rawTotal = apiTotal != null ? Number(apiTotal) : ((currentPage - 1) * itemsPerPage + dealsData.length)
-      setTotalDealsCount(Math.min(rawTotal, MAX_RECORDS))
+      const rawTotal = apiTotal != null ? Number(apiTotal) : dealsData.length
+      setTotalDealsCount(rawTotal)
       
       // Transform deals
       const transformedDeals = dealsData.map(deal => ({
