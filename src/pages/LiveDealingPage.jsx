@@ -104,6 +104,7 @@ const LiveDealingPage = () => {
   
   // Search states
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const searchRef = useRef(null)
 
@@ -494,25 +495,30 @@ const LiveDealingPage = () => {
     fetchRef.current = fetchAllDealsOnce
   })
 
+  // Debounce free-text search to avoid an API hit per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 350)
+    return () => clearTimeout(t)
+  }, [searchQuery])
+
   // Keep currentPageRef in sync so WS handlers can check the latest page
   useEffect(() => {
     currentPageRef.current = currentPage
   }, [currentPage])
 
-  // Reset to page 1 and refetch when time filter or module filter changes; refetch when page/itemsPerPage changes
+  // Reset to page 1 and refetch when time/module/column/sort/search filters change
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
     }
     if (!hasInitialLoad.current) return
-    // If the time/module filter changed, reset to page 1 (the page change will trigger another run)
     if (currentPage !== 1) {
       setCurrentPage(1)
       return
     }
     fetchAllDealsOnce()
-  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter])
+  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter, columnFilters, sortColumn, sortDirection, debouncedSearchQuery])
 
   // API call on every page or itemsPerPage change
   useEffect(() => {
@@ -700,14 +706,60 @@ const LiveDealingPage = () => {
         toDate: new Date(to * 1000).toISOString()
       })
       
-      // Build server-side action filter for Deal/Money/Both toggle
+      // Build server-side filters: module toggle + column-level filters
       const apiFilters = []
       if (moduleFilter === 'deal') {
         apiFilters.push({ field: 'action', operator: 'in', value: ['BUY', 'SELL'] })
       } else if (moduleFilter === 'money') {
         apiFilters.push({ field: 'action', operator: 'not_in', value: ['BUY', 'SELL'] })
       }
-      const extraBody = apiFilters.length > 0 ? { filters: apiFilters } : {}
+
+      // Map UI filter type -> server operator
+      const FILTER_TYPE_TO_OPERATOR = {
+        equal: 'equal',
+        notEqual: 'not_equal',
+        lessThan: 'less_than',
+        lessThanOrEqual: 'less_than_or_equal',
+        greaterThan: 'greater_than',
+        greaterThanOrEqual: 'greater_than_or_equal',
+        contains: 'contains',
+        notContains: 'not_contains',
+        startsWith: 'starts_with',
+        endsWith: 'ends_with',
+      }
+      // 'time' checkbox values are display-formatted strings -> can't be sent to server reliably
+      const SKIP_CHECKBOX_FIELDS = new Set(['time'])
+      Object.entries(columnFilters || {}).forEach(([key, val]) => {
+        if (val == null) return
+        if (key.endsWith('_custom')) {
+          const field = key.replace('_custom', '')
+          if (!val.type) return
+          if (val.type === 'between') {
+            if (val.value1 != null) apiFilters.push({ field, operator: 'greater_than_or_equal', value: val.value1 })
+            if (val.value2 != null) apiFilters.push({ field, operator: 'less_than_or_equal', value: val.value2 })
+          } else {
+            const operator = FILTER_TYPE_TO_OPERATOR[val.type]
+            if (operator && val.value1 != null && val.value1 !== '') {
+              apiFilters.push({ field, operator, value: val.value1 })
+            }
+          }
+        } else if (Array.isArray(val) && val.length > 0) {
+          if (SKIP_CHECKBOX_FIELDS.has(key)) return
+          apiFilters.push({ field: key, operator: 'in', value: val })
+        }
+      })
+
+      // Map UI sort column -> server field
+      const sortByField = sortColumn || 'time'
+      const sortOrderValue = sortDirection === 'asc' ? 'asc' : 'desc'
+      const trimmedSearch = (debouncedSearchQuery || '').trim()
+
+      const extraBody = {
+        sortBy: sortByField,
+        sortOrder: sortOrderValue,
+      }
+      if (apiFilters.length > 0) extraBody.filters = apiFilters
+      if (trimmedSearch) extraBody.search = trimmedSearch
 
       // Fetch deals using the user-selected row limit and current page
       const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage, extraBody)
@@ -1203,55 +1255,11 @@ const LiveDealingPage = () => {
 
   // Pagination
   const trimmedDeals = deals.slice(0, 1000) // Trim to max 1000 deals for display
-  const moduleFiltered = filterByModule(trimmedDeals)
-  const searchedDeals = searchDeals(moduleFiltered)
-  
-  // Apply group filter
-  let ibFilteredDeals = filterByActiveGroup(searchedDeals, 'login', 'livedealing')
-  
-  // Apply column filters
-  Object.entries(columnFilters).forEach(([columnKey, values]) => {
-    if (columnKey.endsWith('_custom')) {
-      // Custom filter (text or number)
-      const actualColumnKey = columnKey.replace('_custom', '')
-      ibFilteredDeals = ibFilteredDeals.filter(deal => {
-        let dealValue
-        if (actualColumnKey === 'login' || actualColumnKey === 'time' || actualColumnKey === 'dealer') {
-          dealValue = deal[actualColumnKey]
-        } else if (actualColumnKey === 'deal') {
-          dealValue = deal.rawData?.deal || deal.id
-        } else {
-          dealValue = deal.rawData?.[actualColumnKey]
-        }
-        
-        if (values.isText) {
-          return matchesTextFilter(dealValue, values)
-        } else {
-          return matchesNumberFilter(dealValue, values)
-        }
-      })
-    } else if (values && values.length > 0) {
-      // Regular checkbox filter
-      ibFilteredDeals = ibFilteredDeals.filter(deal => {
-        let dealValue
-        if (columnKey === 'login' || columnKey === 'time' || columnKey === 'dealer') {
-          dealValue = deal[columnKey]
-        } else if (columnKey === 'deal') {
-          dealValue = deal.rawData?.deal || deal.id
-        } else {
-          dealValue = deal.rawData?.[columnKey]
-        }
-        
-        // For time column, format to match displayed format in filter
-        if (columnKey === 'time' && dealValue) {
-          dealValue = formatTime(dealValue)
-        }
-        return values.includes(dealValue)
-      })
-    }
-  })
-  
-  const sortedDeals = sortDeals(ibFilteredDeals)
+  // Server now handles search, column filters, module filter, and sorting.
+  // Group filter remains client-side (local-only feature).
+  let ibFilteredDeals = filterByActiveGroup(trimmedDeals, 'login', 'livedealing')
+
+  const sortedDeals = ibFilteredDeals
   
   // Get search suggestions from current deals
   const getSuggestions = () => {
