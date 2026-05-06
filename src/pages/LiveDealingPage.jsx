@@ -70,12 +70,18 @@ const LiveDealingPage = () => {
   const isInitialMount = useRef(true)
   const isPageEffectFirstRun = useRef(true)
   const isAuthEffectFirstRun = useRef(true)
-  const currentPageRef = useRef(1) // always tracks latest currentPage for WS closure
+  const fetchRef = useRef(null) // always holds latest fetchAllDealsOnce
+  const currentPageRef = useRef(1) // always holds latest currentPage
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(15)
+  const [itemsPerPage, setItemsPerPage] = useState(100)
   const [totalDealsCount, setTotalDealsCount] = useState(0)
+
+  // Module filter: Deal (buy/sell) vs Money transactions (others) vs Both
+  const [moduleFilter, setModuleFilter] = useState('both') // 'deal' | 'money' | 'both'
+  const [showModuleFilter, setShowModuleFilter] = useState(false)
+  const moduleFilterRef = useRef(null)
   
   // Sorting states
   const [sortColumn, setSortColumn] = useState('time')
@@ -267,7 +273,7 @@ const LiveDealingPage = () => {
   const isMountedRef = useRef(true)
   
   // Define string columns that should show text filters instead of number filters
-  const stringColumns = ['symbol', 'action', 'reason']
+  const stringColumns = ['symbol', 'action', 'reason', 'entry']
   const isStringColumn = (key) => stringColumns.includes(key)
   
   // Custom filter modal states
@@ -361,6 +367,12 @@ const LiveDealingPage = () => {
       const { [columnKey]: _, ...rest } = prev
       return rest
     })
+    if (customFilterColumn === columnKey) {
+      setCustomFilterValue1('')
+      setCustomFilterValue2('')
+      setCustomFilterType('equal')
+      setCustomFilterColumn(null)
+    }
     setShowFilterDropdown(null)
   }
 
@@ -385,7 +397,7 @@ const LiveDealingPage = () => {
   const applyCustomNumberFilter = () => {
     if (!customFilterColumn || !customFilterValue1) return
 
-    const isTextColumn = ['login', 'symbol', 'action', 'reason'].includes(customFilterColumn)
+    const isTextColumn = ['login', 'symbol', 'action', 'reason', 'entry'].includes(customFilterColumn)
     
     const filterConfig = {
       type: customFilterType,
@@ -404,11 +416,6 @@ const LiveDealingPage = () => {
     setShowCustomFilterModal(false)
     setShowFilterDropdown(null)
     setShowNumberFilterDropdown(null)
-    
-    // Reset form
-    setCustomFilterValue1('')
-    setCustomFilterValue2('')
-    setCustomFilterType('equal')
   }
 
   // Check if value matches number filter
@@ -482,24 +489,33 @@ const LiveDealingPage = () => {
     localStorage.setItem('liveDealingPageVisibleColumns', JSON.stringify(visibleColumns))
   }, [visibleColumns])
 
-  // Reset to page 1 and refetch when time filter changes; refetch when page/itemsPerPage changes
+  // Keep fetchRef always pointing to the latest fetchAllDealsOnce (fixes stale closure in interval)
+  useEffect(() => {
+    fetchRef.current = fetchAllDealsOnce
+  })
+
+  // Keep currentPageRef in sync so WS handlers can check the latest page
+  useEffect(() => {
+    currentPageRef.current = currentPage
+  }, [currentPage])
+
+  // Reset to page 1 and refetch when time filter or module filter changes; refetch when page/itemsPerPage changes
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
     }
     if (!hasInitialLoad.current) return
-    // If the time filter changed, reset to page 1 (the page change will trigger another run)
+    // If the time/module filter changed, reset to page 1 (the page change will trigger another run)
     if (currentPage !== 1) {
       setCurrentPage(1)
       return
     }
     fetchAllDealsOnce()
-  }, [timeFilter, appliedFromDate, appliedToDate])
+  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter])
 
-  // API call on every page or itemsPerPage change; keep ref in sync for WS closure
+  // API call on every page or itemsPerPage change
   useEffect(() => {
-    currentPageRef.current = currentPage
     if (isPageEffectFirstRun.current) {
       isPageEffectFirstRun.current = false
       return
@@ -507,17 +523,6 @@ const LiveDealingPage = () => {
     if (!hasInitialLoad.current) return
     fetchAllDealsOnce()
   }, [currentPage, itemsPerPage])
-
-  // Auto-poll every 5s on page 1 to keep live data fresh
-  useEffect(() => {
-    if (isMobile) return
-    const interval = setInterval(() => {
-      if (currentPageRef.current === 1 && hasInitialLoad.current && !document.hidden) {
-        fetchAllDealsOnce()
-      }
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [isMobile])
   
   // Close filter menu when clicking outside
   useEffect(() => {
@@ -584,8 +589,16 @@ const LiveDealingPage = () => {
     
     const unsubscribeDealDeleted = websocketService.subscribe('DEAL_DELETED', handleDealDeleteEvent)
     const unsubscribeDealDelete = websocketService.subscribe('DEAL_DELETE', handleDealDeleteEvent)
-    
+
+    // Refresh every minute so the 24h window slides forward in time
+    const timeWindowInterval = setInterval(() => {
+      if (!isMobile && hasInitialLoad.current && fetchRef.current) {
+        fetchRef.current()
+      }
+    }, 60000)
+
     return () => {
+      clearInterval(timeWindowInterval)
       unsubscribeConnectionState()
       unsubscribeDealAdded()
       unsubscribeDealCreated()
@@ -656,8 +669,28 @@ const LiveDealingPage = () => {
       
       let from, to
 
-      to = Math.floor(Date.now() / 1000)
-      from = to - (24 * 60 * 60)
+      // Calculate time range based on filter, recalculated on every call
+      if (timeFilter === '24h') {
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (24 * 60 * 60)
+        to = now
+      } else if (timeFilter === '7d') {
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (7 * 24 * 60 * 60)
+        to = now
+      } else if (timeFilter === 'custom' && appliedFromDate && appliedToDate) {
+        const fromDate = parseDateInput(appliedFromDate)
+        const toDate = parseDateInput(appliedToDate)
+        if (!fromDate || !toDate) {
+          throw new Error('Invalid custom date range')
+        }
+        from = Math.floor(fromDate.getTime() / 1000)
+        to = Math.floor(toDate.getTime() / 1000)
+      } else {
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (24 * 60 * 60)
+        to = now
+      }
 
       console.log('[LiveDealing] 📅 Time range:', {
         filter: timeFilter,
@@ -667,12 +700,29 @@ const LiveDealingPage = () => {
         toDate: new Date(to * 1000).toISOString()
       })
       
-      const offset = (currentPage - 1) * itemsPerPage
-      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, offset)
+      // Build server-side action filter for Deal/Money/Both toggle
+      const apiFilters = []
+      if (moduleFilter === 'deal') {
+        apiFilters.push({ field: 'action', operator: 'in', value: ['BUY', 'SELL'] })
+      } else if (moduleFilter === 'money') {
+        apiFilters.push({ field: 'action', operator: 'not_in', value: ['BUY', 'SELL'] })
+      }
+      const extraBody = apiFilters.length > 0 ? { filters: apiFilters } : {}
 
-      const dealsData = response.data?.deals || response.deals || []
-      const apiTotal = response.data?.total ?? response.total ?? null
-      const rawTotal = apiTotal != null ? Number(apiTotal) : ((currentPage - 1) * itemsPerPage + dealsData.length)
+      // Fetch deals using the user-selected row limit and current page
+      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage, extraBody)
+
+      const payload = response?.data ?? response
+      const dealsData = payload?.deals || payload?.items || []
+      const apiTotal =
+        payload?.total ??
+        payload?.totalCount ??
+        payload?.total_count ??
+        payload?.count ??
+        payload?.pagination?.total ??
+        null
+      const rawTotal = apiTotal != null ? Number(apiTotal) : dealsData.length
+      console.log('[LiveDealing] 📊 Fetch result:', { dealsCount: dealsData.length, total: rawTotal, page: currentPage })
       setTotalDealsCount(rawTotal)
       
       // Transform deals
@@ -689,7 +739,20 @@ const LiveDealingPage = () => {
       // Sort newest first
       transformedDeals.sort((a, b) => b.time - a.time)
 
-      setDeals(transformedDeals)
+      // On page 1: merge with existing deals (preserves WS deals + survives stale API responses)
+      // On other pages: replace (we want exactly the page contents)
+      if (currentPage === 1) {
+        setDeals(prevDeals => {
+          const apiIds = new Set(transformedDeals.map(d => d.id))
+          // Keep any existing deals that aren't in the API result (WS-added or recent)
+          const extras = prevDeals.filter(d => !apiIds.has(d.id))
+          const merged = [...transformedDeals, ...extras]
+          merged.sort((a, b) => b.time - a.time)
+          return merged.slice(0, 1000)
+        })
+      } else {
+        setDeals(transformedDeals)
+      }
 
       setLoading(false)
       setPageLoading(false)
@@ -705,7 +768,12 @@ const LiveDealingPage = () => {
   // Handle DEAL_ADDED events
   const handleDealAddedEvent = (data) => {
     setLoading(false)
-    
+
+    // Only show newly added deals when user is on page 1
+    if (currentPageRef.current !== 1) {
+      return
+    }
+
     try {
       const dealData = data.data || data
       const login = data.login || dealData.login
@@ -745,6 +813,8 @@ const LiveDealingPage = () => {
         // Add new deal at the beginning (newest first)
         const newDeals = [dealEntry, ...prevDeals]
         
+        // Keep max 1000 deals (increased from 500)
+        const trimmed = newDeals.slice(0, 1000)
         // Persist a lightweight cache of WS-added deals to survive page refresh
         try {
           const cache = loadWsCache()
@@ -752,7 +822,7 @@ const LiveDealingPage = () => {
           const updatedCache = [dealEntry, ...cache.filter(d => !existing.has(d.id))].slice(0, 200)
           saveWsCache(updatedCache)
         } catch {}
-        return newDeals
+        return trimmed
       })
     } catch (error) {
       console.error('[LiveDealing] Error processing DEAL_ADDED event:', error)
@@ -1108,10 +1178,6 @@ const LiveDealingPage = () => {
     }
   }
 
-  // Module filter: Deal (buy/sell) vs Money transactions (others) vs Both
-  const [moduleFilter, setModuleFilter] = useState('both') // 'deal' | 'money' | 'both'
-  const [showModuleFilter, setShowModuleFilter] = useState(false)
-  const moduleFilterRef = useRef(null)
   // Treat all trading operations (open/close/cancel/stop/tp/sl) as "deal" module
   const isTradeAction = (label) => {
     const l = String(label || '').toLowerCase()
@@ -1136,7 +1202,8 @@ const LiveDealingPage = () => {
   }
 
   // Pagination
-  const moduleFiltered = filterByModule(deals)
+  const trimmedDeals = deals.slice(0, 1000) // Trim to max 1000 deals for display
+  const moduleFiltered = filterByModule(trimmedDeals)
   const searchedDeals = searchDeals(moduleFiltered)
   
   // Apply group filter
@@ -1302,7 +1369,22 @@ const LiveDealingPage = () => {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                setShowFilterDropdown(showFilterDropdown === columnKey ? null : columnKey)
+                const next = showFilterDropdown === columnKey ? null : columnKey
+                setShowFilterDropdown(next)
+                if (next) {
+                  const existing = columnFilters[`${next}_custom`]
+                  if (existing) {
+                    setCustomFilterColumn(next)
+                    setCustomFilterType(existing.type || 'equal')
+                    setCustomFilterValue1(existing.value1 != null ? String(existing.value1) : '')
+                    setCustomFilterValue2(existing.value2 != null ? String(existing.value2) : '')
+                  } else {
+                    setCustomFilterColumn(next)
+                    setCustomFilterValue1('')
+                    setCustomFilterValue2('')
+                    setCustomFilterType('equal')
+                  }
+                }
               }}
               className={`p-1 rounded hover:bg-blue-800/50 transition-colors ${filterCount > 0 ? 'text-yellow-400' : 'text-white/70'}`}
               title="Filter column"
@@ -1538,97 +1620,6 @@ const LiveDealingPage = () => {
                     </div>
                   </div>
                 )}
-
-                {/* Search Box */}
-                <div className="p-2 border-b border-slate-200">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search values..."
-                      value={filterSearchQuery[columnKey] || ''}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        setFilterSearchQuery(prev => ({
-                          ...prev,
-                          [columnKey]: e.target.value
-                        }))
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-full pl-8 pr-3 py-1.5 text-[11px] font-medium border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 bg-white text-slate-700 placeholder:text-slate-400"
-                    />
-                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Select All / Deselect All */}
-                <div className="px-2 py-1 border-b border-gray-200 bg-gray-50">
-                  <label className="flex items-center gap-1.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={isAllSelected(columnKey)}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        if (e.target.checked) {
-                          selectAllFilters(columnKey)
-                        } else {
-                          deselectAllFilters(columnKey)
-                        }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
-                    />
-                    <span className="text-[11px] font-medium text-gray-700">Select All</span>
-                  </label>
-                </div>
-
-                {/* Filter List */}
-                <div className="max-h-64 overflow-y-auto">
-                  <div className="p-1 space-y-0.5">
-                    {getUniqueColumnValues(columnKey).length === 0 ? (
-                      <div className="px-2 py-2 text-center text-[11px] text-gray-500">
-                        No items found
-                      </div>
-                    ) : (
-                      getUniqueColumnValues(columnKey).map(value => (
-                        <label 
-                          key={value} 
-                          className="flex items-center gap-1.5 hover:bg-gray-50 p-0.5 rounded cursor-pointer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={(columnFilters[columnKey] || []).includes(value)}
-                            onChange={(e) => {
-                              e.stopPropagation()
-                              toggleColumnFilter(columnKey, value)
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
-                          />
-                          <span className="text-[11px] text-gray-700 truncate">
-                            {columnKey === 'time' && !isNaN(Number(value)) 
-                              ? (() => {
-                                  const date = new Date(Number(value) * 1000)
-                                  return date.toLocaleString('en-US', {
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: false
-                                  })
-                                })()
-                              : value
-                            }
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </div>
 
                 {/* Footer */}
                 <div className="px-2 py-1 border-t border-gray-200 bg-gray-50 rounded-b-lg flex items-center gap-1.5">
