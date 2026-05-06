@@ -974,7 +974,14 @@ const Client2Page = () => {
       const textFilteredFields = new Set()
       const numberFilteredFields = new Set()
       if (filters && filters.length > 0) {
-        combinedFilters.push(...filters)
+        const _boolFields = new Set(['tradingEnabled', 'accountEnabled'])
+        combinedFilters.push(...filters.map(f => {
+          if (_boolFields.has(f.field) && typeof f.value === 'string') {
+            const mapped = f.value === 'Enabled' ? 'true' : f.value === 'Disabled' ? 'false' : f.value
+            return { ...f, value: mapped }
+          }
+          return f
+        }))
       }
 
       // Map UI column keys to API field names (backend uses different naming for some fields)
@@ -1012,9 +1019,15 @@ const Client2Page = () => {
           textFilteredFields.add(field) // Track that this field has a text filter
           const opMap = { equal: 'equal', notEqual: 'not_equal', contains: 'contains', doesNotContain: 'not_contains', startsWith: 'starts_with', endsWith: 'ends_with' }
           const op = opMap[cfg.operator] || cfg.operator
-          const val = cfg.value
+          let val = cfg.value
           if (val != null && String(val).length > 0) {
-            combinedFilters.push({ field, operator: op, value: String(val).trim() })
+            let outVal = String(val).trim()
+            if (field === 'tradingEnabled' || field === 'accountEnabled') {
+              const lower = outVal.toLowerCase()
+              if (lower === 'enabled' || lower === 'true') outVal = 'true'
+              else if (lower === 'disabled' || lower === 'false') outVal = 'false'
+            }
+            combinedFilters.push({ field, operator: op, value: outVal })
           }
         }
       })
@@ -2102,7 +2115,16 @@ const Client2Page = () => {
     const numberFilteredFields = new Set()
 
     // Table-level filters
-    if (filters && filters.length > 0) combinedFilters.push(...filters)
+    if (filters && filters.length > 0) {
+      const _boolFields2 = new Set(['tradingEnabled', 'accountEnabled'])
+      combinedFilters.push(...filters.map(f => {
+        if (_boolFields2.has(f.field) && typeof f.value === 'string') {
+          const mapped = f.value === 'Enabled' ? 'true' : f.value === 'Disabled' ? 'false' : f.value
+          return { ...f, value: mapped }
+        }
+        return f
+      }))
+    }
 
     const columnKeyToAPIField = (colKey) => {
       const fieldMap = {
@@ -2133,7 +2155,13 @@ const Client2Page = () => {
           const op = opMap[cfg.operator] || cfg.operator
           const val = cfg.value
           if (val != null && String(val).length > 0) {
-            combinedFilters.push({ field, operator: op, value: String(val).trim() })
+            let outVal = String(val).trim()
+            if (field === 'tradingEnabled' || field === 'accountEnabled') {
+              const lower = outVal.toLowerCase()
+              if (lower === 'enabled' || lower === 'true') outVal = 'true'
+              else if (lower === 'disabled' || lower === 'false') outVal = 'false'
+            }
+            combinedFilters.push({ field, operator: op, value: outVal })
             textFilteredFields.add(uiKey)
           }
           return
@@ -2700,10 +2728,18 @@ const Client2Page = () => {
       return
     }
 
+    let value = newFilterValue.trim()
+    // Boolean fields: convert typed "Enabled"/"Disabled" (case-insensitive) to "true"/"false"
+    if (newFilterField === 'tradingEnabled' || newFilterField === 'accountEnabled') {
+      const lower = value.toLowerCase()
+      if (lower === 'enabled' || lower === 'true') value = 'true'
+      else if (lower === 'disabled' || lower === 'false') value = 'false'
+    }
+
     const newFilter = {
       field: newFilterField,
       operator: newFilterOperator,
-      value: newFilterValue.trim()
+      value
     }
 
     setFilters(prev => [...prev, newFilter])
@@ -3074,7 +3110,14 @@ const Client2Page = () => {
     const textFilteredFields = new Set()
     const numberFilteredFields = new Set()
     if (filters && filters.length > 0) {
-      combinedFilters.push(...filters)
+      const _boolFields3 = new Set(['tradingEnabled', 'accountEnabled'])
+      combinedFilters.push(...filters.map(f => {
+        if (_boolFields3.has(f.field) && typeof f.value === 'string') {
+          const mapped = f.value === 'Enabled' ? 'true' : f.value === 'Disabled' ? 'false' : f.value
+          return { ...f, value: mapped }
+        }
+        return f
+      }))
     }
 
     // Map UI column keys to API field names
@@ -3106,7 +3149,13 @@ const Client2Page = () => {
           const op = opMap[cfg.operator] || cfg.operator
           const val = cfg.value
           if (val != null && String(val).length > 0) {
-            combinedFilters.push({ field, operator: op, value: String(val).trim() })
+            let outVal = String(val).trim()
+            if (field === 'tradingEnabled' || field === 'accountEnabled') {
+              const lower = outVal.toLowerCase()
+              if (lower === 'enabled' || lower === 'true') outVal = 'true'
+              else if (lower === 'disabled' || lower === 'false') outVal = 'false'
+            }
+            combinedFilters.push({ field, operator: op, value: outVal })
             textFilteredFields.add(uiKey)
           }
           return
@@ -3330,7 +3379,14 @@ const Client2Page = () => {
           combinedFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
         }
         if (filters && filters.length > 0) {
-          combinedFilters.push(...filters)
+          const _boolFields4 = new Set(['tradingEnabled', 'accountEnabled'])
+          combinedFilters.push(...filters.map(f => {
+            if (_boolFields4.has(f.field) && typeof f.value === 'string') {
+              const mapped = f.value === 'Enabled' ? 'true' : f.value === 'Disabled' ? 'false' : f.value
+              return { ...f, value: mapped }
+            }
+            return f
+          }))
         }
 
         // Add column filters
