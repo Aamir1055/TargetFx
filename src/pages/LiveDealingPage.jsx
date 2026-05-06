@@ -59,6 +59,7 @@ const LiveDealingPage = () => {
   
   const [connectionState, setConnectionState] = useState('disconnected')
   const [loading, setLoading] = useState(true)
+  const [pageLoading, setPageLoading] = useState(false)
   const [error, setError] = useState('')
   const { isAuthenticated } = useAuth()
   const [unauthorized, setUnauthorized] = useState(false)
@@ -69,8 +70,9 @@ const LiveDealingPage = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(100)
-  // Server-side pagination: track highest page known to have data (max 10 = 1000 deals)
-  const [maxKnownPage, setMaxKnownPage] = useState(10)
+  // Server-side pagination: track highest page known to have data (cap: 1000 total rows)
+  const TOTAL_DEAL_CAP = 1000
+  const [maxKnownPage, setMaxKnownPage] = useState(() => Math.ceil(1000 / 100))
   
   // Sorting states
   const [sortColumn, setSortColumn] = useState('time')
@@ -614,51 +616,53 @@ const LiveDealingPage = () => {
   const fetchAllDealsOnce = async () => {
     try {
       setError('')
-      setLoading(true)
+      if (deals.length > 0) {
+        setPageLoading(true)
+      } else {
+        setLoading(true)
+      }
       
       let from, to
-      
+
       // Calculate time range based on filter
+      // `to` is always computed as the exact current UTC second at API call time
       if (timeFilter === '24h') {
-        // Get current UTC time in seconds
-        const nowUTC = Math.floor(Date.now() / 1000)
-        // Add 12 hours to 'to' to capture recent deals (12 * 60 * 60 seconds)
-        to = nowUTC + (12 * 60 * 60)
-        // Subtract 24 hours from current time for 'from'
-        from = nowUTC - (24 * 60 * 60)
+        to = Math.floor(Date.now() / 1000)
+        from = to - (24 * 60 * 60)
       } else if (timeFilter === '7d') {
-        // Get current UTC time in seconds
-        const nowUTC = Math.floor(Date.now() / 1000)
-        // Add 12 hours to 'to' to capture recent deals
-        to = nowUTC + (12 * 60 * 60)
-        // Subtract 7 days from current time for 'from'
-        from = nowUTC - (7 * 24 * 60 * 60)
+        to = Math.floor(Date.now() / 1000)
+        from = to - (7 * 24 * 60 * 60)
       } else if (timeFilter === 'custom' && appliedFromDate && appliedToDate) {
-        // Parse custom dates and convert to UTC epoch seconds (robust)
         const fromDate = parseDateInput(appliedFromDate)
         const toDate = parseDateInput(appliedToDate)
         if (!fromDate || !toDate) {
           throw new Error('Invalid custom date range')
         }
         from = Math.floor(fromDate.getTime() / 1000)
-        // Add 12 hours to custom 'to' date as well
-        to = Math.floor(toDate.getTime() / 1000) + (12 * 60 * 60)
+        to = Math.floor(toDate.getTime() / 1000)
       } else {
-        // Default to 24h if custom dates not set
-        const nowUTC = Math.floor(Date.now() / 1000)
-        to = nowUTC + (12 * 60 * 60)
-        from = nowUTC - (24 * 60 * 60)
+        to = Math.floor(Date.now() / 1000)
+        from = to - (24 * 60 * 60)
       }
-      
+
       console.log('[LiveDealing] 📅 Time range:', {
         filter: timeFilter,
-        from: from,
-        to: to,
+        from,
+        to,
         fromDate: new Date(from * 1000).toISOString(),
         toDate: new Date(to * 1000).toISOString()
       })
-      
-      const response = await brokerAPI.getAllDeals(from, to, 100, currentPage)
+
+      // Recompute `to` immediately before the network call to ensure it is the latest possible moment
+      // Add 2-hour forward buffer to `to` to account for server timezone offset
+      if (timeFilter !== 'custom') {
+        const latestNow = Math.floor(Date.now() / 1000)
+        const window = to - from
+        to = latestNow + (2 * 60 * 60)
+        from = to - window
+      }
+
+      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage)
 
       const dealsData = response.data?.deals || response.deals || []
 
@@ -676,15 +680,17 @@ const LiveDealingPage = () => {
       // Sort newest first
       transformedDeals.sort((a, b) => b.time - a.time)
 
-      // Update maxKnownPage from API total if provided, else derive from page result
-      const PAGE_LIMIT = 100
-      const MAX_PAGES = 10
+      // Update maxKnownPage — always hard-capped at TOTAL_DEAL_CAP / PAGE_LIMIT (max 1000 records shown)
+      const PAGE_LIMIT = itemsPerPage
+      const MAX_PAGES = Math.ceil(TOTAL_DEAL_CAP / PAGE_LIMIT)
+      // Try to get server's total record count from various response shapes
       const serverTotal = response.total ?? response.totalCount ?? response.data?.total ?? response.data?.totalCount
       if (serverTotal != null && Number.isFinite(Number(serverTotal))) {
-        setMaxKnownPage(Math.min(MAX_PAGES, Math.max(1, Math.ceil(Number(serverTotal) / PAGE_LIMIT))))
+        // Use server total but cap at 1000
+        setMaxKnownPage(Math.min(MAX_PAGES, Math.max(1, Math.ceil(Math.min(Number(serverTotal), TOTAL_DEAL_CAP) / PAGE_LIMIT))))
       } else if (transformedDeals.length < PAGE_LIMIT) {
         // This page is not full → it is the last page
-        setMaxKnownPage(currentPage)
+        setMaxKnownPage(Math.min(MAX_PAGES, currentPage))
       } else {
         // Full page → assume more pages up to MAX_PAGES
         setMaxKnownPage(MAX_PAGES)
@@ -717,11 +723,13 @@ const LiveDealingPage = () => {
       }
 
       setLoading(false)
+      setPageLoading(false)
     } catch (error) {
       console.error('[LiveDealing] ❌ Error loading deals:', error)
       if (error?.response?.status === 401) setUnauthorized(true)
       setError('Failed to load deals')
       setLoading(false)
+      setPageLoading(false)
     }
   }
 
@@ -986,7 +994,7 @@ const LiveDealingPage = () => {
 
   const handleRefresh = () => {
     console.log('[LiveDealing] 🔄 Refresh: Reloading all deals from API')
-    setMaxKnownPage(10)
+    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage))
     if (currentPage !== 1) setCurrentPage(1)
     else fetchAllDealsOnce()
   }
@@ -1245,7 +1253,7 @@ const LiveDealingPage = () => {
   // Server-side pagination: each fetch returns ~100 deals for currentPage.
   // totalPages comes from maxKnownPage (capped at 10 = 1000 deals max).
   // Filtering/sorting is applied client-side over the current page only.
-  const totalPages = Math.max(1, Math.min(10, maxKnownPage))
+  const totalPages = Math.max(1, Math.min(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage), maxKnownPage))
   const displayedDeals = sortedDeals
   const startIndex = 0
   const endIndex = displayedDeals.length
@@ -1253,6 +1261,7 @@ const LiveDealingPage = () => {
   const handleItemsPerPageChange = (value) => {
     setItemsPerPage(value)
     setCurrentPage(1)
+    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / value))
   }
 
   const handlePageChange = (page) => {
@@ -1262,12 +1271,12 @@ const LiveDealingPage = () => {
   // Reset to first page when display mode changes
   useEffect(() => {
     setCurrentPage(1)
-    setMaxKnownPage(10)
+    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage))
   }, [displayMode])
 
   // Reset pagination when time filter changes
   useEffect(() => {
-    setMaxKnownPage(10)
+    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage))
     setCurrentPage(1)
   }, [timeFilter, appliedFromDate, appliedToDate])
 
@@ -2161,8 +2170,8 @@ const LiveDealingPage = () => {
               </thead>
 
               <tbody className="bg-white divide-y-2 text-sm" style={{ borderColor: '#888888' }}>
-                {loading && deals.length === 0 ? (
-                  Array.from({ length: 8 }, (_, i) => (
+                {(loading && deals.length === 0) || pageLoading ? (
+                  Array.from({ length: itemsPerPage > 20 ? 12 : itemsPerPage }, (_, i) => (
                     <tr key={`deal-skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">
                       {orderedColumns.map(col => (
                         visibleColumns[col.key] ? (

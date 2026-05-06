@@ -984,32 +984,35 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       // searchOverride allows callers to pass an explicit query (including '') to bypass stale closure state
       const activeSearch = searchOverride !== undefined ? searchOverride : dealsSearchQuery
 
-      let response
-      if (activeSearch && activeSearch.trim()) {
-        // Use POST search endpoint when a search query is active
-        response = await brokerAPI.searchClientDeals(client.login, {
-          search: activeSearch.trim(),
-          from: fromTimestamp,
-          to: toTimestamp,
-          page,
-          limit: itemsLimit,
-        })
-      } else {
-        // Plain GET with pagination
-        response = await brokerAPI.getClientDealsPaged(
-          client.login, fromTimestamp, toTimestamp, page, itemsLimit
-        )
+      // Always use the current moment as `to` (+ 2h buffer for server timezone) for non-custom date ranges
+      const latestTo = Math.floor(Date.now() / 1000) + (2 * 60 * 60)
+      const effectiveTo = toTimestamp > latestTo ? toTimestamp : latestTo
+
+      // Always use POST /api/broker/clients/{login}/deals/search
+      const body = {
+        from: fromTimestamp,
+        to: effectiveTo,
+        page,
+        limit: itemsLimit,
+        sortBy: 'deal_time',
+        sortOrder: 'desc',
       }
+      if (activeSearch && activeSearch.trim()) body.search = activeSearch.trim()
+
+      const response = await brokerAPI.searchClientDeals(client.login, body)
+
       // Response shape: { data: { deals, total, page, limit }, ... } or flat
       const payload = response?.data ?? response
       const clientDeals = payload?.deals ?? []
-      const total = payload?.total ?? clientDeals.length
+      // Cap total at CLIENT_DEALS_FETCH_LIMIT (1000) so pagination stays ≤ 1000 records
+      const rawTotal = payload?.total ?? clientDeals.length
+      const total = Math.min(Number(rawTotal) || 0, CLIENT_DEALS_FETCH_LIMIT)
 
       setDeals(clientDeals)
       setAllDeals(clientDeals)
       setFilteredDeals(clientDeals)
       setTotalDealsCount(total)
-      setCurrentDateFilter({ from: fromTimestamp, to: toTimestamp })
+      setCurrentDateFilter({ from: fromTimestamp, to: effectiveTo })
       setHasAppliedFilter(true)
       setDealsServerLimitReached(false)
     } catch (error) {
@@ -1937,14 +1940,15 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   })()
 
   // Pagination:
-  // - search, sort, and action filter are server-side → use totalDealsCount
+  // - search, sort, and action filter are server-side → use totalDealsCount (capped at 1000)
   // - Only symbol/time column filters are client-side → paginate over filteredDealsResult
   const hasClientFilter = !!(
     Object.entries(dealsColumnFilters || {}).some(([k, v]) => k !== 'action' && v && v.length > 0)
   )
+  const maxDealsPages = Math.ceil(CLIENT_DEALS_FETCH_LIMIT / dealsItemsPerPage)
   const dealsTotalPages = hasClientFilter
-    ? Math.ceil(filteredDealsResult.length / dealsItemsPerPage) || 1
-    : Math.ceil(totalDealsCount / dealsItemsPerPage) || 1
+    ? Math.min(maxDealsPages, Math.ceil(filteredDealsResult.length / dealsItemsPerPage) || 1)
+    : Math.min(maxDealsPages, Math.ceil(totalDealsCount / dealsItemsPerPage) || 1)
   const dealsStartIdx = (dealsCurrentPage - 1) * dealsItemsPerPage
   const displayedDeals = hasClientFilter
     ? filteredDealsResult.slice(dealsStartIdx, dealsStartIdx + dealsItemsPerPage)
