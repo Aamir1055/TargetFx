@@ -479,14 +479,15 @@ export const brokerAPI = {
   },
 
   // Get all recent deals (for live dealing page)
-  getAllDeals: async (from, to, limit = 100, page = 1) => {
+  getAllDeals: async (from, to, limit = 100, page = 1, extraBody = {}) => {
     const body = {
       from,
       to,
       page,
       limit,
       sortBy: 'time',
-      sortOrder: 'desc'
+      sortOrder: 'desc',
+      ...extraBody,
     }
     if (DEBUG_LOGS) console.log('[API] POST /api/broker/deals/search', body)
     const response = await api.post('/api/broker/deals/search', body)

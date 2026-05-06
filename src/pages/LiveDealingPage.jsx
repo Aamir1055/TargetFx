@@ -71,11 +71,17 @@ const LiveDealingPage = () => {
   const isPageEffectFirstRun = useRef(true)
   const isAuthEffectFirstRun = useRef(true)
   const fetchRef = useRef(null) // always holds latest fetchAllDealsOnce
+  const currentPageRef = useRef(1) // always holds latest currentPage
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(15)
+  const [itemsPerPage, setItemsPerPage] = useState(100)
   const [totalDealsCount, setTotalDealsCount] = useState(0)
+
+  // Module filter: Deal (buy/sell) vs Money transactions (others) vs Both
+  const [moduleFilter, setModuleFilter] = useState('both') // 'deal' | 'money' | 'both'
+  const [showModuleFilter, setShowModuleFilter] = useState(false)
+  const moduleFilterRef = useRef(null)
   
   // Sorting states
   const [sortColumn, setSortColumn] = useState('time')
@@ -488,20 +494,25 @@ const LiveDealingPage = () => {
     fetchRef.current = fetchAllDealsOnce
   })
 
-  // Reset to page 1 and refetch when time filter changes; refetch when page/itemsPerPage changes
+  // Keep currentPageRef in sync so WS handlers can check the latest page
+  useEffect(() => {
+    currentPageRef.current = currentPage
+  }, [currentPage])
+
+  // Reset to page 1 and refetch when time filter or module filter changes; refetch when page/itemsPerPage changes
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
     }
     if (!hasInitialLoad.current) return
-    // If the time filter changed, reset to page 1 (the page change will trigger another run)
+    // If the time/module filter changed, reset to page 1 (the page change will trigger another run)
     if (currentPage !== 1) {
       setCurrentPage(1)
       return
     }
     fetchAllDealsOnce()
-  }, [timeFilter, appliedFromDate, appliedToDate])
+  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter])
 
   // API call on every page or itemsPerPage change
   useEffect(() => {
@@ -689,12 +700,29 @@ const LiveDealingPage = () => {
         toDate: new Date(to * 1000).toISOString()
       })
       
-      // Fetch deals using the user-selected row limit and current page
-      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage)
+      // Build server-side action filter for Deal/Money/Both toggle
+      const apiFilters = []
+      if (moduleFilter === 'deal') {
+        apiFilters.push({ field: 'action', operator: 'in', value: ['BUY', 'SELL'] })
+      } else if (moduleFilter === 'money') {
+        apiFilters.push({ field: 'action', operator: 'not_in', value: ['BUY', 'SELL'] })
+      }
+      const extraBody = apiFilters.length > 0 ? { filters: apiFilters } : {}
 
-      const dealsData = response.data?.deals || response.deals || []
-      const apiTotal = response.data?.total ?? response.total ?? null
+      // Fetch deals using the user-selected row limit and current page
+      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage, extraBody)
+
+      const payload = response?.data ?? response
+      const dealsData = payload?.deals || payload?.items || []
+      const apiTotal =
+        payload?.total ??
+        payload?.totalCount ??
+        payload?.total_count ??
+        payload?.count ??
+        payload?.pagination?.total ??
+        null
       const rawTotal = apiTotal != null ? Number(apiTotal) : dealsData.length
+      console.log('[LiveDealing] 📊 Fetch result:', { dealsCount: dealsData.length, total: rawTotal, page: currentPage })
       setTotalDealsCount(rawTotal)
       
       // Transform deals
@@ -711,7 +739,20 @@ const LiveDealingPage = () => {
       // Sort newest first
       transformedDeals.sort((a, b) => b.time - a.time)
 
-      setDeals(transformedDeals)
+      // On page 1: merge with existing deals (preserves WS deals + survives stale API responses)
+      // On other pages: replace (we want exactly the page contents)
+      if (currentPage === 1) {
+        setDeals(prevDeals => {
+          const apiIds = new Set(transformedDeals.map(d => d.id))
+          // Keep any existing deals that aren't in the API result (WS-added or recent)
+          const extras = prevDeals.filter(d => !apiIds.has(d.id))
+          const merged = [...transformedDeals, ...extras]
+          merged.sort((a, b) => b.time - a.time)
+          return merged.slice(0, 1000)
+        })
+      } else {
+        setDeals(transformedDeals)
+      }
 
       setLoading(false)
       setPageLoading(false)
@@ -727,7 +768,12 @@ const LiveDealingPage = () => {
   // Handle DEAL_ADDED events
   const handleDealAddedEvent = (data) => {
     setLoading(false)
-    
+
+    // Only show newly added deals when user is on page 1
+    if (currentPageRef.current !== 1) {
+      return
+    }
+
     try {
       const dealData = data.data || data
       const login = data.login || dealData.login
@@ -1132,10 +1178,6 @@ const LiveDealingPage = () => {
     }
   }
 
-  // Module filter: Deal (buy/sell) vs Money transactions (others) vs Both
-  const [moduleFilter, setModuleFilter] = useState('both') // 'deal' | 'money' | 'both'
-  const [showModuleFilter, setShowModuleFilter] = useState(false)
-  const moduleFilterRef = useRef(null)
   // Treat all trading operations (open/close/cancel/stop/tp/sl) as "deal" module
   const isTradeAction = (label) => {
     const l = String(label || '').toLowerCase()
