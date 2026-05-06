@@ -3655,7 +3655,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               {/* Search Bar — shown above table for loading / empty / data states */}
               {hasAppliedFilter && (
                 <div className="mb-4 flex items-center gap-2">
-                  <div className="relative flex-1 flex items-center border border-gray-300 rounded-full focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white" ref={dealsSearchRef}>
+                  <div className="relative flex-1 flex items-center border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white" ref={dealsSearchRef}>
                     <span className="pl-3 text-gray-400 pointer-events-none shrink-0">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -3702,7 +3702,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
                         }
                       }}
-                      className="mr-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0 rounded-xl"
+                      className="mr-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0 rounded-md"
                       title="Search"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
