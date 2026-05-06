@@ -970,7 +970,6 @@ const LiveDealingPage = () => {
 
   const handleRefresh = () => {
     console.log('[LiveDealing] 🔄 Refresh: Reloading all deals from API')
-    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage))
     if (currentPage !== 1) setCurrentPage(1)
     else fetchAllDealsOnce()
   }
@@ -1246,7 +1245,6 @@ const LiveDealingPage = () => {
 
   // Reset pagination when time filter changes
   useEffect(() => {
-    setMaxKnownPage(Math.ceil(TOTAL_DEAL_CAP / itemsPerPage))
     setCurrentPage(1)
   }, [timeFilter, appliedFromDate, appliedToDate])
 
