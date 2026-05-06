@@ -2128,6 +2128,19 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 return name.length > 0 ? `${name} - ${client.login}` : client.login
               })()}
             </h2>
+            {(() => {
+              const ts = clientData?.lastTradingDate ?? clientData?.last_trading_date
+              if (ts == null || ts === '' || Number(ts) <= 0) return null
+              const ms = Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts)
+              const d = new Date(ms)
+              if (isNaN(d.getTime())) return null
+              const formatted = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              return (
+                <p className="mt-1 inline-block text-[11px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md shadow-sm">
+                  Last Trade: {formatted}
+                </p>
+              )
+            })()}
             <div className="flex items-center gap-4 mt-2">
               {client.lastAccess && (
                 <p className="text-[11px] text-blue-100">
@@ -2626,21 +2639,13 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     <div className="divide-y divide-slate-200">
                       <div className="grid grid-cols-3 divide-x divide-slate-200 pb-2">
                         {[
-                          { label: 'Name',     value: acc.name || client?.name || '-', sub: (() => {
-                              const ts = acc.lastTradingDate ?? acc.last_trading_date
-                              if (ts == null || ts === '' || Number(ts) <= 0) return null
-                              const ms = Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts)
-                              const d = new Date(ms)
-                              if (isNaN(d.getTime())) return null
-                              return `Last Trade: ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
-                            })() },
+                          { label: 'Name',     value: acc.name || client?.name || '-' },
                           { label: 'Account',  value: `${acc.login || client?.login || '-'}` },
                           { label: 'Currency', value: currency || '-' },
-                        ].map(({ label, value, sub }, i) => (
+                        ].map(({ label, value }, i) => (
                           <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
                             <p className="text-[10px] text-slate-400 mb-1">{label}</p>
                             <p className="text-xs font-semibold text-slate-800">{value}</p>
-                            {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
                           </div>
                         ))}
                       </div>
@@ -2758,8 +2763,41 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   {/* Margin Usage */}
                   <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
                     <h3 className="text-sm font-bold text-slate-800 mb-2">Margin Usage</h3>
-                    <div className="flex-1 flex items-center justify-center">
-                      <MarginBarChart used={margin} free={marginFree}/>
+                    <div className="flex-1 flex items-center justify-center gap-3">
+                      {(() => {
+                        const usedAbs = Math.abs(margin)
+                        const freeAbs = Math.abs(marginFree)
+                        const totalMargin = usedAbs + freeAbs || 1
+                        const usedPct = parseFloat((usedAbs / totalMargin * 100).toFixed(1))
+                        const freePct = parseFloat((freeAbs / totalMargin * 100).toFixed(1))
+                        return (
+                          <>
+                            <SvgDonut
+                              size={130} sw={20}
+                              segments={[
+                                { pct: usedPct, color: '#ef4444', label: 'Used Margin', value: fmtMoney(usedAbs) },
+                                { pct: freePct, color: '#16a34a', label: 'Free Margin', value: fmtMoney(freeAbs) },
+                              ]}
+                              centerLine1={fmtMoney(usedAbs + freeAbs)}
+                              centerLine2="Total Margin"
+                            />
+                            <div className="space-y-2">
+                              {[
+                                { label: 'Used Margin', val: usedAbs, pct: usedPct, color: '#ef4444' },
+                                { label: 'Free Margin', val: freeAbs, pct: freePct, color: '#16a34a' },
+                              ].map(({ label, val, pct, color }) => (
+                                <div key={label} className="text-xs">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
+                                    <span className="text-slate-500">{label}</span>
+                                  </div>
+                                  <div className="font-semibold text-slate-700 pl-3.5">{fmtMoney(val)} <span className="text-slate-400">({pct}%)</span></div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )
+                      })()}
                     </div>
                   </div>
 
