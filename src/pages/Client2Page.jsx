@@ -199,7 +199,8 @@ const Client2Page = () => {
   const [quickFilters, setQuickFilters] = useState({
     hasFloating: false,
     hasCredit: false,
-    noDeposit: false
+    noDeposit: false,
+    accountEnabled: false
   }) // Do not persist quick filters
   
   // Networking guards for polling
@@ -970,6 +971,10 @@ const Client2Page = () => {
         // No Deposit: lifetimeDeposit == 0
         combinedFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
       }
+      if (quickFilters?.accountEnabled) {
+        // Account Enabled: accountEnabled == true
+        combinedFilters.push({ field: 'accountEnabled', operator: 'equal', value: 'true' })
+      }
       // Track fields that already have text/number filters to avoid mixing with checkbox filters for same field
       const textFilteredFields = new Set()
       const numberFilteredFields = new Set()
@@ -1126,7 +1131,7 @@ const Client2Page = () => {
       }
 
       // Check if we have any quick filters active (hasFloating, hasCredit, noDeposit)
-      const hasQuickFilters = quickFilters?.hasFloating || quickFilters?.hasCredit || quickFilters?.noDeposit
+      const hasQuickFilters = quickFilters?.hasFloating || quickFilters?.hasCredit || quickFilters?.noDeposit || quickFilters?.accountEnabled
       
       // Check if IB filter is active
       const hasIBFilter = selectedIB && Array.isArray(ibMT5Accounts) && ibMT5Accounts.length > 0
@@ -2302,6 +2307,9 @@ const Client2Page = () => {
       if (quickFilters?.noDeposit) {
         baseParams.noDeposit = true
       }
+      if (quickFilters?.accountEnabled) {
+        baseParams.accountEnabled = true
+      }
 
       // Add group filter if active
       if (activeGroup?.logins && activeGroup.logins.length > 0) {
@@ -2406,6 +2414,9 @@ const Client2Page = () => {
       }
       if (quickFilters?.noDeposit) {
         params.noDeposit = true
+      }
+      if (quickFilters?.accountEnabled) {
+        params.accountEnabled = true
       }
 
       // Add group filter if active
@@ -2521,6 +2532,9 @@ const Client2Page = () => {
       }
       if (quickFilters?.noDeposit) {
         params.noDeposit = true
+      }
+      if (quickFilters?.accountEnabled) {
+        params.accountEnabled = true
       }
 
       // Add group filter if active
@@ -3995,9 +4009,9 @@ const Client2Page = () => {
                       <path d="M4 6H12M5.5 9H10.5M7 12H9" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
                     <span className="text-xs font-medium text-[#374151]">Filter</span>
-                    {((quickFilters?.hasFloating ? 1 : 0) + (quickFilters?.hasCredit ? 1 : 0) + (quickFilters?.noDeposit ? 1 : 0)) > 0 && (
+                    {((quickFilters?.hasFloating ? 1 : 0) + (quickFilters?.hasCredit ? 1 : 0) + (quickFilters?.noDeposit ? 1 : 0) + (quickFilters?.accountEnabled ? 1 : 0)) > 0 && (
                       <span className="ml-1 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold h-4 min-w-4 px-1 leading-none">
-                        {(quickFilters?.hasFloating ? 1 : 0) + (quickFilters?.hasCredit ? 1 : 0) + (quickFilters?.noDeposit ? 1 : 0)}
+                        {(quickFilters?.hasFloating ? 1 : 0) + (quickFilters?.hasCredit ? 1 : 0) + (quickFilters?.noDeposit ? 1 : 0) + (quickFilters?.accountEnabled ? 1 : 0)}
                       </span>
                     )}
                   </button>
@@ -4057,6 +4071,23 @@ const Client2Page = () => {
                               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                             />
                             <span className="text-sm text-[#374151]">No Deposit</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded-md transition-all">
+                            <input
+                              type="checkbox"
+                              checked={quickFilters.accountEnabled}
+                              onChange={(e) => {
+                                // Invalidate any in-flight requests from previous filter state
+                                requestIdRef.current++
+                                setQuickFilters(prev => ({
+                                  ...prev,
+                                  accountEnabled: e.target.checked
+                                }))
+                                setCurrentPage(1)
+                              }}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-[#374151]">Account Enabled</span>
                           </label>
                         </div>
                       </div>

@@ -105,7 +105,6 @@ const LiveDealingPage = () => {
   // Search states
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(false)
   const searchRef = useRef(null)
 
   // Persist recent WebSocket deals across refresh
@@ -399,11 +398,26 @@ const LiveDealingPage = () => {
     if (!customFilterColumn || !customFilterValue1) return
 
     const isTextColumn = ['login', 'symbol', 'action', 'reason', 'entry'].includes(customFilterColumn)
-    
+    const isTimeColumn = customFilterColumn === 'time'
+
+    let val1, val2
+    if (isTimeColumn) {
+      // Values are already unix timestamps (set in onChange), pass through numerically
+      val1 = customFilterValue1 ? Number(customFilterValue1) : NaN
+      val2 = customFilterValue2 ? Number(customFilterValue2) : null
+      if (isNaN(val1)) return
+    } else if (isTextColumn) {
+      val1 = customFilterValue1
+      val2 = customFilterValue2 || null
+    } else {
+      val1 = parseFloat(customFilterValue1)
+      val2 = customFilterValue2 ? parseFloat(customFilterValue2) : null
+    }
+
     const filterConfig = {
       type: customFilterType,
-      value1: isTextColumn ? customFilterValue1 : parseFloat(customFilterValue1),
-      value2: customFilterValue2 ? (isTextColumn ? customFilterValue2 : parseFloat(customFilterValue2)) : null,
+      value1: val1,
+      value2: val2,
       operator: customFilterOperator,
       isText: isTextColumn
     }
@@ -495,12 +509,6 @@ const LiveDealingPage = () => {
     fetchRef.current = fetchAllDealsOnce
   })
 
-  // Debounce free-text search to avoid an API hit per keystroke
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 350)
-    return () => clearTimeout(t)
-  }, [searchQuery])
-
   // Keep currentPageRef in sync so WS handlers can check the latest page
   useEffect(() => {
     currentPageRef.current = currentPage
@@ -550,20 +558,6 @@ const LiveDealingPage = () => {
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showFilterMenu, showColumnSelector, showDisplayMenu])
-  
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setShowSuggestions(false)
-      }
-    }
-    
-    if (showSuggestions) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showSuggestions])
 
   useEffect(() => {
     // Skip entirely when the mobile view is active — LiveDealingModule handles its own fetch
@@ -596,15 +590,7 @@ const LiveDealingPage = () => {
     const unsubscribeDealDeleted = websocketService.subscribe('DEAL_DELETED', handleDealDeleteEvent)
     const unsubscribeDealDelete = websocketService.subscribe('DEAL_DELETE', handleDealDeleteEvent)
 
-    // Refresh every minute so the 24h window slides forward in time
-    const timeWindowInterval = setInterval(() => {
-      if (!isMobile && hasInitialLoad.current && fetchRef.current) {
-        fetchRef.current()
-      }
-    }, 60000)
-
     return () => {
-      clearInterval(timeWindowInterval)
       unsubscribeConnectionState()
       unsubscribeDealAdded()
       unsubscribeDealCreated()
@@ -759,8 +745,11 @@ const LiveDealingPage = () => {
         sortBy: sortByField,
         sortOrder: sortOrderValue,
       }
+      // Push symbol contains filter from search bar
+      if (trimmedSearch) {
+        apiFilters.push({ field: 'symbol', operator: 'contains', value: trimmedSearch })
+      }
       if (apiFilters.length > 0) extraBody.filters = apiFilters
-      if (trimmedSearch) extraBody.search = trimmedSearch
 
       // Fetch deals using the user-selected row limit and current page
       const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage, extraBody)
@@ -792,9 +781,13 @@ const LiveDealingPage = () => {
       // Sort newest first
       transformedDeals.sort((a, b) => b.time - a.time)
 
-      // On page 1: merge with existing deals (preserves WS deals + survives stale API responses)
-      // On other pages: replace (we want exactly the page contents)
-      if (currentPage === 1) {
+      // On page 1 with no active filters/search: merge with existing deals (preserves WS deals).
+      // Otherwise: replace, since merging would mix in stale rows that don't match the active filters.
+      const hasActiveFilters =
+        (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) ||
+        moduleFilter !== 'both' ||
+        Object.keys(columnFilters || {}).length > 0
+      if (currentPage === 1 && !hasActiveFilters) {
         setDeals(prevDeals => {
           const apiIds = new Set(transformedDeals.map(d => d.id))
           // Keep any existing deals that aren't in the API result (WS-added or recent)
@@ -1002,16 +995,17 @@ const LiveDealingPage = () => {
     if (num === null || num === undefined || num === '') return '-'
     const number = typeof num === 'string' ? parseFloat(num) : num
     if (isNaN(number)) return '-'
-    
-    const fixed = number.toFixed(decimals)
+
+    const sign = number < 0 ? '-' : ''
+    const fixed = Math.abs(number).toFixed(decimals)
     const [integer, decimal] = fixed.split('.')
-    
+
     // Indian number system: last 3 digits, then groups of 2
     const lastThree = integer.slice(-3)
     const otherNumbers = integer.slice(0, -3)
     const formatted = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + (otherNumbers ? ',' : '') + lastThree
-    
-    return decimal ? `${formatted}.${decimal}` : formatted
+
+    return decimal ? `${sign}${formatted}.${decimal}` : `${sign}${formatted}`
   }
 
   // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
@@ -1218,17 +1212,15 @@ const LiveDealingPage = () => {
     })
   }
   
-  const handleSuggestionClick = (suggestion) => {
-    // Extract the value after the colon
-    const value = suggestion.split(': ')[1]
-    setSearchQuery(value)
-    setShowSuggestions(false)
-  }
-  
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
-      setShowSuggestions(false)
+      e.preventDefault()
+      setDebouncedSearchQuery(searchQuery)
     }
+  }
+
+  const triggerSearch = () => {
+    setDebouncedSearchQuery(searchQuery)
   }
 
   // Treat all trading operations (open/close/cancel/stop/tp/sl) as "deal" module
@@ -1261,36 +1253,7 @@ const LiveDealingPage = () => {
   let ibFilteredDeals = filterByActiveGroup(trimmedDeals, 'login', 'livedealing')
 
   const sortedDeals = ibFilteredDeals
-  
-  // Get search suggestions from current deals
-  const getSuggestions = () => {
-    if (!searchQuery.trim() || searchQuery.length < 1) {
-      return []
-    }
-    
-    const query = searchQuery.toLowerCase().trim()
-    const suggestions = new Set()
-    
-    // Get unique values from current deals
-    sortedDeals.forEach(deal => {
-      const login = String(deal.login || '')
-      const symbol = String(deal.rawData?.symbol || '')
-      const dealId = String(deal.id || '')
-      
-      if (login.toLowerCase().includes(query)) {
-        suggestions.add(`Login: ${login}`)
-      }
-      if (symbol.toLowerCase().includes(query) && symbol) {
-        suggestions.add(`Symbol: ${symbol}`)
-      }
-      if (dealId.toLowerCase().includes(query)) {
-        suggestions.add(`Deal: ${dealId}`)
-      }
-    })
-    
-    return Array.from(suggestions).slice(0, 10)
-  }
-  
+
   // Server-side pagination capped at 1000 records total
   const totalPages = Math.ceil(totalDealsCount / itemsPerPage) || 1
   const displayedDeals = sortedDeals
@@ -1517,7 +1480,7 @@ const LiveDealingPage = () => {
                       <input
                         type={columnKey === 'time' ? 'date' : 'number'}
                         step={columnKey === 'time' ? undefined : 'any'}
-                        placeholder={columnKey === 'time' ? 'Select date' : 'Enter value'}
+                        placeholder={columnKey === 'time' ? 'dd/mm/yyyy' : 'Enter value'}
                         value={columnKey === 'time' && customFilterValue1 ?
                           (() => {
                             const timestamp = Number(customFilterValue1)
@@ -1531,7 +1494,6 @@ const LiveDealingPage = () => {
                           setCustomFilterColumn(columnKey)
                           if (columnKey === 'time') {
                             const dateValue = e.target.value
-                            // Use start-of-day timestamp for the selected date
                             setCustomFilterValue1(dateValue ? String(Math.floor(new Date(dateValue + 'T00:00:00').getTime() / 1000)) : '')
                           } else {
                             setCustomFilterValue1(e.target.value)
@@ -1555,7 +1517,7 @@ const LiveDealingPage = () => {
                         <input
                           type={columnKey === 'time' ? 'date' : 'number'}
                           step={columnKey === 'time' ? undefined : 'any'}
-                          placeholder={columnKey === 'time' ? 'Select date' : 'Enter value'}
+                          placeholder={columnKey === 'time' ? 'dd/mm/yyyy' : 'Enter value'}
                           value={columnKey === 'time' && customFilterValue2 ?
                             (() => {
                               const timestamp = Number(customFilterValue2)
@@ -1569,7 +1531,6 @@ const LiveDealingPage = () => {
                             setCustomFilterColumn(columnKey)
                             if (columnKey === 'time') {
                               const dateValue = e.target.value
-                              // Use end-of-day timestamp for the "to" date in between filter
                               setCustomFilterValue2(dateValue ? String(Math.floor(new Date(dateValue + 'T23:59:59').getTime() / 1000)) : '')
                             } else {
                               setCustomFilterValue2(e.target.value)
@@ -1919,7 +1880,7 @@ const LiveDealingPage = () => {
                 <div className="flex items-center gap-2 flex-1">
                   {/* Search Bar */}
                   <div className="relative flex-1 max-w-md" ref={searchRef}>
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4B5563]" fill="none" viewBox="0 0 18 18">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF] pointer-events-none" fill="none" viewBox="0 0 18 18">
                       <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
                       <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
@@ -1928,21 +1889,20 @@ const LiveDealingPage = () => {
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value)
-                        setShowSuggestions(true)
                         setCurrentPage(1)
                       }}
-                      onFocus={() => setShowSuggestions(true)}
                       onKeyDown={handleSearchKeyDown}
-                      placeholder="Search"
-                      className="w-full h-10 pl-10 pr-10 text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="Search by symbol"
+                      className="w-full h-10 pl-10 pr-24 text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     />
                     {searchQuery && (
                       <button
+                        type="button"
                         onClick={() => {
                           setSearchQuery('')
-                          setShowSuggestions(false)
+                          setDebouncedSearchQuery('')
                         }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#4B5563] transition-colors"
+                        className="absolute right-12 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#4B5563] transition-colors"
                         title="Clear search"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1950,21 +1910,17 @@ const LiveDealingPage = () => {
                         </svg>
                       </button>
                     )}
-                    
-                    {/* Suggestions Dropdown */}
-                    {showSuggestions && getSuggestions().length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-1 z-50 max-h-60 overflow-y-auto">
-                        {getSuggestions().map((suggestion, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSuggestionClick(suggestion)}
-                            className="w-full text-left px-3 py-2 text-sm text-[#374151] hover:bg-blue-50 transition-colors"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={triggerSearch}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors shadow-sm"
+                      title="Search"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 18 18">
+                        <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </button>
                   </div>
 
                   {/* Columns Button */}

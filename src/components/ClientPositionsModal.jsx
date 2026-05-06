@@ -338,8 +338,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [positionsSortDirection, setPositionsSortDirection] = useState('asc')
 
   // Sorting states for deals
-  const [dealsSortColumn, setDealsSortColumn] = useState(null)
-  const [dealsSortDirection, setDealsSortDirection] = useState('asc')
+  const [dealsSortColumn, setDealsSortColumn] = useState('time')
+  const [dealsSortDirection, setDealsSortDirection] = useState('desc')
 
   // Deal stats (aggregated) for face cards
   const [dealStats, setDealStats] = useState(null)
@@ -984,9 +984,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       // searchOverride allows callers to pass an explicit query (including '') to bypass stale closure state
       const activeSearch = searchOverride !== undefined ? searchOverride : dealsSearchQuery
 
-      // Always use the current moment as `to` (+ 2h buffer for server timezone)
-      const latestTo = Math.floor(Date.now() / 1000) + (2 * 60 * 60)
-      const effectiveTo = toTimestamp > latestTo ? toTimestamp : latestTo
+      const effectiveTo = toTimestamp
 
       // Build filters array from column filters
       const apiFilters = []
@@ -1458,33 +1456,33 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     
     switch (preset) {
       case 'today':
-        fromDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        // Last 24 hours: from now-24h to now
+        fromDateObj = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
       case 'last3days':
-        fromDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3, 0, 0, 0)
-        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        fromDateObj = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
       case 'lastweek':
-        fromDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0)
-        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        fromDateObj = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
       case 'lastmonth':
-        fromDateObj = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), 0, 0, 0)
-        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        fromDateObj = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
       case 'last3months':
-        fromDateObj = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate(), 0, 0, 0)
-        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        fromDateObj = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
       case 'last6months':
-        fromDateObj = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate(), 0, 0, 0)
-        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        fromDateObj = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
       case 'allhistory':
-        // Set from date to 2 years ago for "all history"
         fromDateObj = new Date(now.getFullYear() - 2, 0, 1, 0, 0, 0)
-        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        toDateObj = now
         break
       default:
         return
@@ -3711,7 +3709,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               {/* Search Bar — shown above table for loading / empty / data states */}
               {hasAppliedFilter && (
                 <div className="mb-4 flex items-center gap-2">
-                  <div className="relative flex-1 flex items-center border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white" ref={dealsSearchRef}>
+                  <div className="relative w-96 flex items-center border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white" ref={dealsSearchRef}>
                     <span className="pl-3 text-gray-400 pointer-events-none shrink-0">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -3730,7 +3728,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           }
                         }
                       }}
-                      placeholder="Search Deals by symbol..."
+                      placeholder="Search by symbol..."
                       className="flex-1 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 outline-none bg-transparent"
                     />
                     {dealsInputValue && (
@@ -3765,9 +3763,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </button>
-                  </div>
-                  <div className="text-sm text-gray-600 whitespace-nowrap">
-                    {displayedDeals.length} of {totalDealsCount} deals
                   </div>
                 </div>
               )}
@@ -3883,49 +3878,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                                 <div className="flex items-center gap-1.5">
                                   Time
                                   <SortIcon column="time" currentColumn={dealsSortColumn} direction={dealsSortDirection} />
-                                  <div className="relative" ref={el => dealsFilterRefs.current['time'] = el}>
-                              <button
-                                onClick={() => setShowDealsFilterDropdown(showDealsFilterDropdown === 'time' ? null : 'time')}
-                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveDealsFilterCount('time') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
-                                title="Filter"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                              </button>
-                              {getActiveDealsFilterCount('time') > 0 && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
-                                  {getActiveDealsFilterCount('time')}
-                                </span>
-                              )}
-                              {showDealsFilterDropdown === 'time' && (
-                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-40 overflow-y-auto">
-                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-gray-700">Filter by Time</span>
-                                    {getActiveDealsFilterCount('time') > 0 && (
-                                      <button
-                                        onClick={() => clearDealsColumnFilter('time')}
-                                        className="text-xs text-blue-600 hover:text-blue-800"
-                                      >
-                                        Clear
-                                      </button>
-                                    )}
-                                  </div>
-                                  {getUniqueDealsColumnValues('time').map(value => (
-                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={dealsColumnFilters.time?.includes(value) || false}
-                                        onChange={() => toggleDealsColumnFilter('time', value)}
-                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      />
-                                      <span className="text-xs text-gray-700">{value}</span>
-                                    </label>
-                                  ))}
                                 </div>
-                              )}
-                            </div>
-                          </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"
                             onMouseDown={(e) => handleDealsResizeStart(e, 'time')}
@@ -3981,48 +3934,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <div className="flex items-center gap-1.5">
                             Symbol
                             <SortIcon column="symbol" currentColumn={dealsSortColumn} direction={dealsSortDirection} />
-                            <div className="relative" ref={el => dealsFilterRefs.current['symbol'] = el}>
-                              <button
-                                onClick={() => setShowDealsFilterDropdown(showDealsFilterDropdown === 'symbol' ? null : 'symbol')}
-                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveDealsFilterCount('symbol') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
-                                title="Filter"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                              </button>
-                              {getActiveDealsFilterCount('symbol') > 0 && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
-                                  {getActiveDealsFilterCount('symbol')}
-                                </span>
-                              )}
-                              {showDealsFilterDropdown === 'symbol' && (
-                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-40 overflow-y-auto">
-                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-gray-700">Filter by Symbol</span>
-                                    {getActiveDealsFilterCount('symbol') > 0 && (
-                                      <button
-                                        onClick={() => clearDealsColumnFilter('symbol')}
-                                        className="text-xs text-blue-600 hover:text-blue-800"
-                                      >
-                                        Clear
-                                      </button>
-                                    )}
-                                  </div>
-                                  {getUniqueDealsColumnValues('symbol').map(value => (
-                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={dealsColumnFilters.symbol?.includes(value) || false}
-                                        onChange={() => toggleDealsColumnFilter('symbol', value)}
-                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      />
-                                      <span className="text-xs text-gray-700">{value}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
                           </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"
@@ -4037,48 +3948,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <div className="flex items-center gap-1.5">
                             Action
                             <SortIcon column="action" currentColumn={dealsSortColumn} direction={dealsSortDirection} />
-                            <div className="relative" ref={el => dealsFilterRefs.current['action'] = el}>
-                              <button
-                                onClick={() => setShowDealsFilterDropdown(showDealsFilterDropdown === 'action' ? null : 'action')}
-                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveDealsFilterCount('action') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
-                                title="Filter"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                              </button>
-                              {getActiveDealsFilterCount('action') > 0 && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
-                                  {getActiveDealsFilterCount('action')}
-                                </span>
-                              )}
-                              {showDealsFilterDropdown === 'action' && (
-                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-40 overflow-y-auto">
-                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-gray-700">Filter by Action</span>
-                                    {getActiveDealsFilterCount('action') > 0 && (
-                                      <button
-                                        onClick={() => clearDealsColumnFilter('action')}
-                                        className="text-xs text-blue-600 hover:text-blue-800"
-                                      >
-                                        Clear
-                                      </button>
-                                    )}
-                                  </div>
-                                  {getUniqueDealsColumnValues('action').map(value => (
-                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={dealsColumnFilters.action?.includes(value) || false}
-                                        onChange={() => toggleDealsColumnFilter('action', value)}
-                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      />
-                                      <span className="text-xs text-gray-700">{value}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
                           </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"
