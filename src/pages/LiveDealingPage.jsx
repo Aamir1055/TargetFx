@@ -273,7 +273,7 @@ const LiveDealingPage = () => {
   const isMountedRef = useRef(true)
   
   // Define string columns that should show text filters instead of number filters
-  const stringColumns = ['symbol', 'action', 'reason', 'entry']
+  const stringColumns = ['symbol', 'action', 'reason', 'entry', 'name']
   const isStringColumn = (key) => stringColumns.includes(key)
   
   // Custom filter modal states
@@ -397,7 +397,7 @@ const LiveDealingPage = () => {
   const applyCustomNumberFilter = () => {
     if (!customFilterColumn || !customFilterValue1) return
 
-    const isTextColumn = ['login', 'symbol', 'action', 'reason', 'entry'].includes(customFilterColumn)
+    const isTextColumn = ['login', 'symbol', 'action', 'reason', 'entry', 'name'].includes(customFilterColumn)
     const isTimeColumn = customFilterColumn === 'time'
 
     let val1, val2

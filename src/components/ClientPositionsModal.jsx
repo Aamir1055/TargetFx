@@ -1000,8 +1000,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       })
 
       // Map sort column to API field name
-      const sortFieldMap = { time: 'deal_time', deal: 'deal', order: 'order', position: 'position', symbol: 'symbol', action: 'action', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage', comment: 'comment' }
-      const apiSortBy = sortFieldMap[dealsSortColumn] || dealsSortColumn || 'deal_time'
+      const sortFieldMap = { time: 'time', deal: 'deal', order: 'order', position: 'position', symbol: 'symbol', action: 'action', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage', comment: 'comment' }
+      const apiSortBy = sortFieldMap[dealsSortColumn] || dealsSortColumn || 'time'
       const apiSortOrder = dealsSortDirection || 'desc'
 
       const body = {
