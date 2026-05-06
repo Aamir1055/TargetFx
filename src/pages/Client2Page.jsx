@@ -4758,8 +4758,8 @@ const Client2Page = () => {
                               <div className="flex items-center gap-2 justify-between min-w-0">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <div
-                                    className={`flex items-center gap-1 flex-1 ${(col.key === 'tradingEnabled' || col.key === 'accountEnabled') ? 'cursor-default' : isSorting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-                                    onClick={() => (col.key !== 'tradingEnabled' && col.key !== 'accountEnabled') && handleSort(col.key)}
+                                    className={`flex items-center gap-1 flex-1 ${isSorting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                                    onClick={() => handleSort(col.key)}
                                   >
                                     <span
                                       className="truncate"
@@ -4784,7 +4784,7 @@ const Client2Page = () => {
                                 )}
 
                                 {/* Filter Icon - Just icon, no box */}
-                                {(col.key !== 'tradingEnabled' && col.key !== 'accountEnabled') && <div className="relative" ref={el => {
+                                <div className="relative" ref={el => {
                                   if (!filterRefs.current) filterRefs.current = {}
                                   filterRefs.current[col.key] = el
                                 }}>
@@ -5447,7 +5447,7 @@ const Client2Page = () => {
                                       document.body
                                     )
                                   })()}
-                                </div>}
+                                </div>
                               </div>
                               {/* Column Resizer Handle - Excel-like */}
                               <div

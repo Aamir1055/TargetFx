@@ -492,7 +492,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         // the overview API returns directly on data rather than inside account
         const topLevelStats = {}
         const statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
-                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
+                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss',
+                          'lastTradingDate','last_trading_date']
         statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
         if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
           setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
@@ -550,7 +551,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         const account = data?.account ?? data?.client ?? data?.info ?? {}
         const topLevelStats = {}
         const statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
-                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
+                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss',
+                          'lastTradingDate','last_trading_date']
         statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
         if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
           setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
@@ -893,7 +895,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       const account = data?.account ?? data?.client ?? data?.info ?? {}
       const topLevelStats = {}
       const _statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
-                         'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
+                         'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss',
+                         'lastTradingDate','last_trading_date']
       _statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
       if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
         setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
@@ -1028,7 +1031,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       const account = data?.account ?? data?.client ?? data?.info ?? {}
       const topLevelStats = {}
       const _statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
-                         'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
+                         'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss',
+                         'lastTradingDate','last_trading_date']
       _statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
       if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
         setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
@@ -2457,11 +2461,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             const credit    = parseFloat(acc.credit    || 0)
             const floating  = parseFloat(acc.profit    || acc.floating || 0)
             const marginLevel = parseFloat(acc.margin_level ?? acc.marginLevel ?? 0)
-            const commission  = parseFloat(acc.commission  || 0)
+            const ds = dealStats || {}
+            const commission  = parseFloat(acc.commission ?? acc.total_commission ?? acc.totalCommission ?? ds.commission ?? ds.total_commission ?? ds.totalCommission ?? 0)
             const margin      = parseFloat(acc.margin ?? acc.used_margin ?? acc.usedMargin ?? 0)
             const marginFree  = parseFloat(acc.margin_free ?? acc.marginFree ?? acc.free_margin ?? acc.freeMargin ?? 0)
             const currency    = acc.currency || client?.currency || ''
-            const ds = dealStats || {}
             const buyVol          = parseFloat(ds.buyVolume         ?? ds.buy_volume          ?? 0)
             const sellVol         = parseFloat(ds.sellVolume        ?? ds.sell_volume         ?? 0)
             const totalVolume     = buyVol + sellVol
@@ -2488,9 +2492,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             const MarginBarChart = ({ used, free }) => {
               const [hoveredBar, setHoveredBar] = useState(null) // 'used' | 'free' | null
               const maxVal = Math.max(Math.abs(used), Math.abs(free), 1)
-              const w = 160, h = 90, barW = 38, midY = h / 2
-              const usedH = (Math.abs(used) / maxVal) * (midY - 16)
-              const freeH = (Math.abs(free) / maxVal) * (midY - 16)
+              const w = 210, h = 130, barW = 48, midY = h / 2
+              const usedH = (Math.abs(used) / maxVal) * (midY - 20)
+              const freeH = (Math.abs(free) / maxVal) * (midY - 20)
               const fmtV = v => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0)
               const ticks = [-maxVal * 0.75, -maxVal * 0.5, -maxVal * 0.25, 0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75]
 
@@ -2507,11 +2511,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="w-full">
                     {/* grid lines */}
                     {ticks.map((v, i) => {
-                      const y = midY - (v / maxVal) * (midY - 16)
-                      return <line key={i} x1="30" x2={w - 10} y1={y} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
+                      const y = midY - (v / maxVal) * (midY - 20)
+                      return <line key={i} x1="34" x2={w - 10} y1={y} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
                     })}
                     {/* zero line */}
-                    <line x1="30" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
+                    <line x1="34" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
                     {/* Used Margin bar — goes DOWN (negative) */}
                     <rect
                       x={usedX} y={midY} width={barW} height={usedH}
@@ -2529,21 +2533,21 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       onMouseLeave={() => setHoveredBar(null)}
                     />
                     {/* value labels */}
-                    <text x={w/2 - barW/2 - 4} y={midY + usedH + 9} textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
-                    <text x={w/2 + barW/2 + 4} y={midY - freeH - 4} textAnchor="middle" fontSize="7" fill="#16a34a" fontWeight="600">{fmtV(free)}</text>
+                    <text x={w/2 - barW/2 - 4} y={midY + usedH + 11} textAnchor="middle" fontSize="9" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
+                    <text x={w/2 + barW/2 + 4} y={midY - freeH - 5} textAnchor="middle" fontSize="9" fill="#16a34a" fontWeight="600">{fmtV(free)}</text>
                     {/* Y axis ticks */}
                     {[0.5, 0, -0.5].map((f, i) => {
-                      const y = midY - f * (midY - 16)
+                      const y = midY - f * (midY - 20)
                       const v = f * maxVal
-                      return <text key={i} x="26" y={y + 3} textAnchor="end" fontSize="6.5" fill="#94a3b8">{fmtV(v)}</text>
+                      return <text key={i} x="30" y={y + 3} textAnchor="end" fontSize="8" fill="#94a3b8">{fmtV(v)}</text>
                     })}
                     {/* X axis labels */}
-                    <text x={w/2 - barW/2 - 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Used Margin</text>
-                    <text x={w/2 + barW/2 + 4} y={h - 2} textAnchor="middle" fontSize="7" fill="#64748b">Free Margin</text>
+                    <text x={w/2 - barW/2 - 4} y={h - 3} textAnchor="middle" fontSize="9" fill="#64748b">Used Margin</text>
+                    <text x={w/2 + barW/2 + 4} y={h - 3} textAnchor="middle" fontSize="9" fill="#64748b">Free Margin</text>
                   </svg>
                   {tooltip && (
                     <div
-                      className="absolute pointer-events-none bg-slate-900/95 text-white rounded-md px-2 py-1 shadow-lg border border-slate-700 z-20"
+                      className="absolute pointer-events-none bg-white text-slate-800 rounded-md px-2 py-1 shadow-lg border border-slate-200 z-20"
                       style={{
                         left: `${(tooltip.x / w) * 100}%`,
                         top: hoveredBar === 'used' ? `${(tooltip.y / h) * 100}%` : 'auto',
@@ -2600,20 +2604,28 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     <div className="divide-y divide-slate-200">
                       <div className="grid grid-cols-3 divide-x divide-slate-200 pb-2">
                         {[
-                          { label: 'Name',     value: acc.name || client?.name || '-' },
+                          { label: 'Name',     value: acc.name || client?.name || '-', sub: (() => {
+                              const ts = acc.lastTradingDate ?? acc.last_trading_date
+                              if (ts == null || ts === '' || Number(ts) <= 0) return null
+                              const ms = Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts)
+                              const d = new Date(ms)
+                              if (isNaN(d.getTime())) return null
+                              return `Last Trade: ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                            })() },
                           { label: 'Account',  value: `${acc.login || client?.login || '-'}` },
                           { label: 'Currency', value: currency || '-' },
-                        ].map(({ label, value }, i) => (
+                        ].map(({ label, value, sub }, i) => (
                           <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
                             <p className="text-[10px] text-slate-400 mb-1">{label}</p>
                             <p className="text-xs font-semibold text-slate-800">{value}</p>
+                            {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
                           </div>
                         ))}
                       </div>
                       <div className="grid grid-cols-3 divide-x divide-slate-200 pt-2">
                         {[
                           { label: 'Equity',           value: fmtMoney(equity),                                       color: 'text-blue-600' },
-                          { label: 'Margin Level',     value: marginLevel > 0 ? `${marginLevel.toFixed(0)}%` : '-',   color: marginLevel > 0 && marginLevel < 50 ? 'text-red-500' : 'text-green-600' },
+                          { label: 'Margin Level',     value: marginLevel > 0 ? String(marginLevel) : '-',   color: marginLevel > 0 && marginLevel < 50 ? 'text-red-500' : 'text-green-600' },
                           { label: 'Total Commission', value: fmtMoney(commission),                                    color: 'text-blue-600' },
                         ].map(({ label, value, color }, i) => (
                           <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
@@ -2663,7 +2675,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 {/* -- Row 2: Profit Trend | Volume Overview | Margin Usage | Deals Summary -- */}
                 <div className="grid grid-cols-4 gap-2">
                   {/* Profit Trend */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-bold text-slate-800">Profit Trend</h3>
                       <select value={trendRange} onChange={e => setTrendRange(e.target.value)}
@@ -2672,29 +2684,31 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         <option value="30d">30 Days</option>
                       </select>
                     </div>
-                    <div className="h-[80px]">
-                      {trendLoading
-                        ? <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"/></div>
-                        : <ProfitTrendChart data={profitTrend} w={220} h={80}/>
-                      }
-                    </div>
-                    {profitTrend.length > 0 && (
-                      <div className="flex justify-between text-[10px] text-slate-400 mt-2 pl-10 pr-1">
-                        {(() => {
-                          const n = profitTrend.length
-                          const indices = n <= 3 ? profitTrend.map((_, i) => i) : [0, Math.floor(n / 2), n - 1]
-                          return indices.map(i => <span key={i}>{profitTrend[i].label}</span>)
-                        })()}
+                    <div className="flex-1 flex flex-col justify-center">
+                      <div className="h-[130px]">
+                        {trendLoading
+                          ? <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"/></div>
+                          : <ProfitTrendChart data={profitTrend} w={260} h={130}/>
+                        }
                       </div>
-                    )}
+                      {profitTrend.length > 0 && (
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-2 pl-10 pr-1">
+                          {(() => {
+                            const n = profitTrend.length
+                            const indices = n <= 3 ? profitTrend.map((_, i) => i) : [0, Math.floor(n / 2), n - 1]
+                            return indices.map(i => <span key={i}>{profitTrend[i].label}</span>)
+                          })()}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Volume Overview */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
                     <h3 className="text-sm font-bold text-slate-800 mb-2">Volume Overview</h3>
-                    <div className="flex items-center justify-center gap-3">
+                    <div className="flex-1 flex items-center justify-center gap-3">
                       <SvgDonut
-                        size={108} sw={18}
+                        size={130} sw={20}
                         segments={[
                           { pct: buyPct,  color: '#2563eb', label: 'Buy Volume',  value: fmtMoney(buyVol) },
                           { pct: sellPct, color: '#ef4444', label: 'Sell Volume', value: fmtMoney(sellVol) },
@@ -2720,19 +2734,19 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   </div>
 
                   {/* Margin Usage */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
                     <h3 className="text-sm font-bold text-slate-800 mb-2">Margin Usage</h3>
-                    <div className="flex justify-center">
+                    <div className="flex-1 flex items-center justify-center">
                       <MarginBarChart used={margin} free={marginFree}/>
                     </div>
                   </div>
 
                   {/* Deals Summary */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
                     <h3 className="text-sm font-bold text-slate-800 mb-2">Deals Summary</h3>
-                    <div className="flex items-center justify-center gap-3">
+                    <div className="flex-1 flex items-center justify-center gap-3">
                       <SvgDonut
-                        size={108} sw={18}
+                        size={130} sw={20}
                         segments={[
                           { pct: parseFloat(winRate.toFixed(1)),  color: '#22c55e', label: 'Profitable Deals', value: `${profDeals} deals` },
                           { pct: parseFloat(lossRate.toFixed(1)), color: '#ef4444', label: 'Losing Deals',     value: `${loseDeals} deals` },
@@ -4375,7 +4389,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   { label: 'Equity',       value: fmtMoney(equity),      labelClass: 'text-green-700',  accent: 'border-green-300'  },
                   { label: 'Margin',       value: fmtMoney(marginUsed),  labelClass: 'text-orange-700', accent: 'border-orange-300' },
                   { label: 'Free Margin',  value: fmtMoney(marginFreeVal), labelClass: 'text-teal-700', accent: 'border-teal-300'   },
-                  { label: 'Margin Level', value: marginLvl ? `${marginLvl.toFixed(2)}%` : '-', labelClass: marginLvl > 0 && marginLvl < 100 ? 'text-red-700' : 'text-blue-700', accent: marginLvl > 0 && marginLvl < 100 ? 'border-red-400' : 'border-blue-300' },
+                  { label: 'Margin Level', value: marginLvl ? String(marginLvl) : '-', labelClass: marginLvl > 0 && marginLvl < 100 ? 'text-red-700' : 'text-blue-700', accent: marginLvl > 0 && marginLvl < 100 ? 'border-red-400' : 'border-blue-300' },
                 ]
 
                 const row1 = summaryRow
