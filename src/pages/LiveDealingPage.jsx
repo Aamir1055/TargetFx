@@ -490,7 +490,7 @@ const LiveDealingPage = () => {
       console.log('[LiveDealing] ⏰ Time filter or page changed:', timeFilter, currentPage, itemsPerPage)
       fetchAllDealsOnce()
     }
-  }, [timeFilter, appliedFromDate, appliedToDate, currentPage, itemsPerPage])
+  }, [timeFilter, appliedFromDate, appliedToDate, currentPage, itemsPerPage, columnFilters, sortColumn, sortDirection])
   
   // Close filter menu when clicking outside
   useEffect(() => {
@@ -662,7 +662,43 @@ const LiveDealingPage = () => {
         from = to - window
       }
 
-      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage)
+      // Build column filters for API
+      const apiFilters = []
+      Object.entries(columnFilters).forEach(([key, values]) => {
+        if (key.endsWith('_custom')) {
+          // Custom text/number filter
+          const field = key.replace('_custom', '')
+          const cfg = values
+          if (!cfg) return
+          if (cfg.isText) {
+            const opMap = { equal: 'equal', notEqual: 'not_equal', contains: 'contains', startsWith: 'starts_with', endsWith: 'ends_with' }
+            apiFilters.push({ field, operator: opMap[cfg.type] || cfg.type, value: cfg.value1 })
+          } else {
+            const opMap = { equal: 'equal', notEqual: 'not_equal', lessThan: 'less_than', greaterThan: 'greater_than', between: 'between' }
+            if (cfg.type === 'between' && cfg.value2 != null) {
+              apiFilters.push({ field, operator: 'greater_than_equal', value: cfg.value1 })
+              apiFilters.push({ field, operator: 'less_than_equal', value: cfg.value2 })
+            } else {
+              apiFilters.push({ field, operator: opMap[cfg.type] || cfg.type, value: cfg.value1 })
+            }
+          }
+        } else if (Array.isArray(values) && values.length > 0) {
+          // Checkbox filter — map UI column key to API field
+          const fieldMap = { deal: 'deal', login: 'login', action: 'action', symbol: 'symbol', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage' }
+          const field = fieldMap[key] || key
+          apiFilters.push({ field, operator: 'in', value: values })
+        }
+      })
+
+      // Map sort column to API field name
+      const sortFieldMap = { time: 'deal_time', deal: 'deal', login: 'login', action: 'action', symbol: 'symbol', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage' }
+      const apiSortBy = sortFieldMap[sortColumn] || sortColumn || 'deal_time'
+      const apiSortOrder = sortDirection || 'desc'
+
+      const extraBody = { sortBy: apiSortBy, sortOrder: apiSortOrder }
+      if (apiFilters.length > 0) extraBody.filters = apiFilters
+
+      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage, extraBody)
 
       const dealsData = response.data?.deals || response.deals || []
 

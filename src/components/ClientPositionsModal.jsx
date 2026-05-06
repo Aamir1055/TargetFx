@@ -984,20 +984,38 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       // searchOverride allows callers to pass an explicit query (including '') to bypass stale closure state
       const activeSearch = searchOverride !== undefined ? searchOverride : dealsSearchQuery
 
-      // Always use the current moment as `to` (+ 2h buffer for server timezone) for non-custom date ranges
+      // Always use the current moment as `to` (+ 2h buffer for server timezone)
       const latestTo = Math.floor(Date.now() / 1000) + (2 * 60 * 60)
       const effectiveTo = toTimestamp > latestTo ? toTimestamp : latestTo
 
-      // Always use POST /api/broker/clients/{login}/deals/search
+      // Build filters array from column filters
+      const apiFilters = []
+      Object.entries(dealsColumnFilters || {}).forEach(([field, values]) => {
+        if (!values || values.length === 0) return
+        if (field === 'action') {
+          apiFilters.push({ field: 'action', operator: 'in', value: values.map(actionLabelToServer) })
+        } else if (field === 'time') {
+          // time filter is client-side only
+        } else {
+          apiFilters.push({ field, operator: 'in', value: values })
+        }
+      })
+
+      // Map sort column to API field name
+      const sortFieldMap = { time: 'deal_time', deal: 'deal', order: 'order', position: 'position', symbol: 'symbol', action: 'action', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage', comment: 'comment' }
+      const apiSortBy = sortFieldMap[dealsSortColumn] || dealsSortColumn || 'deal_time'
+      const apiSortOrder = dealsSortDirection || 'desc'
+
       const body = {
         from: fromTimestamp,
         to: effectiveTo,
         page,
         limit: itemsLimit,
-        sortBy: 'deal_time',
-        sortOrder: 'desc',
+        sortBy: apiSortBy,
+        sortOrder: apiSortOrder,
       }
       if (activeSearch && activeSearch.trim()) body.search = activeSearch.trim()
+      if (apiFilters.length > 0) body.filters = apiFilters
 
       const response = await brokerAPI.searchClientDeals(client.login, body)
 
@@ -1959,13 +1977,13 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     setDealsCurrentPage(1)
   }, [hasAppliedFilter])
 
-  // Fetch deals when page or items per page changes (but not on initial tab switch)
+  // Fetch deals when page, items per page, sort, or column filters change
   useEffect(() => {
     if (activeTab === 'deals' && hasAppliedFilter && currentDateFilter.from !== 0 && hasAutoLoadedDeals.current) {
       fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealsCurrentPage, dealsItemsPerPage])
+  }, [dealsCurrentPage, dealsItemsPerPage, dealsColumnFilters, dealsSortColumn, dealsSortDirection])
 
   // Keep page-size selection valid when total deals count changes
   useEffect(() => {

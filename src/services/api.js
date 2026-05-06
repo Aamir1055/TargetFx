@@ -480,15 +480,16 @@ export const brokerAPI = {
 
   // Get latest deals (for live dealing page) via POST /api/broker/deals/search
   // Server-side pagination: ONE call per page. Caller passes `page` (1-based).
-  getAllDeals: async (from, to, limit = 100, page = 1) => {
-    const pageLimit = Math.min(limit || 100, 100)
+  getAllDeals: async (from, to, limit = 100, page = 1, extraBody = {}) => {
+    const pageLimit = Math.min(limit || 100, Math.max(limit || 100, 1))
     const body = {
       from,
       to,
       page,
       limit: pageLimit,
       sortBy: 'deal_time',
-      sortOrder: 'desc'
+      sortOrder: 'desc',
+      ...extraBody,
     }
     if (DEBUG_LOGS) console.log(`[API] POST /api/broker/deals/search page=${page} limit=${pageLimit}`)
     const response = await api.post('/api/broker/deals/search', body)
