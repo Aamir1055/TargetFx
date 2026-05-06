@@ -165,8 +165,11 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         if (cancelled) return
         const data = raw?.data ?? raw
         const account = data?.account ?? data?.client ?? data?.info ?? {}
+        const extraFields = {
+          lastTradingDate: data?.lastTradingDate ?? data?.last_trading_date ?? account?.lastTradingDate ?? account?.last_trading_date,
+        }
         if (account && Object.keys(account).length > 0) {
-          setClientData(prev => ({ ...prev, ...account }))
+          setClientData(prev => ({ ...prev, ...account, ...extraFields }))
           setStats(prev => ({
             ...prev,
             balance: Number(account.balance ?? prev.balance),
@@ -412,8 +415,11 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         const raw = await brokerAPI.getClientOverview(client.login)
         const data = raw?.data ?? raw
         overviewAccount = data?.account ?? data?.client ?? data?.info ?? {}
+        const extraFields = {
+          lastTradingDate: data?.lastTradingDate ?? data?.last_trading_date ?? overviewAccount?.lastTradingDate ?? overviewAccount?.last_trading_date,
+        }
         if (overviewAccount && Object.keys(overviewAccount).length > 0) {
-          setClientData(prev => ({ ...prev, ...overviewAccount }))
+          setClientData(prev => ({ ...prev, ...overviewAccount, ...extraFields }))
         }
         // Use overview positions if available (more accurate than cache)
         const overviewPositions = data?.positions ?? data?.open_positions ?? data?.data?.positions ?? null
@@ -950,6 +956,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const name      = clientData.name     ?? client.name     ?? 'Unknown'
     const login     = clientData.login    ?? client.login    ?? ''
     const server    = clientData.server   ?? client.server   ?? ''
+    const lastTradingTs = clientData.lastTradingDate ?? clientData.last_trading_date ?? client.lastTradingDate ?? client.last_trading_date ?? null
+    const lastTradingDate = lastTradingTs ? new Date(lastTradingTs * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : null
 
     // Deal stats
     const ds = dealStats || {}
@@ -1102,6 +1110,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               { label: 'Equity', value: fmt(equity), color: equity >= 0 ? 'text-green-600' : 'text-red-600' },
               { label: 'Margin Level', value: marginLvl ? fmtPct(marginLvl) : '–', color: marginLvl >= 100 ? 'text-green-600' : 'text-red-600' },
               { label: 'Total Commission', value: fmt(commission) },
+              ...(lastTradingDate ? [{ label: 'Last Trading Date', value: lastTradingDate }] : []),
             ].map(({ label, value, color }) => (
               <div key={label}>
                 <p className="text-[9px] text-gray-400 leading-tight">{label}</p>
