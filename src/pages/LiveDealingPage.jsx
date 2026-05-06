@@ -69,6 +69,8 @@ const LiveDealingPage = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(100)
+  // Server-side pagination: track highest page known to have data (max 10 = 1000 deals)
+  const [maxKnownPage, setMaxKnownPage] = useState(10)
   
   // Sorting states
   const [sortColumn, setSortColumn] = useState('time')
@@ -656,10 +658,10 @@ const LiveDealingPage = () => {
         toDate: new Date(to * 1000).toISOString()
       })
       
-      const response = await brokerAPI.getAllDeals(from, to, 10000)
-      
+      const response = await brokerAPI.getAllDeals(from, to, 100, currentPage)
+
       const dealsData = response.data?.deals || response.deals || []
-      
+
       // Transform deals
       const transformedDeals = dealsData.map(deal => ({
         id: deal.deal || deal.id,
@@ -670,47 +672,50 @@ const LiveDealingPage = () => {
         answer: 'Done',
         rawData: deal
       }))
-      
+
       // Sort newest first
       transformedDeals.sort((a, b) => b.time - a.time)
-      
-      // Merge with any recent WebSocket deals cached locally (dedupe by id)
-      const wsCached = loadWsCache()
-      
-      const apiDealIds = new Set(transformedDeals.map(d => d.id))
-      
-      // Filter cached deals based on the current time range
-      const relevantCachedDeals = wsCached.filter(d => {
-        if (!d || !d.id) return false
-        
-        // Skip if already in API response
-        if (apiDealIds.has(d.id)) {
-          return false
-        }
-        
-        const dealTime = d.time || d.rawData?.time || 0
-        
-        // Filter by the same time range as the API call
-        const isInTimeRange = dealTime >= from && dealTime <= to
-        
-        return isInTimeRange
-      })
-      
-      console.log('[LiveDealing] 📊 API returned', transformedDeals.length, 'deals')
-      console.log('[LiveDealing] 💾 Cache had', wsCached.length, 'deals')
-      console.log('[LiveDealing] ✅ Keeping', relevantCachedDeals.length, 'cached deals not in API')
-      
-      const merged = [
-        // Put cached WS deals first (newest on top), but only those not in API list
-        ...relevantCachedDeals,
-        ...transformedDeals
-      ]
 
-      // Save back the relevant cached deals (those still missing from API)
-      saveWsCache(relevantCachedDeals.slice(0, 200))
+      // Update maxKnownPage from API total if provided, else derive from page result
+      const PAGE_LIMIT = 100
+      const MAX_PAGES = 10
+      const serverTotal = response.total ?? response.totalCount ?? response.data?.total ?? response.data?.totalCount
+      if (serverTotal != null && Number.isFinite(Number(serverTotal))) {
+        setMaxKnownPage(Math.min(MAX_PAGES, Math.max(1, Math.ceil(Number(serverTotal) / PAGE_LIMIT))))
+      } else if (transformedDeals.length < PAGE_LIMIT) {
+        // This page is not full → it is the last page
+        setMaxKnownPage(currentPage)
+      } else {
+        // Full page → assume more pages up to MAX_PAGES
+        setMaxKnownPage(MAX_PAGES)
+      }
 
-      setDeals(merged)
-      
+      // Only merge WebSocket cached deals on page 1 (latest page)
+      if (currentPage === 1) {
+        const wsCached = loadWsCache()
+        const apiDealIds = new Set(transformedDeals.map(d => d.id))
+        const relevantCachedDeals = wsCached.filter(d => {
+          if (!d || !d.id) return false
+          if (apiDealIds.has(d.id)) return false
+          const dealTime = d.time || d.rawData?.time || 0
+          return dealTime >= from && dealTime <= to
+        })
+
+        console.log('[LiveDealing] 📊 API returned', transformedDeals.length, 'deals (page', currentPage + ')')
+        console.log('[LiveDealing] 💾 Cache had', wsCached.length, 'deals')
+        console.log('[LiveDealing] ✅ Keeping', relevantCachedDeals.length, 'cached deals not in API')
+
+        const merged = [
+          ...relevantCachedDeals,
+          ...transformedDeals
+        ]
+        saveWsCache(relevantCachedDeals.slice(0, 200))
+        setDeals(merged)
+      } else {
+        console.log('[LiveDealing] 📊 API returned', transformedDeals.length, 'deals (page', currentPage + ')')
+        setDeals(transformedDeals)
+      }
+
       setLoading(false)
     } catch (error) {
       console.error('[LiveDealing] ❌ Error loading deals:', error)
@@ -981,7 +986,9 @@ const LiveDealingPage = () => {
 
   const handleRefresh = () => {
     console.log('[LiveDealing] 🔄 Refresh: Reloading all deals from API')
-    fetchAllDealsOnce()
+    setMaxKnownPage(10)
+    if (currentPage !== 1) setCurrentPage(1)
+    else fetchAllDealsOnce()
   }
 
   const handleClear = () => {
@@ -1235,10 +1242,13 @@ const LiveDealingPage = () => {
     return Array.from(suggestions).slice(0, 10)
   }
   
-  const totalPages = Math.ceil(sortedDeals.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const displayedDeals = sortedDeals.slice(startIndex, endIndex)
+  // Server-side pagination: each fetch returns ~100 deals for currentPage.
+  // totalPages comes from maxKnownPage (capped at 10 = 1000 deals max).
+  // Filtering/sorting is applied client-side over the current page only.
+  const totalPages = Math.max(1, Math.min(10, maxKnownPage))
+  const displayedDeals = sortedDeals
+  const startIndex = 0
+  const endIndex = displayedDeals.length
 
   const handleItemsPerPageChange = (value) => {
     setItemsPerPage(value)
@@ -1252,7 +1262,14 @@ const LiveDealingPage = () => {
   // Reset to first page when display mode changes
   useEffect(() => {
     setCurrentPage(1)
+    setMaxKnownPage(10)
   }, [displayMode])
+
+  // Reset pagination when time filter changes
+  useEffect(() => {
+    setMaxKnownPage(10)
+    setCurrentPage(1)
+  }, [timeFilter, appliedFromDate, appliedToDate])
 
   // Close filter dropdown when clicking outside
   useEffect(() => {

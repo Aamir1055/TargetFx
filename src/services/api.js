@@ -478,34 +478,21 @@ export const brokerAPI = {
     return response.data
   },
 
-  // Get all recent deals (for live dealing page)
-  getAllDeals: async (from, to, limit = 100) => {
-    const endpoints = [
-      `/api/broker/deals?from=${from}&to=${to}&limit=${limit}`,
-      `/api/broker/deals?from=${from}&to=${to}`,
-      `/api/broker/trading/deals?from=${from}&to=${to}&limit=${limit}`,
-      `/api/broker/deals/recent?limit=${limit}`,
-      `/api/broker/deals`,
-      `/api/deals?from=${from}&to=${to}&limit=${limit}`
-    ]
-    
-    for (let i = 0; i < endpoints.length; i++) {
-      try {
-        const endpoint = endpoints[i]
-        if (DEBUG_LOGS) console.log(`[API] Trying endpoint ${i + 1}/${endpoints.length}: ${endpoint}`)
-        const response = await api.get(endpoint)
-        if (DEBUG_LOGS) console.log(`[API] ✅ SUCCESS! Endpoint works: ${endpoint}`)
-        if (DEBUG_LOGS) console.log('[API] Response data:', response.data)
-        return response.data
-      } catch (error) {
-        if (DEBUG_LOGS) console.log(`[API] ❌ Endpoint ${i + 1} failed (${endpoints[i]}):`, error.response?.status || error.code || error.message)
-        // Continue to next endpoint
-      }
+  // Get latest deals (for live dealing page) via POST /api/broker/deals/search
+  // Server-side pagination: ONE call per page. Caller passes `page` (1-based).
+  getAllDeals: async (from, to, limit = 100, page = 1) => {
+    const pageLimit = Math.min(limit || 100, 100)
+    const body = {
+      from,
+      to,
+      page,
+      limit: pageLimit,
+      sortBy: 'deal_time',
+      sortOrder: 'desc'
     }
-    
-    // All attempts failed
-    if (DEBUG_LOGS) console.error('[API] ❌ All endpoint attempts failed. Tried:', endpoints)
-    throw new Error('No working deals endpoint found')
+    if (DEBUG_LOGS) console.log(`[API] POST /api/broker/deals/search page=${page} limit=${pageLimit}`)
+    const response = await api.post('/api/broker/deals/search', body)
+    return response.data
   },
   
   // Get positions by login
