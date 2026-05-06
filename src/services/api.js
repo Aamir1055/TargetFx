@@ -479,19 +479,33 @@ export const brokerAPI = {
   },
 
   // Get all recent deals (for live dealing page)
-  getAllDeals: async (from, to, limit = 100, page = 1, extraBody = {}) => {
-    const body = {
-      from,
-      to,
-      page,
-      limit,
-      sortBy: 'time',
-      sortOrder: 'desc',
-      ...extraBody,
+  getAllDeals: async (from, to, limit = 100, offset = 0) => {
+    const endpoints = [
+      `/api/broker/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`,
+      `/api/broker/deals?from=${from}&to=${to}&limit=${limit}`,
+      `/api/broker/deals?from=${from}&to=${to}`,
+      `/api/broker/trading/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`,
+      `/api/broker/deals/recent?limit=${limit}`,
+      `/api/broker/deals`,
+      `/api/deals?from=${from}&to=${to}&limit=${limit}&offset=${offset}`
+    ]
+    for (let i = 0; i < endpoints.length; i++) {
+      try {
+        const response = await api.get(endpoints[i])
+        return response.data
+      } catch (error) {
+        // Continue to next endpoint
+      }
     }
+    throw new Error('All deal endpoints failed')
+  },
+
+  // Mobile live dealing: POST /api/broker/deals/search with page-based pagination
+  searchDeals: async (from, to, limit = 15, page = 1) => {
+    const body = { from, to, page, limit, sortBy: 'time', sortOrder: 'desc' }
     if (DEBUG_LOGS) console.log('[API] POST /api/broker/deals/search', body)
     const response = await api.post('/api/broker/deals/search', body)
-    if (DEBUG_LOGS) console.log('[API] Response data:', response.data)
+    if (DEBUG_LOGS) console.log('[API] ✅ deals/search response:', response.data)
     return response.data
   },
   

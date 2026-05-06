@@ -205,43 +205,33 @@ export default function LiveDealingModule() {
     return map
   }, [rawClients, clients])
 
+  // Ref to track current page for WS closure
+  const currentPageRef = useRef(1)
+
   // Fetch deals from API — server-side pagination (15 per page)
   const fetchDeals = async (page = 1) => {
+    const pageForThisFetch = currentPageRef.current
     try {
       setLoading(true)
-      let from, to
-      
-      if (timeFilter === '24h') {
-        const nowUTC = Math.floor(Date.now() / 1000)
-        to = nowUTC + (12 * 60 * 60) // Add 12 hours buffer
-        from = nowUTC - (24 * 60 * 60) // 24 hours ago
-      } else if (timeFilter === '7d') {
-        const nowUTC = Math.floor(Date.now() / 1000)
-        to = nowUTC + (12 * 60 * 60)
-        from = nowUTC - (7 * 24 * 60 * 60) // 7 days ago
-      } else if (timeFilter === 'custom' && appliedFromDate && appliedToDate) {
-        // Parse custom dates and convert to UTC epoch seconds
-        const fromDate = new Date(appliedFromDate)
-        const toDate = new Date(appliedToDate)
-        
-        from = Math.floor(fromDate.getTime() / 1000)
-        // Add 12 hours to custom 'to' date to capture full day
-        to = Math.floor(toDate.getTime() / 1000) + (12 * 60 * 60)
-      } else {
-        // Default to 24h if custom dates not set
-        const nowUTC = Math.floor(Date.now() / 1000)
-        to = nowUTC + (12 * 60 * 60)
-        from = nowUTC - (24 * 60 * 60)
+
+      // Always last 24 hours
+      const to = Math.floor(Date.now() / 1000)
+      const from = to - (24 * 60 * 60)
+
+      const response = await brokerAPI.searchDeals(from, to, itemsPerPage, pageForThisFetch)
+
+      // Discard if page changed while fetching
+      if (currentPageRef.current !== pageForThisFetch) {
+        setLoading(false)
+        return
       }
-      
-      const MAX_RECORDS = 1000
-      const offset = (page - 1) * itemsPerPage
-      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, offset)
+
       const dealsData = response.data?.deals || response.deals || []
-      // Cap total at 1000 records
       const apiTotal = response.data?.total ?? response.total ?? null
-      const rawTotal = apiTotal != null ? Number(apiTotal) : ((page - 1) * itemsPerPage + dealsData.length)
-      setTotalDealsCount(Math.min(rawTotal, MAX_RECORDS))
+      const rawTotal = apiTotal != null ? Number(apiTotal) : ((pageForThisFetch - 1) * itemsPerPage + dealsData.length)
+      setTotalDealsCount(rawTotal)
+      // Clear blue highlights when loading any page other than 1
+      if (pageForThisFetch !== 1) setNewDealIds(new Set())
 
       // Transform deals
       const transformedDeals = dealsData.map(deal => ({
@@ -264,12 +254,15 @@ export default function LiveDealingModule() {
 
   // Reset to page 1 and re-fetch when time filter changes
   useEffect(() => {
+    currentPageRef.current = 1
     setCurrentPage(1)
     fetchDeals(1)
   }, [timeFilter, appliedFromDate, appliedToDate])
 
-  // Re-fetch when page changes (skip page 1 since time-filter effect handles that)
+  // Re-fetch when page changes; sync ref and clear highlights when leaving page 1
   useEffect(() => {
+    currentPageRef.current = currentPage
+    if (currentPage !== 1) setNewDealIds(new Set())
     if (currentPage > 1) fetchDeals(currentPage)
   }, [currentPage])
 
@@ -286,12 +279,14 @@ export default function LiveDealingModule() {
       }
 
       setDeals(prevDeals => {
+        // Only inject live deal on page 1
+        if (currentPageRef.current !== 1) return prevDeals
         if (prevDeals.some(d => d.id === dealEntry.id)) return prevDeals
         
         // Mark this deal as new for highlight effect
         setNewDealIds(prev => new Set(prev).add(dealEntry.id))
         
-        // Remove the highlight effect after 6 seconds (matching animation duration)
+        // Remove the highlight effect after 6 seconds
         setTimeout(() => {
           setNewDealIds(prev => {
             const updated = new Set(prev)
@@ -300,7 +295,7 @@ export default function LiveDealingModule() {
           })
         }, 6000)
         
-        const updated = [dealEntry, ...prevDeals].slice(0, 1000)
+        const updated = [dealEntry, ...prevDeals]
         saveWsCache(updated.slice(0, 200))
         return updated
       })
@@ -1168,7 +1163,7 @@ export default function LiveDealingModule() {
                   sortedDeals.map((deal) => (
                     <div 
                       key={deal.id} 
-                      className={`grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] ${newDealIds.has(deal.id) ? 'new-deal-blink' : 'hover:bg-[#F8FAFC] transition-colors'}`}
+                      className={`grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] ${currentPage === 1 && newDealIds.has(deal.id) ? 'new-deal-blink' : 'hover:bg-[#F8FAFC] transition-colors'}`}
                       style={{
                         gap: '0px', 
                         gridGap: '0px', 
