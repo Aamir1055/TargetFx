@@ -711,7 +711,8 @@ const LiveDealingPage = () => {
       if (moduleFilter === 'deal') {
         apiFilters.push({ field: 'action', operator: 'in', value: ['BUY', 'SELL'] })
       } else if (moduleFilter === 'money') {
-        apiFilters.push({ field: 'action', operator: 'not_in', value: ['BUY', 'SELL'] })
+        apiFilters.push({ field: 'action', operator: 'not_equal', value: 'BUY' })
+        apiFilters.push({ field: 'action', operator: 'not_equal', value: 'SELL' })
       }
 
       // Map UI filter type -> server operator
