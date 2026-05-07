@@ -183,7 +183,7 @@ export default function ClientPercentageModule() {
 
       // If we have a total count and allClients is not yet populated, load all for group filtering
       const total = Number(payload?.total) || clientsData.length
-      if (total > 0 && allClients.length === 0) {
+      if (total > 0 && allClients.length === 0 && getActiveGroupFilter('clientpercentage')) {
         fetchAllForGroupFilter(total)
       }
       
@@ -365,9 +365,9 @@ export default function ClientPercentageModule() {
     }
   }, [stats, numericMode])
 
-  // Fetch data when page changes (only in non-group mode)
+  // Fetch data when page changes (only in non-group mode, skip page 1 which is already fetched on mount)
   useEffect(() => {
-    if (!activeGroup) {
+    if (!activeGroup && currentPage > 1) {
       fetchAllClientPercentages(currentPage)
     }
   }, [currentPage])
@@ -619,10 +619,21 @@ export default function ClientPercentageModule() {
   const handleExport = async (mode = 'all') => {
     if (exporting) return
     if (mode === 'selected' && selectedRows.size === 0) { alert('No rows selected'); return }
+
+    // Export Selected — use already-loaded data, no API call needed
+    if (mode === 'selected') {
+      const selectedData = filteredData.filter(c => selectedRows.has(c.client_login) || selectedRows.has(c.login))
+      if (!selectedData.length) { alert('No selected rows found'); return }
+      const csv = buildCSV(selectedData)
+      downloadCSV(csv, `client_percentage_selected_${new Date().toISOString().split('T')[0]}.csv`)
+      setShowExportMenu(false)
+      return
+    }
+
+    // Export All — fetch all pages sequentially, one at a time
     try {
       setExporting(true)
       setExportProgress(0)
-      const PARALLEL = 8
       const PAGE_SIZE = 1000
       const probe = await brokerAPI.getAllClientPercentages({ page: 1, page_size: PAGE_SIZE, sort_by: sortColumn || 'login', sort_order: sortDirection })
       const probeClients = Array.isArray(probe.data?.clients) ? probe.data.clients : []
@@ -632,21 +643,16 @@ export default function ClientPercentageModule() {
       const byLogin = new Map()
       const addRows = (list) => { for (const c of (list || [])) { const k = c?.client_login ?? c?.login; if (k != null && !byLogin.has(k)) byLogin.set(k, c) } }
       addRows(probeClients)
-      const totalPages = Math.max(1, Math.ceil(total / probeClients.length))
-      let done = 1
-      for (let page = 2; page <= totalPages; page += PARALLEL) {
-        const batch = []
-        for (let i = 0; i < PARALLEL && (page + i) <= totalPages; i++) batch.push(page + i)
-        const results = await Promise.all(batch.map(p => brokerAPI.getAllClientPercentages({ page: p, page_size: PAGE_SIZE, sort_by: sortColumn || 'login', sort_order: sortDirection }).then(r => Array.isArray(r.data?.clients) ? r.data.clients : []).catch(() => [])))
-        results.forEach(list => addRows(list))
-        done += batch.length
-        setExportProgress(Math.min(done / totalPages, 1))
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+      for (let page = 2; page <= totalPages; page++) {
+        const result = await brokerAPI.getAllClientPercentages({ page, page_size: PAGE_SIZE, sort_by: sortColumn || 'login', sort_order: sortDirection })
+        addRows(Array.isArray(result.data?.clients) ? result.data.clients : [])
+        setExportProgress(page / totalPages)
       }
       const allRows = Array.from(byLogin.values())
-      const finalRows = mode === 'selected' ? allRows.filter(c => selectedRows.has(c.client_login) || selectedRows.has(c.login)) : allRows
-      if (!finalRows.length) { alert('No data to export'); return }
-      const csv = buildCSV(finalRows)
-      downloadCSV(csv, `client_percentage_${mode}_${new Date().toISOString().split('T')[0]}.csv`)
+      if (!allRows.length) { alert('No data to export'); return }
+      const csv = buildCSV(allRows)
+      downloadCSV(csv, `client_percentage_all_${new Date().toISOString().split('T')[0]}.csv`)
     } catch (err) {
       console.error('[ClientPercentageModule] Export failed:', err)
       alert('Export failed. Please try again.')

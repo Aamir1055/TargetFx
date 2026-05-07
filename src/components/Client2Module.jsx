@@ -58,7 +58,7 @@ export default function Client2Module() {
   const abortControllerRef = useRef(null)
   const requestIdRef = useRef(0)
   const isFetchingRef = useRef(false)
-  const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
+  const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false, accountEnabled: false })
   const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
   const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
   const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
@@ -253,6 +253,9 @@ export default function Client2Module() {
       }
       if (filters.noDeposit) {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
+      }
+      if (filters.accountEnabled) {
+        apiFilters.push({ field: 'accountEnabled', operator: 'equal', value: 'true' })
       }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
@@ -672,6 +675,9 @@ export default function Client2Module() {
       if (filters.noDeposit) {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
       }
+      if (filters.accountEnabled) {
+        apiFilters.push({ field: 'accountEnabled', operator: 'equal', value: 'true' })
+      }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
       }
@@ -772,6 +778,9 @@ export default function Client2Module() {
       }
       if (filters.noDeposit) {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
+      }
+      if (filters.accountEnabled) {
+        apiFilters.push({ field: 'accountEnabled', operator: 'equal', value: 'true' })
       }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
@@ -1075,7 +1084,7 @@ export default function Client2Module() {
               <button 
                 onClick={() => setIsCustomizeOpen(true)} 
                 className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative ${
-                  (filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('client2'))
+                  (filters.hasFloating || filters.hasCredit || filters.noDeposit || filters.accountEnabled || getActiveGroupFilter('client2'))
                     ? 'bg-blue-50 border-blue-200' 
                     : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
                 }`}
@@ -1089,6 +1098,7 @@ export default function Client2Module() {
                     filters.hasFloating,
                     filters.hasCredit,
                     filters.noDeposit,
+                    filters.accountEnabled,
                     getActiveGroupFilter('client2')
                   ].filter(Boolean).length;
                   return filterCount > 0 ? (

@@ -10,6 +10,7 @@ const FilterModal = ({
   const [hasFloating, setHasFloating] = useState(filters.hasFloating || false);
   const [hasCredit, setHasCredit] = useState(filters.hasCredit || false);
   const [noDeposit, setNoDeposit] = useState(filters.noDeposit || false);
+  const [accountEnabled, setAccountEnabled] = useState(filters.accountEnabled || false);
 
   // Sync state with filters prop when modal opens
   useEffect(() => {
@@ -17,6 +18,7 @@ const FilterModal = ({
       setHasFloating(filters.hasFloating || false);
       setHasCredit(filters.hasCredit || false);
       setNoDeposit(filters.noDeposit || false);
+      setAccountEnabled(filters.accountEnabled || false);
     }
   }, [isOpen, filters]);
 
@@ -25,8 +27,9 @@ const FilterModal = ({
     if (isOpen && onPendingChange) {
       const hasPending = hasFloating !== (filters.hasFloating || false) || 
                         hasCredit !== (filters.hasCredit || false) || 
-                        noDeposit !== (filters.noDeposit || false);
-      const draft = { hasFloating, hasCredit, noDeposit }
+                        noDeposit !== (filters.noDeposit || false) ||
+                        accountEnabled !== (filters.accountEnabled || false);
+      const draft = { hasFloating, hasCredit, noDeposit, accountEnabled }
       try {
         onPendingChange(hasPending, draft)
       } catch {
@@ -34,7 +37,7 @@ const FilterModal = ({
         onPendingChange(hasPending)
       }
     }
-  }, [isOpen, hasFloating, hasCredit, noDeposit, filters, onPendingChange]);
+  }, [isOpen, hasFloating, hasCredit, noDeposit, accountEnabled, filters, onPendingChange]);
 
   if (!isOpen) return null;
 
@@ -42,7 +45,8 @@ const FilterModal = ({
     onApply({
       hasFloating,
       hasCredit,
-      noDeposit
+      noDeposit,
+      accountEnabled
     });
     onClose();
   };
@@ -51,10 +55,12 @@ const FilterModal = ({
     setHasFloating(false);
     setHasCredit(false);
     setNoDeposit(false);
+    setAccountEnabled(false);
     onApply({
       hasFloating: false,
       hasCredit: false,
-      noDeposit: false
+      noDeposit: false,
+      accountEnabled: false
     });
     onClose();
   };
@@ -273,6 +279,40 @@ const FilterModal = ({
               }}
             >
               No Deposit
+            </span>
+          </label>
+
+          {/* Account Enabled */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '16px 0',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={accountEnabled}
+              onChange={(e) => setAccountEnabled(e.target.checked)}
+              style={{
+                width: '20px',
+                height: '20px',
+                accentColor: '#2563EB',
+                cursor: 'pointer',
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'Outfit, sans-serif',
+                fontWeight: 400,
+                fontSize: '16px',
+                lineHeight: '20px',
+                color: '#1B2D45',
+              }}
+            >
+              Account Enabled
             </span>
           </label>
         </div>
