@@ -403,18 +403,34 @@ const LiveDealingPage = () => {
 
   // Apply custom number filter
   const applyCustomNumberFilter = () => {
-    if (!customFilterColumn || !customFilterValue1) return
+    if (!customFilterColumn) return
 
     const isTextColumn = ['login', 'symbol', 'action', 'reason', 'entry', 'name'].includes(customFilterColumn)
     const isTimeColumn = customFilterColumn === 'time'
 
-    let val1, val2
+    // For time column allow applying with only From or only To
     if (isTimeColumn) {
-      // Values are already unix timestamps (set in onChange), pass through numerically
-      val1 = customFilterValue1 ? Number(customFilterValue1) : NaN
-      val2 = customFilterValue2 ? Number(customFilterValue2) : null
-      if (isNaN(val1)) return
-    } else if (isTextColumn) {
+      const val1 = customFilterValue1 ? Number(customFilterValue1) : null
+      const val2 = customFilterValue2 ? Number(customFilterValue2) : null
+      if (!val1 && !val2) return // nothing to apply
+      let type = 'between'
+      let v1 = val1, v2 = val2
+      if (!val1 && val2) { type = 'lessThanOrEqual'; v1 = val2; v2 = null }
+      else if (val1 && !val2) { type = 'greaterThanOrEqual'; v2 = null }
+      setColumnFilters(prev => ({
+        ...prev,
+        [`${customFilterColumn}_custom`]: { type, value1: v1, value2: v2, operator: 'AND', isText: false }
+      }))
+      setShowCustomFilterModal(false)
+      setShowFilterDropdown(null)
+      setShowNumberFilterDropdown(null)
+      return
+    }
+
+    if (!customFilterValue1) return
+
+    let val1, val2
+    if (isTextColumn) {
       val1 = customFilterValue1
       val2 = customFilterValue2 || null
     } else {
@@ -728,6 +744,7 @@ const LiveDealingPage = () => {
         if (val == null) return
         if (key.endsWith('_custom')) {
           const field = key.replace('_custom', '')
+          if (field === 'time') return // handled separately via from/to params below
           if (!val.type) return
           if (val.type === 'between') {
             if (val.value1 != null) apiFilters.push({ field, operator: 'greater_than_or_equal', value: val.value1 })
@@ -743,6 +760,21 @@ const LiveDealingPage = () => {
           apiFilters.push({ field: key, operator: 'in', value: val })
         }
       })
+
+      // Override from/to with time column filter if set
+      const timeCustomFilter = columnFilters?.['time_custom']
+      if (timeCustomFilter) {
+        if (timeCustomFilter.type === 'between') {
+          if (timeCustomFilter.value1 != null) from = Number(timeCustomFilter.value1)
+          if (timeCustomFilter.value2 != null) to = Number(timeCustomFilter.value2)
+        } else if (timeCustomFilter.type === 'greaterThanOrEqual' || timeCustomFilter.type === 'greater_than_or_equal') {
+          from = Number(timeCustomFilter.value1)
+          to = Math.floor(Date.now() / 1000)
+        } else if (timeCustomFilter.type === 'lessThanOrEqual' || timeCustomFilter.type === 'less_than_or_equal') {
+          from = 0
+          to = Number(timeCustomFilter.value1)
+        }
+      }
 
       // Map UI sort column -> server field
       const sortByField = sortColumn || 'time'
@@ -1561,8 +1593,60 @@ const LiveDealingPage = () => {
                   </button>
                 </div>
 
-                {/* Number Filters (only for numeric columns) */}
-                {!isStringColumn(columnKey) && (
+                {/* Date range From/To (only for time column) */}
+                {columnKey === 'time' && (
+                  <div className="border-b border-slate-200 px-3 py-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">FROM</label>
+                      <input
+                        type="date"
+                        value={customFilterColumn === 'time' && customFilterValue1
+                          ? (() => {
+                              const ts = Number(customFilterValue1)
+                              if (isNaN(ts)) return ''
+                              const d = new Date(ts * 1000)
+                              return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+                            })()
+                          : ''
+                        }
+                        onChange={(e) => {
+                          setCustomFilterColumn('time')
+                          setCustomFilterType('between')
+                          const v = e.target.value
+                          setCustomFilterValue1(v ? String(Math.floor(new Date(v + 'T00:00:00').getTime() / 1000)) : '')
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">TO</label>
+                      <input
+                        type="date"
+                        value={customFilterColumn === 'time' && customFilterValue2
+                          ? (() => {
+                              const ts = Number(customFilterValue2)
+                              if (isNaN(ts)) return ''
+                              const d = new Date(ts * 1000)
+                              return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+                            })()
+                          : ''
+                        }
+                        onChange={(e) => {
+                          setCustomFilterColumn('time')
+                          setCustomFilterType('between')
+                          const v = e.target.value
+                          setCustomFilterValue2(v ? String(Math.floor(new Date(v + 'T23:59:59').getTime() / 1000)) : '')
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Number Filters (only for non-string, non-time columns) */}
+                {!isStringColumn(columnKey) && columnKey !== 'time' && (
                   <div className="border-b border-slate-200 px-3 py-2 space-y-2" onClick={(e) => e.stopPropagation()}>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">CONDITION</label>
@@ -1584,33 +1668,13 @@ const LiveDealingPage = () => {
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">VALUE</label>
                       <input
-                        type={columnKey === 'time' ? 'date' : 'number'}
-                        step={columnKey === 'time' ? undefined : 'any'}
-                        placeholder={columnKey === 'time' ? 'dd/mm/yyyy' : 'Enter value'}
-                        value={columnKey === 'time' && customFilterValue1 ?
-                          (() => {
-                            const timestamp = Number(customFilterValue1)
-                            if (isNaN(timestamp)) return customFilterValue1
-                            const date = new Date(timestamp * 1000)
-                            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
-                          })()
-                          : customFilterValue1
-                        }
-                        onChange={(e) => {
-                          setCustomFilterColumn(columnKey)
-                          if (columnKey === 'time') {
-                            const dateValue = e.target.value
-                            setCustomFilterValue1(dateValue ? String(Math.floor(new Date(dateValue + 'T00:00:00').getTime() / 1000)) : '')
-                          } else {
-                            setCustomFilterValue1(e.target.value)
-                          }
-                        }}
+                        type="number"
+                        step="any"
+                        placeholder="Enter value"
+                        value={customFilterValue1}
+                        onChange={(e) => { setCustomFilterColumn(columnKey); setCustomFilterValue1(e.target.value) }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            applyCustomNumberFilter()
-                            setShowFilterDropdown(null)
-                          }
+                          if (e.key === 'Enter') { e.preventDefault(); applyCustomNumberFilter(); setShowFilterDropdown(null) }
                         }}
                         onClick={(e) => e.stopPropagation()}
                         className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
@@ -1621,33 +1685,13 @@ const LiveDealingPage = () => {
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">AND</label>
                         <input
-                          type={columnKey === 'time' ? 'date' : 'number'}
-                          step={columnKey === 'time' ? undefined : 'any'}
-                          placeholder={columnKey === 'time' ? 'dd/mm/yyyy' : 'Enter value'}
-                          value={columnKey === 'time' && customFilterValue2 ?
-                            (() => {
-                              const timestamp = Number(customFilterValue2)
-                              if (isNaN(timestamp)) return customFilterValue2
-                              const date = new Date(timestamp * 1000)
-                              return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
-                            })()
-                            : customFilterValue2
-                          }
-                          onChange={(e) => {
-                            setCustomFilterColumn(columnKey)
-                            if (columnKey === 'time') {
-                              const dateValue = e.target.value
-                              setCustomFilterValue2(dateValue ? String(Math.floor(new Date(dateValue + 'T23:59:59').getTime() / 1000)) : '')
-                            } else {
-                              setCustomFilterValue2(e.target.value)
-                            }
-                          }}
+                          type="number"
+                          step="any"
+                          placeholder="Enter value"
+                          value={customFilterValue2}
+                          onChange={(e) => { setCustomFilterColumn(columnKey); setCustomFilterValue2(e.target.value) }}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              applyCustomNumberFilter()
-                              setShowFilterDropdown(null)
-                            }
+                            if (e.key === 'Enter') { e.preventDefault(); applyCustomNumberFilter(); setShowFilterDropdown(null) }
                           }}
                           onClick={(e) => e.stopPropagation()}
                           className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
