@@ -519,6 +519,24 @@ export const brokerAPI = {
     return response.data
   },
 
+  // Change trading (master) password
+  changeTradingPassword: async (login, currentPassword, newPassword) => {
+    const response = await api.post(`/api/broker/clients/${login}/change-trading-password`, { password: newPassword })
+    return response.data
+  },
+
+  // Change investor password
+  changeInvestorPassword: async (login, currentPassword, newPassword) => {
+    const response = await api.post(`/api/broker/clients/${login}/change-investor-password`, { password: newPassword })
+    return response.data
+  },
+
+  // Check password (type: 'trading' | 'investor')
+  checkPassword: async (login, password, type = 'trading') => {
+    const response = await api.post(`/api/broker/clients/${login}/check-password`, { password, type })
+    return response.data
+  },
+
   // Saved filters (groups) - GET
   getSavedFilters: async () => {
     const response = await api.get('/api/broker/saved-filters')

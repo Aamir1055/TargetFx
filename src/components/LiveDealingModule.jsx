@@ -69,8 +69,8 @@ export default function LiveDealingModule() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 15
   const [totalDealsCount, setTotalDealsCount] = useState(0)
-  const [sortColumn, setSortColumn] = useState(null)
-  const [sortDirection, setSortDirection] = useState('asc')
+  const [sortColumn, setSortColumn] = useState('time')
+  const [sortDirection, setSortDirection] = useState('desc')
   const [isMobileView, setIsMobileView] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
   
   // Deals state
@@ -205,45 +205,61 @@ export default function LiveDealingModule() {
     return map
   }, [rawClients, clients])
 
-  // Fetch deals from API — server-side pagination (15 per page)
-  const fetchDeals = async (page = 1) => {
+  // Fetch deals from API — server-side pagination (100 per page)
+  const fetchDeals = async (page = currentPage) => {
     try {
-      setLoading(true)
+      if (deals.length > 0) {
+        setLoading(false)
+      } else {
+        setLoading(true)
+      }
+
       let from, to
-      
       if (timeFilter === '24h') {
-        const nowUTC = Math.floor(Date.now() / 1000)
-        to = nowUTC + (12 * 60 * 60) // Add 12 hours buffer
-        from = nowUTC - (24 * 60 * 60) // 24 hours ago
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (24 * 60 * 60)
+        to = now
       } else if (timeFilter === '7d') {
-        const nowUTC = Math.floor(Date.now() / 1000)
-        to = nowUTC + (12 * 60 * 60)
-        from = nowUTC - (7 * 24 * 60 * 60) // 7 days ago
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (7 * 24 * 60 * 60)
+        to = now
       } else if (timeFilter === 'custom' && appliedFromDate && appliedToDate) {
-        // Parse custom dates and convert to UTC epoch seconds
         const fromDate = new Date(appliedFromDate)
         const toDate = new Date(appliedToDate)
-        
         from = Math.floor(fromDate.getTime() / 1000)
-        // Add 12 hours to custom 'to' date to capture full day
-        to = Math.floor(toDate.getTime() / 1000) + (12 * 60 * 60)
+        to = Math.floor(toDate.getTime() / 1000)
       } else {
-        // Default to 24h if custom dates not set
-        const nowUTC = Math.floor(Date.now() / 1000)
-        to = nowUTC + (12 * 60 * 60)
-        from = nowUTC - (24 * 60 * 60)
+        const now = Math.floor(Date.now() / 1000)
+        from = now - (24 * 60 * 60)
+        to = now
       }
-      
-      const MAX_RECORDS = 1000
-      const offset = (page - 1) * itemsPerPage
-      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, offset)
-      const dealsData = response.data?.deals || response.deals || []
-      // Cap total at 1000 records
-      const apiTotal = response.data?.total ?? response.total ?? null
-      const rawTotal = apiTotal != null ? Number(apiTotal) : ((page - 1) * itemsPerPage + dealsData.length)
-      setTotalDealsCount(Math.min(rawTotal, MAX_RECORDS))
 
-      // Transform deals
+      // Server-side filters — same as desktop
+      const apiFilters = []
+      if (moduleFilter === 'deal') {
+        apiFilters.push({ field: 'action', operator: 'in', value: ['BUY', 'SELL'] })
+      } else if (moduleFilter === 'money') {
+        apiFilters.push({ field: 'action', operator: 'not_equal', value: 'BUY' })
+        apiFilters.push({ field: 'action', operator: 'not_equal', value: 'SELL' })
+      }
+      const trimmedSearch = searchInput.trim()
+      if (trimmedSearch) {
+        apiFilters.push({ field: 'login', operator: 'contains', value: trimmedSearch })
+      }
+
+      const extraBody = {
+        sortBy: sortColumn || 'time',
+        sortOrder: sortDirection || 'desc',
+      }
+      if (apiFilters.length > 0) extraBody.filters = apiFilters
+
+      const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, page, extraBody)
+      const payload = response?.data ?? response
+      const dealsData = payload?.deals || payload?.items || []
+      const apiTotal = payload?.total ?? payload?.totalCount ?? payload?.total_count ?? payload?.count ?? null
+      const rawTotal = apiTotal != null ? Number(apiTotal) : dealsData.length
+      setTotalDealsCount(rawTotal)
+
       const transformedDeals = dealsData.map(deal => ({
         id: deal.deal || deal.id,
         timestamp: deal.time || deal.timestamp,
@@ -251,10 +267,17 @@ export default function LiveDealingModule() {
         rawData: deal
       }))
 
-      // Sort newest first
-      transformedDeals.sort((a, b) => b.timestamp - a.timestamp)
-
-      setDeals(transformedDeals)
+      // On page 1 with no active filters: merge WS deals so live arrivals stay visible
+      const hasActiveFilters = trimmedSearch.length > 0 || moduleFilter !== 'both'
+      if (page === 1 && !hasActiveFilters) {
+        setDeals(prevDeals => {
+          const apiIds = new Set(transformedDeals.map(d => d.id))
+          const wsExtras = prevDeals.filter(d => !apiIds.has(d.id))
+          return [...wsExtras, ...transformedDeals]
+        })
+      } else {
+        setDeals(transformedDeals)
+      }
       setLoading(false)
     } catch (error) {
       console.error('[LiveDealingModule] Error fetching deals:', error)
@@ -262,15 +285,23 @@ export default function LiveDealingModule() {
     }
   }
 
-  // Reset to page 1 and re-fetch when time filter changes
+  // Re-fetch when filters or sort change — reset to page 1 (same as desktop)
+  const isInitialMount = useRef(true)
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      fetchDeals(1)
+      return
+    }
     setCurrentPage(1)
     fetchDeals(1)
-  }, [timeFilter, appliedFromDate, appliedToDate])
+  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter, sortColumn, sortDirection, searchInput])
 
-  // Re-fetch when page changes (skip page 1 since time-filter effect handles that)
+  // Re-fetch when page changes (server-side pagination — same as desktop)
+  const isFirstPageEffect = useRef(true)
   useEffect(() => {
-    if (currentPage > 1) fetchDeals(currentPage)
+    if (isFirstPageEffect.current) { isFirstPageEffect.current = false; return }
+    fetchDeals(currentPage)
   }, [currentPage])
 
   // WebSocket subscription
@@ -300,7 +331,7 @@ export default function LiveDealingModule() {
           })
         }, 6000)
         
-        const updated = [dealEntry, ...prevDeals].slice(0, 1000)
+        const updated = [dealEntry, ...prevDeals]
         saveWsCache(updated.slice(0, 200))
         return updated
       })
@@ -376,59 +407,14 @@ export default function LiveDealingModule() {
     }
   }, [])
 
-  // Filter deals by time - API already filters, this is just for any WebSocket additions
-  const filteredByTime = useMemo(() => {
-    // Since we fetch from API with the correct time range, just return all deals
-    // WebSocket additions are already filtered to relevant time in the handler
-    return deals
-  }, [deals])
+  // Server handles time range, search, module filter, sort — just pass deals through
+  const filteredByTime = useMemo(() => deals, [deals])
 
-  // Apply search filter
-  const searchedDeals = useMemo(() => {
-    if (!searchInput.trim()) return filteredByTime
-    const query = searchInput.toLowerCase().trim()
-    return filteredByTime.filter(deal => {
-      const login = String(deal.login || '').toLowerCase()
-      const symbol = String(deal.rawData?.symbol || '').toLowerCase()
-      const dealId = String(deal.id || deal.rawData?.deal || '').toLowerCase()
-      const action = String(deal.rawData?.action || '').toLowerCase()
-      const entry = String(deal.rawData?.entry || '').toLowerCase()
-      const netType = String(deal.rawData?.net_type || '').toLowerCase()
-      const volume = String(deal.rawData?.volume || deal.rawData?.net_volume || '').toLowerCase()
-      const price = String(deal.rawData?.price || deal.rawData?.average_price || '').toLowerCase()
-      const profit = String(deal.rawData?.profit || deal.rawData?.total_profit || '').toLowerCase()
-      const commission = String(deal.rawData?.commission || '').toLowerCase()
-      const storage = String(deal.rawData?.storage || '').toLowerCase()
-      
-      return login.includes(query) || symbol.includes(query) || dealId.includes(query) ||
-             action.includes(query) || entry.includes(query) || netType.includes(query) ||
-             volume.includes(query) || price.includes(query) || profit.includes(query) ||
-             commission.includes(query) || storage.includes(query)
-    })
-  }, [filteredByTime, searchInput])
+  // Client-side search is disabled (server handles it)
+  const searchedDeals = useMemo(() => filteredByTime, [filteredByTime])
 
-  // Filter by module type (deals/money/both)
-  const isTradeAction = (action) => {
-    const label = String(action || '').toLowerCase()
-    return (
-      label === 'buy' ||
-      label === 'sell' ||
-      label.includes('cancel') ||
-      label.includes('stop out') ||
-      label.includes('tp close') ||
-      label.includes('sl close')
-    )
-  }
-
-  const moduleFilteredDeals = useMemo(() => {
-    if (moduleFilter === 'both') return searchedDeals
-    return searchedDeals.filter(deal => {
-      const action = deal.rawData?.action
-      if (moduleFilter === 'deal' && isTradeAction(action)) return true
-      if (moduleFilter === 'money' && !isTradeAction(action)) return true
-      return false
-    })
-  }, [searchedDeals, moduleFilter])
+  // Server handles module filter
+  const moduleFilteredDeals = useMemo(() => searchedDeals, [searchedDeals])
 
   // Apply cumulative filters: Customize View -> IB -> Group
   const ibFilteredDeals = useMemo(() => {
@@ -440,76 +426,14 @@ export default function LiveDealingModule() {
     })
   }, [moduleFilteredDeals, filters, filterByActiveGroup, activeGroupFilters])
 
-  // Sort the filtered deals
-  const sortedDeals = useMemo(() => {
-    if (!sortColumn) return ibFilteredDeals
-    
-    return [...ibFilteredDeals].sort((a, b) => {
-      let aVal, bVal
-
-      switch (sortColumn) {
-        case 'time':
-          aVal = a.timestamp || 0
-          bVal = b.timestamp || 0
-          break
-        case 'login':
-          aVal = a.login || ''
-          bVal = b.login || ''
-          break
-        case 'netType':
-          aVal = a.rawData?.action || ''
-          bVal = b.rawData?.action || ''
-          break
-        case 'netVolume':
-          aVal = a.rawData?.volume || 0
-          bVal = b.rawData?.volume || 0
-          break
-        case 'averagePrice':
-          aVal = a.rawData?.price || 0
-          bVal = b.rawData?.price || 0
-          break
-        case 'totalProfit':
-          aVal = a.rawData?.profit || 0
-          bVal = b.rawData?.profit || 0
-          break
-        case 'commission':
-          aVal = a.rawData?.commission || 0
-          bVal = b.rawData?.commission || 0
-          break
-        case 'storage':
-          aVal = a.rawData?.storage || 0
-          bVal = b.rawData?.storage || 0
-          break
-        case 'symbol':
-          aVal = a.rawData?.symbol || ''
-          bVal = b.rawData?.symbol || ''
-          break
-        default:
-          aVal = a.rawData?.[sortColumn] || 0
-          bVal = b.rawData?.[sortColumn] || 0
-      }
-      
-      if (aVal == null && bVal == null) return 0
-      if (aVal == null) return 1
-      if (bVal == null) return -1
-      
-      const aNum = Number(aVal)
-      const bNum = Number(bVal)
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
-      }
-      
-      return sortDirection === 'asc' 
-        ? String(aVal).localeCompare(String(bVal))
-        : String(bVal).localeCompare(String(aVal))
-    })
-  }, [ibFilteredDeals, sortColumn, sortDirection])
+  // Server handles sorting — pass through directly
+  const sortedDeals = useMemo(() => ibFilteredDeals, [ibFilteredDeals])
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
-    const totalDeals = sortedDeals.length
-    const uniqueLogins = new Set(sortedDeals.map(d => d.login)).size
-    const uniqueSymbols = new Set(sortedDeals.map(d => d.rawData?.symbol)).size
+    const totalDeals = totalDealsCount
+    const uniqueLogins = new Set(deals.map(d => d.login)).size
+    const uniqueSymbols = new Set(deals.map(d => d.rawData?.symbol)).size
     
     return {
       totalDeals,
@@ -1168,7 +1092,7 @@ export default function LiveDealingModule() {
                   sortedDeals.map((deal) => (
                     <div 
                       key={deal.id} 
-                      className={`grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] ${newDealIds.has(deal.id) ? 'new-deal-blink' : 'hover:bg-[#F8FAFC] transition-colors'}`}
+                      className={`grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] ${currentPage === 1 && newDealIds.has(deal.id) ? 'new-deal-blink' : 'hover:bg-[#F8FAFC] transition-colors'}`}
                       style={{
                         gap: '0px', 
                         gridGap: '0px', 
