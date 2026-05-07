@@ -116,13 +116,32 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
             x2={pts[i+1].x.toFixed(1)} y2={pts[i+1].y.toFixed(1)}
             stroke={segColors[i]} strokeWidth="2" strokeLinecap="round"/>
         ))}
-        {/* Dots */}
-        {pts.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y}
-            r={hovered?.idx === i ? 4.5 : 3}
-            fill={dotColor(i)} stroke="white"
-            strokeWidth={hovered?.idx === i ? 2 : 1.5}/>
-        ))}
+        {/* Dots + value labels */}
+        {pts.map((p, i) => {
+          const color = dotColor(i)
+          const isHov = hovered?.idx === i
+          // Decide if label goes above or below the dot
+          const labelAbove = p.y - padTop > 14
+          const labelY = labelAbove ? p.y - 7 : p.y + 14
+          // Flip label to left if near right edge
+          const anchor = p.x > w - 28 ? 'end' : p.x < padL + 10 ? 'start' : 'middle'
+          return (
+            <g key={i}>
+              <circle cx={p.x} cy={p.y}
+                r={isHov ? 4.5 : 3}
+                fill={color} stroke="white"
+                strokeWidth={isHov ? 2 : 1.5}/>
+              <text
+                x={p.x} y={labelY}
+                textAnchor={anchor}
+                fontSize="7.5"
+                fontWeight="600"
+                fill={color}
+                opacity="0.9"
+              >{fmtY(p.v)}</text>
+            </g>
+          )
+        })}
         {/* Crosshair */}
         {hovered && (
           <line x1={hovered.pt.x} x2={hovered.pt.x} y1={padTop} y2={baseY}
@@ -253,7 +272,55 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [clientRules, setClientRules] = useState([])
   const [rulesLoading, setRulesLoading] = useState(false)
   const [selectedTimeParam, setSelectedTimeParam] = useState({})
-  
+
+  // Security tab states
+  const [authCurrentPassword, setAuthCurrentPassword] = useState('')
+  const [authNewPassword, setAuthNewPassword] = useState('')
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authMsg, setAuthMsg] = useState({ type: '', text: '' })
+
+  const [tradingNewPassword, setTradingNewPassword] = useState('')
+  const [tradingCheckPassword, setTradingCheckPassword] = useState('')
+  const [tradingChangeLoading, setTradingChangeLoading] = useState(false)
+  const [tradingCheckLoading, setTradingCheckLoading] = useState(false)
+  const [tradingMsg, setTradingMsg] = useState({ type: '', text: '' })
+
+  const [investorNewPassword, setInvestorNewPassword] = useState('')
+  const [investorCheckPassword, setInvestorCheckPassword] = useState('')
+  const [investorChangeLoading, setInvestorChangeLoading] = useState(false)
+  const [investorCheckLoading, setInvestorCheckLoading] = useState(false)
+  const [investorMsg, setInvestorMsg] = useState({ type: '', text: '' })
+
+  const [showAuthCurrent, setShowAuthCurrent] = useState(false)
+  const [showAuthNew, setShowAuthNew] = useState(false)
+  const [showAuthConfirm, setShowAuthConfirm] = useState(false)
+  const [showTradingNew, setShowTradingNew] = useState(false)
+  const [showTradingCheck, setShowTradingCheck] = useState(false)
+  const [showInvestorNew, setShowInvestorNew] = useState(false)
+  const [showInvestorCheck, setShowInvestorCheck] = useState(false)
+
+  const [showTradingSuggest, setShowTradingSuggest] = useState(false)
+  const [tradingSuggestedPwd, setTradingSuggestedPwd] = useState('')
+  const [showInvestorSuggest, setShowInvestorSuggest] = useState(false)
+  const [investorSuggestedPwd, setInvestorSuggestedPwd] = useState('')
+
+  const generatePassword = () => {
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const lower = 'abcdefghijklmnopqrstuvwxyz'
+    const digits = '0123456789'
+    const special = '!@#$%^&*'
+    const all = upper + lower + digits + special
+    const arr = [
+      upper[Math.floor(Math.random() * upper.length)],
+      lower[Math.floor(Math.random() * lower.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      special[Math.floor(Math.random() * special.length)],
+    ]
+    for (let i = 4; i < 14; i++) arr.push(all[Math.floor(Math.random() * all.length)])
+    return arr.sort(() => Math.random() - 0.5).join('')
+  }
+
   // Client data state (for updated balance/credit/equity)
   const [clientData, setClientData] = useState(client)
   
@@ -446,10 +513,28 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const fetchProfitTrend = async (range = '7d') => {
     setTrendLoading(true)
     try {
-      const now = Math.floor(Date.now() / 1000)
-      const days = range === '30d' ? 30 : 7
-      const from = now - days * 86400
-      const resp = await brokerAPI.getClientPnlOverview(client.login, from, now)
+      let from, to
+      const now = new Date()
+      if (range === '7d') {
+        // This week: Monday 00:00 to Sunday 23:59:59
+        const day = now.getDay() // 0=Sun,1=Mon,...
+        const mondayOffset = day === 0 ? -6 : 1 - day
+        const monday = new Date(now)
+        monday.setDate(now.getDate() + mondayOffset)
+        monday.setHours(0, 0, 0, 0)
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        sunday.setHours(23, 59, 59, 999)
+        from = Math.floor(monday.getTime() / 1000)
+        to   = Math.floor(sunday.getTime() / 1000)
+      } else {
+        // This month: 1st 00:00 to last day 23:59:59
+        const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+        const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        from = Math.floor(start.getTime() / 1000)
+        to   = Math.floor(end.getTime() / 1000)
+      }
+      const resp = await brokerAPI.getClientPnlOverview(client.login, from, to)
       const daysArr = resp?.data?.days ?? []
       const result = daysArr.map(d => ({
         label: (() => {
@@ -2214,6 +2299,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               Rules
             </button>
             )}
+            <button
+              onClick={() => setActiveTab('security')}
+              className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
+                activeTab === 'security'
+                  ? 'border-blue-600 text-blue-600 bg-blue-50'
+                  : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
+              }`}
+            >
+              Security
+            </button>
           </div>
 
           {/* Controls for Positions Tab */}
@@ -2705,8 +2800,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       <h3 className="text-sm font-bold text-slate-800">Profit Trend</h3>
                       <select value={trendRange} onChange={e => setTrendRange(e.target.value)}
                         className="text-xs border border-slate-200 rounded px-2 py-0.5 text-slate-600 bg-white focus:outline-none">
-                        <option value="7d">7 Days</option>
-                        <option value="30d">30 Days</option>
+                        <option value="7d">This Week</option>
+                        <option value="30d">This Month</option>
                       </select>
                     </div>
                     <div className="flex-1 flex flex-col justify-center">
@@ -2768,21 +2863,25 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         const totalMargin = usedAbs + freeAbs || 1
                         const usedPct = parseFloat((usedAbs / totalMargin * 100).toFixed(1))
                         const freePct = parseFloat((freeAbs / totalMargin * 100).toFixed(1))
+                        const bothPos = margin >= 0 && marginFree >= 0
+                        const bothNeg = margin < 0 && marginFree < 0
+                        const usedColor = bothPos ? '#15803d' : bothNeg ? '#991b1b' : margin < 0 ? '#ef4444' : '#15803d'
+                        const freeColor = bothPos ? '#22c55e' : bothNeg ? '#ef4444' : marginFree < 0 ? '#ef4444' : '#22c55e'
                         return (
                           <>
                             <SvgDonut
                               size={130} sw={20}
                               segments={[
-                                { pct: usedPct, color: '#ef4444', label: 'Used Margin', value: fmtMoney(usedAbs) },
-                                { pct: freePct, color: '#16a34a', label: 'Free Margin', value: fmtMoney(freeAbs) },
+                                { pct: usedPct, color: usedColor, label: 'Used Margin', value: fmtMoney(usedAbs) },
+                                { pct: freePct, color: freeColor, label: 'Free Margin', value: fmtMoney(freeAbs) },
                               ]}
                               centerLine1={fmtMoney(usedAbs + freeAbs)}
                               centerLine2="Total Margin"
                             />
                             <div className="space-y-2">
                               {[
-                                { label: 'Used Margin', val: usedAbs, pct: usedPct, color: '#ef4444' },
-                                { label: 'Free Margin', val: freeAbs, pct: freePct, color: '#16a34a' },
+                                { label: 'Used Margin', val: usedAbs, pct: usedPct, color: usedColor },
+                                { label: 'Free Margin', val: freeAbs, pct: freePct, color: freeColor },
                               ].map(({ label, val, pct, color }) => (
                                 <div key={label} className="text-xs">
                                   <div className="flex items-center gap-1.5 mb-0.5">
@@ -4214,6 +4313,277 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <div className="p-4 space-y-4">
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <h3 className="text-sm font-semibold text-gray-700">Security Settings</h3>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Trading Password */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-grey-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                      Trading Password
+                    </h4>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {/* Change */}
+                    <form
+                      className="space-y-2"
+                      onSubmit={async (e) => {
+                        e.preventDefault()
+                        setTradingMsg({ type: '', text: '' })
+                        if (!tradingNewPassword) {
+                          setTradingMsg({ type: 'error', text: 'Please enter a new trading password.' })
+                          return
+                        }
+                        try {
+                          setTradingChangeLoading(true)
+                          await brokerAPI.changeTradingPassword(client.login, tradingNewPassword)
+                          setTradingMsg({ type: 'success', text: 'Trading password changed successfully.' })
+                          setTradingNewPassword('')
+                        } catch (err) {
+                          setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to change trading password.' })
+                        } finally {
+                          setTradingChangeLoading(false)
+                        }
+                      }}
+                    >
+                      <label className="block text-xs font-medium text-gray-600">New Trading Password</label>
+                      <div className="relative">
+                        <input
+                          type={showTradingNew ? 'text' : 'password'}
+                          value={tradingNewPassword}
+                          onChange={(e) => { setTradingNewPassword(e.target.value); setShowTradingSuggest(false) }}
+                          onFocus={() => { const p = generatePassword(); setTradingSuggestedPwd(p); setShowTradingSuggest(true) }}
+                          onBlur={(e) => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowTradingSuggest(false) }}
+                          className="w-full px-3 py-1.5 pr-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-emerald-500 text-gray-900 bg-white"
+                          placeholder="Enter new trading password"
+                          autoComplete="new-password"
+                        />
+                        <button type="button" tabIndex={-1} onClick={() => setShowTradingNew(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showTradingNew ? 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'} /></svg>
+                        </button>
+                        {showTradingSuggest && (
+                          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3" onMouseDown={(e) => e.preventDefault()}>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                              <span className="text-xs font-semibold text-gray-700">Suggested password</span>
+                            </div>
+                            <div className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 rounded-md px-2.5 py-1.5 cursor-pointer transition-colors" onClick={() => { setTradingNewPassword(tradingSuggestedPwd); setShowTradingNew(true); setShowTradingSuggest(false) }} title="Click to use this password">
+                              <span className="flex-1 text-sm font-mono text-gray-800 tracking-wider select-all">{tradingSuggestedPwd}</span>
+                              <button type="button" tabIndex={-1} title="Generate new" onClick={(e) => { e.stopPropagation(); setTradingSuggestedPwd(generatePassword()) }} className="text-gray-400 hover:text-blue-600 transition-colors shrink-0">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">Click the password to use it</p>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={tradingChangeLoading}
+                        className="w-full px-4 py-2 text-sm font-semibold text-white bg-[#2563EA] hover:bg-[#1D4ED8] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {tradingChangeLoading ? 'Changing...' : 'Change Trading Password'}
+                      </button>
+                    </form>
+
+                    <div className="border-t border-gray-200" />
+
+                    {/* Check */}
+                    <form
+                      className="space-y-2"
+                      onSubmit={async (e) => {
+                        e.preventDefault()
+                        setTradingMsg({ type: '', text: '' })
+                        if (!tradingCheckPassword) {
+                          setTradingMsg({ type: 'error', text: 'Please enter a password to verify.' })
+                          return
+                        }
+                        try {
+                          setTradingCheckLoading(true)
+                          const res = await brokerAPI.checkClientPassword(client.login, 'trading', tradingCheckPassword)
+                          const ok = res?.valid === true || res?.success === true || res?.data?.valid === true
+                          setTradingMsg({ type: ok ? 'success' : 'error', text: ok ? 'Trading password is correct.' : (res?.message || 'Trading password is incorrect.') })
+                        } catch (err) {
+                          setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to verify password.' })
+                        } finally {
+                          setTradingCheckLoading(false)
+                        }
+                      }}
+                    >
+                      <label className="block text-xs font-medium text-gray-600">Verify Trading Password</label>
+                      <div className="relative">
+                        <input
+                          type={showTradingCheck ? 'text' : 'password'}
+                          value={tradingCheckPassword}
+                          onChange={(e) => setTradingCheckPassword(e.target.value)}
+                          className="w-full px-3 py-1.5 pr-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                          placeholder="Enter password to verify"
+                          autoComplete="off"
+                        />
+                        <button type="button" tabIndex={-1} onClick={() => setShowTradingCheck(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showTradingCheck ? 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'} /></svg>
+                        </button>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={tradingCheckLoading}
+                        className="w-full px-4 py-2 text-sm font-semibold text-[#2563EA] bg-[#EFF6FF] hover:bg-[#DBEAFE] border border-[#BFDBFE] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {tradingCheckLoading ? 'Verifying...' : 'Verify Trading Password'}
+                      </button>
+                    </form>
+
+                    {tradingMsg.text && (
+                      <div className={`text-xs px-3 py-2 rounded-md ${tradingMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                        {tradingMsg.text}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Investor Password */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-grey-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Investor Password
+                    </h4>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {/* Change */}
+                    <form
+                      className="space-y-2"
+                      onSubmit={async (e) => {
+                        e.preventDefault()
+                        setInvestorMsg({ type: '', text: '' })
+                        if (!investorNewPassword) {
+                          setInvestorMsg({ type: 'error', text: 'Please enter a new investor password.' })
+                          return
+                        }
+                        try {
+                          setInvestorChangeLoading(true)
+                          await brokerAPI.changeInvestorPassword(client.login, investorNewPassword)
+                          setInvestorMsg({ type: 'success', text: 'Investor password changed successfully.' })
+                          setInvestorNewPassword('')
+                        } catch (err) {
+                          setInvestorMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to change investor password.' })
+                        } finally {
+                          setInvestorChangeLoading(false)
+                        }
+                      }}
+                    >
+                      <label className="block text-xs font-medium text-gray-600">New Investor Password</label>
+                      <div className="relative">
+                        <input
+                          type={showInvestorNew ? 'text' : 'password'}
+                          value={investorNewPassword}
+                          onChange={(e) => { setInvestorNewPassword(e.target.value); setShowInvestorSuggest(false) }}
+                          onFocus={() => { const p = generatePassword(); setInvestorSuggestedPwd(p); setShowInvestorSuggest(true) }}
+                          onBlur={(e) => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowInvestorSuggest(false) }}
+                          className="w-full px-3 py-1.5 pr-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                          placeholder="Enter new investor password"
+                          autoComplete="new-password"
+                        />
+                        <button type="button" tabIndex={-1} onClick={() => setShowInvestorNew(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showInvestorNew ? 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'} /></svg>
+                        </button>
+                        {showInvestorSuggest && (
+                          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3" onMouseDown={(e) => e.preventDefault()}>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                              <span className="text-xs font-semibold text-gray-700">Suggested password</span>
+                            </div>
+                            <div className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 rounded-md px-2.5 py-1.5 cursor-pointer transition-colors" onClick={() => { setInvestorNewPassword(investorSuggestedPwd); setShowInvestorNew(true); setShowInvestorSuggest(false) }} title="Click to use this password">
+                              <span className="flex-1 text-sm font-mono text-gray-800 tracking-wider select-all">{investorSuggestedPwd}</span>
+                              <button type="button" tabIndex={-1} title="Generate new" onClick={(e) => { e.stopPropagation(); setInvestorSuggestedPwd(generatePassword()) }} className="text-gray-400 hover:text-blue-600 transition-colors shrink-0">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">Click the password to use it</p>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={investorChangeLoading}
+                        className="w-full px-4 py-2 text-sm font-semibold text-white bg-[#2563EA] hover:bg-[#1D4ED8] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {investorChangeLoading ? 'Changing...' : 'Change Investor Password'}
+                      </button>
+                    </form>
+
+                    <div className="border-t border-gray-200" />
+
+                    {/* Check */}
+                    <form
+                      className="space-y-2"
+                      onSubmit={async (e) => {
+                        e.preventDefault()
+                        setInvestorMsg({ type: '', text: '' })
+                        if (!investorCheckPassword) {
+                          setInvestorMsg({ type: 'error', text: 'Please enter a password to verify.' })
+                          return
+                        }
+                        try {
+                          setInvestorCheckLoading(true)
+                          const res = await brokerAPI.checkClientPassword(client.login, 'investor', investorCheckPassword)
+                          const ok = res?.valid === true || res?.success === true || res?.data?.valid === true
+                          setInvestorMsg({ type: ok ? 'success' : 'error', text: ok ? 'Investor password is correct.' : (res?.message || 'Investor password is incorrect.') })
+                        } catch (err) {
+                          setInvestorMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to verify password.' })
+                        } finally {
+                          setInvestorCheckLoading(false)
+                        }
+                      }}
+                    >
+                      <label className="block text-xs font-medium text-gray-600">Verify Investor Password</label>
+                      <div className="relative">
+                        <input
+                          type={showInvestorCheck ? 'text' : 'password'}
+                          value={investorCheckPassword}
+                          onChange={(e) => setInvestorCheckPassword(e.target.value)}
+                          className="w-full px-3 py-1.5 pr-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                          placeholder="Enter password to verify"
+                          autoComplete="off"
+                        />
+                        <button type="button" tabIndex={-1} onClick={() => setShowInvestorCheck(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showInvestorCheck ? 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'} /></svg>
+                        </button>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={investorCheckLoading}
+                        className="w-full px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {investorCheckLoading ? 'Verifying...' : 'Verify Investor Password'}
+                      </button>
+                    </form>
+
+                    {investorMsg.text && (
+                      <div className={`text-xs px-3 py-2 rounded-md ${investorMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                        {investorMsg.text}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}

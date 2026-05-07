@@ -4930,6 +4930,7 @@ const Client2Page = () => {
                                     const columnType = getColumnType(columnKey)
                                     const isNumeric = columnType === 'float' || columnType === 'integer'
                                     const isInteger = columnType === 'integer'
+                                    const isBoolean = columnType === 'boolean'
 
                                     // Initialize temp state for numeric filter if needed
                                     if (isNumeric && !numericFilterTemp[columnKey]) {
@@ -4973,7 +4974,7 @@ const Client2Page = () => {
                                         <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
                                           <div className="flex items-center justify-between">
                                             <span className="text-xs font-bold text-gray-700">
-                                              {isNumeric ? 'Number Filters' : isInteger ? 'Text Filters' : 'Text Filters'}
+                                              {isBoolean ? 'Filter' : isNumeric ? 'Number Filters' : 'Text Filters'}
                                             </span>
                                             <button
                                               onClick={() => clearColumnFilter(columnKey)}
@@ -5263,8 +5264,52 @@ const Client2Page = () => {
                                           )
                                         })()}
 
+                                        {/* Boolean Filter — just two checkboxes */}
+                                        {isBoolean && (() => {
+                                          const checkboxFilterKey = `${columnKey}_checkbox`
+                                          const existingFilter = columnFilters[checkboxFilterKey]
+                                          const selectedBool = selectedColumnValues[columnKey] !== undefined
+                                            ? selectedColumnValues[columnKey]
+                                            : (existingFilter?.values || [])
+                                          const toggle = (val) => {
+                                            const next = selectedBool.includes(val)
+                                              ? selectedBool.filter(v => v !== val)
+                                              : [...selectedBool, val]
+                                            setSelectedColumnValues(prev => ({ ...prev, [columnKey]: next }))
+                                          }
+                                          return (
+                                            <div className="px-4 py-4 space-y-2.5">
+                                              {[{ val: 'true', label: 'Enabled' }, { val: 'false', label: 'Disabled' }].map(({ val, label }) => (
+                                                <label key={val} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded px-2 py-1.5">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={selectedBool.includes(val)}
+                                                    onChange={() => toggle(val)}
+                                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                  />
+                                                  <span className="text-sm font-medium text-gray-800">{label}</span>
+                                                </label>
+                                              ))}
+                                              <div className="pt-2 flex gap-2">
+                                                <button
+                                                  onClick={() => setShowFilterDropdown(null)}
+                                                  className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded hover:bg-gray-300"
+                                                >
+                                                  Close
+                                                </button>
+                                                <button
+                                                  onClick={() => applyCheckboxFilter(columnKey)}
+                                                  className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700"
+                                                >
+                                                  Apply
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )
+                                        })()}
+
                                         {/* Text/Integer Filter (Checkboxes) */}
-                                        {!isNumeric && (() => {
+                                        {!isNumeric && !isBoolean && (() => {
                                           const currentSort = columnSortOrder[columnKey]
                                           const checkboxFilterKey = `${columnKey}_checkbox`
                                           const hasCheckboxFilter = columnFilters[checkboxFilterKey]

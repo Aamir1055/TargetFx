@@ -26,8 +26,151 @@ const formatDateToValue = (displayStr) => {
   return `${fullYear}-${month}-${day}`
 }
 
+const _genPassword = () => {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const lower = 'abcdefghjkmnpqrstuvwxyz'
+  const digits = '23456789'
+  const special = '@#$!%*?&'
+  const all = upper + lower + digits + special
+  let pwd = upper[Math.floor(Math.random() * upper.length)]
+    + lower[Math.floor(Math.random() * lower.length)]
+    + digits[Math.floor(Math.random() * digits.length)]
+    + special[Math.floor(Math.random() * special.length)]
+  for (let i = 4; i < 12; i++) pwd += all[Math.floor(Math.random() * all.length)]
+  return pwd.split('').sort(() => Math.random() - 0.5).join('')
+}
+
+const _EyeIcon = ({ show, onToggle }) => (
+  <button type="button" onClick={onToggle} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+    {show
+      ? <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21"/></svg>
+      : <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+    }
+  </button>
+)
+
+const PasswordSection = ({ title, type, login }) => {
+  const [newPwd, setNewPwd] = useState('')
+  const [showNew, setShowNew] = useState(false)
+  const [checkPwd, setCheckPwd] = useState('')
+  const [showCheck, setShowCheck] = useState(false)
+  const [changing, setChanging] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [changeMsg, setChangeMsg] = useState(null)
+  const [checkMsg, setCheckMsg] = useState(null)
+  const [genVal, setGenVal] = useState('')
+
+  const handleChange = async () => {
+    if (!newPwd) { setChangeMsg({ ok: false, text: 'Enter a new password' }); return }
+    setChanging(true); setChangeMsg(null)
+    try {
+      if (type === 'trading') {
+        await brokerAPI.changeTradingPassword(login, '', newPwd)
+      } else {
+        await brokerAPI.changeInvestorPassword(login, '', newPwd)
+      }
+      setChangeMsg({ ok: true, text: 'Password changed successfully' })
+      setNewPwd('')
+    } catch (e) {
+      setChangeMsg({ ok: false, text: e?.response?.data?.message || 'Failed to change password' })
+    } finally { setChanging(false) }
+  }
+
+  const handleCheck = async () => {
+    if (!checkPwd) { setCheckMsg({ ok: false, text: 'Enter a password to verify' }); return }
+    setChecking(true); setCheckMsg(null)
+    try {
+      await brokerAPI.checkPassword(login, checkPwd, type)
+      setCheckMsg({ ok: true, text: 'Password is correct ✓' })
+    } catch (e) {
+      setCheckMsg({ ok: false, text: e?.response?.data?.message || 'Invalid password ✗' })
+    } finally { setChecking(false) }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
+        <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wide">{title}</p>
+      </div>
+      <div className="p-4 space-y-5">
+
+        {/* Generate Password */}
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Generate Password</p>
+          <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+            <input
+              type="text"
+              readOnly
+              value={genVal}
+              placeholder="Click Generate →"
+              className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none placeholder-gray-400 select-all"
+            />
+            <button
+              onClick={() => {
+                const p = _genPassword()
+                setGenVal(p)
+                navigator.clipboard?.writeText(p).catch(() => {})
+              }}
+              className="text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md transition-colors flex-shrink-0"
+            >Generate</button>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1">Auto-copied to clipboard</p>
+        </div>
+
+        {/* New Password input + Apply */}
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">New Password</p>
+          <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400 focus-within:bg-white transition-all">
+            <input
+              type={showNew ? 'text' : 'password'}
+              value={newPwd}
+              onChange={e => { setNewPwd(e.target.value); setChangeMsg(null) }}
+              placeholder="Paste or type new password"
+              className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none placeholder-gray-400"
+            />
+            <_EyeIcon show={showNew} onToggle={() => setShowNew(s => !s)} />
+          </div>
+          {changeMsg && (
+            <p className={`text-[11px] mt-2 font-medium ${changeMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{changeMsg.text}</p>
+          )}
+          <button
+            onClick={handleChange}
+            disabled={changing || !newPwd}
+            className="mt-3 w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-semibold transition-colors"
+          >{changing ? 'Applying...' : 'Apply Password'}</button>
+        </div>
+
+        {/* Verify Password */}
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Verify Password</p>
+          <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400 focus-within:bg-white transition-all">
+            <input
+              type={showCheck ? 'text' : 'password'}
+              value={checkPwd}
+              onChange={e => { setCheckPwd(e.target.value); setCheckMsg(null) }}
+              placeholder="Enter password to verify"
+              className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none placeholder-gray-400"
+            />
+            <_EyeIcon show={showCheck} onToggle={() => setShowCheck(s => !s)} />
+          </div>
+          {checkMsg && (
+            <p className={`text-[11px] mt-2 font-medium ${checkMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{checkMsg.text}</p>
+          )}
+          <button
+            onClick={handleCheck}
+            disabled={checking}
+            className="mt-3 w-full py-2.5 rounded-lg bg-gray-800 hover:bg-gray-900 disabled:opacity-60 text-white text-[13px] font-semibold transition-colors"
+          >{checking ? 'Verifying...' : 'Verify Password'}</button>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
 const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrdersCache = [] }) => {
   const [activeTab, setActiveTab] = useState('overview')
+  const [securityTab, setSecurityTab] = useState('trading')
   const [positions, setPositions] = useState([])
   const [orders, setOrders] = useState([])
   const [netPositions, setNetPositions] = useState([])
@@ -1768,6 +1911,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 { key: 'deals',     label: 'Deals',     count: hasAppliedFilter ? totalDealsCount : 0 },
                 ...((user?.rights ? ['deposit','withdrawal','credit_in','credit_out'].some(r => user.rights.includes(r)) : true) ? [{ key: 'funds', label: 'Money', count: null }] : []),
                 ...((user?.rights ? user.rights.includes('manage_rules') : true) ? [{ key: 'rules', label: 'Rules', count: null }] : []),
+                { key: 'security', label: 'Security', count: null },
               ].map(tab => {
                 const isActive = activeTab === tab.key
                 return (
@@ -1797,7 +1941,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         </div>
 
         {/* Search */}
-        {activeTab !== 'overview' && (
+        {activeTab !== 'overview' && activeTab !== 'security' && activeTab !== 'money' && activeTab !== 'rules' && (
         <div className="px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-2 mb-2">
             <div className="flex-1 min-w-0 h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center px-2 gap-1">
@@ -2088,8 +2232,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               )}
 
               {/* Broker Rules Tab */}
-              {activeTab === 'rules' && (
-                <div className="p-4">
+              {activeTab === 'rules' && (                <div className="p-4">
                   {rulesLoading ? (
                     <div className="text-center py-8">
                       <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -2158,6 +2301,40 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Security Tab */}
+              {activeTab === 'security' && (
+                <div className="flex flex-col h-full">
+                  {/* Sub-tabs */}
+                  <div className="flex gap-2 px-4 pt-4 pb-2 flex-shrink-0">
+                    <button
+                      onClick={() => setSecurityTab('trading')}
+                      className={`flex-1 py-2 rounded-xl text-[12px] font-semibold transition-all ${
+                        securityTab === 'trading'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >Master</button>
+                    <button
+                      onClick={() => setSecurityTab('investor')}
+                      className={`flex-1 py-2 rounded-xl text-[12px] font-semibold transition-all ${
+                        securityTab === 'investor'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >Investor</button>
+                  </div>
+                  {/* Content */}
+                  <div className="px-4 pb-4">
+                    {securityTab === 'trading' && (
+                      <PasswordSection title="Master Password (Trading)" type="trading" login={clientData.login ?? client.login} />
+                    )}
+                    {securityTab === 'investor' && (
+                      <PasswordSection title="Investor Password (Read-only)" type="investor" login={clientData.login ?? client.login} />
+                    )}
+                  </div>
                 </div>
               )}
             </div>

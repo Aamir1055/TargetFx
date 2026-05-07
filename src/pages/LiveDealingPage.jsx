@@ -271,7 +271,15 @@ const LiveDealingPage = () => {
   
   // Track if component is mounted to prevent updates after unmount
   const isMountedRef = useRef(true)
-  
+
+  // Refs that always hold the latest filter values so the stale WS closure can read them
+  const columnFiltersRef = useRef({})
+  const wsSearchQueryRef = useRef('')
+  const moduleFilterValueRef = useRef('both')
+  useEffect(() => { columnFiltersRef.current = columnFilters }, [columnFilters])
+  useEffect(() => { wsSearchQueryRef.current = debouncedSearchQuery }, [debouncedSearchQuery])
+  useEffect(() => { moduleFilterValueRef.current = moduleFilter }, [moduleFilter])
+
   // Define string columns that should show text filters instead of number filters
   const stringColumns = ['symbol', 'action', 'reason', 'entry', 'name']
   const isStringColumn = (key) => stringColumns.includes(key)
@@ -811,6 +819,100 @@ const LiveDealingPage = () => {
     }
   }
 
+  // Check whether a freshly-arrived WS deal should be shown given the current
+  // search bar value and any column-level filters (using always-up-to-date refs).
+  const wsDealPassesFilters = (dealEntry) => {
+    const filters   = columnFiltersRef.current  // latest columnFilters
+    const search    = (wsSearchQueryRef.current || '').trim().toLowerCase()
+    const rawData   = dealEntry.rawData || {}
+
+    // ── Module filter (Deal / Money / Both) ──────────────────────────────────
+    const activeMod = moduleFilterValueRef.current
+    if (activeMod !== 'both') {
+      const label = getActionLabel(rawData.action)
+      const isTrade = isTradeAction(label)
+      if (activeMod === 'deal'  && !isTrade) return false
+      if (activeMod === 'money' &&  isTrade) return false
+    }
+
+    // ── Search bar: symbol contains ─────────────────────────────────────────
+    if (search && !String(rawData.symbol || '').toLowerCase().includes(search)) return false
+
+    // ── Column filters ───────────────────────────────────────────────────────
+    for (const key of Object.keys(filters)) {
+      if (key.endsWith('_custom')) continue   // handled below via companion key
+
+      const val = filters[key]
+      if (!val || (Array.isArray(val) && val.length === 0)) continue
+
+      // Resolve the raw field value for this column
+      let fieldVal
+      if (key === 'login' || key === 'time' || key === 'dealer') {
+        fieldVal = dealEntry[key]
+      } else if (key === 'deal') {
+        fieldVal = rawData.deal ?? dealEntry.id
+      } else {
+        fieldVal = rawData[key]
+      }
+
+      // Checkbox filter: value must be in the selected array
+      if (Array.isArray(val)) {
+        // Compare as strings to match the way getUniqueColumnValues stores them
+        const strVal = String(fieldVal ?? '')
+        if (!val.map(v => String(v)).includes(strVal)) return false
+      }
+    }
+
+    // ── Custom filters (_custom keys) ────────────────────────────────────────
+    for (const key of Object.keys(filters)) {
+      if (!key.endsWith('_custom')) continue
+      const cfg = filters[key]
+      if (!cfg || !cfg.type) continue
+
+      const colKey = key.replace('_custom', '')
+      let fieldVal
+      if (colKey === 'login' || colKey === 'time' || colKey === 'dealer') {
+        fieldVal = dealEntry[colKey]
+      } else if (colKey === 'deal') {
+        fieldVal = rawData.deal ?? dealEntry.id
+      } else {
+        fieldVal = rawData[colKey]
+      }
+
+      if (cfg.isText) {
+        // Text/string filter
+        const sv = String(fieldVal ?? '').toLowerCase()
+        const cv = String(cfg.value1 ?? '').toLowerCase()
+        switch (cfg.type) {
+          case 'equal':          if (sv !== cv) return false; break
+          case 'notEqual':       if (sv === cv) return false; break
+          case 'startsWith':     if (!sv.startsWith(cv)) return false; break
+          case 'endsWith':       if (!sv.endsWith(cv)) return false; break
+          case 'contains':       if (!sv.includes(cv)) return false; break
+          case 'notContains':    if (sv.includes(cv))  return false; break
+          default: break
+        }
+      } else {
+        // Numeric filter
+        const nv = parseFloat(fieldVal)
+        if (isNaN(nv)) return false
+        const v1 = cfg.value1, v2 = cfg.value2
+        switch (cfg.type) {
+          case 'equal':              if (nv !== v1) return false; break
+          case 'notEqual':           if (nv === v1) return false; break
+          case 'lessThan':           if (nv >= v1)  return false; break
+          case 'lessThanOrEqual':    if (nv > v1)   return false; break
+          case 'greaterThan':        if (nv <= v1)  return false; break
+          case 'greaterThanOrEqual': if (nv < v1)   return false; break
+          case 'between':            if (v2 == null || nv < v1 || nv > v2) return false; break
+          default: break
+        }
+      }
+    }
+
+    return true
+  }
+
   // Handle DEAL_ADDED events
   const handleDealAddedEvent = (data) => {
     setLoading(false)
@@ -837,6 +939,10 @@ const LiveDealingPage = () => {
         rawData: dealData,
         isWebSocketDeal: true // Mark as WebSocket deal
       }
+
+      // If a search or column filter is active, check the new deal locally
+      // before adding it so the table only shows matching rows.
+      if (!wsDealPassesFilters(dealEntry)) return
 
       setDeals(prevDeals => {
         // Check if deal already exists

@@ -706,6 +706,30 @@ export const brokerAPI = {
   getClientFields: async (params, options = {}) => {
     const response = await api.get('/api/broker/clients/fields', { params, ...options })
     return response
+  },
+
+  // Change broker auth password
+  changeAuthPassword: async (payload) => {
+    const response = await api.post('/api/auth/broker/change-password', payload)
+    return response.data
+  },
+
+  // Change client trading password
+  changeTradingPassword: async (login, password) => {
+    const response = await api.post(`/api/broker/clients/${login}/change-trading-password`, { password })
+    return response.data
+  },
+
+  // Change client investor password
+  changeInvestorPassword: async (login, password) => {
+    const response = await api.post(`/api/broker/clients/${login}/change-investor-password`, { password })
+    return response.data
+  },
+
+  // Check client password (type: 'trading' | 'investor')
+  checkClientPassword: async (login, type, password) => {
+    const response = await api.post(`/api/broker/clients/${login}/check-password`, { type, password })
+    return response.data
   }
 }
 

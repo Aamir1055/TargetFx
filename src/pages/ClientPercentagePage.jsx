@@ -431,11 +431,22 @@ const ClientPercentagePage = () => {
       return
     }
 
+    // For selected mode, export directly from already-loaded clients — no API calls needed
+    if (mode === 'selected') {
+      const selectedData = clients.filter(c => selectedRows.has(c.client_login) || selectedRows.has(c.login))
+      if (!selectedData.length) {
+        alert('Selected rows not found in loaded data')
+        return
+      }
+      const csv = buildCSV(selectedData)
+      downloadCSV(csv, `client_percentage_selected_${new Date().toISOString().split('T')[0]}.csv`)
+      return
+    }
+
     const sortBy = sortColumn === 'client_login' ? 'login'
       : sortColumn === 'client_name' ? 'name'
       : sortColumn
 
-    const PARALLEL = 12
     const MAX_RETRIES = 3
     const MAX_TOTAL_PAGES = 1000 // hard ceiling against runaway pagination
     const REQUESTED_PAGE_SIZE = 1000
@@ -505,28 +516,23 @@ const ClientPercentagePage = () => {
       const updateProgress = () => setExportProgress(Math.min(pagesDone / totalPages, 1))
       updateProgress()
 
-      // 2) Fetch remaining pages in parallel batches.
-      // Track failed pages separately from empty pages so we don't conflate
-      // hard errors with legitimately empty results.
+      // 2) Fetch remaining pages one at a time (sequential to avoid flooding the server).
       const failedPages = []
       const emptyPages = []
 
-      for (let page = 2; page <= totalPages; page += PARALLEL) {
-        const pages = []
-        for (let i = 0; i < PARALLEL && (page + i) <= totalPages; i++) pages.push(page + i)
-        const results = await Promise.all(
-          pages.map(p => fetchChunk(p, REQUESTED_PAGE_SIZE)
-            .then(d => ({ p, d, ok: true }))
-            .catch(err => ({ p, err, ok: false }))
-          )
-        )
-        for (const res of results) {
-          pagesDone++
-          if (!res.ok) {
-            console.warn(`[ClientPercentage] Page ${res.p} failed after retries:`, res.err)
-            failedPages.push(res.p)
-            continue
-          }
+      for (let page = 2; page <= totalPages; page++) {
+        let res
+        try {
+          const d = await fetchChunk(page, REQUESTED_PAGE_SIZE)
+          res = { p: page, d, ok: true }
+        } catch (err) {
+          res = { p: page, err, ok: false }
+        }
+        pagesDone++
+        if (!res.ok) {
+          console.warn(`[ClientPercentage] Page ${res.p} failed after retries:`, res.err)
+          failedPages.push(res.p)
+        } else {
           const list = Array.isArray(res.d.clients) ? res.d.clients : []
           if (list.length === 0) emptyPages.push(res.p)
           else addClients(list)
@@ -534,25 +540,19 @@ const ClientPercentagePage = () => {
         updateProgress()
       }
 
-      // 3) Final retry for failed pages only (fetchChunk already exhausted its
-      //    own retries; one more end-of-run attempt is a deliberate, separate
-      //    pass for transient outages).
+      // 3) Final retry for failed pages one at a time.
       if (failedPages.length) {
-        const recovered = await Promise.all(
-          failedPages.map(p => fetchChunk(p, REQUESTED_PAGE_SIZE)
-            .then(d => Array.isArray(d.clients) ? d.clients : [])
-            .catch(() => null)
-          )
-        )
-        recovered.forEach((list, i) => {
-          if (list === null) {
-            console.warn(`[ClientPercentage] Page ${failedPages[i]} unrecoverable; rows may be missing.`)
-          } else if (list.length === 0) {
-            emptyPages.push(failedPages[i])
-          } else {
-            addClients(list)
+        for (let i = 0; i < failedPages.length; i++) {
+          const p = failedPages[i]
+          try {
+            const d = await fetchChunk(p, REQUESTED_PAGE_SIZE)
+            const list = Array.isArray(d.clients) ? d.clients : []
+            if (list.length === 0) emptyPages.push(p)
+            else addClients(list)
+          } catch {
+            console.warn(`[ClientPercentage] Page ${p} unrecoverable; rows may be missing.`)
           }
-        })
+        }
       }
 
       // 4) Forward-walk safety net for off-by-one totals. Bound by both a
