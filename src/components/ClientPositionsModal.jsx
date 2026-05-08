@@ -4348,26 +4348,64 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     </h4>
                   </div>
                   <div className="p-4 space-y-3">
-                    {/* Mode toggle — compact */}
-                    <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => { setTradingMode('verify'); setTradingMsg({ type: '', text: '' }); setTradingCheckPassword(''); setTradingNewPassword('') }}
-                        className={`px-4 py-1.5 text-xs font-semibold transition-colors ${
-                          tradingMode === 'verify' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        Verify Password
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setTradingMode('change'); setTradingMsg({ type: '', text: '' }); setTradingCheckPassword(''); setTradingNewPassword('') }}
-                        className={`px-4 py-1.5 text-xs font-semibold transition-colors ${
-                          tradingMode === 'change' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        Change Password
-                      </button>
+                    {/* Mode toggle + Account Controls in one row */}
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      {/* Mode toggle — compact */}
+                      <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => { setTradingMode('verify'); setTradingMsg({ type: '', text: '' }); setTradingCheckPassword(''); setTradingNewPassword('') }}
+                          className={`px-4 py-1.5 text-xs font-semibold transition-colors ${
+                            tradingMode === 'verify' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          Verify Password
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setTradingMode('change'); setTradingMsg({ type: '', text: '' }); setTradingCheckPassword(''); setTradingNewPassword('') }}
+                          className={`px-4 py-1.5 text-xs font-semibold transition-colors ${
+                            tradingMode === 'change' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          Change Password
+                        </button>
+                      </div>
+                      {/* Account Controls — vertical, right next to toggle */}
+                      <div className="flex flex-col gap-1.5">
+                        {/* Account row */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-500 flex items-center gap-1 w-16">
+                            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            Account
+                          </span>
+                          <label className={`flex items-center gap-1 cursor-pointer ${accountActionLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <input type="radio" name="accountStatus" checked={isAccountEnabled} onChange={async () => { if (isAccountEnabled) return; try { setAccountActionLoading(true); setTradingMsg({ type: '', text: '' }); await brokerAPI.enableAccount(client.login); setIsAccountEnabled(true); setTradingMsg({ type: 'success', text: 'Account enabled.' }) } catch (err) { setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' }) } finally { setAccountActionLoading(false) } }} className={`w-3 h-3 ${isAccountEnabled ? 'accent-green-600' : 'accent-gray-400'}`} />
+                            <span className={`text-xs font-medium ${isAccountEnabled ? 'text-green-600' : 'text-gray-400'}`}>Enable</span>
+                          </label>
+                          <label className={`flex items-center gap-1 cursor-pointer ${accountActionLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <input type="radio" name="accountStatus" checked={!isAccountEnabled} onChange={async () => { if (!isAccountEnabled) return; try { setAccountActionLoading(true); setTradingMsg({ type: '', text: '' }); await brokerAPI.disableAccount(client.login); setIsAccountEnabled(false); setTradingMsg({ type: 'success', text: 'Account disabled.' }) } catch (err) { setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' }) } finally { setAccountActionLoading(false) } }} className={`w-3 h-3 ${!isAccountEnabled ? 'accent-red-500' : 'accent-gray-400'}`} />
+                            <span className={`text-xs font-medium ${!isAccountEnabled ? 'text-red-500' : 'text-gray-400'}`}>Disable</span>
+                          </label>
+                          {accountActionLoading && <span className="text-xs text-gray-400 animate-pulse">Saving...</span>}
+                        </div>
+                        {/* Trading row */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-500 flex items-center gap-1 w-16">
+                            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                            Trading
+                          </span>
+                          <label className={`flex items-center gap-1 cursor-pointer ${tradingActionLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <input type="radio" name="tradingStatus" checked={isTradingEnabled} onChange={async () => { if (isTradingEnabled) return; try { setTradingActionLoading(true); setTradingMsg({ type: '', text: '' }); await brokerAPI.enableTrading(client.login); setIsTradingEnabled(true); setTradingMsg({ type: 'success', text: 'Trading enabled.' }) } catch (err) { setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' }) } finally { setTradingActionLoading(false) } }} className={`w-3 h-3 ${isTradingEnabled ? 'accent-green-600' : 'accent-gray-400'}`} />
+                            <span className={`text-xs font-medium ${isTradingEnabled ? 'text-green-600' : 'text-gray-400'}`}>Enable</span>
+                          </label>
+                          <label className={`flex items-center gap-1 cursor-pointer ${tradingActionLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <input type="radio" name="tradingStatus" checked={!isTradingEnabled} onChange={async () => { if (!isTradingEnabled) return; try { setTradingActionLoading(true); setTradingMsg({ type: '', text: '' }); await brokerAPI.disableTrading(client.login); setIsTradingEnabled(false); setTradingMsg({ type: 'success', text: 'Trading disabled.' }) } catch (err) { setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' }) } finally { setTradingActionLoading(false) } }} className={`w-3 h-3 ${!isTradingEnabled ? 'accent-red-500' : 'accent-gray-400'}`} />
+                            <span className={`text-xs font-medium ${!isTradingEnabled ? 'text-red-500' : 'text-gray-400'}`}>Disable</span>
+                          </label>
+                          {tradingActionLoading && <span className="text-xs text-gray-400 animate-pulse">Saving...</span>}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Verify mode */}
@@ -4471,124 +4509,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       </div>
                     )}
 
-                    {/* Account Controls */}
-                    <div className="border-t border-gray-100 pt-3 space-y-2.5">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Account Controls</p>
 
-                      {/* Enable / Disable Account */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                          Account
-                        </span>
-                        <div className="flex items-center gap-4">
-                          <label className={`flex items-center gap-1.5 cursor-pointer ${accountActionLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-                            <input
-                              type="radio"
-                              name="accountStatus"
-                              checked={isAccountEnabled}
-                              onChange={async () => {
-                                if (isAccountEnabled) return
-                                try {
-                                  setAccountActionLoading(true)
-                                  setTradingMsg({ type: '', text: '' })
-                                  await brokerAPI.enableAccount(client.login)
-                                  setIsAccountEnabled(true)
-                                  setTradingMsg({ type: 'success', text: 'Account enabled successfully.' })
-                                } catch (err) {
-                                  setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' })
-                                } finally {
-                                  setAccountActionLoading(false)
-                                }
-                              }}
-                              className="accent-green-600 w-3.5 h-3.5"
-                            />
-                            <span className="text-xs font-medium text-green-700">Enable</span>
-                          </label>
-                          <label className={`flex items-center gap-1.5 cursor-pointer ${accountActionLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-                            <input
-                              type="radio"
-                              name="accountStatus"
-                              checked={!isAccountEnabled}
-                              onChange={async () => {
-                                if (!isAccountEnabled) return
-                                try {
-                                  setAccountActionLoading(true)
-                                  setTradingMsg({ type: '', text: '' })
-                                  await brokerAPI.disableAccount(client.login)
-                                  setIsAccountEnabled(false)
-                                  setTradingMsg({ type: 'success', text: 'Account disabled successfully.' })
-                                } catch (err) {
-                                  setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' })
-                                } finally {
-                                  setAccountActionLoading(false)
-                                }
-                              }}
-                              className="accent-red-500 w-3.5 h-3.5"
-                            />
-                            <span className="text-xs font-medium text-red-600">Disable</span>
-                          </label>
-                          {accountActionLoading && <span className="text-xs text-gray-400 animate-pulse">Saving...</span>}
-                        </div>
-                      </div>
-
-                      {/* Enable / Disable Trading */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                          Trading
-                        </span>
-                        <div className="flex items-center gap-4">
-                          <label className={`flex items-center gap-1.5 cursor-pointer ${tradingActionLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-                            <input
-                              type="radio"
-                              name="tradingStatus"
-                              checked={isTradingEnabled}
-                              onChange={async () => {
-                                if (isTradingEnabled) return
-                                try {
-                                  setTradingActionLoading(true)
-                                  setTradingMsg({ type: '', text: '' })
-                                  await brokerAPI.enableTrading(client.login)
-                                  setIsTradingEnabled(true)
-                                  setTradingMsg({ type: 'success', text: 'Trading enabled successfully.' })
-                                } catch (err) {
-                                  setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' })
-                                } finally {
-                                  setTradingActionLoading(false)
-                                }
-                              }}
-                              className="accent-green-600 w-3.5 h-3.5"
-                            />
-                            <span className="text-xs font-medium text-green-700">Enable</span>
-                          </label>
-                          <label className={`flex items-center gap-1.5 cursor-pointer ${tradingActionLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-                            <input
-                              type="radio"
-                              name="tradingStatus"
-                              checked={!isTradingEnabled}
-                              onChange={async () => {
-                                if (!isTradingEnabled) return
-                                try {
-                                  setTradingActionLoading(true)
-                                  setTradingMsg({ type: '', text: '' })
-                                  await brokerAPI.disableTrading(client.login)
-                                  setIsTradingEnabled(false)
-                                  setTradingMsg({ type: 'success', text: 'Trading disabled successfully.' })
-                                } catch (err) {
-                                  setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' })
-                                } finally {
-                                  setTradingActionLoading(false)
-                                }
-                              }}
-                              className="accent-red-500 w-3.5 h-3.5"
-                            />
-                            <span className="text-xs font-medium text-red-600">Disable</span>
-                          </label>
-                          {tradingActionLoading && <span className="text-xs text-gray-400 animate-pulse">Saving...</span>}
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 

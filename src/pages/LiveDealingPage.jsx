@@ -701,7 +701,7 @@ const LiveDealingPage = () => {
           throw new Error('Invalid custom date range')
         }
         from = Math.floor(fromDate.getTime() / 1000)
-        to = Math.floor(toDate.getTime() / 1000)
+        to = Math.floor(toDate.getTime() / 1000) + 86399
       } else {
         const now = Math.floor(Date.now() / 1000)
         from = now - (24 * 60 * 60)
@@ -824,6 +824,7 @@ const LiveDealingPage = () => {
       // On page 1 with no active filters/search: merge with existing deals (preserves WS deals).
       // Otherwise: replace, since merging would mix in stale rows that don't match the active filters.
       const hasActiveFilters =
+        timeFilter === 'custom' ||
         (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) ||
         moduleFilter !== 'both' ||
         Object.keys(columnFilters || {}).length > 0
