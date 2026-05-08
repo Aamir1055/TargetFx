@@ -730,6 +730,26 @@ export const brokerAPI = {
   checkClientPassword: async (login, type, password) => {
     const response = await api.post(`/api/broker/clients/${login}/check-password`, { type, password })
     return response.data
+  },
+
+  // Enable / Disable account
+  enableAccount: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/enable-account`)
+    return response.data
+  },
+  disableAccount: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/disable-account`)
+    return response.data
+  },
+
+  // Enable / Disable trading
+  enableTrading: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/enable-trading`)
+    return response.data
+  },
+  disableTrading: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/disable-trading`)
+    return response.data
   }
 }
 
