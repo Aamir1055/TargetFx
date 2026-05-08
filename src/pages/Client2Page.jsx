@@ -1583,8 +1583,6 @@ const Client2Page = () => {
     return () => clearInterval(intervalId)
   }, [fetchRebateTotals, isMobile])
 
-  // Removed server-side quick filter refetch; quick filters now apply client-side to current page only
-
   // Percentage view is now controlled by Card Filter (cardVisibility.percentage) and fetched together with main data
 
   // Auto-refresh every 2 seconds to keep data updated (including filtered data) - desktop only
@@ -4026,8 +4024,8 @@ const Client2Page = () => {
                               type="checkbox"
                               checked={quickFilters.hasFloating}
                               onChange={(e) => {
-                                // Invalidate any in-flight requests from previous filter state
                                 requestIdRef.current++
+                                pausePollingUntilRef.current = Date.now() + 3000
                                 setQuickFilters(prev => ({
                                   ...prev,
                                   hasFloating: e.target.checked
@@ -4043,8 +4041,8 @@ const Client2Page = () => {
                               type="checkbox"
                               checked={quickFilters.hasCredit}
                               onChange={(e) => {
-                                // Invalidate any in-flight requests from previous filter state
                                 requestIdRef.current++
+                                pausePollingUntilRef.current = Date.now() + 3000
                                 setQuickFilters(prev => ({
                                   ...prev,
                                   hasCredit: e.target.checked
@@ -4060,8 +4058,8 @@ const Client2Page = () => {
                               type="checkbox"
                               checked={quickFilters.noDeposit}
                               onChange={(e) => {
-                                // Invalidate any in-flight requests from previous filter state
                                 requestIdRef.current++
+                                pausePollingUntilRef.current = Date.now() + 3000
                                 setQuickFilters(prev => ({
                                   ...prev,
                                   noDeposit: e.target.checked
@@ -4077,8 +4075,8 @@ const Client2Page = () => {
                               type="checkbox"
                               checked={quickFilters.accountEnabled}
                               onChange={(e) => {
-                                // Invalidate any in-flight requests from previous filter state
                                 requestIdRef.current++
+                                pausePollingUntilRef.current = Date.now() + 3000
                                 setQuickFilters(prev => ({
                                   ...prev,
                                   accountEnabled: e.target.checked
