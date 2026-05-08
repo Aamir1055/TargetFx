@@ -727,9 +727,9 @@ const MarginLevelPage = () => {
           <div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden flex flex-col flex-1">
             {/* Search and Controls Bar - Inside table container */}
             <div className="border-b border-[#E5E7EB] p-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex flex-row items-center justify-between gap-3">
                   {/* Left: Columns */}
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-2">
                     {/* Columns Button (icon only) */}
                     <div className="relative">
                       <button

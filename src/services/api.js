@@ -537,6 +537,24 @@ export const brokerAPI = {
     return response.data
   },
 
+  // Account & Trading access toggles
+  enableAccount: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/enable-account`)
+    return response.data
+  },
+  disableAccount: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/disable-account`)
+    return response.data
+  },
+  enableTrading: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/enable-trading`)
+    return response.data
+  },
+  disableTrading: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/disable-trading`)
+    return response.data
+  },
+
   // Saved filters (groups) - GET
   getSavedFilters: async () => {
     const response = await api.get('/api/broker/saved-filters')
@@ -747,6 +765,24 @@ export const brokerAPI = {
   // Check client password (type: 'trading' | 'investor')
   checkClientPassword: async (login, type, password) => {
     const response = await api.post(`/api/broker/clients/${login}/check-password`, { type, password })
+    return response.data
+  },
+
+  // Account & Trading access toggles
+  enableAccount: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/enable-account`)
+    return response.data
+  },
+  disableAccount: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/disable-account`)
+    return response.data
+  },
+  enableTrading: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/enable-trading`)
+    return response.data
+  },
+  disableTrading: async (login) => {
+    const response = await api.post(`/api/broker/clients/${login}/disable-trading`)
     return response.data
   }
 }
