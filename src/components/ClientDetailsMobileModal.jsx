@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { brokerAPI } from '../services/api'
+import api, { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 
 const formatDate = (timestamp) => {
@@ -50,117 +50,138 @@ const _EyeIcon = ({ show, onToggle }) => (
 )
 
 const PasswordSection = ({ title, type, login }) => {
-  const [newPwd, setNewPwd] = useState('')
-  const [showNew, setShowNew] = useState(false)
-  const [checkPwd, setCheckPwd] = useState('')
-  const [showCheck, setShowCheck] = useState(false)
-  const [changing, setChanging] = useState(false)
-  const [checking, setChecking] = useState(false)
-  const [changeMsg, setChangeMsg] = useState(null)
-  const [checkMsg, setCheckMsg] = useState(null)
-  const [genVal, setGenVal] = useState('')
+  const [pwd, setPwd] = useState('')
+  const [showPwd, setShowPwd] = useState(false)
+  const [generated, setGenerated] = useState(false)
 
-  const handleChange = async () => {
-    if (!newPwd) { setChangeMsg({ ok: false, text: 'Enter a new password' }); return }
-    setChanging(true); setChangeMsg(null)
+  const [applying, setApplying] = useState(false)
+  const [applyMsg, setApplyMsg] = useState(null)   // { ok, text }
+
+  const [verifying, setVerifying] = useState(false)
+  const [verifyMsg, setVerifyMsg] = useState(null)  // { ok, text }
+
+  const handleGenerate = () => {
+    const p = _genPassword()
+    setPwd(p)
+    setGenerated(true)
+    setApplyMsg(null)
+    setVerifyMsg(null)
+    navigator.clipboard?.writeText(p).catch(() => {})
+  }
+
+  const handleChange = (val) => {
+    setPwd(val)
+    setGenerated(false)
+    setApplyMsg(null)
+    setVerifyMsg(null)
+  }
+
+  const handleApply = async () => {
+    if (!pwd) { setApplyMsg({ ok: false, text: 'Enter or generate a password first' }); return }
+    setApplying(true); setApplyMsg(null); setVerifyMsg(null)
     try {
       if (type === 'trading') {
-        await brokerAPI.changeTradingPassword(login, '', newPwd)
+        await brokerAPI.changeTradingPassword(login, pwd)
       } else {
-        await brokerAPI.changeInvestorPassword(login, '', newPwd)
+        await brokerAPI.changeInvestorPassword(login, pwd)
       }
-      setChangeMsg({ ok: true, text: 'Password changed successfully' })
-      setNewPwd('')
+      setApplyMsg({ ok: true, text: 'Password applied successfully' })
+      setPwd('')
+      setGenerated(false)
     } catch (e) {
-      setChangeMsg({ ok: false, text: e?.response?.data?.message || 'Failed to change password' })
-    } finally { setChanging(false) }
+      setApplyMsg({ ok: false, text: e?.response?.data?.message || 'Failed to apply password' })
+    } finally { setApplying(false) }
   }
 
-  const handleCheck = async () => {
-    if (!checkPwd) { setCheckMsg({ ok: false, text: 'Enter a password to verify' }); return }
-    setChecking(true); setCheckMsg(null)
+  const handleVerify = async () => {
+    if (!pwd) { setVerifyMsg({ ok: false, text: 'Enter a password to verify' }); return }
+    setVerifying(true); setVerifyMsg(null); setApplyMsg(null)
     try {
-      await brokerAPI.checkPassword(login, checkPwd, type)
-      setCheckMsg({ ok: true, text: 'Password is correct ✓' })
+      await brokerAPI.checkPassword(login, pwd, type)
+      setVerifyMsg({ ok: true, text: 'Password is correct' })
     } catch (e) {
-      setCheckMsg({ ok: false, text: e?.response?.data?.message || 'Invalid password ✗' })
-    } finally { setChecking(false) }
+      setVerifyMsg({ ok: false, text: e?.response?.data?.message || 'Incorrect password' })
+    } finally { setVerifying(false) }
   }
+
+  const statusMsg = applyMsg || verifyMsg
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
-        <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wide">{title}</p>
+    <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #E8EEF7' }}>
+      {/* Section header */}
+      <div className="px-4 py-2.5 bg-[#EEF3FB] border-b border-[#D8E4F5]">
+        <p className="text-[11px] font-bold text-[#1A63BC] uppercase tracking-wider">{title}</p>
       </div>
-      <div className="p-4 space-y-5">
 
-        {/* Generate Password */}
+      <div className="p-4 space-y-3">
+
+        {/* ── Single password input ── */}
         <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Generate Password</p>
-          <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+          {generated && (
+            <p className="text-[10px] text-green-500 mb-1.5 flex items-center gap-1">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="#22c55e" strokeWidth="2"/></svg>
+              Generated &amp; copied to clipboard
+            </p>
+          )}
+          <div className="flex items-center gap-2 border-2 border-[#1A63BC] rounded-xl px-3 py-2.5 bg-white">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="text-[#1A63BC] flex-shrink-0">
+              <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
             <input
-              type="text"
-              readOnly
-              value={genVal}
-              placeholder="Click Generate →"
-              className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none placeholder-gray-400 select-all"
+              type={showPwd ? 'text' : 'password'}
+              value={pwd}
+              onChange={e => handleChange(e.target.value)}
+              placeholder="Enter or generate a password"
+              className="flex-1 text-[14px] text-gray-800 outline-none placeholder-gray-400 font-medium"
             />
-            <button
-              onClick={() => {
-                const p = _genPassword()
-                setGenVal(p)
-                navigator.clipboard?.writeText(p).catch(() => {})
-              }}
-              className="text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md transition-colors flex-shrink-0"
-            >Generate</button>
+            <_EyeIcon show={showPwd} onToggle={() => setShowPwd(s => !s)} />
           </div>
-          <p className="text-[10px] text-gray-400 mt-1">Auto-copied to clipboard</p>
         </div>
 
-        {/* New Password input + Apply */}
-        <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">New Password</p>
-          <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400 focus-within:bg-white transition-all">
-            <input
-              type={showNew ? 'text' : 'password'}
-              value={newPwd}
-              onChange={e => { setNewPwd(e.target.value); setChangeMsg(null) }}
-              placeholder="Paste or type new password"
-              className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none placeholder-gray-400"
-            />
-            <_EyeIcon show={showNew} onToggle={() => setShowNew(s => !s)} />
-          </div>
-          {changeMsg && (
-            <p className={`text-[11px] mt-2 font-medium ${changeMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{changeMsg.text}</p>
-          )}
-          <button
-            onClick={handleChange}
-            disabled={changing || !newPwd}
-            className="mt-3 w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-semibold transition-colors"
-          >{changing ? 'Applying...' : 'Apply Password'}</button>
-        </div>
+        {/* ── Generate button ── */}
+        <button
+          onClick={handleGenerate}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-[#1A63BC] text-[#1A63BC] bg-blue-50 hover:bg-blue-100 active:bg-blue-200 transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3v4M12 17v4M4.22 6.22l2.83 2.83M16.95 14.95l2.83 2.83M3 12h4M17 12h4M4.22 17.78l2.83-2.83M16.95 9.05l2.83-2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <span className="text-[12px] font-bold">Generate Secure Password</span>
+        </button>
 
-        {/* Verify Password */}
-        <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Verify Password</p>
-          <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus-within:border-blue-400 focus-within:bg-white transition-all">
-            <input
-              type={showCheck ? 'text' : 'password'}
-              value={checkPwd}
-              onChange={e => { setCheckPwd(e.target.value); setCheckMsg(null) }}
-              placeholder="Enter password to verify"
-              className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none placeholder-gray-400"
-            />
-            <_EyeIcon show={showCheck} onToggle={() => setShowCheck(s => !s)} />
+        {/* ── Status message ── */}
+        {statusMsg && (
+          <div className={`flex items-center gap-1.5 text-[12px] font-semibold ${statusMsg.ok ? 'text-green-600' : 'text-red-500'}`}>
+            {statusMsg.ok
+              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/></svg>
+              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            }
+            {statusMsg.text}
           </div>
-          {checkMsg && (
-            <p className={`text-[11px] mt-2 font-medium ${checkMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{checkMsg.text}</p>
-          )}
+        )}
+
+        {/* ── Apply & Verify buttons ── */}
+        <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={handleCheck}
-            disabled={checking}
-            className="mt-3 w-full py-2.5 rounded-lg bg-gray-800 hover:bg-gray-900 disabled:opacity-60 text-white text-[13px] font-semibold transition-colors"
-          >{checking ? 'Verifying...' : 'Verify Password'}</button>
+            onClick={handleApply}
+            disabled={applying || verifying || !pwd}
+            className="py-3 rounded-xl bg-[#1A63BC] hover:bg-[#1557a8] active:bg-[#134d96] disabled:opacity-40 text-white text-[13px] font-bold transition-colors shadow-sm"
+          >
+            {applying
+              ? <span className="flex items-center justify-center gap-1.5"><svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="4"/><path className="opacity-75" fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Applying…</span>
+              : '✓ Apply Password'
+            }
+          </button>
+          <button
+            onClick={handleVerify}
+            disabled={verifying || applying || !pwd}
+            className="py-3 rounded-xl border-2 border-[#1A63BC] text-[#1A63BC] hover:bg-blue-50 active:bg-blue-100 disabled:opacity-40 text-[13px] font-bold transition-colors"
+          >
+            {verifying
+              ? <span className="flex items-center justify-center gap-1.5"><svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Verifying…</span>
+              : 'Verify'
+            }
+          </button>
         </div>
 
       </div>
@@ -247,6 +268,63 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
 
   // Live account data from overview API (balance, equity, credit, floating, etc.)
   const [clientData, setClientData] = useState(() => ({ ...client }))
+
+  // Account & Trading access toggle state
+  const [accountEnabled, setAccountEnabled] = useState(() => client.enable !== false && client.account_enabled !== false)
+  const [tradingEnabled, setTradingEnabled] = useState(() => client.trade_allowed !== false && client.trading_enabled !== false)
+  const [accountToggleLoading, setAccountToggleLoading] = useState(false)
+  const [accountToggleTarget, setAccountToggleTarget] = useState(null) // true=enable, false=disable
+  const [tradingToggleLoading, setTradingToggleLoading] = useState(false)
+  const [tradingToggleTarget, setTradingToggleTarget] = useState(null)
+  const [toggleMsg, setToggleMsg] = useState(null) // { ok, text }
+
+  const handleAccountToggle = async (enable) => {
+    if (accountToggleLoading) return
+    const login = clientData.login ?? client.login
+    console.log('[Security] Account toggle:', enable ? 'ENABLE' : 'DISABLE', 'login:', login)
+    setAccountToggleLoading(true)
+    setAccountToggleTarget(enable)
+    setToggleMsg(null)
+    const prev = accountEnabled
+    setAccountEnabled(enable)
+    try {
+      const endpoint = enable
+        ? `/api/broker/clients/${login}/enable-account`
+        : `/api/broker/clients/${login}/disable-account`
+      console.log('[Security] Calling:', endpoint)
+      await api.post(endpoint)
+      console.log('[Security] Account toggle success')
+      setToggleMsg({ ok: true, text: `Account ${enable ? 'enabled' : 'disabled'} successfully` })
+    } catch (e) {
+      console.error('[Security] Account toggle error:', e)
+      setAccountEnabled(prev)
+      setToggleMsg({ ok: false, text: e?.response?.data?.message || `Failed to ${enable ? 'enable' : 'disable'} account` })
+    } finally { setAccountToggleLoading(false); setAccountToggleTarget(null) }
+  }
+
+  const handleTradingToggle = async (enable) => {
+    if (tradingToggleLoading) return
+    const login = clientData.login ?? client.login
+    console.log('[Security] Trading toggle:', enable ? 'ENABLE' : 'DISABLE', 'login:', login)
+    setTradingToggleLoading(true)
+    setTradingToggleTarget(enable)
+    setToggleMsg(null)
+    const prev = tradingEnabled
+    setTradingEnabled(enable)
+    try {
+      const endpoint = enable
+        ? `/api/broker/clients/${login}/enable-trading`
+        : `/api/broker/clients/${login}/disable-trading`
+      console.log('[Security] Calling:', endpoint)
+      await api.post(endpoint)
+      console.log('[Security] Trading toggle success')
+      setToggleMsg({ ok: true, text: `Trading ${enable ? 'enabled' : 'disabled'} successfully` })
+    } catch (e) {
+      console.error('[Security] Trading toggle error:', e)
+      setTradingEnabled(prev)
+      setToggleMsg({ ok: false, text: e?.response?.data?.message || `Failed to ${enable ? 'enable' : 'disable'} trading` })
+    } finally { setTradingToggleLoading(false); setTradingToggleTarget(null) }
+  }
 
   // Deal stats from API
   const [dealStats, setDealStats] = useState(null)
@@ -1232,7 +1310,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const allocTotal = Math.abs(equity) || (Math.abs(credit) + Math.abs(balance) + Math.abs(floating)) || 1
 
     return (
-      <div className="p-3 space-y-3 pb-6">
+      <div className="p-3 space-y-3 pb-6 bg-[#F0F4FA]">
 
         {/* ── Account Information ─────────────────────────────────── */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
@@ -1873,38 +1951,42 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       `}</style>
       <div className="fixed inset-0 bg-black/50 z-50 flex items-end lg:hidden">
 
-        <div className="bg-white w-full h-[90vh] rounded-t-2xl flex flex-col">
-        {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-white z-10 flex-shrink-0">
-          <button onClick={onClose} className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M15 18l-6-6 6-6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-          <div className="flex-1" />
-          <div className="w-9" />
+        <div className="bg-white w-full h-[93vh] rounded-t-2xl flex flex-col overflow-hidden">
+
+        {/* ── Top bar ─────────────────────────────────────────────── */}
+        <div className="bg-[#4285F4] flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M19 12H5M12 5l-7 7 7 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <div className="w-8" />
+          </div>
         </div>
 
-        {/* Client Info Card */}
-        <div className="px-4 py-4 bg-white border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-              <span className="text-lg font-semibold text-gray-600">
+        {/* ── Client card ─────────────────────────────────────────── */}
+        <div className="bg-white px-4 pt-4 pb-3 flex-shrink-0 border-b border-gray-100 shadow-sm">
+          <div className="flex items-center gap-3">
+            {/* Blue circle avatar */}
+            <div className="w-14 h-14 rounded-full bg-[#4285F4] flex items-center justify-center flex-shrink-0 shadow-md">
+              <span className="text-[22px] font-bold text-white">
                 {(clientData.name || client.name || client.fullName || String(client.login || 'U'))[0].toUpperCase()}
               </span>
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[18px] font-extrabold text-gray-900 leading-tight truncate">
                 {clientData.name || client.name || client.fullName || String(client.login || '')}
               </h3>
-              <p className="text-sm text-gray-600">{client.login}</p>
-              <p className="text-xs text-gray-500">{client.email || '-'}</p>
+              <p className="text-[13px] text-gray-500 mt-0.5 font-medium">
+                {client.login}{(clientData.currency || client.currency) ? ` • ${clientData.currency || client.currency}` : ''}
+              </p>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="-mx-4 border-b border-gray-200 overflow-x-auto scrollbar-hide">
-            <div className="flex items-stretch px-2 min-w-max">
+          {/* ── Pill tab bar ────────────────────────────────────── */}
+          <div className="mt-3 overflow-x-auto scrollbar-hide -mx-4 px-4">
+            <div className="flex items-center gap-2 min-w-max">
               {[
                 { key: 'overview',  label: 'Overview',  count: null },
                 { key: 'positions', label: 'Positions', count: filteredPositions.length },
@@ -1918,20 +2000,17 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors ${
-                      isActive ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                    className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all inline-flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-[#4285F4] text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    <span className="inline-flex items-center gap-1.5">
-                      {tab.label}
-                      {tab.count != null && (
-                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
-                          isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                        }`}>{tab.count}</span>
-                      )}
-                    </span>
-                    {isActive && (
-                      <span className="absolute left-3 right-3 -bottom-px h-[2px] bg-blue-600 rounded-full" />
+                    {tab.label}
+                    {tab.count != null && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                        isActive ? 'bg-white/25 text-white' : 'bg-white text-gray-600'
+                      }`}>{tab.count}</span>
                     )}
                   </button>
                 )
@@ -2103,7 +2182,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         )}
 
         {/* Table Content - Scrollable Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-gray-50">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-white">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -2307,6 +2386,92 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               {/* Security Tab */}
               {activeTab === 'security' && (
                 <div className="flex flex-col h-full">
+                  {/* ── Account Permissions & Trading Access ── */}
+                  <div className="mx-4 mt-4 bg-white rounded-xl overflow-hidden flex-shrink-0" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #E8EEF7' }}>
+                    <div className="px-4 py-2.5 bg-[#EEF3FB] border-b border-[#D8E4F5]">
+                      <p className="text-[11px] font-bold text-[#1A63BC] uppercase tracking-wider">Account Access</p>
+                    </div>
+                    <div className="px-4 py-3 space-y-3">
+                      {/* Account Permissions row */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] font-semibold text-gray-700">Account Permissions</span>
+                        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleAccountToggle(true)}
+                            disabled={accountToggleLoading}
+                            className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-all ${
+                              accountEnabled
+                                ? 'bg-white text-[#1A63BC] shadow-sm border border-[#1A63BC]'
+                                : 'text-gray-400 hover:text-gray-600'
+                            } disabled:opacity-50`}
+                          >
+                            {accountToggleLoading && accountToggleTarget === true ? (
+                              <span className="flex items-center gap-1"><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>ENABLE</span>
+                            ) : 'ENABLE'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAccountToggle(false)}
+                            disabled={accountToggleLoading}
+                            className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-all ${
+                              !accountEnabled
+                                ? 'bg-white text-red-500 shadow-sm border border-red-300'
+                                : 'text-gray-400 hover:text-gray-600'
+                            } disabled:opacity-50`}
+                          >
+                            {accountToggleLoading && accountToggleTarget === false ? (
+                              <span className="flex items-center gap-1"><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>DISABLE</span>
+                            ) : 'DISABLE'}
+                          </button>
+                        </div>
+                      </div>
+                      {/* Trading Access row */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] font-semibold text-gray-700">Trading Access</span>
+                        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleTradingToggle(true)}
+                            disabled={tradingToggleLoading}
+                            className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-all ${
+                              tradingEnabled
+                                ? 'bg-white text-[#1A63BC] shadow-sm border border-[#1A63BC]'
+                                : 'text-gray-400 hover:text-gray-600'
+                            } disabled:opacity-50`}
+                          >
+                            {tradingToggleLoading && tradingToggleTarget === true ? (
+                              <span className="flex items-center gap-1"><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>ENABLE</span>
+                            ) : 'ENABLE'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTradingToggle(false)}
+                            disabled={tradingToggleLoading}
+                            className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-all ${
+                              !tradingEnabled
+                                ? 'bg-white text-red-500 shadow-sm border border-red-300'
+                                : 'text-gray-400 hover:text-gray-600'
+                            } disabled:opacity-50`}
+                          >
+                            {tradingToggleLoading && tradingToggleTarget === false ? (
+                              <span className="flex items-center gap-1"><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>DISABLE</span>
+                            ) : 'DISABLE'}
+                          </button>
+                        </div>
+                      </div>
+                      {/* Toggle status message */}
+                      {toggleMsg && (
+                        <div className={`flex items-center gap-1.5 text-[12px] font-semibold ${toggleMsg.ok ? 'text-green-600' : 'text-red-500'}`}>
+                          {toggleMsg.ok
+                            ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/></svg>
+                            : <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                          }
+                          {toggleMsg.text}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   {/* Sub-tabs */}
                   <div className="flex gap-2 px-4 pt-4 pb-2 flex-shrink-0">
                     <button
@@ -2316,7 +2481,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                           ? 'bg-blue-600 text-white shadow-sm'
                           : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                       }`}
-                    >Master</button>
+                    >Trading</button>
                     <button
                       onClick={() => setSecurityTab('investor')}
                       className={`flex-1 py-2 rounded-xl text-[12px] font-semibold transition-all ${
@@ -2329,10 +2494,10 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                   {/* Content */}
                   <div className="px-4 pb-4">
                     {securityTab === 'trading' && (
-                      <PasswordSection title="Master Password (Trading)" type="trading" login={clientData.login ?? client.login} />
+                      <PasswordSection title="Trading Password" type="trading" login={clientData.login ?? client.login} />
                     )}
                     {securityTab === 'investor' && (
-                      <PasswordSection title="Investor Password (Read-only)" type="investor" login={clientData.login ?? client.login} />
+                      <PasswordSection title="Investor Password" type="investor" login={clientData.login ?? client.login} />
                     )}
                   </div>
                 </div>
