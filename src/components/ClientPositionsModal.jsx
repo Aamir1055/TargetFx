@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,8 +28,8 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
   const pts = data.map((d, i) => ({ x: toX(i), y: toY(d.value), v: d.value, label: d.label }))
   const baseY = toY(minV)
 
-  // Per-segment color: red if EITHER endpoint value is negative, blue otherwise
-  const segColors = pts.slice(0, -1).map((_, i) => (pts[i].v < 0 || pts[i + 1].v < 0) ? '#ef4444' : '#3b82f6')
+  // Per-segment color: red if going DOWN, blue if going up/flat
+  const segColors = pts.slice(0, -1).map((_, i) => pts[i + 1].v < pts[i].v ? '#ef4444' : '#3b82f6')
 
   // Group consecutive same-color segments for area fills
   const areaGroups = []
@@ -39,8 +39,8 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
     else areaGroups.push({ color, start: i, end: i + 1 })
   })
 
-  // Dot color: red if this point's value is negative, blue otherwise
-  const dotColor = i => pts[i].v < 0 ? '#ef4444' : '#3b82f6'
+  // Dot color: color of the outgoing segment; last dot uses incoming segment
+  const dotColor = i => segColors[Math.min(i, segColors.length - 1)]
 
   const fmtY = v => {
     const abs = Math.abs(v)
@@ -99,7 +99,7 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
             </g>
           )
         })}
-        {/* Area fills � one per consecutive same-color group */}
+        {/* Area fills ï¿½ one per consecutive same-color group */}
         {areaGroups.map((g, gi) => {
           const gPts = pts.slice(g.start, g.end + 1)
           const d = [
@@ -109,39 +109,20 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
           ].join(' ')
           return <path key={gi} d={d} fill={`url(#${g.color === '#ef4444' ? 'trendGradRed' : 'trendGradBlue'})`}/>
         })}
-        {/* Line segments � each colored by direction */}
+        {/* Line segments ï¿½ each colored by direction */}
         {pts.slice(0, -1).map((p, i) => (
           <line key={i}
             x1={p.x.toFixed(1)} y1={p.y.toFixed(1)}
             x2={pts[i+1].x.toFixed(1)} y2={pts[i+1].y.toFixed(1)}
             stroke={segColors[i]} strokeWidth="2" strokeLinecap="round"/>
         ))}
-        {/* Dots + value labels */}
-        {pts.map((p, i) => {
-          const color = dotColor(i)
-          const isHov = hovered?.idx === i
-          // Decide if label goes above or below the dot
-          const labelAbove = p.y - padTop > 14
-          const labelY = labelAbove ? p.y - 7 : p.y + 14
-          // Flip label to left if near right edge
-          const anchor = p.x > w - 28 ? 'end' : p.x < padL + 10 ? 'start' : 'middle'
-          return (
-            <g key={i}>
-              <circle cx={p.x} cy={p.y}
-                r={isHov ? 4.5 : 3}
-                fill={color} stroke="white"
-                strokeWidth={isHov ? 2 : 1.5}/>
-              <text
-                x={p.x} y={labelY}
-                textAnchor={anchor}
-                fontSize="7.5"
-                fontWeight="600"
-                fill={color}
-                opacity="0.9"
-              >{fmtY(p.v)}</text>
-            </g>
-          )
-        })}
+        {/* Dots */}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y}
+            r={hovered?.idx === i ? 4.5 : 3}
+            fill={dotColor(i)} stroke="white"
+            strokeWidth={hovered?.idx === i ? 2 : 1.5}/>
+        ))}
         {/* Crosshair */}
         {hovered && (
           <line x1={hovered.pt.x} x2={hovered.pt.x} y1={padTop} y2={baseY}
@@ -272,55 +253,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [clientRules, setClientRules] = useState([])
   const [rulesLoading, setRulesLoading] = useState(false)
   const [selectedTimeParam, setSelectedTimeParam] = useState({})
-
-  // Security tab states
-  const [authCurrentPassword, setAuthCurrentPassword] = useState('')
-  const [authNewPassword, setAuthNewPassword] = useState('')
-  const [authConfirmPassword, setAuthConfirmPassword] = useState('')
-  const [authLoading, setAuthLoading] = useState(false)
-  const [authMsg, setAuthMsg] = useState({ type: '', text: '' })
-
-  const [tradingNewPassword, setTradingNewPassword] = useState('')
-  const [tradingCheckPassword, setTradingCheckPassword] = useState('')
-  const [tradingChangeLoading, setTradingChangeLoading] = useState(false)
-  const [tradingCheckLoading, setTradingCheckLoading] = useState(false)
-  const [tradingMsg, setTradingMsg] = useState({ type: '', text: '' })
-
-  const [investorNewPassword, setInvestorNewPassword] = useState('')
-  const [investorCheckPassword, setInvestorCheckPassword] = useState('')
-  const [investorChangeLoading, setInvestorChangeLoading] = useState(false)
-  const [investorCheckLoading, setInvestorCheckLoading] = useState(false)
-  const [investorMsg, setInvestorMsg] = useState({ type: '', text: '' })
-
-  const [showAuthCurrent, setShowAuthCurrent] = useState(false)
-  const [showAuthNew, setShowAuthNew] = useState(false)
-  const [showAuthConfirm, setShowAuthConfirm] = useState(false)
-  const [showTradingNew, setShowTradingNew] = useState(false)
-  const [showTradingCheck, setShowTradingCheck] = useState(false)
-  const [showInvestorNew, setShowInvestorNew] = useState(false)
-  const [showInvestorCheck, setShowInvestorCheck] = useState(false)
-
-  const [showTradingSuggest, setShowTradingSuggest] = useState(false)
-  const [tradingSuggestedPwd, setTradingSuggestedPwd] = useState('')
-  const [showInvestorSuggest, setShowInvestorSuggest] = useState(false)
-  const [investorSuggestedPwd, setInvestorSuggestedPwd] = useState('')
-
-  const generatePassword = () => {
-    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    const lower = 'abcdefghijklmnopqrstuvwxyz'
-    const digits = '0123456789'
-    const special = '!@#$%^&*'
-    const all = upper + lower + digits + special
-    const arr = [
-      upper[Math.floor(Math.random() * upper.length)],
-      lower[Math.floor(Math.random() * lower.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      special[Math.floor(Math.random() * special.length)],
-    ]
-    for (let i = 4; i < 14; i++) arr.push(all[Math.floor(Math.random() * all.length)])
-    return arr.sort(() => Math.random() - 0.5).join('')
-  }
-
+  
   // Client data state (for updated balance/credit/equity)
   const [clientData, setClientData] = useState(client)
   
@@ -357,15 +290,15 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Search and filter states for deals
   const [dealsSearchQuery, setDealsSearchQuery] = useState('')
-  const [dealsInputValue, setDealsInputValue] = useState('')
   const [dealsColumnFilters, setDealsColumnFilters] = useState({})
   const [showDealsFilterDropdown, setShowDealsFilterDropdown] = useState(null)
+  const [showDealsSearchSuggestions, setShowDealsSearchSuggestions] = useState(false)
   const dealsFilterRefs = useRef({})
   const dealsSearchRef = useRef(null)
   
   // Pagination states for deals
   const [dealsCurrentPage, setDealsCurrentPage] = useState(1)
-  const [dealsItemsPerPage, setDealsItemsPerPage] = useState(100)
+  const [dealsItemsPerPage, setDealsItemsPerPage] = useState(10)
   
   // Pagination states for positions
   const [positionsCurrentPage, setPositionsCurrentPage] = useState(1)
@@ -405,8 +338,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [positionsSortDirection, setPositionsSortDirection] = useState('asc')
 
   // Sorting states for deals
-  const [dealsSortColumn, setDealsSortColumn] = useState('time')
-  const [dealsSortDirection, setDealsSortDirection] = useState('desc')
+  const [dealsSortColumn, setDealsSortColumn] = useState(null)
+  const [dealsSortDirection, setDealsSortDirection] = useState('asc')
 
   // Deal stats (aggregated) for face cards
   const [dealStats, setDealStats] = useState(null)
@@ -466,8 +399,13 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   })
 
   // Build dynamic page-size options for Deals based on total rows
-  const getDealsPageSizeOptions = () => {
-    return [25, 50, 100, 500]
+  const getDealsPageSizeOptions = (total) => {
+    const base = [10, 25, 50, 100, 200]
+    let options = base.filter(n => n <= total)
+    if (total > 0 && options.length === 0) {
+      options = [total]
+    }
+    return options
   }
 
   // Build dynamic page-size options for Positions based on total rows
@@ -513,28 +451,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const fetchProfitTrend = async (range = '7d') => {
     setTrendLoading(true)
     try {
-      let from, to
-      const now = new Date()
-      if (range === '7d') {
-        // This week: Monday 00:00 to Sunday 23:59:59
-        const day = now.getDay() // 0=Sun,1=Mon,...
-        const mondayOffset = day === 0 ? -6 : 1 - day
-        const monday = new Date(now)
-        monday.setDate(now.getDate() + mondayOffset)
-        monday.setHours(0, 0, 0, 0)
-        const sunday = new Date(monday)
-        sunday.setDate(monday.getDate() + 6)
-        sunday.setHours(23, 59, 59, 999)
-        from = Math.floor(monday.getTime() / 1000)
-        to   = Math.floor(sunday.getTime() / 1000)
-      } else {
-        // This month: 1st 00:00 to last day 23:59:59
-        const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
-        const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-        from = Math.floor(start.getTime() / 1000)
-        to   = Math.floor(end.getTime() / 1000)
-      }
-      const resp = await brokerAPI.getClientPnlOverview(client.login, from, to)
+      const now = Math.floor(Date.now() / 1000)
+      const days = range === '30d' ? 30 : 7
+      const from = now - days * 86400
+      const resp = await brokerAPI.getClientPnlOverview(client.login, from, now)
       const daysArr = resp?.data?.days ?? []
       const result = daysArr.map(d => ({
         label: (() => {
@@ -577,13 +497,12 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         // the overview API returns directly on data rather than inside account
         const topLevelStats = {}
         const statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
-                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss',
-                          'lastTradingDate','last_trading_date']
+                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
         statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
         if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
           setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
         }
-        // Don't overwrite positions if user has an active search or sort �
+        // Don't overwrite positions if user has an active search or sort ï¿½
         // the search API owns the positions list in that case.
         const apiActive =
           (debouncedSearchQueryRef.current && debouncedSearchQueryRef.current.trim().length > 0) ||
@@ -636,8 +555,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         const account = data?.account ?? data?.client ?? data?.info ?? {}
         const topLevelStats = {}
         const statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
-                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss',
-                          'lastTradingDate','last_trading_date']
+                          'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
         statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
         if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
           setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
@@ -684,6 +602,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setShowSearchSuggestions(false)
       }
+      if (dealsSearchRef.current && !dealsSearchRef.current.contains(event.target)) {
+        setShowDealsSearchSuggestions(false)
+      }
       if (positionsColumnSelectorRef.current && !positionsColumnSelectorRef.current.contains(event.target)) {
         setShowPositionsColumnSelector(false)
       }
@@ -692,11 +613,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       }
     }
     
-    if (showFilterDropdown || showDealsFilterDropdown || showSearchSuggestions || showPositionsColumnSelector || showDealStatsFilter) {
+    if (showFilterDropdown || showDealsFilterDropdown || showSearchSuggestions || showDealsSearchSuggestions || showPositionsColumnSelector || showDealStatsFilter) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showFilterDropdown, showDealsFilterDropdown, showSearchSuggestions, showPositionsColumnSelector, showDealStatsFilter])
+  }, [showFilterDropdown, showDealsFilterDropdown, showSearchSuggestions, showDealsSearchSuggestions, showPositionsColumnSelector, showDealStatsFilter])
 
   // Persist visibilities
   useEffect(() => {
@@ -708,7 +629,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     // When a search or sort is active, positions are loaded via API. Skip cache.
     const apiActive = (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) || !!positionsSortColumn
     if (apiActive) return
-    // Skip if no cache provided � overview poller owns position data in that case
+    // Skip if no cache provided ï¿½ overview poller owns position data in that case
     if (!allPositionsCache || allPositionsCache.length === 0) return
     const clientPositions = allPositionsCache.filter(pos => pos.login === client.login)
     setPositions(clientPositions)
@@ -980,8 +901,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       const account = data?.account ?? data?.client ?? data?.info ?? {}
       const topLevelStats = {}
       const _statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
-                         'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss',
-                         'lastTradingDate','last_trading_date']
+                         'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
       _statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
       if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
         setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
@@ -1050,7 +970,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       } else if (field === 'symbol') {
         apiFilters.push({ field: 'symbol', operator: 'in', value: values })
       } else if (field === 'time') {
-        // Time column filter uses formatted strings — cannot be sent to server, leave as client-side
+        // Time column filter uses formatted strings â€” cannot be sent to server, leave as client-side
       } else {
         apiFilters.push({ field, operator: 'in', value: values })
       }
@@ -1060,60 +980,24 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     return body
   }
 
-  const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null, searchOverride = undefined) => {
+  const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null, overrides = {}) => {
     try {
       setDealsLoading(true)
       setError('')
 
       const itemsLimit = limit || dealsItemsPerPage
-      // searchOverride allows callers to pass an explicit query (including '') to bypass stale closure state
-      const activeSearch = searchOverride !== undefined ? searchOverride : dealsSearchQuery
-
-      const effectiveTo = toTimestamp
-
-      // Build filters array from column filters
-      const apiFilters = []
-      Object.entries(dealsColumnFilters || {}).forEach(([field, values]) => {
-        if (!values || values.length === 0) return
-        if (field === 'action') {
-          apiFilters.push({ field: 'action', operator: 'in', value: values.map(actionLabelToServer) })
-        } else if (field === 'time') {
-          // time filter is client-side only
-        } else {
-          apiFilters.push({ field, operator: 'in', value: values })
-        }
-      })
-
-      // Map sort column to API field name
-      const sortFieldMap = { time: 'time', deal: 'deal', order: 'order', position: 'position', symbol: 'symbol', action: 'action', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage', comment: 'comment' }
-      const apiSortBy = sortFieldMap[dealsSortColumn] || dealsSortColumn || 'time'
-      const apiSortOrder = dealsSortDirection || 'desc'
-
-      const body = {
-        from: fromTimestamp,
-        to: effectiveTo,
-        page,
-        limit: itemsLimit,
-        sortBy: apiSortBy,
-        sortOrder: apiSortOrder,
-      }
-      if (activeSearch && activeSearch.trim()) body.search = activeSearch.trim()
-      if (apiFilters.length > 0) body.filters = apiFilters
+      const pageNum = page || dealsCurrentPage
+      const body = buildDealsRequestBody(fromTimestamp, toTimestamp, pageNum, itemsLimit, overrides)
 
       const response = await brokerAPI.searchClientDeals(client.login, body)
-
-      // Response shape: { data: { deals, total, page, limit }, ... } or flat
-      const payload = response?.data ?? response
-      const clientDeals = payload?.deals ?? []
-      // Cap total at CLIENT_DEALS_FETCH_LIMIT (1000) so pagination stays ≤ 1000 records
-      const rawTotal = payload?.total ?? clientDeals.length
-      const total = Math.min(Number(rawTotal) || 0, CLIENT_DEALS_FETCH_LIMIT)
+      const clientDeals = response?.deals ?? response?.data?.deals ?? []
+      const total = response?.total ?? response?.count ?? response?.data?.total ?? response?.data?.count ?? clientDeals.length
 
       setDeals(clientDeals)
       setAllDeals(clientDeals)
       setFilteredDeals(clientDeals)
       setTotalDealsCount(total)
-      setCurrentDateFilter({ from: fromTimestamp, to: effectiveTo })
+      setCurrentDateFilter({ from: fromTimestamp, to: toTimestamp })
       setHasAppliedFilter(true)
       setDealsServerLimitReached(false)
     } catch (error) {
@@ -1135,8 +1019,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       const account = data?.account ?? data?.client ?? data?.info ?? {}
       const topLevelStats = {}
       const _statKeys = ['averageProfitPerDeal','averageLossPerDeal','maxProfit','maxLoss',
-                         'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss',
-                         'lastTradingDate','last_trading_date']
+                         'average_profit_per_deal','average_loss_per_deal','max_profit','max_loss']
       _statKeys.forEach(k => { if (data?.[k] != null) topLevelStats[k] = data[k] })
       if ((account && Object.keys(account).length > 0) || Object.keys(topLevelStats).length > 0) {
         setClientData(prev => ({ ...prev, ...account, ...topLevelStats }))
@@ -1268,7 +1151,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`
     return `${sign}${abs.toFixed(2)}`
   }
-  // Money: compact-aware (profit, storage, commission, balance, equity �)
+  // Money: compact-aware (profit, storage, commission, balance, equity ï¿½)
   const fmtMoney = (n) => {
     const num = parseFloat(n || 0)
     if (numericMode === 'compact') return formatCompactIndian(num)
@@ -1317,7 +1200,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
   }
 
-  // Sorting handler for deals — triggers server-side re-fetch
+  // Sorting handler for deals â€” triggers server-side re-fetch
   const handleDealsSort = (column) => {
     let nextDir
     if (dealsSortColumn === column) {
@@ -1330,7 +1213,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
     if (hasAppliedFilter && currentDateFilter.from !== 0) {
       setDealsCurrentPage(1)
-      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage)
+      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { sortBy: column, sortOrder: nextDir })
     }
   }
 
@@ -1541,33 +1424,33 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     
     switch (preset) {
       case 'today':
-        // Last 24 hours: from now-24h to now
-        fromDateObj = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-        toDateObj = now
+        fromDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
         break
       case 'last3days':
-        fromDateObj = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
-        toDateObj = now
+        fromDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3, 0, 0, 0)
+        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
         break
       case 'lastweek':
-        fromDateObj = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        toDateObj = now
+        fromDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0)
+        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
         break
       case 'lastmonth':
-        fromDateObj = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        toDateObj = now
+        fromDateObj = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), 0, 0, 0)
+        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
         break
       case 'last3months':
-        fromDateObj = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-        toDateObj = now
+        fromDateObj = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate(), 0, 0, 0)
+        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
         break
       case 'last6months':
-        fromDateObj = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
-        toDateObj = now
+        fromDateObj = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate(), 0, 0, 0)
+        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
         break
       case 'allhistory':
+        // Set from date to 2 years ago for "all history"
         fromDateObj = new Date(now.getFullYear() - 2, 0, 1, 0, 0, 0)
-        toDateObj = now
+        toDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
         break
       default:
         return
@@ -1735,9 +1618,12 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         ...prev,
         [columnKey]: updated.length > 0 ? updated : undefined
       }
-      // Reset to page 1 on filter change (client-side filter)
-      if (columnKey !== 'time' && hasAppliedFilter) {
+      // Server-side re-fetch with new filters (skip for time column â€” client-side only)
+      if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
         setDealsCurrentPage(1)
+        setTimeout(() => {
+          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { filters: next })
+        }, 0)
       }
       return next
     })
@@ -1747,8 +1633,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     setDealsColumnFilters(prev => {
       const next = { ...prev }
       delete next[columnKey]
-      if (columnKey !== 'time' && hasAppliedFilter) {
+      if (columnKey !== 'time' && hasAppliedFilter && currentDateFilter.from !== 0) {
         setDealsCurrentPage(1)
+        setTimeout(() => {
+          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { filters: next })
+        }, 0)
       }
       return next
     })
@@ -1798,7 +1687,52 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }
 
   // Get search suggestions for deals
-
+  const getDealsSearchSuggestions = () => {
+    if (!dealsSearchQuery.trim() || dealsSearchQuery.length < 1) {
+      return []
+    }
+    
+    const query = dealsSearchQuery.toLowerCase().trim()
+    const uniqueValues = new Map() // Use Map to track type and avoid duplicates
+    
+    // Use deals array instead of filteredDeals to avoid circular dependency
+    if (!deals || deals.length === 0) {
+      return []
+    }
+    
+    deals.forEach(deal => {
+      const symbol = String(deal.symbol || '')
+      const action = getDealActionLabel(deal.action)
+      const dealNum = String(deal.deal || '')
+      const order = deal.order > 0 ? String(deal.order) : ''
+      const position = deal.position > 0 ? String(deal.position) : ''
+      const time = formatDate(deal.time)
+      
+      // Check each field and add to suggestions if matches
+      if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
+        uniqueValues.set(symbol, { type: 'Symbol', value: symbol, priority: 1 })
+      }
+      if (action && action.toLowerCase().includes(query) && !uniqueValues.has(action)) {
+        uniqueValues.set(action, { type: 'Action', value: action, priority: 2 })
+      }
+      if (dealNum && dealNum.includes(query) && !uniqueValues.has(`#${dealNum}`)) {
+        uniqueValues.set(`#${dealNum}`, { type: 'Deal', value: `#${dealNum}`, priority: 3 })
+      }
+      if (order && order.includes(query) && !uniqueValues.has(`#${order}`)) {
+        uniqueValues.set(`#${order}`, { type: 'Order', value: `#${order}`, priority: 4 })
+      }
+      if (position && position.includes(query) && !uniqueValues.has(`#${position}`)) {
+        uniqueValues.set(`#${position}`, { type: 'Position', value: `#${position}`, priority: 5 })
+      }
+      if (time && time.toLowerCase().includes(query) && !uniqueValues.has(time)) {
+        uniqueValues.set(time, { type: 'Time', value: time, priority: 6 })
+      }
+    })
+    
+    return Array.from(uniqueValues.values())
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, 8)
+  }
 
   // Apply search and filters to positions and orders combined
   const filteredPositions = useMemo(() => {
@@ -2040,40 +1974,45 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     return filtered
   })()
 
-  // Pagination:
-  // - search, sort, and action filter are server-side → use totalDealsCount (capped at 1000)
-  // - Only symbol/time column filters are client-side → paginate over filteredDealsResult
-  const hasClientFilter = !!(
-    Object.entries(dealsColumnFilters || {}).some(([k, v]) => k !== 'action' && v && v.length > 0)
-  )
-  const maxDealsPages = Math.ceil(CLIENT_DEALS_FETCH_LIMIT / dealsItemsPerPage)
-  const dealsTotalPages = hasClientFilter
-    ? Math.min(maxDealsPages, Math.ceil(filteredDealsResult.length / dealsItemsPerPage) || 1)
-    : Math.min(maxDealsPages, Math.ceil(totalDealsCount / dealsItemsPerPage) || 1)
-  const dealsStartIdx = (dealsCurrentPage - 1) * dealsItemsPerPage
-  const displayedDeals = hasClientFilter
-    ? filteredDealsResult.slice(dealsStartIdx, dealsStartIdx + dealsItemsPerPage)
-    : filteredDealsResult
+  // Apply pagination to deals (server-side pagination, so use filteredDealsResult directly)
+  // For display purposes, calculate total pages from server's total count
+  const dealsTotalPages = Math.ceil(totalDealsCount / dealsItemsPerPage)
+  const displayedDeals = filteredDealsResult
 
   // Reset to page 1 when search/filter context changes
   useEffect(() => {
     setDealsCurrentPage(1)
   }, [hasAppliedFilter])
 
-  // Fetch deals when page, items per page, sort, or column filters change
+  // Debounced server re-fetch when search query changes
+  const dealsSearchTimeoutRef = useRef(null)
+  const dealsSearchInitRef = useRef(true)
+  useEffect(() => {
+    if (dealsSearchInitRef.current) { dealsSearchInitRef.current = false; return }
+    if (!hasAppliedFilter || currentDateFilter.from === 0) return
+    clearTimeout(dealsSearchTimeoutRef.current)
+    dealsSearchTimeoutRef.current = setTimeout(() => {
+      setDealsCurrentPage(1)
+      fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, { search: dealsSearchQuery })
+    }, 400)
+    return () => clearTimeout(dealsSearchTimeoutRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealsSearchQuery])
+
+  // Fetch deals when page or items per page changes (but not on initial tab switch)
   useEffect(() => {
     if (activeTab === 'deals' && hasAppliedFilter && currentDateFilter.from !== 0 && hasAutoLoadedDeals.current) {
       fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealsCurrentPage, dealsItemsPerPage, dealsColumnFilters, dealsSortColumn, dealsSortDirection])
+  }, [dealsCurrentPage, dealsItemsPerPage])
 
   // Keep page-size selection valid when total deals count changes
   useEffect(() => {
     const total = totalDealsCount || filteredDealsResult.length
-    const options = getDealsPageSizeOptions()
-    if (options.length > 0 && !options.includes(dealsItemsPerPage)) {
-      setDealsItemsPerPage(100)
+    const options = getDealsPageSizeOptions(total)
+    if (options.length > 0 && (!options.includes(dealsItemsPerPage) || dealsItemsPerPage > total)) {
+      setDealsItemsPerPage(options[0] || 50)
       setDealsCurrentPage(1)
     }
   }, [totalDealsCount, filteredDealsResult.length])
@@ -2190,7 +2129,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           onCacheUpdate(null)
         }
         
-        await fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
+        await fetchDeals()
       }, 1000)
     } catch (error) {
       setOperationError(error.response?.data?.message || 'Operation failed. Please try again.')
@@ -2211,19 +2150,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 return name.length > 0 ? `${name} - ${client.login}` : client.login
               })()}
             </h2>
-            {(() => {
-              const ts = clientData?.lastTradingDate ?? clientData?.last_trading_date
-              if (ts == null || ts === '' || Number(ts) <= 0) return null
-              const ms = Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts)
-              const d = new Date(ms)
-              if (isNaN(d.getTime())) return null
-              const formatted = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-              return (
-                <p className="mt-1 inline-block text-[11px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md shadow-sm">
-                  Last Trade: {formatted}
-                </p>
-              )
-            })()}
             <div className="flex items-center gap-4 mt-2">
               {client.lastAccess && (
                 <p className="text-[11px] text-blue-100">
@@ -2299,16 +2225,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               Rules
             </button>
             )}
-            <button
-              onClick={() => setActiveTab('security')}
-              className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
-                activeTab === 'security'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
-              }`}
-            >
-              Security
-            </button>
           </div>
 
           {/* Controls for Positions Tab */}
@@ -2583,427 +2499,384 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
           {/* ------------- OVERVIEW TAB ------------- */}
           {activeTab === 'overview' && (() => {
-            const acc = clientData || {}
-            const balance   = parseFloat(acc.balance   || 0)
-            const equity    = parseFloat(acc.equity    || 0)
-            const credit    = parseFloat(acc.credit    || 0)
-            const floating  = parseFloat(acc.profit    || acc.floating || 0)
-            const marginLevel = parseFloat(acc.margin_level ?? acc.marginLevel ?? 0)
+            // Account data â€” same as mobile
+            const balance    = Number(clientData?.balance    ?? client?.balance    ?? 0)
+            const equity     = Number(clientData?.equity     ?? client?.equity     ?? 0)
+            const credit     = Number(clientData?.credit     ?? client?.credit     ?? 0)
+            const floating   = Number(clientData?.profit     ?? clientData?.floating ?? client?.profit ?? 0)
+            const marginLvl  = Number(clientData?.margin_level ?? client?.margin_level ?? clientData?.marginLevel ?? 0)
+            const commission = Number(clientData?.commission ?? client?.commission ?? 0)
+            const margin     = Number(clientData?.margin     ?? client?.margin     ?? 0)
+            const marginFree = Number(clientData?.margin_free ?? client?.margin_free ?? clientData?.marginFree ?? 0)
+            const currency   = clientData?.currency ?? client?.currency ?? ''
+            const name       = clientData?.name     ?? client?.name     ?? 'Unknown'
+            const login      = clientData?.login    ?? client?.login    ?? ''
+
+            // Deal stats â€” same as mobile
             const ds = dealStats || {}
-            const commission  = parseFloat(acc.commission ?? acc.total_commission ?? acc.totalCommission ?? ds.commission ?? ds.total_commission ?? ds.totalCommission ?? 0)
-            const margin      = parseFloat(acc.margin ?? acc.used_margin ?? acc.usedMargin ?? 0)
-            const marginFree  = parseFloat(acc.margin_free ?? acc.marginFree ?? acc.free_margin ?? acc.freeMargin ?? 0)
-            const currency    = acc.currency || client?.currency || ''
-            const buyVol          = parseFloat(ds.buyVolume         ?? ds.buy_volume          ?? 0)
-            const sellVol         = parseFloat(ds.sellVolume        ?? ds.sell_volume         ?? 0)
-            const totalVolume     = buyVol + sellVol
-            const totalVolDisplay = totalVolume > 0 ? totalVolume : 1
-            const buyPct          = parseFloat(((buyVol  / totalVolDisplay) * 100).toFixed(1))
-            const sellPct         = parseFloat(((sellVol / totalVolDisplay) * 100).toFixed(1))
-            const winRate         = parseFloat(ds.winRate         ?? ds.win_rate         ?? 0)
-            const lossRate        = Math.max(0, 100 - winRate)
-            const totalDeals      = parseInt(ds.totalDeals        ?? ds.total_deals       ?? 0)
-            const profDeals       = parseInt(ds.profitableDealCount ?? ds.profitable_deal_count ?? 0)
-            const loseDeals       = parseInt(ds.losingDealCount   ?? ds.losing_deal_count  ?? 0)
-            const profitSum       = parseFloat(ds.profitableDealsSum ?? ds.profitable_deals_sum ?? 0)
-            const losingSum       = Math.abs(parseFloat(ds.losingDealsSum ?? ds.losingDealSum ?? ds.losing_deals_sum ?? 0))
-            const netPL           = profitSum - losingSum
-            const avgProfit       = parseFloat(ds.averageProfitPerDeal ?? ds.avgProfitPerDeal ?? ds.avg_profit_per_deal ?? acc.averageProfitPerDeal ?? acc.average_profit_per_deal ?? 0)
-            const avgLoss         = parseFloat(ds.averageLossPerDeal   ?? ds.avgLossPerDeal   ?? ds.avg_loss_per_deal   ?? acc.averageLossPerDeal   ?? acc.average_loss_per_deal   ?? 0)
-            const maxProfit       = parseFloat(ds.maxProfit            ?? ds.max_profit       ?? acc.maxProfit          ?? acc.max_profit           ?? 0)
-            const maxLoss         = parseFloat(ds.maxLoss              ?? ds.max_loss         ?? acc.maxLoss            ?? acc.max_loss             ?? 0)
+            const totalDeals      = Number(ds.totalDeals        ?? ds.total_deals            ?? 0)
+            const winRate         = Number(ds.winRate           ?? ds.win_rate               ?? 0)
+            const profitableDeals = Number(ds.profitableDealCount ?? ds.profitable_deal_count ?? 0)
+            const losingDeals     = Number(ds.losingDealCount   ?? ds.losing_deal_count      ?? 0)
+            const profitSum       = Number(ds.profitableDealsSum ?? ds.profitSum ?? ds.profit_sum ?? 0)
+            const losingSum       = Number(ds.losingDealsSum    ?? ds.losingDealSum ?? ds.losingSum ?? ds.losing_sum ?? 0)
+            const avgProfit       = Number(ds.avgProfitPerDeal  ?? ds.avg_profit_per_deal    ?? 0)
+            const avgLoss         = Number(ds.avgLossPerDeal    ?? ds.avg_loss_per_deal      ?? 0)
+            const maxProfit       = Number(ds.maxProfit         ?? ds.max_profit             ?? 0)
+            const maxLoss         = Number(ds.maxLoss           ?? ds.max_loss               ?? 0)
+            const buyVolume       = Number(ds.buyVolume         ?? ds.buy_volume             ?? 0)
+            const sellVolume      = Number(ds.sellVolume        ?? ds.sell_volume            ?? 0)
+            const totalVol        = buyVolume + sellVolume || 1
+            const netPL           = profitSum + losingSum
+            const lossRate        = totalDeals > 0 ? (losingDeals / totalDeals * 100) : (100 - winRate)
             const allocTotal      = Math.abs(credit) + Math.abs(balance) + Math.abs(floating) || 1
 
-            // ProfitTrendChart is defined at module level
+            const fmt    = (n) => fmtMoney(n)
+            const fmtPct = (n) => `${Number(n).toFixed(1)}%`
 
-            // -- Margin Usage BAR chart ----------------------------------------
-            const MarginBarChart = ({ used, free }) => {
-              const [hoveredBar, setHoveredBar] = useState(null) // 'used' | 'free' | null
-              const maxVal = Math.max(Math.abs(used), Math.abs(free), 1)
-              const w = 210, h = 130, barW = 48, midY = h / 2
-              const usedH = (Math.abs(used) / maxVal) * (midY - 20)
-              const freeH = (Math.abs(free) / maxVal) * (midY - 20)
-              const fmtV = v => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0)
-              const ticks = [-maxVal * 0.75, -maxVal * 0.5, -maxVal * 0.25, 0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75]
-
-              const usedX = w/2 - barW - 4
-              const freeX = w/2 + 4
-              const tooltip = hoveredBar === 'used'
-                ? { x: usedX + barW/2, y: midY + usedH + 4, label: 'Used Margin', value: fmtMoney(used), color: '#ef4444' }
-                : hoveredBar === 'free'
-                ? { x: freeX + barW/2, y: midY - freeH - 4, label: 'Free Margin', value: fmtMoney(free), color: '#16a34a' }
-                : null
-
+            // â”€â”€ SVG Donut â€” same as mobile (uses v not pct) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            const SvgDonutLocal = ({ segments, size = 100, sw = 14, label, sublabel }) => {
+              const r = (size - sw) / 2
+              const circ = 2 * Math.PI * r
+              const cx = size / 2, cy = size / 2
+              const total = segments.reduce((s, seg) => s + Math.max(0, seg.v), 0) || 1
+              let acc2 = 0
               return (
-                <div className="relative w-full">
-                  <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="w-full">
-                    {/* grid lines */}
-                    {ticks.map((v, i) => {
-                      const y = midY - (v / maxVal) * (midY - 20)
-                      return <line key={i} x1="34" x2={w - 10} y1={y} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
-                    })}
-                    {/* zero line */}
-                    <line x1="34" x2={w - 10} y1={midY} y2={midY} stroke="#cbd5e1" strokeWidth="1.5"/>
-                    {/* Used Margin bar — goes DOWN (negative) */}
-                    <rect
-                      x={usedX} y={midY} width={barW} height={usedH}
-                      fill="#ef4444" rx="3"
-                      style={{ cursor: 'pointer', opacity: hoveredBar && hoveredBar !== 'used' ? 0.6 : 1 }}
-                      onMouseEnter={() => setHoveredBar('used')}
-                      onMouseLeave={() => setHoveredBar(null)}
-                    />
-                    {/* Free Margin bar — goes UP (positive) */}
-                    <rect
-                      x={freeX} y={midY - freeH} width={barW} height={freeH}
-                      fill="#16a34a" rx="3"
-                      style={{ cursor: 'pointer', opacity: hoveredBar && hoveredBar !== 'free' ? 0.6 : 1 }}
-                      onMouseEnter={() => setHoveredBar('free')}
-                      onMouseLeave={() => setHoveredBar(null)}
-                    />
-                    {/* value labels */}
-                    <text x={w/2 - barW/2 - 4} y={midY + usedH + 11} textAnchor="middle" fontSize="9" fill="#ef4444" fontWeight="600">{fmtV(-Math.abs(used))}</text>
-                    <text x={w/2 + barW/2 + 4} y={midY - freeH - 5} textAnchor="middle" fontSize="9" fill="#16a34a" fontWeight="600">{fmtV(free)}</text>
-                    {/* Y axis ticks */}
-                    {[0.5, 0, -0.5].map((f, i) => {
-                      const y = midY - f * (midY - 20)
-                      const v = f * maxVal
-                      return <text key={i} x="30" y={y + 3} textAnchor="end" fontSize="8" fill="#94a3b8">{fmtV(v)}</text>
-                    })}
-                    {/* X axis labels */}
-                    <text x={w/2 - barW/2 - 4} y={h - 3} textAnchor="middle" fontSize="9" fill="#64748b">Used Margin</text>
-                    <text x={w/2 + barW/2 + 4} y={h - 3} textAnchor="middle" fontSize="9" fill="#64748b">Free Margin</text>
-                  </svg>
-                  {tooltip && (
-                    <div
-                      className="absolute pointer-events-none bg-white text-slate-800 rounded-md px-2 py-1 shadow-lg border border-slate-200 z-20"
-                      style={{
-                        left: `${(tooltip.x / w) * 100}%`,
-                        top: hoveredBar === 'used' ? `${(tooltip.y / h) * 100}%` : 'auto',
-                        bottom: hoveredBar === 'free' ? `${((h - tooltip.y) / h) * 100}%` : 'auto',
-                        transform: 'translateX(-50%)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <div className="text-[10px] font-semibold" style={{ color: tooltip.color }}>{tooltip.label}</div>
-                      <div className="text-[11px] font-bold">{tooltip.value}</div>
-                    </div>
-                  )}
-                </div>
+                <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={sw}/>
+                  {segments.map((seg, i) => {
+                    const pct = Math.max(0, seg.v) / total
+                    const len = pct * circ
+                    const off = -(acc2 / total) * circ
+                    acc2 += Math.max(0, seg.v)
+                    return (
+                      <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+                        stroke={seg.color} strokeWidth={sw}
+                        strokeDasharray={`${len} ${circ - len}`}
+                        strokeDashoffset={off}
+                        transform={`rotate(-90 ${cx} ${cy})`}
+                        strokeLinecap="butt"/>
+                    )
+                  })}
+                  {label && (() => {
+                    const maxW = r * 1.75
+                    const fits = label.length * 6.5 <= maxW
+                    if (fits) return <text x={cx} y={sublabel ? cy - 6 : cy + 4} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#111827">{label}</text>
+                    const mid = Math.floor(label.length / 2)
+                    const commas = []
+                    for (let i = 0; i < label.length; i++) if (label[i] === ',') commas.push(i)
+                    const sp = commas.length ? commas.reduce((b, p) => Math.abs(p - mid) < Math.abs(b - mid) ? p : b, commas[0]) : mid
+                    const l1 = label.slice(0, sp)
+                    const l2 = label.slice(sp + 1)
+                    const fs = 8
+                    const yOff = sublabel ? cy - 11 : cy - 4
+                    return (
+                      <text textAnchor="middle" fontSize={fs} fontWeight="bold" fill="#111827">
+                        <tspan x={cx} y={yOff}>{l1}</tspan>
+                        <tspan x={cx} dy={fs + 2}>{l2}</tspan>
+                      </text>
+                    )
+                  })()}
+                  {sublabel && <text x={cx} y={label && label.length * 6.5 > r * 1.75 ? cy + 12 : cy + 10} textAnchor="middle" fontSize="9" fill="#6b7280">{sublabel}</text>}
+                </svg>
               )
             }
 
-            // -- Semi-circle Profitability gauge -------------------------------
-            const SemiGauge = ({ profit, loss, net }) => {
-              const total = profit + loss || 1
-              const profPct = profit / total
-              const cx = 100, cy = 72, r = 55, sw = 14
-              const semicircle = Math.PI * r
-              const profLen = profPct * semicircle
-              const lossLen = semicircle - profLen
+            // â”€â”€ SVG Line Chart â€” same as mobile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            const SvgLineLocal = ({ data, w = 260, h = 70 }) => {
+              if (!data || !data.length) return <div className="h-[70px] flex items-center justify-center text-xs text-gray-400">No data</div>
+              const vals = data.map(d => d.value)
+              const minV = Math.min(...vals), maxV = Math.max(...vals)
+              const rng  = maxV - minV || 1
+              const step = w / Math.max(data.length - 1, 1)
+              const pts  = data.map((d, i) => ({ x: i * step, y: h - ((d.value - minV) / rng) * (h - 8) - 4 }))
+              const segColor = (i) => data[i + 1].value >= data[i].value ? '#3b82f6' : '#ef4444'
               return (
-                <svg viewBox="0 0 200 82" className="w-full max-w-[180px] mx-auto">
-                  {/* background track */}
-                  <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
-                    fill="none" stroke="#e5e7eb" strokeWidth={sw} strokeLinecap="round"/>
-                  {/* blue profit arc */}
-                  <path d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
-                    fill="none" stroke="#3b82f6" strokeWidth={sw} strokeLinecap="round"
-                    strokeDasharray={`${profLen} ${semicircle}`}
-                    strokeDashoffset={0}/>
-                  {/* label */}
-                  <text x={cx} y={cy - 14} textAnchor="middle" fontSize="12" fontWeight="700" fill={net >= 0 ? '#16a34a' : '#dc2626'}>
-                    {fmtMoney(net)}
-                  </text>
-                  <text x={cx} y={cy - 1} textAnchor="middle" fontSize="8" fill="#64748b">Net P/L</text>
+                <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
+                  <defs>
+                    {pts.slice(0, -1).map((_, i) => (
+                      <linearGradient key={i} id={`lgd${i}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"   stopColor={segColor(i)} stopOpacity="0.18"/>
+                        <stop offset="100%" stopColor={segColor(i)} stopOpacity="0"/>
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  {pts.slice(0, -1).map((p, i) => (
+                    <path key={`a${i}`}
+                      d={`M${p.x.toFixed(1)},${p.y.toFixed(1)} L${pts[i+1].x.toFixed(1)},${pts[i+1].y.toFixed(1)} L${pts[i+1].x.toFixed(1)},${h} L${p.x.toFixed(1)},${h} Z`}
+                      fill={`url(#lgd${i})`}/>
+                  ))}
+                  {pts.slice(0, -1).map((p, i) => (
+                    <line key={`l${i}`}
+                      x1={p.x.toFixed(1)} y1={p.y.toFixed(1)}
+                      x2={pts[i+1].x.toFixed(1)} y2={pts[i+1].y.toFixed(1)}
+                      stroke={segColor(i)} strokeWidth="2" strokeLinecap="round"/>
+                  ))}
+                  {pts.map((p, i) => (
+                    <circle key={i} cx={p.x} cy={p.y} r="2.5"
+                      fill={i < pts.length - 1 ? segColor(i) : segColor(i - 1)}/>
+                  ))}
                 </svg>
               )
             }
 
             return (
-              <div className="space-y-2">
-                {/* -- Row 1: Account Information + Account Allocation -- */}
-                <div className="grid grid-cols-5 gap-2">
-                  {/* Account Information � 2/5 width */}
-                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                      Account Information
-                    </h3>
-                    <div className="divide-y divide-slate-200">
-                      <div className="grid grid-cols-3 divide-x divide-slate-200 pb-2">
-                        {[
-                          { label: 'Name',     value: acc.name || client?.name || '-' },
-                          { label: 'Account',  value: `${acc.login || client?.login || '-'}` },
-                          { label: 'Currency', value: currency || '-' },
-                        ].map(({ label, value }, i) => (
-                          <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
-                            <p className="text-[10px] text-slate-400 mb-1">{label}</p>
-                            <p className="text-xs font-semibold text-slate-800">{value}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-3 divide-x divide-slate-200 pt-2">
-                        {[
-                          { label: 'Equity',           value: fmtMoney(equity),                                       color: 'text-blue-600' },
-                          { label: 'Margin Level',     value: marginLevel > 0 ? String(marginLevel) : '-',   color: marginLevel > 0 && marginLevel < 50 ? 'text-red-500' : 'text-green-600' },
-                          { label: 'Total Commission', value: fmtMoney(commission),                                    color: 'text-blue-600' },
-                        ].map(({ label, value, color }, i) => (
-                          <div key={label} className={i === 0 ? 'pr-4' : 'px-4'}>
-                            <p className="text-[10px] text-slate-400 mb-1">{label}</p>
-                            <p className={`text-xs font-semibold ${color}`}>{value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+              <div className="space-y-3 pb-4">
 
-                  {/* Account Allocation � 3/5 width */}
-                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Account Allocation</h3>
-                    <div className="flex items-center gap-4">
-                      <SvgDonut
-                        size={100} sw={18}
-                        segments={[
-                          { pct: parseFloat((Math.abs(credit)   / allocTotal * 100).toFixed(2)), color: '#6366f1', label: 'Credit',          value: fmtMoney(credit) },
-                          { pct: parseFloat((Math.abs(balance)  / allocTotal * 100).toFixed(2)), color: '#22c55e', label: 'Balance',         value: fmtMoney(balance) },
-                          { pct: parseFloat((Math.abs(floating) / allocTotal * 100).toFixed(2)), color: floating >= 0 ? '#3b82f6' : '#ef4444', label: 'Floating Profit', value: fmtMoney(floating) },
-                        ]}
-                        centerLine1={fmtMoney(equity)}
-                        centerLine2="Total Equity"
-                      />
-                      <div className="flex-1 space-y-2">
-                        {[
-                          { label: 'Credit',          value: credit,   pct: Math.abs(credit)   / allocTotal * 100, color: '#6366f1' },
-                          { label: 'Balance',         value: balance,  pct: Math.abs(balance)  / allocTotal * 100, color: '#22c55e' },
-                          { label: 'Floating Profit', value: floating, pct: Math.abs(floating) / allocTotal * 100, color: floating >= 0 ? '#3b82f6' : '#ef4444' },
-                        ].map(({ label, value, pct, color }) => (
-                          <div key={label} className="flex items-center gap-3">
-                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
-                            <span className="text-xs text-slate-600 w-24 flex-shrink-0">{label}</span>
-                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}/>
-                            </div>
-                            <span className="text-xs font-semibold text-slate-700 w-24 text-right">{fmtMoney(value)}</span>
-                            <span className="text-xs text-slate-400 w-12 text-right">{pct.toFixed(2)}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* â”€â”€ Row 1: Account Info + Account Allocation + Volume Overview â”€â”€ */}
+                <div className="grid grid-cols-3 gap-3">
 
-                {/* -- Row 2: Profit Trend | Volume Overview | Margin Usage | Deals Summary -- */}
-                <div className="grid grid-cols-4 gap-2">
-                  {/* Profit Trend */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-bold text-slate-800">Profit Trend</h3>
-                      <select value={trendRange} onChange={e => setTrendRange(e.target.value)}
-                        className="text-xs border border-slate-200 rounded px-2 py-0.5 text-slate-600 bg-white focus:outline-none">
-                        <option value="7d">This Week</option>
-                        <option value="30d">This Month</option>
-                      </select>
-                    </div>
-                    <div className="flex-1 flex flex-col justify-center">
-                      <div className="h-[130px]">
-                        {trendLoading
-                          ? <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"/></div>
-                          : <ProfitTrendChart data={profitTrend} w={260} h={130}/>
-                        }
-                      </div>
-                      {profitTrend.length > 0 && (
-                        <div className="flex justify-between text-[10px] text-slate-400 mt-2 pl-10 pr-1">
-                          {(() => {
-                            const n = profitTrend.length
-                            const indices = n <= 3 ? profitTrend.map((_, i) => i) : [0, Math.floor(n / 2), n - 1]
-                            return indices.map(i => <span key={i}>{profitTrend[i].label}</span>)
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Volume Overview */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Volume Overview</h3>
-                    <div className="flex-1 flex items-center justify-center gap-3">
-                      <SvgDonut
-                        size={130} sw={20}
-                        segments={[
-                          { pct: buyPct,  color: '#2563eb', label: 'Buy Volume',  value: fmtMoney(buyVol) },
-                          { pct: sellPct, color: '#ef4444', label: 'Sell Volume', value: fmtMoney(sellVol) },
-                        ]}
-                        centerLine1={fmtMoney(totalVolume)}
-                        centerLine2="Total Volume"
-                      />
-                      <div className="space-y-2">
-                        {[
-                          { label: 'Buy Volume',  val: buyVol,  pct: buyPct,  color: '#2563eb' },
-                          { label: 'Sell Volume', val: sellVol, pct: sellPct, color: '#ef4444' },
-                        ].map(({ label, val, pct, color }) => (
-                          <div key={label} className="text-xs">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
-                              <span className="text-slate-500">{label}</span>
-                            </div>
-                            <div className="font-semibold text-slate-700 pl-3.5">{fmtMoney(val)} <span className="text-slate-400">({pct}%)</span></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Margin Usage */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Margin Usage</h3>
-                    <div className="flex-1 flex items-center justify-center gap-3">
-                      {(() => {
-                        const usedAbs = Math.abs(margin)
-                        const freeAbs = Math.abs(marginFree)
-                        const totalMargin = usedAbs + freeAbs || 1
-                        const usedPct = parseFloat((usedAbs / totalMargin * 100).toFixed(1))
-                        const freePct = parseFloat((freeAbs / totalMargin * 100).toFixed(1))
-                        const bothPos = margin >= 0 && marginFree >= 0
-                        const bothNeg = margin < 0 && marginFree < 0
-                        const usedColor = bothPos ? '#15803d' : bothNeg ? '#991b1b' : margin < 0 ? '#ef4444' : '#15803d'
-                        const freeColor = bothPos ? '#22c55e' : bothNeg ? '#ef4444' : marginFree < 0 ? '#ef4444' : '#22c55e'
-                        return (
-                          <>
-                            <SvgDonut
-                              size={130} sw={20}
-                              segments={[
-                                { pct: usedPct, color: usedColor, label: 'Used Margin', value: fmtMoney(usedAbs) },
-                                { pct: freePct, color: freeColor, label: 'Free Margin', value: fmtMoney(freeAbs) },
-                              ]}
-                              centerLine1={fmtMoney(usedAbs + freeAbs)}
-                              centerLine2="Total Margin"
-                            />
-                            <div className="space-y-2">
-                              {[
-                                { label: 'Used Margin', val: usedAbs, pct: usedPct, color: usedColor },
-                                { label: 'Free Margin', val: freeAbs, pct: freePct, color: freeColor },
-                              ].map(({ label, val, pct, color }) => (
-                                <div key={label} className="text-xs">
-                                  <div className="flex items-center gap-1.5 mb-0.5">
-                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
-                                    <span className="text-slate-500">{label}</span>
-                                  </div>
-                                  <div className="font-semibold text-slate-700 pl-3.5">{fmtMoney(val)} <span className="text-slate-400">({pct}%)</span></div>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Deals Summary */}
-                  <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex flex-col">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Deals Summary</h3>
-                    <div className="flex-1 flex items-center justify-center gap-3">
-                      <SvgDonut
-                        size={130} sw={20}
-                        segments={[
-                          { pct: parseFloat(winRate.toFixed(1)),  color: '#22c55e', label: 'Profitable Deals', value: `${profDeals} deals` },
-                          { pct: parseFloat(lossRate.toFixed(1)), color: '#ef4444', label: 'Losing Deals',     value: `${loseDeals} deals` },
-                        ]}
-                        centerLine1={String(totalDeals)}
-                        centerLine2="Total Deals"
-                      />
-                      <div className="space-y-2">
-                        <div className="text-xs">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
-                            <span className="text-slate-500">Profitable Deals</span>
-                          </div>
-                          <div className="font-semibold text-slate-700 pl-3.5">{profDeals} <span className="text-green-600">({winRate.toFixed(1)}%)</span></div>
-                        </div>
-                        <div className="text-xs">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"/>
-                            <span className="text-slate-500">Losing Deals</span>
-                          </div>
-                          <div className="font-semibold text-slate-700 pl-3.5">{loseDeals} <span className="text-red-500">({lossRate.toFixed(1)}%)</span></div>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Win/Loss Rate badges */}
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="bg-green-50 border border-green-200 rounded-lg px-2 py-1.5 text-center">
-                        <div className="text-[10px] font-semibold text-green-700">Win Rate</div>
-                        <div className="text-sm font-bold text-green-700">{winRate.toFixed(1)}%</div>
-                      </div>
-                      <div className="bg-red-50 border border-red-200 rounded-lg px-2 py-1.5 text-center">
-                        <div className="text-[10px] font-semibold text-red-700">Loss Rate</div>
-                        <div className="text-sm font-bold text-red-700">{lossRate.toFixed(1)}%</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* -- Row 3: Performance Overview + Profitability -- */}
-                <div className="grid grid-cols-5 gap-2">
-                  {/* Performance Overview – 3/5 width */}
-                  <div className="col-span-3 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-3">Performance Overview</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                  {/* Account Information */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Account Information</p>
+                    <div className="grid grid-cols-3 gap-y-2 gap-x-2">
                       {[
-                        {
-                          label: 'Avg Profit / Deal', value: avgProfit, valueColor: 'text-green-600',
-                          iconBg: 'bg-green-50', iconColor: 'text-green-500',
-                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                        },
-                        {
-                          label: 'Avg Loss / Deal', value: avgLoss, valueColor: 'text-red-600',
-                          iconBg: 'bg-red-50', iconColor: 'text-red-500',
-                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
-                        },
-                        {
-                          label: 'Max Profit', value: maxProfit, valueColor: 'text-green-600',
-                          iconBg: 'bg-green-50', iconColor: 'text-green-500',
-                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                        },
-                        {
-                          label: 'Max Loss', value: maxLoss, valueColor: 'text-red-600',
-                          iconBg: 'bg-red-50', iconColor: 'text-red-500',
-                          icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
-                        },
-                      ].map(({ label, value, valueColor, iconBg, iconColor, icon }) => (
-                        <div key={label} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>
-                              <svg className={`w-4 h-4 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">{icon}</svg>
-                            </div>
-                            <span className="text-xs text-slate-500 leading-tight">{label}</span>
-                          </div>
-                          <div className={`text-base font-bold ${valueColor}`}>{fmtMoney(value)}</div>
+                        { label: 'Name',          value: name },
+                        { label: 'Account',       value: login || 'â€“' },
+                        { label: 'Currency',      value: currency || 'â€“' },
+                        { label: 'Equity',        value: fmt(equity),    color: equity >= 0 ? 'text-green-600' : 'text-red-600' },
+                        { label: 'Margin Level',  value: marginLvl ? fmtPct(marginLvl) : 'â€“', color: marginLvl >= 100 ? 'text-green-600' : 'text-red-600' },
+                        { label: 'Commission',    value: fmt(commission) },
+                      ].map(({ label, value, color }) => (
+                        <div key={label}>
+                          <p className="text-[9px] text-gray-400 leading-tight">{label}</p>
+                          <p className={`text-[11px] font-semibold truncate ${color ?? 'text-gray-800'}`}>{value}</p>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Profitability – 2/5 width */}
-                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Profitability</h3>
+                  {/* Account Allocation */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Account Allocation</p>
                     <div className="flex items-center gap-2">
-                      {/* Profit Sum – left */}
-                      <div className="flex-1 flex flex-col items-center justify-center py-3 px-2">
-                        <div className="text-[10px] text-green-600 font-semibold uppercase tracking-wide mb-1">Profit Sum</div>
-                        <div className="text-sm font-bold text-green-600 text-center">{fmtMoney(profitSum)}</div>
+                      <SvgDonutLocal
+                        size={80} sw={12}
+                        label={fmt(equity)}
+                        sublabel="Total Equity"
+                        segments={[
+                          { v: Math.abs(credit),   color: '#6366f1' },
+                          { v: Math.abs(balance),  color: '#22c55e' },
+                          { v: Math.abs(floating), color: floating >= 0 ? '#3b82f6' : '#ef4444' },
+                        ]}
+                      />
+                      <div className="flex-1 space-y-1.5 min-w-0">
+                        {[
+                          { label: 'Credit',          val: credit,   color: '#6366f1' },
+                          { label: 'Balance',         val: balance,  color: '#22c55e' },
+                          { label: 'Floating Profit', val: floating, color: floating >= 0 ? '#3b82f6' : '#ef4444' },
+                        ].map(({ label, val, color }) => {
+                          const pct = allocTotal ? Math.abs(val) / allocTotal * 100 : 0
+                          return (
+                            <div key={label}>
+                              <div className="flex justify-between items-center mb-0.5">
+                                <span className="text-[9px] text-gray-500 truncate">{label}</span>
+                                <span className={`text-[9px] font-medium ${val >= 0 ? 'text-gray-700' : 'text-red-500'}`}>{val >= 0 ? fmtPct(pct) : `-${fmtPct(pct)}`}</span>
+                              </div>
+                              <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}/>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                      {/* Gauge – center */}
-                      <div className="flex flex-col items-center flex-shrink-0">
-                        <SemiGauge profit={profitSum} loss={losingSum} net={netPL}/>
-                      </div>
-                      {/* Losing Sum – right */}
-                      <div className="flex-1 flex flex-col items-center justify-center py-3 px-2">
-                        <div className="text-[10px] text-red-500 font-semibold uppercase tracking-wide mb-1">Losing Sum</div>
-                        <div className="text-sm font-bold text-red-500 text-center">-{fmtMoney(losingSum)}</div>
+                    </div>
+                  </div>
+
+                  {/* Volume Overview */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Volume Overview</p>
+                    <div className="flex flex-col items-center gap-1">
+                      <SvgDonutLocal
+                        size={80} sw={12}
+                        label={`${((buyVolume / totalVol) * 100).toFixed(0)}%`}
+                        sublabel="Buy"
+                        segments={[
+                          { v: buyVolume,  color: '#3b82f6' },
+                          { v: sellVolume, color: '#ef4444' },
+                        ]}
+                      />
+                      <div className="flex items-center gap-3 text-[9px]">
+                        <div className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block"/>
+                          <span className="text-gray-600">Buy <span className="font-semibold text-gray-800">{fmt(buyVolume)}</span></span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>
+                          <span className="text-gray-600">Sell <span className="font-semibold text-gray-800">{fmt(sellVolume)}</span></span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* â”€â”€ Row 2: Profit Trend + Margin Usage + Deals Summary â”€â”€ */}
+                <div className="grid grid-cols-3 gap-3">
+
+                  {/* Profit Trend */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Profit Trend</p>
+                      <div className="flex items-center gap-1">
+                        {['7d', '30d'].map(r => (
+                          <button key={r} onClick={() => setTrendRange(r)}
+                            className={`px-2 py-0.5 rounded text-[9px] font-medium transition-colors ${trendRange === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                            {r === '7d' ? '7 Days' : '30 Days'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {trendLoading ? (
+                      <div className="h-[70px] flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                      </div>
+                    ) : (
+                      <>
+                        <SvgLineLocal data={profitTrend} w={260} h={70}/>
+                        <div className="flex justify-between mt-1">
+                          {profitTrend.filter((_, i) => i % Math.max(1, Math.floor(profitTrend.length / 5)) === 0).map((d, i) => (
+                            <span key={i} className="text-[8px] text-gray-400">{d.label}</span>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Margin Usage */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Margin Usage</p>
+                    {(() => {
+                      const usedPct = margin + marginFree > 0 ? (margin / (margin + marginFree)) * 100 : 0
+                      const freePct = 100 - usedPct
+                      return (
+                        <div className="space-y-2">
+                          {[
+                            { label: 'Used Margin', val: margin,     pct: usedPct, color: '#ef4444' },
+                            { label: 'Free Margin', val: marginFree, pct: freePct, color: '#22c55e' },
+                          ].map(({ label, val, pct, color }) => (
+                            <div key={label}>
+                              <div className="flex justify-between text-[10px] mb-0.5">
+                                <span className="text-gray-500">{label}</span>
+                                <span className="font-semibold text-gray-700">{fmt(val)}</span>
+                              </div>
+                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}/>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+
+                  {/* Deals Summary */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Deals Summary</p>
+                    <div className="flex items-center gap-3">
+                      <SvgDonutLocal
+                        size={90} sw={14}
+                        label={String(totalDeals)}
+                        sublabel="Total Deals"
+                        segments={[
+                          { v: profitableDeals, color: '#22c55e' },
+                          { v: losingDeals,     color: '#ef4444' },
+                        ]}
+                      />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"/>
+                          <span className="text-[9px] text-gray-500">Profitable Deals</span>
+                          <span className="ml-auto text-[10px] font-bold text-green-600">{profitableDeals} ({fmtPct(winRate)})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"/>
+                          <span className="text-[9px] text-gray-500">Losing Deals</span>
+                          <span className="ml-auto text-[10px] font-bold text-red-600">{losingDeals} ({fmtPct(lossRate)})</span>
+                        </div>
+                        <div className="h-px bg-gray-100 my-1"/>
+                        <div className="grid grid-cols-2 gap-1">
+                          <div className="bg-green-50 rounded-lg p-1.5 text-center">
+                            <p className="text-[9px] text-green-600 font-medium">Win Rate</p>
+                            <p className="text-[11px] font-bold text-green-700">{fmtPct(winRate)}</p>
+                          </div>
+                          <div className="bg-red-50 rounded-lg p-1.5 text-center">
+                            <p className="text-[9px] text-red-500 font-medium">Loss Rate</p>
+                            <p className="text-[11px] font-bold text-red-600">{fmtPct(lossRate)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* â”€â”€ Row 3: Performance Overview + Profitability â”€â”€ */}
+                <div className="grid grid-cols-2 gap-3">
+
+                  {/* Performance Overview */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Performance Overview</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Avg Profit / Deal', val: avgProfit, color: 'text-green-600', bg: 'bg-green-50' },
+                        { label: 'Avg Loss / Deal',   val: avgLoss,   color: 'text-red-600',   bg: 'bg-red-50'   },
+                        { label: 'Max Profit',        val: maxProfit, color: 'text-green-700', bg: 'bg-green-50' },
+                        { label: 'Max Loss',          val: maxLoss,   color: 'text-red-700',   bg: 'bg-red-50'   },
+                      ].map(({ label, val, color, bg }) => (
+                        <div key={label} className={`${bg} rounded-lg p-2`}>
+                          <p className="text-[9px] text-gray-500 mb-0.5">{label}</p>
+                          <p className={`text-[12px] font-bold ${color}`}>{fmt(val)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Profitability â€” same as mobile (green/red arcs) */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Profitability</p>
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex-shrink-0">
+                        {(() => {
+                          const size = 110, sw = 14, r = (size - sw) / 2
+                          const cx = size / 2, cy = size / 2
+                          const circ = 2 * Math.PI * r
+                          const half = circ / 2
+                          const total = Math.abs(profitSum) + Math.abs(losingSum) || 1
+                          const profitPct = Math.abs(profitSum) / total
+                          const profitLen = profitPct * half
+                          const losingLen = (1 - profitPct) * half
+                          return (
+                            <svg width={size} height={size / 2 + sw / 2 + 2} viewBox={`0 0 ${size} ${size / 2 + sw / 2 + 2}`}>
+                              <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={sw}
+                                strokeDasharray={`${half} ${circ}`} strokeDashoffset={0}
+                                transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt"/>
+                              <circle cx={cx} cy={cy} r={r} fill="none" stroke="#22c55e" strokeWidth={sw}
+                                strokeDasharray={`${profitLen} ${circ - profitLen}`}
+                                strokeDashoffset={0}
+                                transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt"/>
+                              <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ef4444" strokeWidth={sw}
+                                strokeDasharray={`${losingLen} ${circ - losingLen}`}
+                                strokeDashoffset={-profitLen}
+                                transform={`rotate(-180 ${cx} ${cy})`} strokeLinecap="butt"/>
+                              <text x={cx} y={cy - 4}  textAnchor="middle" fontSize="10" fontWeight="bold" fill="#111827">{fmt(netPL)}</text>
+                              <text x={cx} y={cy + 7}  textAnchor="middle" fontSize="8"  fill="#6b7280">Net P/L</text>
+                            </svg>
+                          )
+                        })()}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <p className="text-[9px] text-gray-400">Profit Sum</p>
+                          <p className="text-[13px] font-bold text-green-600">{fmt(profitSum)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-gray-400">Losing Sum</p>
+                          <p className="text-[13px] font-bold text-red-600">{fmt(losingSum)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )
           })()}
@@ -3750,7 +3623,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           onChange={(e) => setDealsItemsPerPage(parseInt(e.target.value))}
                           className="px-1.5 py-0.5 text-xs border border-gray-300 rounded bg-white text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                         >
-                          {getDealsPageSizeOptions().map((opt) => (
+                          {getDealsPageSizeOptions(totalDealsCount || filteredDealsResult.length).map((opt) => (
                             <option key={opt} value={opt}>{opt}</option>
                           ))}
                         </select>
@@ -3805,71 +3678,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 </div>
               )}
 
-              {/* Search Bar — shown above table for loading / empty / data states */}
-              {hasAppliedFilter && (
-                <div className="mb-4 flex items-center gap-2">
-                  <div className="relative w-96 flex items-center border border-gray-300 rounded-md focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white" ref={dealsSearchRef}>
-                    <span className="pl-3 text-gray-400 pointer-events-none shrink-0">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </span>
-                    <input
-                      type="text"
-                      value={dealsInputValue}
-                      onChange={(e) => setDealsInputValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          setDealsSearchQuery(dealsInputValue)
-                          setDealsCurrentPage(1)
-                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
-                          }
-                        }
-                      }}
-                      placeholder="Search by symbol..."
-                      className="flex-1 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 outline-none bg-transparent"
-                    />
-                    {dealsInputValue && (
-                      <button
-                        onClick={() => {
-                          setDealsInputValue('')
-                          setDealsSearchQuery('')
-                          setDealsCurrentPage(1)
-                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, '')
-                          }
-                        }}
-                        className="px-1 text-gray-400 hover:text-gray-600 shrink-0"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setDealsSearchQuery(dealsInputValue)
-                        setDealsCurrentPage(1)
-                        if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
-                        }
-                      }}
-                      className="mr-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0 rounded-md"
-                      title="Search"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {dealsLoading ? (
                 <>
                   {/* Show table structure with loading bar */}
-                  <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 min-h-[60vh] md:min-h-96 relative">
+                  <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 relative">
                     <table className="min-w-full table-fixed divide-y divide-gray-200">
                       <thead className="bg-blue-600 sticky top-0 z-10 shadow-md">
                         <tr>
@@ -3907,39 +3719,70 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   <p className="text-gray-400 text-xs">Choose a date range and click Apply to view deals</p>
                 </div>
               ) : filteredDeals.length === 0 ? (
-                <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 min-h-[60vh] md:min-h-96 relative">
-                  <table className="min-w-full table-fixed divide-y divide-gray-200">
-                    <thead className="bg-blue-600 sticky top-0 z-10 shadow-md">
-                      <tr>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Time</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Deal</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Order</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Position</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Symbol</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Action</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Volume</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Price</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Commission</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Storage</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Profit</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Comment</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white">
-                      <tr>
-                        <td colSpan="12" className="px-6 py-12 text-center">
-                          <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                          </svg>
-                          <p className="text-gray-500 text-sm">No deals found for the selected date range</p>
-                          <p className="text-gray-400 text-xs mt-1">Try adjusting your date range</p>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="text-center py-12">
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <p className="text-gray-500 text-sm">No deals found for the selected date range</p>
+                  <p className="text-gray-400 text-xs mt-1">Try adjusting your date range</p>
                 </div>
               ) : (
                 <>
+                  {/* Search Bar */}
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="relative flex-1" ref={dealsSearchRef}>
+                      <div className="relative">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                          type="text"
+                          value={dealsSearchQuery}
+                          onChange={(e) => setDealsSearchQuery(e.target.value)}
+                          onFocus={() => setShowDealsSearchSuggestions(true)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              setShowDealsSearchSuggestions(false);
+                            }
+                          }}
+                          placeholder="Search deals by time, symbol, or action..."
+                          className="w-full pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700 placeholder:text-gray-400"
+                        />
+                        {dealsSearchQuery && (
+                          <button
+                            onClick={() => setDealsSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Search Suggestions Dropdown */}
+                      {showDealsSearchSuggestions && dealsSearchQuery && getDealsSearchSuggestions().length > 0 && (
+                        <div className="absolute z-[60] mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {getDealsSearchSuggestions().map((suggestion, index) => (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                setDealsSearchQuery(suggestion.value);
+                                setShowDealsSearchSuggestions(false);
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 border-b border-gray-100 last:border-b-0"
+                            >
+                              <span className="text-gray-700">{suggestion.value}</span>
+                              <span className="ml-auto text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{suggestion.type}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600 whitespace-nowrap">
+                      {displayedDeals.length} of {totalDealsCount} deals
+                    </div>
+                  </div>
 
                   {displayedDeals.length === 0 ? (
                     <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
@@ -3950,13 +3793,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       <p className="text-gray-400 text-xs mb-3">Try different search terms or clear filters</p>
                       <button
                         onClick={() => {
-                          setDealsInputValue('');
                           setDealsSearchQuery('');
                           setDealsColumnFilters({});
-                          setDealsCurrentPage(1)
-                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, '')
-                          }
                         }}
                         className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
                       >
@@ -3965,7 +3803,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     </div>
                   ) : (
                     <>
-                      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 min-h-[60vh] md:min-h-96 relative">
+                      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 relative">
                         <table className="min-w-full table-fixed divide-y divide-gray-200">
                           <thead className="bg-blue-600 sticky top-0 z-10 shadow-md">
                             <tr>
@@ -3977,7 +3815,49 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                                 <div className="flex items-center gap-1.5">
                                   Time
                                   <SortIcon column="time" currentColumn={dealsSortColumn} direction={dealsSortDirection} />
+                                  <div className="relative" ref={el => dealsFilterRefs.current['time'] = el}>
+                              <button
+                                onClick={() => setShowDealsFilterDropdown(showDealsFilterDropdown === 'time' ? null : 'time')}
+                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveDealsFilterCount('time') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
+                                title="Filter"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                              </button>
+                              {getActiveDealsFilterCount('time') > 0 && (
+                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
+                                  {getActiveDealsFilterCount('time')}
+                                </span>
+                              )}
+                              {showDealsFilterDropdown === 'time' && (
+                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-40 overflow-y-auto">
+                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-gray-700">Filter by Time</span>
+                                    {getActiveDealsFilterCount('time') > 0 && (
+                                      <button
+                                        onClick={() => clearDealsColumnFilter('time')}
+                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                      >
+                                        Clear
+                                      </button>
+                                    )}
+                                  </div>
+                                  {getUniqueDealsColumnValues('time').map(value => (
+                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={dealsColumnFilters.time?.includes(value) || false}
+                                        onChange={() => toggleDealsColumnFilter('time', value)}
+                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                      />
+                                      <span className="text-xs text-gray-700">{value}</span>
+                                    </label>
+                                  ))}
                                 </div>
+                              )}
+                            </div>
+                          </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"
                             onMouseDown={(e) => handleDealsResizeStart(e, 'time')}
@@ -4033,6 +3913,48 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <div className="flex items-center gap-1.5">
                             Symbol
                             <SortIcon column="symbol" currentColumn={dealsSortColumn} direction={dealsSortDirection} />
+                            <div className="relative" ref={el => dealsFilterRefs.current['symbol'] = el}>
+                              <button
+                                onClick={() => setShowDealsFilterDropdown(showDealsFilterDropdown === 'symbol' ? null : 'symbol')}
+                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveDealsFilterCount('symbol') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
+                                title="Filter"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                              </button>
+                              {getActiveDealsFilterCount('symbol') > 0 && (
+                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
+                                  {getActiveDealsFilterCount('symbol')}
+                                </span>
+                              )}
+                              {showDealsFilterDropdown === 'symbol' && (
+                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-40 overflow-y-auto">
+                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-gray-700">Filter by Symbol</span>
+                                    {getActiveDealsFilterCount('symbol') > 0 && (
+                                      <button
+                                        onClick={() => clearDealsColumnFilter('symbol')}
+                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                      >
+                                        Clear
+                                      </button>
+                                    )}
+                                  </div>
+                                  {getUniqueDealsColumnValues('symbol').map(value => (
+                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={dealsColumnFilters.symbol?.includes(value) || false}
+                                        onChange={() => toggleDealsColumnFilter('symbol', value)}
+                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                      />
+                                      <span className="text-xs text-gray-700">{value}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"
@@ -4047,6 +3969,48 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <div className="flex items-center gap-1.5">
                             Action
                             <SortIcon column="action" currentColumn={dealsSortColumn} direction={dealsSortDirection} />
+                            <div className="relative" ref={el => dealsFilterRefs.current['action'] = el}>
+                              <button
+                                onClick={() => setShowDealsFilterDropdown(showDealsFilterDropdown === 'action' ? null : 'action')}
+                                className={`p-0.5 rounded hover:bg-blue-700 transition-colors ${getActiveDealsFilterCount('action') > 0 ? 'text-yellow-300' : 'text-blue-100'}`}
+                                title="Filter"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                              </button>
+                              {getActiveDealsFilterCount('action') > 0 && (
+                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 text-blue-900 text-[9px] font-bold rounded-full flex items-center justify-center">
+                                  {getActiveDealsFilterCount('action')}
+                                </span>
+                              )}
+                              {showDealsFilterDropdown === 'action' && (
+                                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48 max-h-40 overflow-y-auto">
+                                  <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-gray-700">Filter by Action</span>
+                                    {getActiveDealsFilterCount('action') > 0 && (
+                                      <button
+                                        onClick={() => clearDealsColumnFilter('action')}
+                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                      >
+                                        Clear
+                                      </button>
+                                    )}
+                                  </div>
+                                  {getUniqueDealsColumnValues('action').map(value => (
+                                    <label key={value} className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={dealsColumnFilters.action?.includes(value) || false}
+                                        onChange={() => toggleDealsColumnFilter('action', value)}
+                                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                      />
+                                      <span className="text-xs text-gray-700">{value}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div
                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-300/50 hover:bg-yellow-400 active:bg-yellow-500"
@@ -4317,277 +4281,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             </div>
           )}
 
-          {/* Security Tab */}
-          {activeTab === 'security' && (
-            <div className="p-4 space-y-4">
-              {/* Header */}
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                <h3 className="text-sm font-semibold text-gray-700">Security Settings</h3>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Trading Password */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-grey-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                      Trading Password
-                    </h4>
-                  </div>
-                  <div className="p-4 space-y-4">
-                    {/* Change */}
-                    <form
-                      className="space-y-2"
-                      onSubmit={async (e) => {
-                        e.preventDefault()
-                        setTradingMsg({ type: '', text: '' })
-                        if (!tradingNewPassword) {
-                          setTradingMsg({ type: 'error', text: 'Please enter a new trading password.' })
-                          return
-                        }
-                        try {
-                          setTradingChangeLoading(true)
-                          await brokerAPI.changeTradingPassword(client.login, tradingNewPassword)
-                          setTradingMsg({ type: 'success', text: 'Trading password changed successfully.' })
-                          setTradingNewPassword('')
-                        } catch (err) {
-                          setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to change trading password.' })
-                        } finally {
-                          setTradingChangeLoading(false)
-                        }
-                      }}
-                    >
-                      <label className="block text-xs font-medium text-gray-600">New Trading Password</label>
-                      <div className="relative">
-                        <input
-                          type={showTradingNew ? 'text' : 'password'}
-                          value={tradingNewPassword}
-                          onChange={(e) => { setTradingNewPassword(e.target.value); setShowTradingSuggest(false) }}
-                          onFocus={() => { const p = generatePassword(); setTradingSuggestedPwd(p); setShowTradingSuggest(true) }}
-                          onBlur={(e) => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowTradingSuggest(false) }}
-                          className="w-full px-3 py-1.5 pr-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-emerald-500 text-gray-900 bg-white"
-                          placeholder="Enter new trading password"
-                          autoComplete="new-password"
-                        />
-                        <button type="button" tabIndex={-1} onClick={() => setShowTradingNew(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showTradingNew ? 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'} /></svg>
-                        </button>
-                        {showTradingSuggest && (
-                          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3" onMouseDown={(e) => e.preventDefault()}>
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                              <span className="text-xs font-semibold text-gray-700">Suggested password</span>
-                            </div>
-                            <div className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 rounded-md px-2.5 py-1.5 cursor-pointer transition-colors" onClick={() => { setTradingNewPassword(tradingSuggestedPwd); setShowTradingNew(true); setShowTradingSuggest(false) }} title="Click to use this password">
-                              <span className="flex-1 text-sm font-mono text-gray-800 tracking-wider select-all">{tradingSuggestedPwd}</span>
-                              <button type="button" tabIndex={-1} title="Generate new" onClick={(e) => { e.stopPropagation(); setTradingSuggestedPwd(generatePassword()) }} className="text-gray-400 hover:text-blue-600 transition-colors shrink-0">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                              </button>
-                            </div>
-                            <p className="text-xs text-gray-400 mt-1">Click the password to use it</p>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={tradingChangeLoading}
-                        className="w-full px-4 py-2 text-sm font-semibold text-white bg-[#2563EA] hover:bg-[#1D4ED8] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {tradingChangeLoading ? 'Changing...' : 'Change Trading Password'}
-                      </button>
-                    </form>
-
-                    <div className="border-t border-gray-200" />
-
-                    {/* Check */}
-                    <form
-                      className="space-y-2"
-                      onSubmit={async (e) => {
-                        e.preventDefault()
-                        setTradingMsg({ type: '', text: '' })
-                        if (!tradingCheckPassword) {
-                          setTradingMsg({ type: 'error', text: 'Please enter a password to verify.' })
-                          return
-                        }
-                        try {
-                          setTradingCheckLoading(true)
-                          const res = await brokerAPI.checkClientPassword(client.login, 'trading', tradingCheckPassword)
-                          const ok = res?.valid === true || res?.success === true || res?.data?.valid === true
-                          setTradingMsg({ type: ok ? 'success' : 'error', text: ok ? 'Trading password is correct.' : (res?.message || 'Trading password is incorrect.') })
-                        } catch (err) {
-                          setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to verify password.' })
-                        } finally {
-                          setTradingCheckLoading(false)
-                        }
-                      }}
-                    >
-                      <label className="block text-xs font-medium text-gray-600">Verify Trading Password</label>
-                      <div className="relative">
-                        <input
-                          type={showTradingCheck ? 'text' : 'password'}
-                          value={tradingCheckPassword}
-                          onChange={(e) => setTradingCheckPassword(e.target.value)}
-                          className="w-full px-3 py-1.5 pr-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                          placeholder="Enter password to verify"
-                          autoComplete="off"
-                        />
-                        <button type="button" tabIndex={-1} onClick={() => setShowTradingCheck(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showTradingCheck ? 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'} /></svg>
-                        </button>
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={tradingCheckLoading}
-                        className="w-full px-4 py-2 text-sm font-semibold text-[#2563EA] bg-[#EFF6FF] hover:bg-[#DBEAFE] border border-[#BFDBFE] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {tradingCheckLoading ? 'Verifying...' : 'Verify Trading Password'}
-                      </button>
-                    </form>
-
-                    {tradingMsg.text && (
-                      <div className={`text-xs px-3 py-2 rounded-md ${tradingMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                        {tradingMsg.text}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Investor Password */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-2.5 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-grey-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      Investor Password
-                    </h4>
-                  </div>
-                  <div className="p-4 space-y-4">
-                    {/* Change */}
-                    <form
-                      className="space-y-2"
-                      onSubmit={async (e) => {
-                        e.preventDefault()
-                        setInvestorMsg({ type: '', text: '' })
-                        if (!investorNewPassword) {
-                          setInvestorMsg({ type: 'error', text: 'Please enter a new investor password.' })
-                          return
-                        }
-                        try {
-                          setInvestorChangeLoading(true)
-                          await brokerAPI.changeInvestorPassword(client.login, investorNewPassword)
-                          setInvestorMsg({ type: 'success', text: 'Investor password changed successfully.' })
-                          setInvestorNewPassword('')
-                        } catch (err) {
-                          setInvestorMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to change investor password.' })
-                        } finally {
-                          setInvestorChangeLoading(false)
-                        }
-                      }}
-                    >
-                      <label className="block text-xs font-medium text-gray-600">New Investor Password</label>
-                      <div className="relative">
-                        <input
-                          type={showInvestorNew ? 'text' : 'password'}
-                          value={investorNewPassword}
-                          onChange={(e) => { setInvestorNewPassword(e.target.value); setShowInvestorSuggest(false) }}
-                          onFocus={() => { const p = generatePassword(); setInvestorSuggestedPwd(p); setShowInvestorSuggest(true) }}
-                          onBlur={(e) => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowInvestorSuggest(false) }}
-                          className="w-full px-3 py-1.5 pr-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                          placeholder="Enter new investor password"
-                          autoComplete="new-password"
-                        />
-                        <button type="button" tabIndex={-1} onClick={() => setShowInvestorNew(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showInvestorNew ? 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'} /></svg>
-                        </button>
-                        {showInvestorSuggest && (
-                          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3" onMouseDown={(e) => e.preventDefault()}>
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                              <span className="text-xs font-semibold text-gray-700">Suggested password</span>
-                            </div>
-                            <div className="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 rounded-md px-2.5 py-1.5 cursor-pointer transition-colors" onClick={() => { setInvestorNewPassword(investorSuggestedPwd); setShowInvestorNew(true); setShowInvestorSuggest(false) }} title="Click to use this password">
-                              <span className="flex-1 text-sm font-mono text-gray-800 tracking-wider select-all">{investorSuggestedPwd}</span>
-                              <button type="button" tabIndex={-1} title="Generate new" onClick={(e) => { e.stopPropagation(); setInvestorSuggestedPwd(generatePassword()) }} className="text-gray-400 hover:text-blue-600 transition-colors shrink-0">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                              </button>
-                            </div>
-                            <p className="text-xs text-gray-400 mt-1">Click the password to use it</p>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={investorChangeLoading}
-                        className="w-full px-4 py-2 text-sm font-semibold text-white bg-[#2563EA] hover:bg-[#1D4ED8] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {investorChangeLoading ? 'Changing...' : 'Change Investor Password'}
-                      </button>
-                    </form>
-
-                    <div className="border-t border-gray-200" />
-
-                    {/* Check */}
-                    <form
-                      className="space-y-2"
-                      onSubmit={async (e) => {
-                        e.preventDefault()
-                        setInvestorMsg({ type: '', text: '' })
-                        if (!investorCheckPassword) {
-                          setInvestorMsg({ type: 'error', text: 'Please enter a password to verify.' })
-                          return
-                        }
-                        try {
-                          setInvestorCheckLoading(true)
-                          const res = await brokerAPI.checkClientPassword(client.login, 'investor', investorCheckPassword)
-                          const ok = res?.valid === true || res?.success === true || res?.data?.valid === true
-                          setInvestorMsg({ type: ok ? 'success' : 'error', text: ok ? 'Investor password is correct.' : (res?.message || 'Investor password is incorrect.') })
-                        } catch (err) {
-                          setInvestorMsg({ type: 'error', text: err?.response?.data?.message || 'Failed to verify password.' })
-                        } finally {
-                          setInvestorCheckLoading(false)
-                        }
-                      }}
-                    >
-                      <label className="block text-xs font-medium text-gray-600">Verify Investor Password</label>
-                      <div className="relative">
-                        <input
-                          type={showInvestorCheck ? 'text' : 'password'}
-                          value={investorCheckPassword}
-                          onChange={(e) => setInvestorCheckPassword(e.target.value)}
-                          className="w-full px-3 py-1.5 pr-9 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                          placeholder="Enter password to verify"
-                          autoComplete="off"
-                        />
-                        <button type="button" tabIndex={-1} onClick={() => setShowInvestorCheck(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showInvestorCheck ? 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' : 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'} /></svg>
-                        </button>
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={investorCheckLoading}
-                        className="w-full px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {investorCheckLoading ? 'Verifying...' : 'Verify Investor Password'}
-                      </button>
-                    </form>
-
-                    {investorMsg.text && (
-                      <div className={`text-xs px-3 py-2 rounded-md ${investorMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                        {investorMsg.text}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Broker Rules Tab */}
           {activeTab === 'rules' && (
             <div>
@@ -4688,7 +4381,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   { label: 'Equity',       value: fmtMoney(equity),      labelClass: 'text-green-700',  accent: 'border-green-300'  },
                   { label: 'Margin',       value: fmtMoney(marginUsed),  labelClass: 'text-orange-700', accent: 'border-orange-300' },
                   { label: 'Free Margin',  value: fmtMoney(marginFreeVal), labelClass: 'text-teal-700', accent: 'border-teal-300'   },
-                  { label: 'Margin Level', value: marginLvl ? String(marginLvl) : '-', labelClass: marginLvl > 0 && marginLvl < 100 ? 'text-red-700' : 'text-blue-700', accent: marginLvl > 0 && marginLvl < 100 ? 'border-red-400' : 'border-blue-300' },
+                  { label: 'Margin Level', value: marginLvl ? `${marginLvl.toFixed(2)}%` : '-', labelClass: marginLvl > 0 && marginLvl < 100 ? 'text-red-700' : 'text-blue-700', accent: marginLvl > 0 && marginLvl < 100 ? 'border-red-400' : 'border-blue-300' },
                 ]
 
                 const row1 = summaryRow
@@ -4756,23 +4449,18 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               const totalCommission = displayedDeals.reduce((sum, d) => sum + (d.commission || 0), 0)
               const totalProfit = displayedDeals.reduce((sum, d) => sum + (d.profit || 0), 0)
               const row = [
-                { label: 'Total Deals', value: String(totalDeals), accent: 'border-blue-300' },
-                { label: 'Total Volume', value: fmtVolume(totalVolume), accent: 'border-indigo-300' },
-                { label: 'Total Commission', value: fmtMoney(totalCommission), accent: 'border-amber-400' },
-                { label: 'Floating Profit', value: fmtMoney(totalProfit), accent: totalProfit >= 0 ? 'border-emerald-400' : 'border-red-400' }
+                { label: 'Total Deals', value: String(totalDeals), labelClass: 'text-blue-700', valueClass: 'text-blue-900', accent: 'border-blue-300' },
+                { label: 'Total Volume', value: fmtVolume(totalVolume), labelClass: 'text-indigo-700', valueClass: 'text-indigo-900', accent: 'border-indigo-300' },
+                { label: 'Total Commission', value: fmtMoney(totalCommission), labelClass: 'text-amber-700', valueClass: 'text-amber-900', accent: 'border-amber-400' },
+                { label: 'Floating Profit', value: fmtMoney(totalProfit), labelClass: totalProfit >= 0 ? 'text-emerald-700' : 'text-red-700', valueClass: getProfitColor(totalProfit), accent: totalProfit >= 0 ? 'border-emerald-400' : 'border-red-400' }
               ]
               return (
-                <div className="px-1 pb-1">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="space-y-2">
+                  <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
                     {row.map((it, idx) => (
-                      <div
-                        key={`deals-r-${it.label}-${idx}`}
-                        className="relative rounded-xl border border-gray-100 shadow-sm bg-white px-3 py-2.5 flex flex-col gap-0.5 overflow-hidden"
-                      >
-                        {/* coloured left accent bar */}
-                        <span className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl ${it.accent?.replace('border-', 'bg-') || 'bg-gray-300'}`} />
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{it.label}</p>
-                        <p className="text-sm font-bold leading-tight text-gray-800">{it.value}</p>
+                      <div key={`deals-r-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
+                        <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>
+                        <p className={`text-xs font-bold ${it.valueClass || 'text-gray-800'}`}>{it.value}</p>
                       </div>
                     ))}
                   </div>
