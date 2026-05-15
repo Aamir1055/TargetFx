@@ -314,6 +314,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [investorSuggestedPwd, setInvestorSuggestedPwd] = useState('')
   const [tradingCopied, setTradingCopied] = useState(false)
   const [investorCopied, setInvestorCopied] = useState(false)
+  const [tradingReadOnly, setTradingReadOnly] = useState(true)
+  const [investorReadOnly, setInvestorReadOnly] = useState(true)
 
   const generatePassword = () => {
     const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -4377,6 +4379,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 </div>
               </div>
 
+              <form autoComplete="off" onSubmit={(e) => e.preventDefault()}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Trading Password Card */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -4402,12 +4405,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         <input
                           type={showTradingCheck ? 'text' : 'password'}
                           value={tradingCheckPassword}
+                          readOnly={tradingReadOnly}
                           onChange={(e) => { setTradingCheckPassword(e.target.value); setShowTradingSuggest(false) }}
-                          onFocus={() => { const p = generatePassword(); setTradingSuggestedPwd(p); setShowTradingSuggest(true) }}
-                          onBlur={(e) => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowTradingSuggest(false) }}
+                          onFocus={() => { setTimeout(() => setTradingReadOnly(false), 50); const p = generatePassword(); setTradingSuggestedPwd(p); setShowTradingSuggest(true) }}
+                          onBlur={(e) => { setTradingReadOnly(true); if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowTradingSuggest(false) }}
                           className={`w-full pl-8 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-gray-50 ${tradingCheckPassword ? 'pr-16' : 'pr-9'}`}
                           placeholder="Enter password"
-                          autoComplete="off"
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-form-type="other"
+                          data-1p-ignore="true"
                         />
                         {tradingCheckPassword && (
                           <button type="button" tabIndex={-1} title="Copy password" onClick={() => { navigator.clipboard.writeText(tradingCheckPassword); setTradingCopied(true); setTimeout(() => setTradingCopied(false), 2000) }} className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
@@ -4512,12 +4519,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         <input
                           type={showInvestorCheck ? 'text' : 'password'}
                           value={investorCheckPassword}
+                          readOnly={investorReadOnly}
                           onChange={(e) => { setInvestorCheckPassword(e.target.value); setShowInvestorSuggest(false) }}
-                          onFocus={() => { const p = generatePassword(); setInvestorSuggestedPwd(p); setShowInvestorSuggest(true) }}
-                          onBlur={(e) => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowInvestorSuggest(false) }}
+                          onFocus={() => { setTimeout(() => setInvestorReadOnly(false), 50); const p = generatePassword(); setInvestorSuggestedPwd(p); setShowInvestorSuggest(true) }}
+                          onBlur={(e) => { setInvestorReadOnly(true); if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowInvestorSuggest(false) }}
                           className={`w-full pl-8 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-gray-50 ${investorCheckPassword ? 'pr-16' : 'pr-9'}`}
                           placeholder="Enter password"
-                          autoComplete="off"
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-form-type="other"
+                          data-1p-ignore="true"
                         />
                         {investorCheckPassword && (
                           <button type="button" tabIndex={-1} title="Copy password" onClick={() => { navigator.clipboard.writeText(investorCheckPassword); setInvestorCopied(true); setTimeout(() => setInvestorCopied(false), 2000) }} className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
@@ -4598,6 +4609,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   </div>
                 </div>
               </div>
+              </form>
             </div>
           )}
 

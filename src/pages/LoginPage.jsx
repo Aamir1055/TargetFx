@@ -71,17 +71,12 @@ const LoginPage = () => {
           {/* Logo and Header */}
           <div className="mb-8">
             <div className="flex items-center justify-center gap-4 mb-8">
-              {/* Gradient square + eye icon per Figma */}
+              {/* Favicon logo */}
               <div
-                className="w-10 h-10 rounded-lg relative flex items-center justify-center"
-                style={{
-                  background: 'linear-gradient(180deg, rgba(26, 99, 188, 0.6) 0%, #1A63BC 100%)'
-                }}
+                className="w-16 h-16 rounded-2xl relative flex items-center justify-center shadow-sm"
+                style={{ background: '#DBEAFE' }}
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 5c-4.477 0-8.268 2.943-9.542 7 1.274 4.057 5.064 7 9.542 7 4.478 0 8.268-2.943 9.542-7C20.268 7.943 16.478 5 12 5Z" fill="#FFFFFF"/>
-                  <circle cx="12" cy="12" r="3" fill="#1A63BC"/>
-                </svg>
+                <img src="/Favicon.svg" alt="Broker Eyes" className="w-10 h-10" />
               </div>
               <div className="flex flex-col justify-center items-center text-center">
                 <h1 className="text-[16px] leading-5 font-semibold text-[#404040]">Broker Eyes</h1>

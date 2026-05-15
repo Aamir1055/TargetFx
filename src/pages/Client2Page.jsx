@@ -3329,6 +3329,11 @@ const Client2Page = () => {
       console.log('[Client2Page] Merged unique clients:', rows.length)
 
       // IB filter is applied server-side via mt5Accounts in payload variants
+      // Apply group filter client-side as safety net
+      if (activeGroup) {
+        rows = filterByActiveGroup(rows, 'login', 'client2')
+        console.log('[Client2Page] After group filter:', rows.length, 'rows')
+      }
 
       // Apply table sort if set
       if (sortBy) {
@@ -3355,7 +3360,7 @@ const Client2Page = () => {
       alert('Failed to gather export data: ' + (err.message || 'Unknown error'))
       return []
     }
-  }, [buildExportPayloadVariants, fetchAllPagesForPayload, selectedIB, ibMT5Accounts, filterByActiveIB, sortBy, sortOrder])
+  }, [buildExportPayloadVariants, fetchAllPagesForPayload, selectedIB, ibMT5Accounts, filterByActiveIB, filterByActiveGroup, activeGroup, sortBy, sortOrder])
 
   // Export to Excel handler (CSV for now)
   const handleExportToExcel = (type) => {
@@ -3429,11 +3434,18 @@ const Client2Page = () => {
         }
 
         // Add group filter
-        const activeGroupName = getActiveGroupFilter('client2')
-        if (activeGroupName && groups && groups.length > 0) {
-          const grp = groups.find(g => g.name === activeGroupName)
-          if (grp && grp.logins && grp.logins.length > 0) {
-            payload.mt5Accounts = grp.logins.map(l => String(l))
+        if (activeGroup) {
+          if (activeGroup.range) {
+            payload.accountRangeMin = activeGroup.range.from
+            payload.accountRangeMax = activeGroup.range.to
+          } else if (activeGroup.loginIds && activeGroup.loginIds.length > 0) {
+            const groupAccounts = activeGroup.loginIds.map(id => String(id))
+            if (payload.mt5Accounts && payload.mt5Accounts.length > 0) {
+              const set = new Set(groupAccounts)
+              payload.mt5Accounts = payload.mt5Accounts.filter(a => set.has(String(a)))
+            } else {
+              payload.mt5Accounts = groupAccounts
+            }
           }
         }
 
@@ -3483,6 +3495,12 @@ const Client2Page = () => {
         }
 
         console.log('[Client2Page] Final row count:', allRows.length)
+
+        // Apply group filter client-side as a safety net (mirrors the table's filter)
+        if (activeGroup) {
+          allRows = filterByActiveGroup(allRows, 'login', 'client2')
+          console.log('[Client2Page] After group filter:', allRows.length, 'rows')
+        }
 
         console.log('[Client2Page] Export dataset fetched:', allRows?.length, 'rows')
 

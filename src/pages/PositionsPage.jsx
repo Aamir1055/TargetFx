@@ -1787,6 +1787,13 @@ const PositionsPage = () => {
     if (Array.isArray(columnFilters['login']) && columnFilters['login'].length > 0)
       apiFilters.push({ field: 'login', operator: 'in', value: columnFilters['login'].map(Number) })
 
+    // Apply active group filter
+    const activeGroupName = getActiveGroupFilter('positions')
+    if (activeGroupName) {
+      const groupLogins = getGroupLogins(activeGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+      apiFilters.push({ field: 'login', operator: 'in', value: groupLogins.length > 0 ? groupLogins : [-1] })
+    }
+
     if (exportSearch) params.search = exportSearch
 
     if (apiFilters.length > 0) params.filters = apiFilters
@@ -1850,6 +1857,9 @@ const PositionsPage = () => {
         { key: 'comment',          label: 'Comment',     get: p => p.comment },
         { key: 'commission',       label: 'Commission',  get: p => p.commission },
       ]
+      // Apply group filter client-side (mirrors the table's filterByActiveGroup call)
+      allPositions = filterByActiveGroup(allPositions, 'login', 'positions')
+
       const headers = columnDefs
         .filter(col => effectiveCols[col.key])
         .map(col => ({ key: col.key, label: col.label, accessor: col.get }))
@@ -1878,6 +1888,14 @@ const PositionsPage = () => {
       if (groupByBaseSymbol) baseParams.groupBaseSymbol = true
       const exportSearch = (netActiveSearch || netSearchQuery).trim()
       if (exportSearch) baseParams.search = exportSearch
+
+      // Apply active group filter for net positions (server-side)
+      const netExportGroupName = getActiveGroupFilter('positions')
+      if (netExportGroupName) {
+        const netGroupLogins = getGroupLogins(netExportGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+        if (!baseParams.filters) baseParams.filters = []
+        baseParams.filters.push({ field: 'login', operator: 'in', value: netGroupLogins.length > 0 ? netGroupLogins : [-1] })
+      }
 
       const ACTION_LABEL = { BUY: 'Buy', SELL: 'Sell', FLAT: 'Flat' }
       const mapItems = (data) => data.map(item => ({
