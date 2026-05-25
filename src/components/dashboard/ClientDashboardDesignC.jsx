@@ -58,14 +58,14 @@ export default function ClientDashboardDesignC() {
     return () => window.removeEventListener('resize', checkDesktop)
   }, [navigate])
 
-  // Fetch IB Commission Totals on mount and every hour
+  // Fetch IB Commission Totals on mount — only on mobile (skip if desktop will redirect)
   useEffect(() => {
+    if (window.innerWidth > 768) return  // desktop redirect is pending, skip the call
+
     const fetchCommissionTotals = async () => {
       try {
-        console.log('Fetching IB Commission Totals...')
         const response = await brokerAPI.getIBCommissionTotals()
         let data = response?.data?.data || response?.data || null
-        console.log('Commission Totals:', data)
         setCommissionTotals(data)
       } catch (err) {
         console.error('Failed to fetch commission totals:', err)

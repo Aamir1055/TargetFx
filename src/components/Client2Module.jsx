@@ -176,7 +176,7 @@ export default function Client2Module() {
   // API data state (restored)
   const [clients, setClients] = useState([])
   const [totals, setTotals] = useState({})
-  const [rebateTotals, setRebateTotals] = useState({})
+
   const [totalClients, setTotalClients] = useState(0)
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now())
   const [isLoading, setIsLoading] = useState(true)
@@ -358,22 +358,6 @@ export default function Client2Module() {
     }
   }, [showPercent, filters, getActiveGroupFilter, groups, currentPage, sortColumn, sortDirection, debouncedSearchInput, currencyMode])
 
-  // Fetch rebate totals from API
-  const fetchRebateTotals = useCallback(async () => {
-    try {
-      const response = await brokerAPI.getIBCommissionTotals()
-      const data = response?.data?.data || response?.data || {}
-      setRebateTotals({
-        totalRebate: data.total_commission || 0,
-        totalRebatePercent: data.total_commission_percentage || 0,
-        availableRebate: data.total_available_commission || 0,
-        availableRebatePercent: data.total_available_commission_percentage || 0
-      })
-    } catch (err) {
-      console.error('[Client2Module] Error fetching rebate totals:', err)
-    }
-  }, [])
-
   // Reset to page 1 when filters, search, or IB changes
   useEffect(() => {
     setCurrentPage(1)
@@ -382,14 +366,9 @@ export default function Client2Module() {
   // Initial fetch and periodic refresh every 1 second (matching desktop)
   useEffect(() => {
     fetchClients(null, true) // Initial load with loading state
-    fetchRebateTotals() // Fetch rebate totals on mount
     const interval = setInterval(() => { if (!selectedClientRef.current) fetchClients(null, false) }, 5000) // Periodic refresh every 5s (skip if in-flight or modal open)
-    const rebateInterval = setInterval(() => fetchRebateTotals(), 3600000) // Refresh rebate every 1 hour
-    return () => {
-      clearInterval(interval)
-      clearInterval(rebateInterval)
-    }
-  }, [fetchClients, fetchRebateTotals])
+    return () => clearInterval(interval)
+  }, [fetchClients])
 
   // Return clients as-is since search is handled server-side via API
   const filteredClients = useMemo(() => {
@@ -415,7 +394,7 @@ export default function Client2Module() {
       { label: addPercent('Floating P/L'), value: fmtMoney(t.floating || 0), unit: 'USD', numericValue: t.floating || 0, isArrow: true },
       { label: addPercent('P&L'), value: fmtMoney(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0, isArrow: true }
     ]
-  }, [filteredClients, totals, rebateTotals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent, numericMode])
+  }, [filteredClients, totals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent, numericMode])
 
   // Initialize and reconcile saved card order whenever cards change
   useEffect(() => {

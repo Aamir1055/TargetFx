@@ -947,6 +947,13 @@ export default function PositionModule() {
         if (groupByBaseSymbol) baseParams.groupBaseSymbol = true
         if (displayMode === 'percentage') baseParams.percentage = true
         if (debouncedSearch.trim()) baseParams.search = debouncedSearch.trim()
+        // Apply group filter
+        const _netExportGroupName = getActiveGroupFilter('positions')
+        if (_netExportGroupName) {
+          const _netExportGroupLogins = getGroupLogins(_netExportGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+          const _netExportApiFilters = [{ field: 'login', operator: 'in', value: _netExportGroupLogins.length > 0 ? _netExportGroupLogins : [-1] }]
+          baseParams.filters = _netExportApiFilters
+        }
         if (dateFilter) {
           const now = Math.floor(Date.now() / 1000)
           baseParams.dateFrom = now - dateFilter * 24 * 60 * 60
@@ -1006,6 +1013,13 @@ export default function PositionModule() {
         }
         if (debouncedSearch.trim()) baseParams.search = debouncedSearch.trim()
         if (displayMode === 'percentage') baseParams.percentage = true
+        // Apply group filter
+        const _regExportGroupName = getActiveGroupFilter('positions')
+        if (_regExportGroupName) {
+          const _regExportGroupLogins = getGroupLogins(_regExportGroupName).map(l => Number(l)).filter(n => !Number.isNaN(n))
+          const _regExportApiFilters = [{ field: 'login', operator: 'in', value: _regExportGroupLogins.length > 0 ? _regExportGroupLogins : [-1] }]
+          baseParams.filters = _regExportApiFilters
+        }
         if (dateFilter) {
           const now = Math.floor(Date.now() / 1000)
           baseParams.dateFrom = now - dateFilter * 24 * 60 * 60
@@ -1031,6 +1045,9 @@ export default function PositionModule() {
             allPositions = allPositions.concat(res?.data?.positions ?? res?.positions ?? [])
           })
         }
+
+        // Client-side safety net for group filter
+        allPositions = filterByActiveGroup(allPositions, 'login', 'positions')
 
         const pct = displayMode === 'percentage'
         const headers = [

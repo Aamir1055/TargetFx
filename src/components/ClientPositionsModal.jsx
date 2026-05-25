@@ -11,9 +11,55 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
   const [hovered, setHovered] = useState(null)
   const wrapRef = useRef(null)
 
-  if (!data || data.length < 2) return (
+  if (!data || data.length === 0) return (
     <div className="flex items-center justify-center h-full text-xs text-gray-400">No data</div>
   )
+  if (data.length === 1) {
+    const val = data[0].value
+    const color = val >= 0 ? '#3b82f6' : '#ef4444'
+    const gradId = val >= 0 ? 'singleGradBlue' : 'singleGradRed'
+    const padL = 32, padR = 6, padTop = 6, padBot = 2
+    const chartW = w - padL - padR
+    const chartH = h - padTop - padBot
+    // Show the single value at 60% height, with 0 line at 80% height
+    const cy = padTop + chartH * 0.35
+    const zeroY = padTop + chartH * 0.78
+    const midX = padL + chartW / 2
+    const fmtY = v => {
+      const abs = Math.abs(v)
+      if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+      if (abs >= 1_000) return `${(v / 1_000).toFixed(1)}K`
+      return v.toFixed(0)
+    }
+    return (
+      <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.22"/>
+            <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+          </linearGradient>
+        </defs>
+        {/* Zero baseline */}
+        <line x1={padL} x2={w - padR} y1={zeroY} y2={zeroY} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 2"/>
+        {/* Y axis label for value */}
+        <text x={padL - 4} y={cy + 3.5} textAnchor="end" fontSize="8" fill="#94a3b8">{fmtY(val)}</text>
+        {/* Y axis label for zero */}
+        <text x={padL - 4} y={zeroY + 3.5} textAnchor="end" fontSize="8" fill="#94a3b8">0</text>
+        {/* Vertical area from dot down to zero baseline */}
+        <rect x={midX - 1} y={Math.min(cy, zeroY)} width="2" height={Math.abs(zeroY - cy)} fill={`url(#${gradId})`}/>
+        {/* Horizontal dashed line through dot */}
+        <line x1={padL} x2={w - padR} y1={cy} y2={cy} stroke={color} strokeWidth="1.5" strokeDasharray="4 3" strokeOpacity="0.6"/>
+        {/* Dot */}
+        <circle cx={midX} cy={cy} r="5" fill={color} opacity="0.15"/>
+        <circle cx={midX} cy={cy} r="3.5" fill={color}/>
+        <circle cx={midX} cy={cy} r="1.5" fill="white"/>
+        {/* Value label above dot */}
+        <text x={midX} y={cy - 9} textAnchor="middle" fontSize="9" fontWeight="600" fill={color}>{fmtY(val)}</text>
+        {/* Date label below dot */}
+        <text x={midX} y={h - 1} textAnchor="middle" fontSize="8" fill="#94a3b8">{data[0].label}</text>
+      </svg>
+    )
+  }
   const padL = 32, padR = 6, padTop = 6, padBot = 2
   const chartW = w - padL - padR
   const chartH = h - padTop - padBot
@@ -116,29 +162,17 @@ const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
             x2={pts[i+1].x.toFixed(1)} y2={pts[i+1].y.toFixed(1)}
             stroke={segColors[i]} strokeWidth="2" strokeLinecap="round"/>
         ))}
-        {/* Dots + value labels */}
+        {/* Dots — labels only for first/last; hovered dot shown via tooltip */}
         {pts.map((p, i) => {
           const color = dotColor(i)
           const isHov = hovered?.idx === i
-          // Decide if label goes above or below the dot
-          const labelAbove = p.y - padTop > 14
-          const labelY = labelAbove ? p.y - 7 : p.y + 14
-          // Flip label to left if near right edge
-          const anchor = p.x > w - 28 ? 'end' : p.x < padL + 10 ? 'start' : 'middle'
+          const isEdge = i === 0 || i === pts.length - 1
           return (
             <g key={i}>
               <circle cx={p.x} cy={p.y}
-                r={isHov ? 4.5 : 3}
+                r={isHov ? 4.5 : isEdge ? 3 : 2.5}
                 fill={color} stroke="white"
                 strokeWidth={isHov ? 2 : 1.5}/>
-              <text
-                x={p.x} y={labelY}
-                textAnchor={anchor}
-                fontSize="7.5"
-                fontWeight="600"
-                fill={color}
-                opacity="0.9"
-              >{fmtY(p.v)}</text>
             </g>
           )
         })}

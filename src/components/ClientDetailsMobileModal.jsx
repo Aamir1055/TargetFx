@@ -413,15 +413,33 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const fetchProfitTrend = async (range = '7d') => {
     setTrendLoading(true)
     try {
-      const now = Math.floor(Date.now() / 1000)
-      const days = range === '30d' ? 30 : 7
-      const from = now - days * 86400
-      const resp = await brokerAPI.getClientPnlOverview(client.login, from, now)
+      let from, to
+      const now = new Date()
+      if (range === '7d') {
+        // This week: Monday 00:00 to Sunday 23:59:59
+        const day = now.getDay()
+        const mondayOffset = day === 0 ? -6 : 1 - day
+        const monday = new Date(now)
+        monday.setDate(now.getDate() + mondayOffset)
+        monday.setHours(0, 0, 0, 0)
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        sunday.setHours(23, 59, 59, 999)
+        from = Math.floor(monday.getTime() / 1000)
+        to   = Math.floor(sunday.getTime() / 1000)
+      } else {
+        // This month: 1st 00:00 to last day 23:59:59
+        const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+        const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        from = Math.floor(start.getTime() / 1000)
+        to   = Math.floor(end.getTime() / 1000)
+      }
+      const resp = await brokerAPI.getClientPnlOverview(client.login, from, to)
       const daysArr = resp?.data?.days ?? resp?.days ?? []
       const result = daysArr.map(d => ({
         label: (() => {
           const dt = new Date(d.date)
-          return `${dt.getDate()}/${dt.getMonth() + 1}`
+          return `${dt.getDate()} ${dt.toLocaleString('en', { month: 'short' })}`
         })(),
         value: Number(d.pnl ?? 0),
       }))
@@ -1243,11 +1261,50 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     // Color: blue if pnl >= 0, red if pnl < 0. Hover tooltip shows date + value.
     const SvgLine = ({ data, w = 220, h = 70, hoverIdx, setHoverIdx }) => {
       if (!data || !data.length) return <div className="h-[70px] flex items-center justify-center text-xs text-gray-400">No data</div>
-      if (data.length === 1) return (
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-          <circle cx={w / 2} cy={h / 2} r="3" fill={data[0].value >= 0 ? '#3b82f6' : '#ef4444'} />
-        </svg>
-      )
+      if (data.length === 1) {
+        const val = data[0].value
+        const color = val >= 0 ? '#3b82f6' : '#ef4444'
+        const gradId = `singleMGrad${val >= 0 ? 'Blue' : 'Red'}`
+        const padL = 28, padR = 4, padTop = 14, padBot = 14
+        const chartW = w - padL - padR
+        const chartH = h - padTop - padBot
+        const cy = padTop + chartH * 0.35
+        const zeroY = padTop + chartH * 0.78
+        const midX = padL + chartW / 2
+        const fmtV = v => {
+          const abs = Math.abs(v)
+          if (abs >= 1_000_000) return `${(v/1_000_000).toFixed(1)}M`
+          if (abs >= 1_000) return `${(v/1_000).toFixed(1)}K`
+          return v.toFixed(0)
+        }
+        return (
+          <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.2"/>
+                <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+              </linearGradient>
+            </defs>
+            {/* Zero baseline */}
+            <line x1={padL} x2={w - padR} y1={zeroY} y2={zeroY} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 2"/>
+            {/* Y labels */}
+            <text x={padL - 3} y={cy + 3} textAnchor="end" fontSize="7" fill="#94a3b8">{fmtV(val)}</text>
+            <text x={padL - 3} y={zeroY + 3} textAnchor="end" fontSize="7" fill="#94a3b8">0</text>
+            {/* Area fill from dot to zero */}
+            <rect x={midX - 1} y={Math.min(cy, zeroY)} width="2" height={Math.abs(zeroY - cy)} fill={`url(#${gradId})`}/>
+            {/* Horizontal dashed line */}
+            <line x1={padL} x2={w - padR} y1={cy} y2={cy} stroke={color} strokeWidth="1.5" strokeDasharray="4 3" strokeOpacity="0.5"/>
+            {/* Dot */}
+            <circle cx={midX} cy={cy} r="6" fill={color} opacity="0.12"/>
+            <circle cx={midX} cy={cy} r="3.5" fill={color}/>
+            <circle cx={midX} cy={cy} r="1.5" fill="white"/>
+            {/* Value label above dot */}
+            <text x={midX} y={cy - 8} textAnchor="middle" fontSize="8" fontWeight="600" fill={color}>{fmtV(val)}</text>
+            {/* Date label below */}
+            <text x={midX} y={h - 2} textAnchor="middle" fontSize="7.5" fill="#94a3b8">{data[0].label}</text>
+          </svg>
+        )
+      }
       const vals = data.map(d => d.value)
       const minV = Math.min(...vals), maxV = Math.max(...vals)
       const rng = maxV - minV || 1
@@ -1407,7 +1464,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               {['7d', '30d'].map(r => (
                 <button key={r} onClick={() => setTrendRange(r)}
                   className={`px-2 py-0.5 rounded text-[9px] font-medium transition-colors ${trendRange === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                  {r === '7d' ? '7 Days' : '30 Days'}
+                  {r === '7d' ? 'This Week' : 'This Month'}
                 </button>
               ))}
             </div>
