@@ -582,13 +582,25 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       }
       const resp = await brokerAPI.getClientPnlOverview(client.login, from, to)
       const daysArr = resp?.data?.days ?? []
-      const result = daysArr.map(d => ({
-        label: (() => {
-          const dt = new Date(d.date)
-          return `${dt.getDate()} ${dt.toLocaleString('en', { month: 'short' })}`
-        })(),
-        value: Number(d.pnl ?? 0),
-      }))
+      const result = daysArr
+        .filter(d => {
+          // For month view: strictly exclude dates outside the current month
+          // (API may bleed in last day of prev month due to UTC offset)
+          // For week view: trust the API's from/to range — no extra filtering
+          if (range !== '7d') {
+            const [y, m] = d.date.split('-').map(Number)
+            return m - 1 === now.getMonth() && y === now.getFullYear()
+          }
+          return true
+        })
+        .map(d => ({
+          label: (() => {
+            const [,, day] = d.date.split('-').map(Number)
+            const dt = new Date(d.date + 'T12:00:00')
+            return `${day} ${dt.toLocaleString('en', { month: 'short' })}`
+          })(),
+          value: Number(d.pnl ?? 0),
+        }))
       setProfitTrend(result)
     } catch {
       setProfitTrend([])

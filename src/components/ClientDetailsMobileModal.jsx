@@ -436,13 +436,22 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       }
       const resp = await brokerAPI.getClientPnlOverview(client.login, from, to)
       const daysArr = resp?.data?.days ?? resp?.days ?? []
-      const result = daysArr.map(d => ({
-        label: (() => {
-          const dt = new Date(d.date)
-          return `${dt.getDate()} ${dt.toLocaleString('en', { month: 'short' })}`
-        })(),
-        value: Number(d.pnl ?? 0),
-      }))
+      const result = daysArr
+        .filter(d => {
+          if (range !== '7d') {
+            const [y, m] = d.date.split('-').map(Number)
+            return m - 1 === now.getMonth() && y === now.getFullYear()
+          }
+          return true
+        })
+        .map(d => ({
+          label: (() => {
+            const [,, day] = d.date.split('-').map(Number)
+            const dt = new Date(d.date + 'T12:00:00')
+            return `${day} ${dt.toLocaleString('en', { month: 'short' })}`
+          })(),
+          value: Number(d.pnl ?? 0),
+        }))
       setProfitTrend(result)
     } catch {
       setProfitTrend([])
