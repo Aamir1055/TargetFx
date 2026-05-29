@@ -13,6 +13,7 @@ import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize'
 import CustomizeViewModal from '../components/CustomizeViewModal'
 import LoginGroupsModal from '../components/LoginGroupsModal'
 import LoginGroupModal from '../components/LoginGroupModal'
+import ClientPositionsModal from '../components/ClientPositionsModal'
 import { useGroups } from '../contexts/GroupContext'
 
 const fmtMoney = (n) => {
@@ -403,6 +404,7 @@ const BillsPage = () => {
 
   const [selected, setSelected] = useState(() => new Set())
   const [busyLogin, setBusyLogin] = useState(null)
+  const [selectedClient, setSelectedClient] = useState(null)
   const [bulkDownloading, setBulkDownloading] = useState(false)
   const [exportingAll, setExportingAll] = useState(false)
   const [selectedMenuOpen, setSelectedMenuOpen] = useState(false)
@@ -1403,7 +1405,11 @@ const BillsPage = () => {
                           let cell = null
                           switch (c.key) {
                             case 'login': cell = (
-                              <td className="px-2 sm:px-3 py-2 font-medium text-blue-600 whitespace-nowrap border-r border-[#E1E1E1]">{r.Login}</td>
+                              <td
+                                className="px-2 sm:px-3 py-2 font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer whitespace-nowrap border-r border-[#E1E1E1]"
+                                onClick={(e) => { e.stopPropagation(); setSelectedClient({ login: r.Login, name: r.Name, ...r }) }}
+                                title="Click to view client details"
+                              >{r.Login}</td>
                             ); break
                             case 'name': cell = (
                               <td className="px-2 sm:px-3 py-2 text-[#4B4B4B] whitespace-nowrap border-r border-[#E1E1E1]">{r.Name}</td>
@@ -1473,6 +1479,18 @@ const BillsPage = () => {
         secondaryField="Login"
         editGroup={editingGroup}
       />
+
+      {/* Client Details Modal */}
+      {selectedClient && (
+        <ClientPositionsModal
+          client={selectedClient}
+          onClose={() => setSelectedClient(null)}
+          onClientUpdate={() => {}}
+          allPositionsCache={[]}
+          allOrdersCache={[]}
+          onCacheUpdate={() => {}}
+        />
+      )}
 
       {/* Customize View (mobile bottom-sheet) */}
       <CustomizeViewModal
