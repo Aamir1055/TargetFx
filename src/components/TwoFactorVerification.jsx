@@ -223,7 +223,7 @@ const TwoFactorVerification = () => {
 
           {/* Enhanced Footer - Responsive */}
           <div className="text-center text-xs sm:text-sm text-gray-600 font-medium px-4 sm:px-0">
-            © 2025 Broker Eyes. All rights reserved.
+            © 2026 Broker Eyes. All rights reserved.
           </div>
         </div>
       </div>

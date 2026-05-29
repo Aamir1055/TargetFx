@@ -185,7 +185,8 @@ export const GroupProvider = ({ children }) => {
       marginlevel: groupName, 'margin-level': groupName,
       livedealing: groupName, 'live-dealing': groupName,
       clientpercentage: groupName, 'client-percentage': groupName,
-      'ib-commissions': groupName, dashboard: groupName
+      'ib-commissions': groupName, dashboard: groupName,
+      bills: groupName
     }))
   }
 

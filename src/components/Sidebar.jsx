@@ -68,6 +68,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
     { name: 'Margin Level', path: '/margin-level', icon: 'margin', img: 'Margin-Level.svg' },
     { name: 'Live Dealing', path: '/live-dealing', icon: 'live-dealing', img: 'Live-Dealing.svg' },
     { name: 'Client Percentage', path: '/client-percentage', icon: 'percentage', img: 'Client-Percentage.svg' },
+    { name: 'Bills', path: '/bills', icon: 'bills', img: 'Bills.svg' },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
   ]
 

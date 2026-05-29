@@ -786,7 +786,34 @@ export const brokerAPI = {
   disableTrading: async (login) => {
     const response = await api.post(`/api/broker/clients/${login}/disable-trading`)
     return response.data
-  }
+  },
+
+  // Bills - Get list of settlement weeks
+  getSettlementWeeks: async (params = {}) => {
+    const response = await api.get('/api/broker/settlement-weeks', { params })
+    return response.data
+  },
+
+  // Bills - Summary for a settlement week
+  getBillsSummary: async (payload = {}, options = {}) => {
+    const body = {
+      week_id: payload.week_id,
+      page: payload.page ?? 1,
+      limit: payload.limit ?? 100,
+      search: payload.search ?? '',
+      mt5Accounts: payload.mt5Accounts ?? [],
+      sortBy: payload.sortBy ?? 'login',
+      sortOrder: payload.sortOrder ?? 'asc',
+    }
+    const response = await api.post('/api/broker/bills/summary', body, options)
+    return response.data
+  },
+
+  // Bills - Detailed bill data for one or more logins in a settlement week
+  getBillsDetails: async (week_id, logins = [], options = {}) => {
+    const response = await api.post('/api/broker/bills', { week_id, logins }, options)
+    return response.data
+  },
 }
 
 // Also export these methods on default api for backwards compatibility

@@ -253,7 +253,7 @@ const LoginPage = () => {
             opacity: 0.85
           }}
         >
-          Copyright © 2025 Brokers Eye Platform
+          Copyright © {new Date().getFullYear()} Brokers Eye Platform
         </div>
 
         {/* Content inside dark blue semicircle */}
