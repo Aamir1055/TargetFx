@@ -379,7 +379,8 @@ const BillsPage = () => {
   const [error, setError] = useState('')
 
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(100)
+  // Mobile defaults to 15 rows/page (sm = 640px); desktop keeps 100
+  const [limit, setLimit] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 15 : 100))
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('login')
@@ -432,15 +433,7 @@ const BillsPage = () => {
     setColumnOrder(null)
     try { localStorage.removeItem('billsPageColumnOrder') } catch {}
   }
-  const orderedColumns = (() => {
-    if (!Array.isArray(columnOrder) || columnOrder.length === 0) return ALL_BILL_COLUMNS
-    const map = new Map(ALL_BILL_COLUMNS.map(c => [c.key, c]))
-    const out = []
-    columnOrder.forEach(k => { if (map.has(k)) { out.push(map.get(k)); map.delete(k) } })
-    map.forEach(c => out.push(c))
-    return out
-  })()
-  // Pinned columns (persisted)
+  // Pinned columns (persisted) — must be declared BEFORE orderedColumns uses it
   const [pinnedColumns, setPinnedColumns] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('billsPagePinnedColumns'))
@@ -452,6 +445,25 @@ const BillsPage = () => {
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  const orderedColumns = (() => {
+    let base
+    if (!Array.isArray(columnOrder) || columnOrder.length === 0) {
+      base = ALL_BILL_COLUMNS
+    } else {
+      const map = new Map(ALL_BILL_COLUMNS.map(c => [c.key, c]))
+      const out = []
+      columnOrder.forEach(k => { if (map.has(k)) { out.push(map.get(k)); map.delete(k) } })
+      map.forEach(c => out.push(c))
+      base = out
+    }
+    // Ensure sticky / pinned columns always render first so they visually sit at the
+    // left edge regardless of the user's reordering (prevents other column data from
+    // showing in the gap between the checkbox cell and the pinned Login cell).
+    const isPinned = (c) => c.sticky || pinnedColumns.includes(c.key)
+    const pinned = base.filter(isPinned)
+    const rest = base.filter(c => !isPinned(c))
+    return [...pinned, ...rest]
+  })()
   const toggleColumn = (key) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }))
   // Column resize (desktop)
   const { setHeaderRef, getHeaderStyle, handleResizeStart } = useColumnResize('billsPageColumnWidths')
@@ -479,10 +491,16 @@ const BillsPage = () => {
       position: 'sticky',
       left: `${pinnedOffsets[colKey] || 0}px`,
       zIndex: isHeader ? 21 : 5,
-      backgroundColor: isHeader ? '#2563eb' : '#ffffff',
       boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
     }
-    return cloneElement(cell, { style: { ...(cell.props?.style || {}), ...stickyStyle } })
+    // Use Tailwind classes for the sticky background so the header matches the
+    // surrounding thead at every breakpoint (blue-500 on mobile, blue-600 on sm+).
+    const stickyBgClass = isHeader ? 'bg-blue-500 sm:bg-blue-600' : 'bg-white'
+    const existingClass = cell.props?.className || ''
+    return cloneElement(cell, {
+      className: `${existingClass} ${stickyBgClass}`.trim(),
+      style: { ...(cell.props?.style || {}), ...stickyStyle }
+    })
   }
   const selectedMenuRef = useRef(null)
   const allMenuRef = useRef(null)
@@ -496,11 +514,11 @@ const BillsPage = () => {
       const inAll = (allMenuRef.current && allMenuRef.current.contains(e.target)) ||
                     (allMenuRefMobile.current && allMenuRefMobile.current.contains(e.target))
       if (!inAll) setAllMenuOpen(false)
-      if (showColumnSelector && columnSelectorRef.current && !columnSelectorRef.current.contains(e.target)) setShowColumnSelector(false)
+      if (columnSelectorRef.current && !columnSelectorRef.current.contains(e.target)) setShowColumnSelector(false)
     }
     document.addEventListener('click', onDocClick)
     return () => document.removeEventListener('click', onDocClick)
-  }, [showColumnSelector])
+  }, [])
 
   // Load settlement weeks; select the highest-id week by default
   useEffect(() => {
@@ -821,11 +839,11 @@ const BillsPage = () => {
             <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-0">
               <button
                 onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
-                className="lg:hidden text-gray-600 hover:text-gray-900 p-1 -ml-1 flex-shrink-0"
+                className="lg:hidden text-gray-700 hover:text-gray-900 p-2.5 rounded-lg hover:bg-gray-100 border border-gray-300 transition-all flex-shrink-0"
                 aria-label="Open menu"
               >
-                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
               <div className="flex-1 min-w-0">
@@ -1211,7 +1229,7 @@ const BillsPage = () => {
                   </div>
                 </div>
                 {/* Column Chooser (icon only) */}
-                <div className="relative flex-shrink-0 mr-auto">
+                <div ref={columnSelectorRef} className="relative flex-shrink-0 mr-auto">
                   <button
                     type="button"
                     onClick={() => setShowColumnSelector(v => !v)}
@@ -1229,7 +1247,6 @@ const BillsPage = () => {
                   </button>
                   {showColumnSelector && (
                     <div
-                      ref={columnSelectorRef}
                       className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-0 z-50 flex flex-col"
                       style={{ width: 280, maxHeight: '60vh' }}
                     >
