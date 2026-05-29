@@ -14,6 +14,7 @@ import CustomizeViewModal from '../components/CustomizeViewModal'
 import LoginGroupsModal from '../components/LoginGroupsModal'
 import LoginGroupModal from '../components/LoginGroupModal'
 import ClientPositionsModal from '../components/ClientPositionsModal'
+import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
 import { useGroups } from '../contexts/GroupContext'
 
 const fmtMoney = (n) => {
@@ -381,8 +382,26 @@ const BillsPage = () => {
   const [page, setPage] = useState(1)
   // Mobile defaults to 15 rows/page (sm = 640px); desktop keeps 100
   const [limit, setLimit] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 15 : 100))
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640))
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
+  // Debounce search-as-you-type so the API fires while the user types
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(prev => {
+        const next = searchInput.trim()
+        if (prev === next) return prev
+        setPage(1)
+        return next
+      })
+    }, 350)
+    return () => clearTimeout(t)
+  }, [searchInput])
   const [sortBy, setSortBy] = useState('login')
   const [sortOrder, setSortOrder] = useState('asc')
 
@@ -1123,7 +1142,7 @@ const BillsPage = () => {
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { setSearch(searchInput.trim()); setPage(1) } }}
                     placeholder="Search"
-                    className="flex-1 min-w-0 text-[11px] text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent focus:ring-0"
+                    className="flex-1 min-w-0 text-[10px] text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent focus:ring-0"
                   />
                 </div>
 
@@ -1423,7 +1442,7 @@ const BillsPage = () => {
                           switch (c.key) {
                             case 'login': cell = (
                               <td
-                                className="px-2 sm:px-3 py-2 font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer whitespace-nowrap border-r border-[#E1E1E1]"
+                                className="px-2 sm:px-3 py-2 font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer whitespace-nowrap border-r-2 border-gray-300"
                                 onClick={(e) => { e.stopPropagation(); setSelectedClient({ login: r.Login, name: r.Name, ...r }) }}
                                 title="Click to view client details"
                               >{r.Login}</td>
@@ -1499,14 +1518,23 @@ const BillsPage = () => {
 
       {/* Client Details Modal */}
       {selectedClient && (
-        <ClientPositionsModal
-          client={selectedClient}
-          onClose={() => setSelectedClient(null)}
-          onClientUpdate={() => {}}
-          allPositionsCache={[]}
-          allOrdersCache={[]}
-          onCacheUpdate={() => {}}
-        />
+        isMobile ? (
+          <ClientDetailsMobileModal
+            client={selectedClient}
+            onClose={() => setSelectedClient(null)}
+            allPositionsCache={[]}
+            allOrdersCache={[]}
+          />
+        ) : (
+          <ClientPositionsModal
+            client={selectedClient}
+            onClose={() => setSelectedClient(null)}
+            onClientUpdate={() => {}}
+            allPositionsCache={[]}
+            allOrdersCache={[]}
+            onCacheUpdate={() => {}}
+          />
+        )
       )}
 
       {/* Customize View (mobile bottom-sheet) */}
