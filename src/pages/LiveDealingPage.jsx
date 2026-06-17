@@ -785,9 +785,9 @@ const LiveDealingPage = () => {
         sortBy: sortByField,
         sortOrder: sortOrderValue,
       }
-      // Push symbol contains filter from search bar
+      // Send search query as a top-level search param (API searches across all fields)
       if (trimmedSearch) {
-        apiFilters.push({ field: 'symbol', operator: 'contains', value: trimmedSearch })
+        extraBody.search = trimmedSearch
       }
       if (apiFilters.length > 0) extraBody.filters = apiFilters
 
@@ -868,8 +868,13 @@ const LiveDealingPage = () => {
       if (activeMod === 'money' &&  isTrade) return false
     }
 
-    // ── Search bar: symbol contains ─────────────────────────────────────────
-    if (search && !String(rawData.symbol || '').toLowerCase().includes(search)) return false
+    // ── Search bar: matches across symbol, login, deal id ──────────────────
+    if (search) {
+      const symbol = String(rawData.symbol || '').toLowerCase()
+      const login = String(rawData.login || dealEntry.login || '').toLowerCase()
+      const dealId = String(rawData.deal || dealEntry.id || '').toLowerCase()
+      if (!symbol.includes(search) && !login.includes(search) && !dealId.includes(search)) return false
+    }
 
     // ── Column filters ───────────────────────────────────────────────────────
     for (const key of Object.keys(filters)) {

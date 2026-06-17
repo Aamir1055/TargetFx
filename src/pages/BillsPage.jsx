@@ -509,12 +509,16 @@ const BillsPage = () => {
     const stickyStyle = {
       position: 'sticky',
       left: `${pinnedOffsets[colKey] || 0}px`,
-      zIndex: isHeader ? 21 : 5,
+      zIndex: isHeader ? 25 : 15,
       boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)'
     }
     // Use Tailwind classes for the sticky background so the header matches the
     // surrounding thead at every breakpoint (blue-500 on mobile, blue-600 on sm+).
-    const stickyBgClass = isHeader ? 'bg-blue-500 sm:bg-blue-600' : 'bg-white'
+    // Body sticky cells use a fully opaque white that matches the row hover state
+    // so content in non-sticky cells doesn't bleed through during horizontal scroll.
+    const stickyBgClass = isHeader
+      ? 'bg-blue-500 sm:bg-blue-600'
+      : 'bg-white group-hover:bg-[#F8FAFC]'
     const existingClass = cell.props?.className || ''
     return cloneElement(cell, {
       className: `${existingClass} ${stickyBgClass}`.trim(),
@@ -850,12 +854,26 @@ const BillsPage = () => {
         onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
       />
 
-      <main className={`flex-1 px-3 py-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
+      <main className={`flex-1 px-3 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
           {/* Header Card */}
-          <div className="bg-white rounded-none sm:rounded-2xl shadow-sm px-3 sm:px-6 py-2 sm:py-3 mb-2 sm:mb-4">
-            {/* Title row */}
-            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-0">
+          <div className="-mx-3 sm:mx-0 bg-white rounded-none sm:rounded-2xl shadow-sm px-0 sm:px-6 py-0 sm:py-3 mb-2 sm:mb-4">
+            {/* Mobile-only header (centered title, large rounded hamburger) — matches other modules */}
+            <div className="sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
+              <button
+                onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
+                className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center"
+                aria-label="Open menu"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+              <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Bills</h1>
+            </div>
+
+            {/* Desktop title row */}
+            <div className="hidden sm:flex items-center gap-3 mb-0">
               <button
                 onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
                 className="lg:hidden text-gray-700 hover:text-gray-900 p-2.5 rounded-lg hover:bg-gray-100 border border-gray-300 transition-all flex-shrink-0"
@@ -1355,17 +1373,25 @@ const BillsPage = () => {
           <div className="bg-white rounded-none shadow-sm flex-1 flex flex-col overflow-hidden">
             {/* Table */}
             <div className="flex-1 overflow-auto">
-              <table className="min-w-full text-[10px] sm:text-sm">
+              <table className="min-w-full text-[10px] sm:text-sm" style={{ borderCollapse: 'collapse', borderSpacing: 0 }}>
+                <colgroup>
+                  <col style={{ width: '40px', minWidth: '40px' }} />
+                </colgroup>
                 <thead className="bg-blue-500 sm:bg-blue-600 text-white sticky top-0 z-20">
                   <tr>
-                    <th className="px-2 sm:px-3 py-1 sm:py-3 w-10 text-left border-r border-blue-400/60 sm:border-blue-500/60 sticky left-0 z-30 bg-blue-500 sm:bg-blue-600">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        ref={el => { if (el) el.indeterminate = someSelected }}
-                        onChange={toggleAll}
-                        className="w-4 h-4 accent-white cursor-pointer"
-                      />
+                    <th
+                      className="p-0 text-left border-r border-blue-400/60 sm:border-blue-500/60 sticky left-0 z-30 bg-blue-500 sm:bg-blue-600"
+                      style={{ width: '40px', minWidth: '40px', maxWidth: '40px', boxShadow: '2px 0 0 0 rgb(59 130 246)' }}
+                    >
+                      <div style={{ width: '40px', minWidth: '40px' }} className="flex items-center justify-center py-1 sm:py-3">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = someSelected }}
+                          onChange={toggleAll}
+                          className="w-4 h-4 accent-white cursor-pointer"
+                        />
+                      </div>
                     </th>
                     {orderedColumns.map(c => {
                       if (!visibleColumns[c.key]) return null
@@ -1395,9 +1421,14 @@ const BillsPage = () => {
                     Array.from({ length: 8 }).map((_, i) => {
                       const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                       return (
-                      <tr key={`bills-skeleton-${i}`} className={`${rowBg} border-b border-[#E1E1E1] sm:border-b-0`}>
-                        <td className={`px-2 sm:px-3 py-2 border-r border-[#E1E1E1] sticky left-0 z-10 ${rowBg}`}>
-                          <div className="h-3 w-3 bg-gray-200 rounded animate-pulse" />
+                      <tr key={`bills-skeleton-${i}`} className={`group ${rowBg} border-b border-[#E1E1E1] sm:border-b-0`}>
+                        <td
+                          className={`p-0 border-r border-[#E1E1E1] sticky left-0 ${rowBg}`}
+                          style={{ zIndex: 15, width: '40px', minWidth: '40px', maxWidth: '40px', boxShadow: '2px 0 0 0 white' }}
+                        >
+                          <div style={{ width: '40px', minWidth: '40px' }} className="flex items-center justify-center py-2">
+                            <div className="h-3 w-3 bg-gray-200 rounded animate-pulse" />
+                          </div>
                         </td>
                         {orderedColumns.map(c => {
                           if (!visibleColumns[c.key]) return null
@@ -1425,16 +1456,21 @@ const BillsPage = () => {
                   {!loading && !error && rows.map((r, idx) => {
                     const isChecked = selected.has(r.Login)
                     return (
-                      <tr key={r.Login} className={`bg-white hover:bg-[#F8FAFC] border-b border-[#E1E1E1] sm:border-b-0`}>
-                        <td className="px-2 sm:px-3 py-2 border-r border-[#E1E1E1] sticky left-0 z-10 bg-white">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            disabled={Number(r.TotalNetAmount) === 0}
-                            onChange={() => toggleOne(r.Login)}
-                            title={Number(r.TotalNetAmount) === 0 ? 'Net Amount is 0 — nothing to download' : ''}
-                            className="w-3 h-3 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                          />
+                      <tr key={r.Login} className={`group bg-white hover:bg-[#F8FAFC] border-b border-[#E1E1E1] sm:border-b-0`}>
+                        <td
+                          className="p-0 border-r border-[#E1E1E1] sticky left-0 bg-white group-hover:bg-[#F8FAFC]"
+                          style={{ zIndex: 15, width: '40px', minWidth: '40px', maxWidth: '40px', boxShadow: '2px 0 0 0 white' }}
+                        >
+                          <div style={{ width: '40px', minWidth: '40px' }} className="flex items-center justify-center py-2">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={Number(r.TotalNetAmount) === 0}
+                              onChange={() => toggleOne(r.Login)}
+                              title={Number(r.TotalNetAmount) === 0 ? 'Net Amount is 0 — nothing to download' : ''}
+                              className="w-3 h-3 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                            />
+                          </div>
                         </td>
                         {orderedColumns.map(c => {
                           if (!visibleColumns[c.key]) return null

@@ -243,13 +243,13 @@ export default function LiveDealingModule() {
         apiFilters.push({ field: 'action', operator: 'not_equal', value: 'SELL' })
       }
       const trimmedSearch = searchInput.trim()
-      if (trimmedSearch) {
-        apiFilters.push({ field: 'login', operator: 'contains', value: trimmedSearch })
-      }
 
       const extraBody = {
         sortBy: sortColumn || 'time',
         sortOrder: sortDirection || 'desc',
+      }
+      if (trimmedSearch) {
+        extraBody.search = trimmedSearch
       }
       if (apiFilters.length > 0) extraBody.filters = apiFilters
 
