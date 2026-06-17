@@ -989,64 +989,55 @@ const BillsPage = () => {
             </div>
           </div>
 
-          {/* Mobile-only: All 4 actions in one row (Week + Groups + Selected + All) — OUTSIDE the header card */}
-          <div className="sm:hidden flex items-center gap-1.5 mb-3">
+          {/* Mobile-only: Week + Filter + Selected + All in one row */}
+          <div className="sm:hidden flex items-center gap-1.5 mb-3 px-3">
             {weeksLoading ? (
-              <div className="h-8 rounded-md bg-gray-200 animate-pulse flex-1 min-w-[100px]" aria-label="Loading weeks" />
+              <div className="h-8 rounded-md bg-gray-200 animate-pulse flex-1 min-w-0" aria-label="Loading weeks" />
             ) : (
               <select
                 value={selectedWeekId ?? ''}
                 onChange={(e) => { setSelectedWeekId(Number(e.target.value)); setPage(1); setSelected(new Set()) }}
                 disabled={weeks.length === 0}
-                className="h-8 flex-1 min-w-0 px-1.5 rounded-md border border-[#E5E7EB] bg-white text-[10px] text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                className="h-8 flex-1 min-w-0 px-2 rounded-md border border-[#E5E7EB] bg-white text-[11px] text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 truncate"
               >
                 {weeks.length === 0 && <option>No weeks</option>}
                 {weeks.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}{w.description ? ` — ${w.description}` : ''}
-                  </option>
+                  <option key={w.id} value={w.id}>{w.name}</option>
                 ))}
               </select>
             )}
             <button
               type="button"
               onClick={() => setIsCustomizeOpen(true)}
-              className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative flex-shrink-0 ${
+              className={`h-8 px-2.5 rounded-md border shadow-sm flex items-center gap-1.5 flex-shrink-0 ${
                 getActiveGroupFilter('bills')
                   ? 'bg-blue-50 border-blue-200'
                   : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
               }`}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                 <path d="M4.5 6.5H9.5M2.5 3.5H11.5M5.5 9.5H8.5" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
-              <span className="text-[#4B4B4B] text-[10px] font-medium">Filter</span>
+              <span className="text-[10px] font-medium text-[#4B4B4B]">Filter</span>
               {getActiveGroupFilter('bills') && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">1</span>
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-blue-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center">1</span>
               )}
             </button>
             <div ref={selectedMenuRefMobile} className="relative flex-shrink-0">
-              <div className="flex h-8 rounded-lg bg-white border border-[#E5E7EB] shadow-sm text-gray-700 overflow-hidden">
-                <button
-                  onClick={() => setSelectedMenuOpen(o => !o)}
-                  disabled={selected.size === 0 || bulkDownloading || exportingAll}
-                  className="px-1.5 text-[10px] font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 12V4m0 8l-3-3m3 3l3-3" />
-                  </svg>
-                  Selected{selected.size > 0 ? ` (${selected.size})` : ''}
-                </button>
-                <button
-                  onClick={() => setSelectedMenuOpen(o => !o)}
-                  disabled={selected.size === 0 || bulkDownloading || exportingAll}
-                  className="px-1.5 border-l border-[#E5E7EB] hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
+              <button
+                onClick={() => setSelectedMenuOpen(o => !o)}
+                disabled={selected.size === 0 || bulkDownloading || exportingAll}
+                className="h-8 px-2 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 12V4m0 8l-3-3m3 3l3-3" />
+                </svg>
+                <span className="text-[9px] font-medium text-gray-700">Selected</span>
+                {selected.size > 0 && <span className="text-[9px] font-semibold text-blue-600">({selected.size})</span>}
+                <svg className="w-2.5 h-2.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
               {selectedMenuOpen && (
                 <div className="absolute left-0 mt-1 w-52 rounded-md bg-white shadow-lg border border-gray-200 z-30 py-1 text-xs">
                   <button type="button" onClick={() => { setSelectedMenuOpen(false); downloadSelected('individual') }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700">Download individual files</button>
@@ -1055,27 +1046,19 @@ const BillsPage = () => {
               )}
             </div>
             <div ref={allMenuRefMobile} className="relative flex-shrink-0">
-              <div className="flex h-8 rounded-lg bg-white border border-[#E5E7EB] shadow-sm text-gray-700 overflow-hidden">
-                <button
-                  onClick={() => setAllMenuOpen(o => !o)}
-                  disabled={exportingAll || bulkDownloading || !selectedWeekId}
-                  className="px-1.5 text-[10px] font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
-                  </svg>
-                  All
-                </button>
-                <button
-                  onClick={() => setAllMenuOpen(o => !o)}
-                  disabled={exportingAll || bulkDownloading || !selectedWeekId}
-                  className="px-1.5 border-l border-[#E5E7EB] hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
+              <button
+                onClick={() => setAllMenuOpen(o => !o)}
+                disabled={exportingAll || bulkDownloading || !selectedWeekId}
+                className="h-8 px-2 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
+                </svg>
+                <span className="text-[9px] font-medium text-gray-700">All</span>
+                <svg className="w-2.5 h-2.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
               {allMenuOpen && (
                 <div className="absolute right-0 mt-1 w-52 rounded-md bg-white shadow-lg border border-gray-200 z-30 py-1 text-xs">
                   <button type="button" onClick={() => { setAllMenuOpen(false); exportAll('individual') }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700">Download individual files</button>
@@ -1371,6 +1354,157 @@ const BillsPage = () => {
 
           {/* Table (own card, edge-to-edge content) */}
           <div className="bg-white rounded-none shadow-sm flex-1 flex flex-col overflow-hidden">
+
+            {/* ═══ MOBILE Table (CSS Grid — matches Client Percentage pattern) ═══ */}
+            <div className="sm:hidden flex-1 overflow-hidden">
+              <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'none',
+                maxHeight: 'calc(100vh - 280px)'
+              }}>
+                <div className="relative" style={{ minWidth: 'max-content' }}>
+                  {/* Grid Header */}
+                  <div
+                    className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
+                    style={{ gridTemplateColumns: '32px ' + orderedColumns.filter(c => visibleColumns[c.key]).map(c => c.key === 'login' ? '80px' : c.key === 'name' ? '90px' : c.key === 'actions' ? '80px' : '110px').join(' ') }}
+                  >
+                    <div className="h-[32px] flex items-center justify-center sticky left-0 z-30" style={{ backgroundColor: '#3B82F6' }}>
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={el => { if (el) el.indeterminate = someSelected }}
+                        onChange={toggleAll}
+                        className="w-3 h-3 rounded cursor-pointer"
+                      />
+                    </div>
+                    {orderedColumns.filter(c => visibleColumns[c.key]).map(col => (
+                      <div
+                        key={col.key}
+                        onClick={col.key !== 'actions' ? () => handleSort(col.key) : undefined}
+                        className={`h-[32px] flex items-center justify-start px-1 ${col.key !== 'actions' ? 'cursor-pointer' : ''} select-none ${
+                          col.sticky ? 'sticky left-8 z-30' : ''
+                        }`}
+                        style={{
+                          backgroundColor: '#3B82F6',
+                          boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.1)' : 'none'
+                        }}
+                      >
+                        <span className="truncate">{col.label}</span>
+                        {sortBy === col.key && (
+                          <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Grid Body */}
+                  {loading ? (
+                    <div className="space-y-0">
+                      {[...Array(8)].map((_, idx) => (
+                        <div
+                          key={idx}
+                          className="grid text-[10px] bg-white border-b border-[#E1E1E1]"
+                          style={{ gridTemplateColumns: '32px ' + orderedColumns.filter(c => visibleColumns[c.key]).map(c => c.key === 'login' ? '80px' : c.key === 'name' ? '90px' : c.key === 'actions' ? '80px' : '110px').join(' ') }}
+                        >
+                          <div className="h-[38px] flex items-center justify-center sticky left-0 bg-white z-10" />
+                          {orderedColumns.filter(c => visibleColumns[c.key]).map(col => (
+                            <div
+                              key={col.key}
+                              className={`h-[38px] flex items-center px-2 ${col.sticky ? 'sticky left-8 bg-white z-10' : ''}`}
+                              style={{ boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none' }}
+                            >
+                              <div className="h-3 rounded bg-gray-200 animate-pulse" style={{ width: '80%' }} />
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-8 text-red-600 text-sm">{error}</div>
+                  ) : rows.length === 0 ? (
+                    <div className="text-center py-8 text-[#9CA3AF] text-sm">No bills found for this week</div>
+                  ) : (
+                    rows.map((r) => {
+                      const isChecked = selected.has(r.Login)
+                      return (
+                        <div
+                          key={r.Login}
+                          className={`grid text-[10px] text-[#4B4B4B] font-outfit border-b border-[#E1E1E1] transition-colors ${isChecked ? 'bg-blue-50' : 'bg-white hover:bg-[#F8FAFC]'}`}
+                          style={{ gridTemplateColumns: '32px ' + orderedColumns.filter(c => visibleColumns[c.key]).map(c => c.key === 'login' ? '80px' : c.key === 'name' ? '90px' : c.key === 'actions' ? '80px' : '110px').join(' ') }}
+                        >
+                          <div className="h-[38px] flex items-center justify-center sticky left-0 z-10" style={{ background: isChecked ? '#EFF6FF' : 'white' }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={Number(r.TotalNetAmount) === 0}
+                              onChange={() => toggleOne(r.Login)}
+                              className="w-3 h-3 rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                            />
+                          </div>
+                          {orderedColumns.filter(c => visibleColumns[c.key]).map(col => {
+                            const stickyClass = col.sticky ? 'sticky left-8 z-10' : ''
+                            const stickyStyle = col.sticky ? { boxShadow: '2px 0 4px rgba(0,0,0,0.05)', background: isChecked ? '#EFF6FF' : 'white' } : {}
+                            switch (col.key) {
+                              case 'login':
+                                return (
+                                  <div key={col.key} className={`h-[38px] flex items-center px-2 text-[#1A63BC] font-semibold ${stickyClass}`} style={stickyStyle}>
+                                    {r.Login}
+                                  </div>
+                                )
+                              case 'name':
+                                return <div key={col.key} className={`h-[38px] flex items-center px-2 truncate ${stickyClass}`} style={stickyStyle}>{r.Name || '-'}</div>
+                              case 'brokerage':
+                                return <div key={col.key} className="h-[38px] flex items-center px-2 tabular-nums">{fmtMoney(r.TotalBrokerage)}</div>
+                              case 'gross':
+                                return <div key={col.key} className={`h-[38px] flex items-center px-2 tabular-nums ${Number(r.TotalGrossAmount) < 0 ? 'text-red-600' : ''}`}>{fmtMoney(r.TotalGrossAmount)}</div>
+                              case 'net':
+                                return <div key={col.key} className={`h-[38px] flex items-center px-2 tabular-nums ${Number(r.TotalNetAmount) < 0 ? 'text-red-600' : ''}`}>{fmtMoney(r.TotalNetAmount)}</div>
+                              case 'actions':
+                                return (
+                                  <div key={col.key} className="h-[38px] flex items-center px-1">
+                                    {Number(r.TotalNetAmount) !== 0 ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); downloadOne(r.Login) }}
+                                        disabled={busyLogin === r.Login}
+                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded disabled:opacity-50"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 12V4m0 8l-3-3m3 3l3-3" />
+                                        </svg>
+                                        {busyLogin === r.Login ? '…' : 'DL'}
+                                      </button>
+                                    ) : (
+                                      <span className="text-[9px] text-gray-400">—</span>
+                                    )}
+                                  </div>
+                                )
+                              default:
+                                return <div key={col.key} className="h-[38px] flex items-center px-2">-</div>
+                            }
+                          })}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile Footer */}
+              <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-white">
+                <div className="text-[10px] text-gray-600">
+                  {pagination.total > 0
+                    ? `Showing page ${pagination.page} of ${pagination.total_pages} — ${pagination.total} total`
+                    : '—'}
+                </div>
+                {selected.size > 0 && (
+                  <div className="text-[10px] text-blue-700 font-medium">{selected.size} selected</div>
+                )}
+              </div>
+            </div>
+
+            {/* ═══ DESKTOP Table (original <table> — hidden on mobile) ═══ */}
+            <div className="hidden sm:flex sm:flex-1 sm:flex-col sm:overflow-hidden">
             {/* Table */}
             <div className="flex-1 overflow-auto">
               <table className="min-w-full text-[10px] sm:text-sm" style={{ borderCollapse: 'collapse', borderSpacing: 0 }}>
@@ -1536,6 +1670,7 @@ const BillsPage = () => {
               {selected.size > 0 && (
                 <div className="text-xs text-blue-700 font-medium">{selected.size} selected</div>
               )}
+            </div>
             </div>
           </div>
         </div>
