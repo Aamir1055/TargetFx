@@ -263,6 +263,7 @@ export default function LiveDealingModule() {
       const transformedDeals = dealsData.map(deal => ({
         id: deal.deal || deal.id,
         timestamp: deal.time || deal.timestamp,
+        timestampStr: deal.timeStr || deal.timestampStr || null,
         login: deal.login,
         rawData: deal
       }))
@@ -592,7 +593,7 @@ export default function LiveDealingModule() {
     
     switch (key) {
       case 'time':
-        value = formatTime(deal.timestamp)
+        value = deal.timestampStr || deal.rawData?.timeStr || formatTime(deal.timestamp)
         break
       case 'login':
         value = deal.login || '-'

@@ -1962,7 +1962,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           {paginatedDeals.map((deal, idx) => (
             <tr key={idx} className="hover:bg-gray-50">
               {dealColumns.deal && <td className="px-3 py-2 text-xs text-gray-900">{deal.deal}</td>}
-              {dealColumns.time && <td className="px-3 py-2 text-xs text-gray-900">{formatDate(deal.time)}</td>}
+              {dealColumns.time && <td className="px-3 py-2 text-xs text-gray-900">{deal.timeStr || formatDate(deal.time)}</td>}
               {dealColumns.symbol && <td className="px-3 py-2 text-xs text-gray-900">{deal.symbol}</td>}
               {dealColumns.action && (
                 <td className="px-3 py-2 text-xs">

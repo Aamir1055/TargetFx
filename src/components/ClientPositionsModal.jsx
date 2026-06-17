@@ -1734,7 +1734,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       } else if (columnKey === 'symbol') {
         value = pos.symbol
       } else if (columnKey === 'time') {
-        value = formatDate(pos.timeCreate)
+        value = pos.timeCreateStr || formatDate(pos.timeCreate)
       }
       if (value) values.add(value)
     })
@@ -1830,7 +1830,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       const type = getActionLabel(pos.action)
       const positionNum = String(pos.position || '')
       const volume = String(pos.volume || '')
-      const time = formatDate(pos.timeCreate)
+      const time = pos.timeCreateStr || formatDate(pos.timeCreate)
       
       // Check each field and add to suggestions if matches
       if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
@@ -1872,7 +1872,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           } else if (columnKey === 'symbol') {
             value = pos.symbol
           } else if (columnKey === 'time') {
-            value = formatDate(pos.timeCreate)
+            value = pos.timeCreateStr || formatDate(pos.timeCreate)
           }
           return selectedValues.includes(value)
         })
@@ -3385,7 +3385,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                             <tr key={`pos-${position.position}`} className="hover:bg-blue-50 transition-colors border-b border-gray-100">
                               {positionsVisibleColumns.time && (
                               <td className="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">
-                                {formatDate(position.timeCreate)}
+                                {position.timeCreateStr || formatDate(position.timeCreate)}
                               </td>
                               )}
                               {positionsVisibleColumns.position && (
@@ -3476,7 +3476,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                             <tr key={`order-${order.order}`} className="hover:bg-blue-50 transition-colors border-b border-gray-100">
                               {positionsVisibleColumns.time && (
                               <td className="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">
-                                {formatDate(order.timeSetup || order.timeCreate)}
+                                {order.timeSetupStr || order.timeCreateStr || formatDate(order.timeSetup || order.timeCreate)}
                               </td>
                               )}
                               {positionsVisibleColumns.position && (

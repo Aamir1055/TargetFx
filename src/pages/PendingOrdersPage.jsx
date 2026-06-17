@@ -1506,7 +1506,7 @@ const PendingOrdersPage = () => {
                             // Cell content logic
                             let cellContent = null;
                             if (colKey === 'time') {
-                              cellContent = formatTime(o.timeSetup || o.timeUpdate || o.timeCreate || o.updated_at);
+                              cellContent = o.timeSetupStr || o.timeUpdateStr || o.timeCreateStr || formatTime(o.timeSetup || o.timeUpdate || o.timeCreate || o.updated_at);
                             } else if (colKey === 'login') {
                               cellContent = (
                                 <span

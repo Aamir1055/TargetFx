@@ -476,7 +476,7 @@ const LiveDealingPage = () => {
                   {displayedDeals.map((deal, index) => (
                     <tr key={deal.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
-                        {formatTime(deal.time)}
+                        {deal.timeStr || formatTime(deal.time)}
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                         {deal.dealer}

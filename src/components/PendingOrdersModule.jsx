@@ -533,7 +533,7 @@ export default function PendingOrdersModule() {
         value = formatNum(order.priceTP || order.tp || 0, 5)
         break
       case 'timeSetup':
-        value = formatTime(order.timeSetup || order.timeUpdate || order.timeCreate)
+        value = order.timeSetupStr || order.timeUpdateStr || order.timeCreateStr || formatTime(order.timeSetup || order.timeUpdate || order.timeCreate)
         break
       case 'state':
         value = order.state || '-'

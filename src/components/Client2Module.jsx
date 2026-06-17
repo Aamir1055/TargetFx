@@ -698,6 +698,8 @@ export default function Client2Module() {
             return client.name || client.fullName || client.clientName || client.email || '-'
           } else if (col.key === 'phone') {
             return client.phone || client.phoneNo || client.phone_number || '-'
+          } else if (col.key === 'accountLastUpdate' || col.key === 'userLastUpdate' || col.key === 'lastAccess' || col.key === 'registration') {
+            return formatCellValue(col.key, client[col.key])
           } else {
             return client[col.key] || '-'
           }
@@ -800,6 +802,8 @@ export default function Client2Module() {
             return client.name || client.fullName || client.clientName || client.email || '-'
           } else if (col.key === 'phone') {
             return client.phone || client.phoneNo || client.phone_number || '-'
+          } else if (col.key === 'accountLastUpdate' || col.key === 'userLastUpdate' || col.key === 'lastAccess' || col.key === 'registration') {
+            return formatCellValue(col.key, client[col.key])
           } else {
             return client[col.key] || '-'
           }
@@ -887,6 +891,30 @@ export default function Client2Module() {
       if (value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true') return 'Enabled'
       if (value === false || value === 0 || value === '0' || String(value).toLowerCase() === 'false') return 'Disabled'
       return String(value)
+    }
+
+    // Format dates (registration, lastAccess)
+    if (key === 'registration' || key === 'lastAccess') {
+      if (!value) return '-'
+      const timestamp = parseInt(value)
+      if (isNaN(timestamp)) return value
+      const date = new Date(timestamp * 1000)
+      return date.toLocaleString()
+    }
+
+    // Format epoch timestamps (accountLastUpdate, userLastUpdate)
+    if (key === 'accountLastUpdate' || key === 'userLastUpdate') {
+      if (!value) return '-'
+      const timestamp = parseInt(value)
+      if (isNaN(timestamp)) return '-'
+      const date = new Date(timestamp)
+      const day = String(date.getDate()).padStart(2, '0')
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const year = date.getFullYear()
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
     }
     
     // If showPercent is true and this column supports percentage
@@ -1498,6 +1526,8 @@ export default function Client2Module() {
                             formatted: rowData[col.key]
                           });
                         }
+                      } else if (col.key === 'accountLastUpdate' || col.key === 'userLastUpdate' || col.key === 'lastAccess' || col.key === 'registration') {
+                        rowData[col.key] = formatCellValue(col.key, client[col.key]);
                       } else {
                         rowData[col.key] = client[col.key] || '-';
                       }

@@ -150,7 +150,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       } else if (columnKey === 'symbol') {
         value = pos.symbol
       } else if (columnKey === 'time') {
-        value = formatDate(pos.timeCreate)
+        value = pos.timeCreateStr || formatDate(pos.timeCreate)
       }
       if (value) values.add(value)
     })
@@ -413,7 +413,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       const type = getActionLabel(pos.action)
       const positionNum = String(pos.position || '')
       const volume = String(pos.volume || '')
-      const time = formatDate(pos.timeCreate)
+      const time = pos.timeCreateStr || formatDate(pos.timeCreate)
       
       // Check each field and add to suggestions if matches
       if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
@@ -514,7 +514,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
           } else if (columnKey === 'symbol') {
             value = pos.symbol
           } else if (columnKey === 'time') {
-            value = formatDate(pos.timeCreate)
+            value = pos.timeCreateStr || formatDate(pos.timeCreate)
           }
           return selectedValues.includes(value)
         })
@@ -971,7 +971,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                       {displayedPositions.map((position) => (
                         <tr key={position.position} className="hover:bg-blue-50 transition-colors">
                           <td className="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">
-                            {formatDate(position.timeCreate)}
+                            {position.timeCreateStr || formatDate(position.timeCreate)}
                           </td>
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
                             #{position.position}

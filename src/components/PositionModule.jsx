@@ -808,8 +808,9 @@ export default function PositionModule() {
           </div>
         )
       case 'updated':
+        const timeStr = pos.timeUpdateStr || pos.timeCreateStr
         const timeValue = pos.timeUpdate || pos.timeCreate
-        const formattedTime = timeValue ? new Date(timeValue * 1000).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', '') : '-'
+        const formattedTime = timeStr || (timeValue ? new Date(timeValue * 1000).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', '') : '-')
         return <div className={`h-[38px] flex items-center justify-start px-2 text-[10px] ${stickyClass}`} style={stickyStyle}>{formattedTime}</div>
       case 'firstName':
       case 'middleName':
@@ -1069,7 +1070,7 @@ export default function PositionModule() {
           { key: 'commission',   label: 'Commission',                               accessor: r => r.commission },
           { key: 'reason',       label: 'Reason',                                   accessor: r => r.reason },
           { key: 'comment',      label: 'Comment',                                  accessor: r => r.comment },
-          { key: 'updated',      label: 'Updated',                                  accessor: r => formatTime(r.timeUpdate || r.timeCreate) },
+          { key: 'updated',      label: 'Updated',                                  accessor: r => r.timeUpdateStr || r.timeCreateStr || formatTime(r.timeUpdate || r.timeCreate) },
         ]
         downloadFile(`positions_${Date.now()}.csv`, toCSV(allPositions, headers))
       }

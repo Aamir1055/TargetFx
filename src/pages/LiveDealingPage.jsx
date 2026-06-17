@@ -2285,7 +2285,7 @@ const LiveDealingPage = () => {
                         } : { borderRight: '1px solid #e5e7eb' }
                         switch (col.key) {
                           case 'time':
-                            return <td key="time" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{formatTime(deal.time)}</td>
+                            return <td key="time" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{deal.timeStr || deal.rawData?.timeStr || formatTime(deal.time)}</td>
                           case 'deal':
                             return <td key="deal" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={cellStyle}>{deal.rawData?.deal || deal.id}</td>
                           case 'login':

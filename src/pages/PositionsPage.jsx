@@ -1836,7 +1836,7 @@ const PositionsPage = () => {
 
       const effectiveCols = getEffectiveVisibleColumns()
       const columnDefs = [
-        { key: 'time',             label: 'Time',        get: p => formatTime(p.timeUpdate || p.timeCreate) },
+        { key: 'time',             label: 'Time',        get: p => p.timeUpdateStr || p.timeCreateStr || formatTime(p.timeUpdate || p.timeCreate) },
         { key: 'login',            label: 'Login',       get: p => p.login },
         { key: 'name',             label: 'Name',        get: p => p.name },
         { key: 'position',         label: 'Position',    get: p => p.position },
@@ -4077,7 +4077,7 @@ const PositionsPage = () => {
                       return (
                         <tr key={p.position} className={`${rowClass} transition-all duration-300 divide-x divide-gray-200`}>
                           {effectiveCols.time && applyPin(
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{formatTime(p.timeUpdate || p.timeCreate)}</td>,
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.timeUpdateStr || p.timeCreateStr || formatTime(p.timeUpdate || p.timeCreate)}</td>,
                             'time', false, pinnedOffsetsMap
                           )}
                           {ordered.map(k => <Fragment key={k}>{applyPin(cellByKey(k), k, false, pinnedOffsetsMap)}</Fragment>)}
