@@ -32,7 +32,9 @@ const formatCompactIndian = (v) => {
 const formatTime = (ts) => {
   if (!ts) return '-'
   try {
-    const d = new Date(ts * 1000)
+    const n = Number(ts)
+    const ms = n < 10000000000 ? n * 1000 : n
+    const d = new Date(ms)
     const day = String(d.getDate()).padStart(2, '0')
     const month = String(d.getMonth() + 1).padStart(2, '0')
     const year = d.getFullYear()

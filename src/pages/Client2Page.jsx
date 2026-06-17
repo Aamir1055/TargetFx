@@ -3671,21 +3671,13 @@ const Client2Page = () => {
       return `1:${value}`
     }
 
-    // Format dates
-    if (key === 'registration' || key === 'lastAccess') {
+    // Format dates and timestamps (auto-detect seconds vs milliseconds)
+    if (key === 'registration' || key === 'lastAccess' || key === 'userLastUpdate' || key === 'accountLastUpdate') {
       if (!value) return '-'
       const timestamp = parseInt(value)
       if (isNaN(timestamp)) return value
-      const date = new Date(timestamp * 1000)
-      return date.toLocaleString()
-    }
-
-    // Format epoch timestamps (userLastUpdate, accountLastUpdate)
-    if (key === 'userLastUpdate' || key === 'accountLastUpdate') {
-      if (!value) return '-'
-      const timestamp = parseInt(value)
-      if (isNaN(timestamp)) return '-'
-      const date = new Date(timestamp)
+      const ms = timestamp < 10000000000 ? timestamp * 1000 : timestamp
+      const date = new Date(ms)
       const day = String(date.getDate()).padStart(2, '0')
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const year = date.getFullYear()

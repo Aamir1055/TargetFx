@@ -2391,9 +2391,11 @@ const ClientsPage = () => {
       return value ? 'Yes' : 'No'
     }
     
-    // Date/timestamp fields (Unix timestamps in seconds)
+    // Date/timestamp fields (Unix timestamps - auto-detect seconds vs milliseconds)
     if (['registration', 'lastAccess', 'lastUpdate', 'accountLastUpdate', 'userLastUpdate'].includes(key)) {
-      return new Date(value * 1000).toLocaleDateString('en-US', { 
+      const n = Number(value)
+      const ms = n < 10000000000 ? n * 1000 : n
+      return new Date(ms).toLocaleDateString('en-US', { 
         year: 'numeric', 
         month: 'short', 
         day: 'numeric',

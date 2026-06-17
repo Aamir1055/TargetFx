@@ -1492,7 +1492,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }
 
   const formatDate = (timestamp) => {
-    const date = new Date(timestamp * 1000)
+    if (!timestamp) return '-'
+    const n = Number(timestamp)
+    const ms = n < 10000000000 ? n * 1000 : n
+    const date = new Date(ms)
     const day = String(date.getDate()).padStart(2, '0')
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const year = date.getFullYear()
