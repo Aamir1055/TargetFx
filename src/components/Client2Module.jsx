@@ -990,9 +990,6 @@ export default function Client2Module() {
               <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
-                  {label:'Dashboard', path:'/dashboard', icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="#404040"/></svg>
-                  )},
                   {label:'Clients', path:'/client2', active:true, icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="8" r="3" stroke="#1A63BC"/><circle cx="16" cy="8" r="3" stroke="#1A63BC"/><path d="M3 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="#1A63BC"/></svg>
                   )},

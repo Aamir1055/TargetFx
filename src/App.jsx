@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { brokerAPI } from './services/api'
@@ -52,7 +52,6 @@ const PageSkeleton = () => (
 )
 
 // Lazy load heavy components for code splitting and faster navigation
-const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const Client2Page = lazy(() => import('./pages/Client2Page'))
 const PositionsPage = lazy(() => import('./pages/PositionsPage'))
 const PendingOrdersPage = lazy(() => import('./pages/PendingOrdersPage'))
@@ -152,9 +151,9 @@ const AppContent = () => {
       {/* Preload other routes in the background to speed up navigation */}
       <PreloadRoutes />
       <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/login" element={<DashboardPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/" element={<Navigate to="/client2" replace />} />
+        <Route path="/login" element={<Navigate to="/client2" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/client2" replace />} />
         <Route path="/client2" element={<Client2Page />} />
         <Route path="/positions" element={<PositionsPage />} />
         <Route path="/pending-orders" element={<PendingOrdersPage />} />
@@ -166,7 +165,7 @@ const AppContent = () => {
   <Route path="/analytics" element={<GraphicalAnalyticsPage />} />
           <Route path="/client-dashboard-c" element={<ClientDashboardDesignCPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="*" element={<DashboardPage />} />
+        <Route path="*" element={<Navigate to="/client2" replace />} />
       </Routes>
     </Suspense>
   )

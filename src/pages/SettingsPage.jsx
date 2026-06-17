@@ -263,7 +263,6 @@ const SettingsPage = () => {
               <div className="flex-1 overflow-auto py-2">
                 <nav className="flex flex-col">
                   {[
-                    { label: 'Dashboard',        path: '/dashboard' },
                     { label: 'Clients',          path: '/client2' },
                     { label: 'Positions',        path: '/positions' },
                     { label: 'Pending Orders',   path: '/pending-orders' },
@@ -273,7 +272,7 @@ const SettingsPage = () => {
                     { label: 'Settings',         path: '/settings' },
                   ].map((item) => {
                     const isActive = item.path === '/settings'
-                    const iconName = { '/dashboard': 'Dashboard', '/client2': 'Clients', '/positions': 'Positions', '/pending-orders': 'Pending-Orders', '/margin-level': 'Margin-Level', '/live-dealing': 'Live-Dealing', '/client-percentage': 'Client-Percentage', '/settings': 'Settings' }[item.path]
+                    const iconName = { '/client2': 'Clients', '/positions': 'Positions', '/pending-orders': 'Pending-Orders', '/margin-level': 'Margin-Level', '/live-dealing': 'Live-Dealing', '/client-percentage': 'Client-Percentage', '/settings': 'Settings' }[item.path]
                     return (
                       <button key={item.path} onClick={() => { navigate(item.path); setIsMobileSidebarOpen(false) }}
                         className={`flex items-center gap-3 px-4 h-11 text-[13px] ${isActive ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>

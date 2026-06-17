@@ -800,7 +800,7 @@ export default function ClientPercentageModule() {
           <h1 className="text-xl font-bold text-[#1F2937] absolute left-1/2 transform -translate-x-1/2">Client Percentage</h1>
           {!isMobileView && (
             <button 
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/client2')}
               className="w-10 h-10 rounded-full bg-[#2563EB] flex items-center justify-center text-white font-semibold hover:bg-[#1D4ED8] transition-colors ml-auto"
             >
               U
@@ -1559,9 +1559,6 @@ export default function ClientPercentageModule() {
               <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
-                  {label:'Dashboard', path:'/dashboard', icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="#404040"/></svg>
-                  )},
                   {label:'Clients', path:'/client2', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="8" r="3" stroke="#404040"/><circle cx="16" cy="8" r="3" stroke="#404040"/><path d="M3 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="#404040"/></svg>
                   )},

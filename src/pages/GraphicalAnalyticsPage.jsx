@@ -232,7 +232,7 @@ const GraphicalAnalyticsPage = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/client2')}
               className="text-xs text-blue-600 hover:text-blue-700 font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-all border border-blue-200 flex items-center gap-2 shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

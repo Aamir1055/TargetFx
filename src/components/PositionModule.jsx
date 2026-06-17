@@ -730,18 +730,21 @@ export default function PositionModule() {
       case 'symbol':
         return <div className={`h-[38px] flex items-center justify-start px-2 overflow-hidden text-ellipsis whitespace-nowrap text-black font-semibold ${stickyClass}`} style={stickyStyle}>{pos.symbol || '-'}</div>
       case 'netType':
-      case 'action':
+      case 'action': {
+        const rawAction = pos.action ?? pos.type
+        const isBuy = rawAction === 0 || rawAction === '0' || rawAction === 'BUY' || rawAction === 'Buy'
         return (
           <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>
             <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
-              pos.type === 0 || pos.type === 'Buy' 
+              isBuy 
                 ? 'bg-green-100 text-green-700' 
                 : 'bg-red-100 text-red-700'
             }`}>
-              {pos.type === 0 || pos.type === 'Buy' ? 'Buy' : 'Sell'}
+              {isBuy ? 'Buy' : 'Sell'}
             </span>
           </div>
         )
+      }
       case 'totalProfit':
       case 'profit': {
         const rawProfit = pos.profit || 0
@@ -1174,9 +1177,6 @@ export default function PositionModule() {
               <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {[
-                  {label:'Dashboard', path:'/dashboard', icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="#404040"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="#404040"/></svg>
-                  )},
                   {label:'Clients', path:'/client2', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="8" r="3" stroke="#404040"/><circle cx="16" cy="8" r="3" stroke="#404040"/><path d="M3 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="#404040"/></svg>
                   )},

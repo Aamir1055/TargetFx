@@ -61,7 +61,6 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
   }, [])
   
   const navigationItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: 'dashboard', img: 'Dashboard.svg' },
     { name: 'Clients', path: '/client2', icon: 'client2', img: 'Clients.svg' },
     { name: 'Positions', path: '/positions', icon: 'positions', img: 'Positions.svg' },
     { name: 'Pending Orders', path: '/pending-orders', icon: 'orders', img: 'Pending-Orders.svg' },
@@ -90,7 +89,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
   }
   
   const isActivePath = (path) => {
-    return location.pathname === path || (path === '/dashboard' && location.pathname === '/')
+    return location.pathname === path
   }
 
   const handleLogout = async () => {
