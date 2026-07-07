@@ -377,6 +377,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [operationLoading, setOperationLoading] = useState(false)
   const [operationSuccess, setOperationSuccess] = useState('')
   const [operationError, setOperationError] = useState('')
+  const availableOperationTypes = useMemo(() => {
+    const operations = [
+      { value: 'deposit', label: 'Deposit Funds' },
+      { value: 'withdrawal', label: 'Withdraw Funds' },
+      { value: 'credit_in', label: 'Credit In' },
+      { value: 'credit_out', label: 'Credit Out' }
+    ]
+    const rights = user?.rights
+    return rights ? operations.filter(op => rights.includes(op.value)) : operations
+  }, [user?.rights])
   
   // Date filter state
   const [fromDate, setFromDate] = useState('')
@@ -448,6 +458,13 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Sorting states for positions
   const [positionsSortColumn, setPositionsSortColumn] = useState(null)
+
+  useEffect(() => {
+    if (!availableOperationTypes.length) return
+    if (!availableOperationTypes.some(op => op.value === operationType)) {
+      setOperationType(availableOperationTypes[0].value)
+    }
+  }, [availableOperationTypes, operationType])
   const [positionsSortDirection, setPositionsSortDirection] = useState('asc')
 
   // Sorting states for deals
@@ -2216,11 +2233,19 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       setOperationError('')
       setOperationSuccess('')
 
+      const selectedOperationType = availableOperationTypes.some(op => op.value === operationType)
+        ? operationType
+        : availableOperationTypes[0]?.value
+
+      if (!selectedOperationType) {
+        throw new Error('No permitted operation type available')
+      }
+
       const amountValue = parseFloat(amount)
-      const commentValue = comment || `${operationType} operation`
+      const commentValue = comment || `${selectedOperationType} operation`
 
       let response
-      switch (operationType) {
+      switch (selectedOperationType) {
         case 'deposit':
           response = await brokerAPI.depositFunds(client.login, amountValue, commentValue)
           break
@@ -4298,10 +4323,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       }}
                       className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white text-gray-900"
                     >
-                      {(user?.rights ? user.rights.includes('deposit') : true) && <option value="deposit" className="text-gray-900">Deposit Funds</option>}
-                      {(user?.rights ? user.rights.includes('withdrawal') : true) && <option value="withdrawal" className="text-gray-900">Withdraw Funds</option>}
-                      {(user?.rights ? user.rights.includes('credit_in') : true) && <option value="credit_in" className="text-gray-900">Credit In</option>}
-                      {(user?.rights ? user.rights.includes('credit_out') : true) && <option value="credit_out" className="text-gray-900">Credit Out</option>}
+                      {availableOperationTypes.map(op => (
+                        <option key={op.value} value={op.value} className="text-gray-900">{op.label}</option>
+                      ))}
                     </select>
                   </div>
 
