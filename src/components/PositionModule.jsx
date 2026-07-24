@@ -1682,14 +1682,12 @@ export default function PositionModule() {
             </div>
 
             {/* Client NET Table - FIXED GRID ALIGNMENT */}
-            <div className="pt-0">
-              <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden">
+            <div className="pt-0 flex-1 min-h-0 flex flex-col">
+              <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden flex-1 min-h-0 flex flex-col">
                 {/* Table - single scroll container */}
-                <div className="overflow-x-auto overflow-y-auto scrollbar-hide" style={{
+                <div className="overflow-x-auto overflow-y-auto scrollbar-hide flex-1 min-h-0" style={{
                   paddingRight: '8px',
                   paddingBottom: '0px',
-                  maxHeight: 'calc(100vh - 350px)',
-                  minHeight: 0,
                   overflowY: 'auto'
                 }}>
                   {/* Header - Sticky */}
