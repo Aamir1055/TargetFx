@@ -511,11 +511,11 @@ export default function PositionModule() {
       try {
         if (!hasFetchedServerNetRef.current) setIsServerNetLoading(true)
         const params = {
-          page: 1,
-          limit: 15,
+          page: clientNetCurrentPage,
+          limit: clientNetItemsPerPage,
           netPosition: true,
-          sortBy: 'netVolume',
-          sortOrder: 'desc'
+          sortBy: clientNetSortColumn || 'netVolume',
+          sortOrder: clientNetSortDirection || 'desc'
         }
         if (groupByBaseSymbol) params.groupBaseSymbol = true
         if (displayMode === 'percentage') params.percentage = true
@@ -579,7 +579,7 @@ export default function PositionModule() {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [showClientNet, groupByBaseSymbol, displayMode, clientNetSearchInput, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
+  }, [showClientNet, groupByBaseSymbol, displayMode, clientNetSearchInput, clientNetCurrentPage, clientNetItemsPerPage, clientNetSortColumn, clientNetSortDirection, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
   // Mobile NET tab mirrors desktop NET Position: symbol-aggregated rows from server.
   // Until the first server response arrives, show empty (skeleton handles the loading UI).
@@ -659,18 +659,14 @@ export default function PositionModule() {
     ? serverPositions
     : filteredPositions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
-  // Pagination calculations for Client NET (memoized)
+  // Pagination calculations for Client NET (server-side paginated)
+  // Server returns one page of results at a time; total pages derived from serverNetTotal.
   const clientNetTotalPages = useMemo(() =>
-    Math.ceil(filteredClientNetPositions.length / clientNetItemsPerPage),
-    [filteredClientNetPositions.length, clientNetItemsPerPage]
+    Math.max(1, Math.ceil((serverNetTotal || 0) / clientNetItemsPerPage)),
+    [serverNetTotal, clientNetItemsPerPage]
   )
-  const clientNetPaginatedPositions = useMemo(() =>
-    filteredClientNetPositions.slice(
-      (clientNetCurrentPage - 1) * clientNetItemsPerPage,
-      clientNetCurrentPage * clientNetItemsPerPage
-    ),
-    [filteredClientNetPositions, clientNetCurrentPage, clientNetItemsPerPage]
-  )
+  // Server already returns only the current page's rows — do not slice again on the client.
+  const clientNetPaginatedPositions = filteredClientNetPositions
 
   // Click outside handlers
   useEffect(() => {
