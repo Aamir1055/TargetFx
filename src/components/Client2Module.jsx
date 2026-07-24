@@ -893,21 +893,13 @@ export default function Client2Module() {
       return String(value)
     }
 
-    // Format dates (registration, lastAccess)
-    if (key === 'registration' || key === 'lastAccess') {
+    // Format dates and timestamps (auto-detect seconds vs milliseconds)
+    if (key === 'registration' || key === 'lastAccess' || key === 'accountLastUpdate' || key === 'userLastUpdate') {
       if (!value) return '-'
       const timestamp = parseInt(value)
       if (isNaN(timestamp)) return value
-      const date = new Date(timestamp * 1000)
-      return date.toLocaleString()
-    }
-
-    // Format epoch timestamps (accountLastUpdate, userLastUpdate)
-    if (key === 'accountLastUpdate' || key === 'userLastUpdate') {
-      if (!value) return '-'
-      const timestamp = parseInt(value)
-      if (isNaN(timestamp)) return '-'
-      const date = new Date(timestamp)
+      const ms = timestamp < 10000000000 ? timestamp * 1000 : timestamp
+      const date = new Date(ms)
       const day = String(date.getDate()).padStart(2, '0')
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const year = date.getFullYear()

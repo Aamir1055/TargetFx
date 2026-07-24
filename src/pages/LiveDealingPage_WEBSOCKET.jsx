@@ -209,7 +209,10 @@ const LiveDealingPage = () => {
   }
 
   const formatTime = (timestamp) => {
-    const date = new Date(timestamp * 1000)
+    if (!timestamp) return '-'
+    const n = Number(timestamp)
+    const ms = n < 10000000000 ? n * 1000 : n
+    const date = new Date(ms)
     return date.toLocaleString('en-US', {
       month: '2-digit',
       day: '2-digit',

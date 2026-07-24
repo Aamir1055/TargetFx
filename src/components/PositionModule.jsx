@@ -838,7 +838,7 @@ export default function PositionModule() {
       case 'updated':
         const timeStr = pos.timeUpdateStr || pos.timeCreateStr
         const timeValue = pos.timeUpdate || pos.timeCreate
-        const formattedTime = timeStr || (timeValue ? new Date(timeValue * 1000).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', '') : '-')
+        const formattedTime = timeStr || (timeValue ? (() => { const n = Number(timeValue); const ms = n < 10000000000 ? n * 1000 : n; return new Date(ms).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', '') })() : '-')
         return <div className={`h-[38px] flex items-center justify-start px-2 text-[10px] ${stickyClass}`} style={stickyStyle}>{formattedTime}</div>
       case 'firstName':
       case 'middleName':
@@ -963,7 +963,9 @@ export default function PositionModule() {
     const formatTime = (ts) => {
       if (!ts) return '-'
       try {
-        const d = new Date(ts * 1000)
+        const n = Number(ts)
+        const ms = n < 10000000000 ? n * 1000 : n
+        const d = new Date(ms)
         return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
       } catch { return '-' }
     }
