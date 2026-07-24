@@ -103,15 +103,16 @@ export default function PositionModule() {
   const [clientNetCardFilterOpen, setClientNetCardFilterOpen] = useState(false)
   const clientNetCardFilterRef = useRef(null)
   const [clientNetVisibleColumns, setClientNetVisibleColumns] = useState({
-    login: false,
     symbol: true,
     netType: true,
     netVolume: true,
-    avgPrice: true,
-    totalProfit: false,
-    totalStorage: false,
-    totalCommission: false,
-    totalPositions: true
+    totalProfit: true,
+    totalStorage: true,
+    loginCount: true,
+    totalPositions: true,
+    // Optional extras (hidden by default; still available via column chooser)
+    avgPrice: false,
+    totalCommission: false
   })
   const [clientNetShowColumnSelector, setClientNetShowColumnSelector] = useState(false)
   const [clientNetSearchInput, setClientNetSearchInput] = useState('')
@@ -468,6 +469,33 @@ export default function PositionModule() {
     }
   }, [showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, debouncedSearch, displayMode, dateFilter, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
+  const normalizeNetTypeLabel = (action) => {
+    if (action === 'BUY') return 'Buy'
+    if (action === 'SELL') return 'Sell'
+    if (action === 'FLAT') return 'Flat'
+    if (action === 0 || action === '0') return 'Buy'
+    if (action === 1 || action === '1') return 'Sell'
+    if (typeof action === 'string') {
+      const lower = action.toLowerCase()
+      if (lower.includes('buy')) return 'Buy'
+      if (lower.includes('sell')) return 'Sell'
+      if (lower.includes('flat')) return 'Flat'
+      return action
+    }
+    return 'Flat'
+  }
+
+  const resolveLoginCount = (item) => {
+    const raw =
+      item?.clientCount ??
+      item?.loginCount ??
+      item?.loginsCount ??
+      item?.uniqueLogins ??
+      item?.logins
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : 0
+  }
+
   // Poll server every 2s for NET positions (mirrors PositionsPage.jsx desktop NET behaviour)
   useEffect(() => {
     if (!showClientNet) return
@@ -509,14 +537,14 @@ export default function PositionModule() {
         const totals = response?.data?.totals || response?.totals || null
         if (Array.isArray(data)) {
           const mapped = data.map(item => ({
-            login: item.login,
             symbol: item.symbol || item.baseSymbol || '-',
-            netType: item.action === 'BUY' ? 'Buy' : item.action === 'SELL' ? 'Sell' : (item.action === 'FLAT' ? 'Flat' : (item.action || 'Flat')),
+            netType: normalizeNetTypeLabel(item.action),
             netVolume: item.netVolume || 0,
             avgPrice: item.avgPrice || 0,
             totalProfit: item.totalProfit || 0,
             totalStorage: item.totalStorage || 0,
             totalCommission: item.totalCommission || 0,
+            loginCount: resolveLoginCount(item),
             totalPositions: item.positionCount || item.totalPositions || 0
           }))
           setServerNetPositions(mapped)
@@ -553,16 +581,16 @@ export default function PositionModule() {
     }
   }, [showClientNet, groupByBaseSymbol, displayMode, clientNetSearchInput, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
-  // Use server-polled NET positions once available, else fall back to client-side calc
-  const mobileNetSourcePositions = hasFetchedServerNet ? serverNetPositions : clientNetPositions
+  // Mobile NET tab mirrors desktop NET Position: symbol-aggregated rows from server.
+  // Until the first server response arrives, show empty (skeleton handles the loading UI).
+  const mobileNetSourcePositions = hasFetchedServerNet ? serverNetPositions : []
 
-  // Filter Client NET positions based on search
+  // Filter NET positions based on search
   const filteredClientNetPositions = useMemo(() => {
     let filtered = mobileNetSourcePositions
     if (clientNetSearchInput.trim()) {
       const query = clientNetSearchInput.toLowerCase()
       filtered = filtered.filter(pos =>
-        String(pos.login || '').toLowerCase().includes(query) ||
         String(pos.symbol || '').toLowerCase().includes(query) ||
         String(pos.netType || '').toLowerCase().includes(query)
       )
@@ -973,6 +1001,7 @@ export default function PositionModule() {
           totalProfit: item.totalProfit ?? 0,
           totalStorage: item.totalStorage ?? 0,
           totalCommission: item.totalCommission ?? 0,
+          loginCount: resolveLoginCount(item),
           totalPositions: item.positionCount ?? item.totalPositions ?? 0,
         }))
 
@@ -1005,6 +1034,7 @@ export default function PositionModule() {
           { key: 'totalProfit',    label: pct ? 'Total Profit %'  : 'Total Profit',     accessor: r => r.totalProfit },
           { key: 'totalStorage',   label: pct ? 'Total Storage %' : 'Total Storage',    accessor: r => r.totalStorage },
           { key: 'totalCommission',label: 'Commission',                                 accessor: r => r.totalCommission },
+          { key: 'loginCount',     label: 'Logins',                                     accessor: r => r.loginCount },
           { key: 'totalPositions', label: 'Positions',                                  accessor: r => r.totalPositions },
         ]
         downloadFile(`net_positions_${Date.now()}.csv`, toCSV(allRows, headers))
@@ -1669,38 +1699,23 @@ export default function PositionModule() {
                     className="grid bg-blue-500 text-white text-[10px] font-semibold h-[28px] sticky top-0 z-20"
                     style={{
                       gridTemplateColumns: [
-                        clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
                         clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                         clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                         clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                         clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
-                        clientNetVisibleColumns.totalProfit ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.totalProfit ? 'minmax(90px, 1fr)' : '',
                         clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
                         clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.loginCount ? 'minmax(70px, 1fr)' : '',
                         clientNetVisibleColumns.totalPositions ? 'minmax(80px, 1fr)' : ''
                       ].filter(Boolean).join(' '),
                       gap: '0px',
                       columnGap: '0px'
                     }}
                   >
-                    {clientNetVisibleColumns.login && (
-                      <div
-                        className="flex items-center justify-start px-1 cursor-pointer sticky left-0 z-30 bg-blue-500"
-                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('login'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('login'); }}
-                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
-                      >
-                        Login
-                        {clientNetSortColumn === 'login' && (
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
-                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                      </div>
-                    )}
                     {clientNetVisibleColumns.symbol && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer"
+                        className="flex items-center justify-start px-1 cursor-pointer sticky left-0 z-30 bg-blue-500"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('symbol'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('symbol'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
@@ -1715,7 +1730,7 @@ export default function PositionModule() {
                     )}
                     {clientNetVisibleColumns.netType && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer"
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('netType'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('netType'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
@@ -1730,7 +1745,7 @@ export default function PositionModule() {
                     )}
                     {clientNetVisibleColumns.netVolume && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer"
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('netVolume'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('netVolume'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
@@ -1745,7 +1760,7 @@ export default function PositionModule() {
                     )}
                     {clientNetVisibleColumns.avgPrice && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer"
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('avgPrice'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('avgPrice'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
@@ -1760,12 +1775,12 @@ export default function PositionModule() {
                     )}
                     {clientNetVisibleColumns.totalProfit && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer"
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalProfit'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalProfit'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
-                        P/L
+                        Total Profit
                         {clientNetSortColumn === 'totalProfit' && (
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
                             <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1775,7 +1790,7 @@ export default function PositionModule() {
                     )}
                     {clientNetVisibleColumns.totalStorage && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer"
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalStorage'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalStorage'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
@@ -1790,13 +1805,28 @@ export default function PositionModule() {
                     )}
                     {clientNetVisibleColumns.totalCommission && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer"
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalCommission'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalCommission'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Comm
                         {clientNetSortColumn === 'totalCommission' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.loginCount && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('loginCount'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('loginCount'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Logins
+                        {clientNetSortColumn === 'loginCount' && (
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
                             <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
@@ -1826,26 +1856,26 @@ export default function PositionModule() {
                       {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={`client-net-skeleton-${i}`} className="grid text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]" style={{
                           gridTemplateColumns: [
-                            clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
                             clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                             clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                             clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                             clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
-                            clientNetVisibleColumns.totalProfit ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.totalProfit ? 'minmax(90px, 1fr)' : '',
                             clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
                             clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.loginCount ? 'minmax(70px, 1fr)' : '',
                             clientNetVisibleColumns.totalPositions ? 'minmax(80px, 1fr)' : ''
                           ].filter(Boolean).join(' ')
                         }}>
-                          {clientNetVisibleColumns.login && <div className="h-[40px] flex items-center px-1 bg-white sticky left-0 z-10 border-b border-[#E1E1E1]"><div className="h-3 w-[60%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.symbol && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.symbol && <div className="h-[40px] flex items-center px-1 bg-white sticky left-0 z-10 border-b border-[#E1E1E1]" style={{boxShadow:'2px 0 4px rgba(0,0,0,0.05)'}}><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.netType && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.netVolume && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.avgPrice && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.totalProfit && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.totalStorage && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.totalCommission && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
-                          {clientNetVisibleColumns.totalPositions && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.loginCount && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[60%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.totalPositions && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[60%] bg-gray-200 rounded animate-pulse" /></div>}
                         </div>
                       ))}
                     </>
@@ -1855,39 +1885,25 @@ export default function PositionModule() {
                     clientNetPaginatedPositions.map((pos, idx) => (
                       <div key={idx} className="grid text-[10px] text-[#4B4B4B] hover:bg-[#F8FAFC]" style={{
                         gridTemplateColumns: [
-                          clientNetVisibleColumns.login ? 'minmax(70px, 1fr)' : '',
                           clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                           clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                           clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                           clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
-                          clientNetVisibleColumns.totalProfit ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.totalProfit ? 'minmax(90px, 1fr)' : '',
                           clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
                           clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.loginCount ? 'minmax(70px, 1fr)' : '',
                           clientNetVisibleColumns.totalPositions ? 'minmax(80px, 1fr)' : ''
                         ].filter(Boolean).join(' ')
                       }}>
-                        {clientNetVisibleColumns.login && (
+                        {clientNetVisibleColumns.symbol && (
                           <div
-                            className="flex items-center justify-start px-1 h-[40px] font-semibold bg-white text-[#1A63BC] cursor-pointer hover:underline sticky left-0 z-10 border-b border-[#E1E1E1]"
+                            className="flex items-center justify-start px-1 h-[40px] font-semibold bg-white text-black sticky left-0 z-10 border-b border-[#E1E1E1]"
                             style={{boxShadow: '2px 0 4px rgba(0,0,0,0.05)'}}
-                            onClick={() => {
-                              const fullClient = clients.find(c => String(c.login) === String(pos.login))
-                                || rawClients.find(c => String(c.login) === String(pos.login))
-                              const derivedName = [pos.firstName, pos.lastName].filter(Boolean).join(' ') || pos.name || ''
-                              setSelectedClient(fullClient || { login: pos.login, email: pos.email || '', name: derivedName })
-                            }}
-                            onTouchEnd={(e) => {
-                              e.preventDefault()
-                              const fullClient = clients.find(c => String(c.login) === String(pos.login))
-                                || rawClients.find(c => String(c.login) === String(pos.login))
-                              const derivedName = [pos.firstName, pos.lastName].filter(Boolean).join(' ') || pos.name || ''
-                              setSelectedClient(fullClient || { login: pos.login, email: pos.email || '', name: derivedName })
-                            }}
                           >
-                            {pos.login}
+                            {pos.symbol || '-'}
                           </div>
                         )}
-                        {clientNetVisibleColumns.symbol && <div className="flex items-center justify-start px-1 h-[40px] font-semibold bg-white text-black border-b border-[#E1E1E1]">{pos.symbol}</div>}
                         {clientNetVisibleColumns.netType && <div className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
                           pos.netType === 'Buy' ? 'text-green-600' : 'text-red-600'
                         }`}>{pos.netType}</div>}
@@ -1898,6 +1914,7 @@ export default function PositionModule() {
                         }`}>{fmtMoney(pos.totalProfit)}</div>}
                         {clientNetVisibleColumns.totalStorage && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalStorage || 0) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.totalStorage || 0)}</div>}
                         {clientNetVisibleColumns.totalCommission && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalCommission || 0) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.totalCommission || 0)}</div>}
+                        {clientNetVisibleColumns.loginCount && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{Number(pos.loginCount || 0)}</div>}
                         {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{pos.totalPositions}</div>}
                       </div>
                     ))
@@ -2167,7 +2184,6 @@ export default function PositionModule() {
             <div className="flex-1 overflow-y-auto">
               <div className="px-5 py-3">
                 {[
-                  { key: 'login', label: 'Login' },
                   { key: 'symbol', label: 'Symbol' },
                   { key: 'netType', label: 'NET Type' },
                   { key: 'netVolume', label: 'NET Volume' },
@@ -2175,6 +2191,7 @@ export default function PositionModule() {
                   { key: 'totalProfit', label: 'Total Profit' },
                   { key: 'totalStorage', label: 'Total Storage' },
                   { key: 'totalCommission', label: 'Total Commission' },
+                  { key: 'loginCount', label: 'Logins' },
                   { key: 'totalPositions', label: 'Positions' }
                 ].map(({ key, label }) => (
                   <label 
