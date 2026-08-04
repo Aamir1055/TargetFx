@@ -111,7 +111,6 @@ export default function PositionModule() {
     loginCount: true,
     totalPositions: true,
     // Optional extras (hidden by default; still available via column chooser)
-    avgPrice: false,
     totalCommission: false
   })
   const [clientNetShowColumnSelector, setClientNetShowColumnSelector] = useState(false)
@@ -702,8 +701,8 @@ export default function PositionModule() {
       { key: 'profit', label: 'Profit', width: '70px' },
       { key: 'totalProfit', label: 'Total Profit', width: '80px' },
       { key: 'profitPercentage', label: 'Profit %', width: '75px' },
-      { key: 'storage', label: 'Storage', width: '70px' },
-      { key: 'storagePercentage', label: 'Storage %', width: '80px' },
+      { key: 'storage', label: 'Swap', width: '70px' },
+      { key: 'storagePercentage', label: 'Swap %', width: '80px' },
       { key: 'appliedPercentage', label: 'Applied %', width: '80px' },
       { key: 'reason', label: 'Reason', width: '85px' },
       { key: 'comment', label: 'Comment', width: '90px' },
@@ -1030,7 +1029,7 @@ export default function PositionModule() {
           { key: 'netVolume',      label: pct ? 'NET Volume %'    : 'NET Volume',       accessor: r => r.netVolume },
           { key: 'avgPrice',       label: 'Avg Price',                                  accessor: r => r.avgPrice },
           { key: 'totalProfit',    label: pct ? 'Total Profit %'  : 'Total Profit',     accessor: r => r.totalProfit },
-          { key: 'totalStorage',   label: pct ? 'Total Storage %' : 'Total Storage',    accessor: r => r.totalStorage },
+          { key: 'totalStorage',   label: pct ? 'Swap %' : 'Swap',                      accessor: r => r.totalStorage },
           { key: 'totalCommission',label: 'Commission',                                 accessor: r => r.totalCommission },
           { key: 'loginCount',     label: 'Logins',                                     accessor: r => r.loginCount },
           { key: 'totalPositions', label: 'Positions',                                  accessor: r => r.totalPositions },
@@ -1094,7 +1093,7 @@ export default function PositionModule() {
           { key: 'sl',           label: 'S/L',                                      accessor: r => r.priceSL },
           { key: 'tp',           label: 'T/P',                                      accessor: r => r.priceTP },
           { key: 'profit',       label: pct ? 'Profit %' : 'Profit',               accessor: r => r.profit },
-          { key: 'storage',      label: pct ? 'Storage %' : 'Storage',             accessor: r => r.storage },
+          { key: 'storage',      label: pct ? 'Swap %' : 'Swap',                   accessor: r => r.storage },
           { key: 'commission',   label: 'Commission',                               accessor: r => r.commission },
           { key: 'reason',       label: 'Reason',                                   accessor: r => r.reason },
           { key: 'comment',      label: 'Comment',                                  accessor: r => r.comment },
@@ -1791,7 +1790,7 @@ export default function PositionModule() {
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalStorage'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
-                        Storage
+                        Swap
                         {clientNetSortColumn === 'totalStorage' && (
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
                             <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -2119,8 +2118,8 @@ export default function PositionModule() {
                     { label: 'Profit', key: 'profit' },
                     { label: 'Total Profit', key: 'totalProfit' },
                     { label: 'Profit %', key: 'profitPercentage' },
-                    { label: 'Storage', key: 'storage' },
-                    { label: 'Storage %', key: 'storagePercentage' },
+                    { label: 'Swap', key: 'storage' },
+                    { label: 'Swap %', key: 'storagePercentage' },
                     { label: 'Applied %', key: 'appliedPercentage' },
                     { label: 'Reason', key: 'reason' },
                     { label: 'Comment', key: 'comment' },
@@ -2183,9 +2182,8 @@ export default function PositionModule() {
                   { key: 'symbol', label: 'Symbol' },
                   { key: 'netType', label: 'NET Type' },
                   { key: 'netVolume', label: 'NET Volume' },
-                  { key: 'avgPrice', label: 'Avg Price' },
                   { key: 'totalProfit', label: 'Total Profit' },
-                  { key: 'totalStorage', label: 'Total Storage' },
+                  { key: 'totalStorage', label: 'Swap' },
                   { key: 'totalCommission', label: 'Total Commission' },
                   { key: 'loginCount', label: 'Logins' },
                   { key: 'totalPositions', label: 'Positions' }

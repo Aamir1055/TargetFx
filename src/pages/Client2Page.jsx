@@ -200,6 +200,7 @@ const Client2Page = () => {
     hasFloating: false,
     hasCredit: false,
     noDeposit: false,
+    hasPnl: false,
     accountEnabled: false
   }) // Do not persist quick filters
   
@@ -320,7 +321,7 @@ const Client2Page = () => {
 
   // Clear all filters on component mount (when navigating to this page or refreshing)
   useEffect(() => {
-    setQuickFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
+    setQuickFilters({ hasFloating: false, hasCredit: false, noDeposit: false, hasPnl: false, accountEnabled: false })
     clearIBSelection()
     setActiveGroupFilter('client2', null)
     setSearchInput('')
@@ -964,6 +965,10 @@ const Client2Page = () => {
         // No Deposit: lifetimeDeposit == 0
         combinedFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
       }
+      if (quickFilters?.hasPnl) {
+        // Has P&L: running-week P&L is non-zero
+        combinedFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
+      }
       if (quickFilters?.accountEnabled) {
         // Account Enabled: accountEnabled == true
         combinedFilters.push({ field: 'accountEnabled', operator: 'equal', value: 'true' })
@@ -1123,8 +1128,8 @@ const Client2Page = () => {
         payload.accountRangeMax = parseInt(accountRangeMax.trim())
       }
 
-      // Check if we have any quick filters active (hasFloating, hasCredit, noDeposit)
-      const hasQuickFilters = quickFilters?.hasFloating || quickFilters?.hasCredit || quickFilters?.noDeposit || quickFilters?.accountEnabled
+      // Check if we have any quick filters active
+      const hasQuickFilters = quickFilters?.hasFloating || quickFilters?.hasCredit || quickFilters?.noDeposit || quickFilters?.hasPnl || quickFilters?.accountEnabled
       
       // Check if IB filter is active
       const hasIBFilter = selectedIB && Array.isArray(ibMT5Accounts) && ibMT5Accounts.length > 0
@@ -1556,7 +1561,6 @@ const Client2Page = () => {
     refetchTimerRef.current = setTimeout(() => {
       console.log('[Client2] ⚡ Debounced refetch triggered')
       fetchClients(false)
-      fetchRebateTotals()
       refetchTimerRef.current = null
     }, 200)
     return () => {
@@ -1565,11 +1569,13 @@ const Client2Page = () => {
         refetchTimerRef.current = null
       }
     }
-  }, [fetchClients, fetchRebateTotals, isMobile, isAuthenticated, unauthorized, columnFilters, debouncedSearchQuery, currentPage, itemsPerPage, sortBy, sortOrder, quickFilters])
+  }, [fetchClients, isMobile, isAuthenticated, unauthorized, columnFilters, debouncedSearchQuery, currentPage, itemsPerPage, sortBy, sortOrder, quickFilters])
 
   // Auto-refresh rebate totals every 1 hour (desktop only)
   useEffect(() => {
     if (isMobile) return
+    // Fetch once on entry, then refresh hourly.
+    fetchRebateTotals()
     const intervalId = setInterval(() => {
       fetchRebateTotals()
     }, 3600000) // 3600000ms = 1 hour
@@ -2298,6 +2304,9 @@ const Client2Page = () => {
       if (quickFilters?.noDeposit) {
         baseParams.noDeposit = true
       }
+      if (quickFilters?.hasPnl) {
+        baseParams.hasPnl = true
+      }
       if (quickFilters?.accountEnabled) {
         baseParams.accountEnabled = true
       }
@@ -2405,6 +2414,9 @@ const Client2Page = () => {
       }
       if (quickFilters?.noDeposit) {
         params.noDeposit = true
+      }
+      if (quickFilters?.hasPnl) {
+        params.hasPnl = true
       }
       if (quickFilters?.accountEnabled) {
         params.accountEnabled = true
@@ -2523,6 +2535,9 @@ const Client2Page = () => {
       }
       if (quickFilters?.noDeposit) {
         params.noDeposit = true
+      }
+      if (quickFilters?.hasPnl) {
+        params.hasPnl = true
       }
       if (quickFilters?.accountEnabled) {
         params.accountEnabled = true
@@ -2774,7 +2789,7 @@ const Client2Page = () => {
     setColumnSortOrder({})
 
     // Quick filters
-    setQuickFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
+    setQuickFilters({ hasFloating: false, hasCredit: false, noDeposit: false, hasPnl: false, accountEnabled: false })
 
     // Account filters
     setMt5Accounts([])
@@ -3387,6 +3402,9 @@ const Client2Page = () => {
         }
         if (quickFilters?.noDeposit) {
           combinedFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
+        }
+        if (quickFilters?.hasPnl) {
+          combinedFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
         }
         if (filters && filters.length > 0) {
           const _boolFields4 = new Set(['tradingEnabled', 'accountEnabled'])
@@ -4010,9 +4028,9 @@ const Client2Page = () => {
                       <path d="M4 6H12M5.5 9H10.5M7 12H9" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
                     <span className="text-xs font-medium text-[#374151]">Filter</span>
-                    {((quickFilters?.hasFloating ? 1 : 0) + (quickFilters?.hasCredit ? 1 : 0) + (quickFilters?.noDeposit ? 1 : 0) + (quickFilters?.accountEnabled ? 1 : 0)) > 0 && (
+                    {((quickFilters?.hasFloating ? 1 : 0) + (quickFilters?.hasCredit ? 1 : 0) + (quickFilters?.noDeposit ? 1 : 0) + (quickFilters?.hasPnl ? 1 : 0) + (quickFilters?.accountEnabled ? 1 : 0)) > 0 && (
                       <span className="ml-1 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold h-4 min-w-4 px-1 leading-none">
-                        {(quickFilters?.hasFloating ? 1 : 0) + (quickFilters?.hasCredit ? 1 : 0) + (quickFilters?.noDeposit ? 1 : 0) + (quickFilters?.accountEnabled ? 1 : 0)}
+                        {(quickFilters?.hasFloating ? 1 : 0) + (quickFilters?.hasCredit ? 1 : 0) + (quickFilters?.noDeposit ? 1 : 0) + (quickFilters?.hasPnl ? 1 : 0) + (quickFilters?.accountEnabled ? 1 : 0)}
                       </span>
                     )}
                   </button>
@@ -4072,6 +4090,23 @@ const Client2Page = () => {
                               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                             />
                             <span className="text-sm text-[#374151]">No Deposit</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded-md transition-all">
+                            <input
+                              type="checkbox"
+                              checked={quickFilters.hasPnl}
+                              onChange={(e) => {
+                                requestIdRef.current++
+                                pausePollingUntilRef.current = Date.now() + 3000
+                                setQuickFilters(prev => ({
+                                  ...prev,
+                                  hasPnl: e.target.checked
+                                }))
+                                setCurrentPage(1)
+                              }}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-[#374151]">Has P&amp;L</span>
                           </label>
                           <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded-md transition-all">
                             <input

@@ -58,7 +58,7 @@ export default function Client2Module() {
   const abortControllerRef = useRef(null)
   const requestIdRef = useRef(0)
   const isFetchingRef = useRef(false)
-  const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
+  const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false, hasPnl: false })
   const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
   const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
   const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
@@ -107,7 +107,7 @@ export default function Client2Module() {
 
   // Clear all filters on component mount (when navigating to this module)
   useEffect(() => {
-    setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
+    setFilters({ hasFloating: false, hasCredit: false, noDeposit: false, hasPnl: false })
     setActiveGroupFilter('client2', null)
     setSearchInput('')
     setDebouncedSearchInput('')
@@ -250,6 +250,10 @@ export default function Client2Module() {
       }
       if (filters.noDeposit) {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
+      }
+      if (filters.hasPnl) {
+        // Include clients with realized activity in the running week, even if floating is zero.
+        apiFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
       }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
@@ -648,6 +652,9 @@ export default function Client2Module() {
       if (filters.noDeposit) {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
       }
+      if (filters.hasPnl) {
+        apiFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
+      }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
       }
@@ -750,6 +757,9 @@ export default function Client2Module() {
       }
       if (filters.noDeposit) {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
+      }
+      if (filters.hasPnl) {
+        apiFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
       }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
@@ -1068,7 +1078,7 @@ export default function Client2Module() {
               <button 
                 onClick={() => setIsCustomizeOpen(true)} 
                 className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative ${
-                  (filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('client2'))
+                  (filters.hasFloating || filters.hasCredit || filters.noDeposit || filters.hasPnl || getActiveGroupFilter('client2'))
                     ? 'bg-blue-50 border-blue-200' 
                     : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
                 }`}
@@ -1082,6 +1092,7 @@ export default function Client2Module() {
                     filters.hasFloating,
                     filters.hasCredit,
                     filters.noDeposit,
+                    filters.hasPnl,
                     getActiveGroupFilter('client2')
                   ].filter(Boolean).length;
                   return filterCount > 0 ? (
@@ -1466,11 +1477,11 @@ export default function Client2Module() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
                     <p className="font-medium text-gray-700">
-                      {(filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('client2') || searchInput.trim())
+                      {(filters.hasFloating || filters.hasCredit || filters.noDeposit || filters.hasPnl || getActiveGroupFilter('client2') || searchInput.trim())
                         ? 'No clients match the applied filters'
                         : 'No clients found'}
                     </p>
-                    {(filters.hasFloating || filters.hasCredit || filters.noDeposit || getActiveGroupFilter('client2') || searchInput.trim()) && (
+                    {(filters.hasFloating || filters.hasCredit || filters.noDeposit || filters.hasPnl || getActiveGroupFilter('client2') || searchInput.trim()) && (
                       <p className="text-sm text-gray-500 mt-1">Try adjusting your filters or search criteria</p>
                     )}
                   </div>
@@ -1581,7 +1592,7 @@ export default function Client2Module() {
         onReset={() => {
           // Invalidate any in-flight requests from previous filter state
           requestIdRef.current++
-          setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
+          setFilters({ hasFloating: false, hasCredit: false, noDeposit: false, hasPnl: false })
           setActiveGroupFilter('client2', null)
           setHasPendingFilterChanges(false)
           setPendingFilterDraft(null)

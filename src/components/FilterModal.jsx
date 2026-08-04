@@ -10,6 +10,7 @@ const FilterModal = ({
   const [hasFloating, setHasFloating] = useState(filters.hasFloating || false);
   const [hasCredit, setHasCredit] = useState(filters.hasCredit || false);
   const [noDeposit, setNoDeposit] = useState(filters.noDeposit || false);
+  const [hasPnl, setHasPnl] = useState(filters.hasPnl || false);
 
   // Sync state with filters prop when modal opens
   useEffect(() => {
@@ -17,6 +18,7 @@ const FilterModal = ({
       setHasFloating(filters.hasFloating || false);
       setHasCredit(filters.hasCredit || false);
       setNoDeposit(filters.noDeposit || false);
+      setHasPnl(filters.hasPnl || false);
     }
   }, [isOpen, filters]);
 
@@ -25,8 +27,9 @@ const FilterModal = ({
     if (isOpen && onPendingChange) {
       const hasPending = hasFloating !== (filters.hasFloating || false) || 
                         hasCredit !== (filters.hasCredit || false) || 
-                        noDeposit !== (filters.noDeposit || false);
-      const draft = { hasFloating, hasCredit, noDeposit }
+                        noDeposit !== (filters.noDeposit || false) ||
+                        hasPnl !== (filters.hasPnl || false);
+      const draft = { hasFloating, hasCredit, noDeposit, hasPnl }
       try {
         onPendingChange(hasPending, draft)
       } catch {
@@ -34,7 +37,7 @@ const FilterModal = ({
         onPendingChange(hasPending)
       }
     }
-  }, [isOpen, hasFloating, hasCredit, noDeposit, filters, onPendingChange]);
+  }, [isOpen, hasFloating, hasCredit, noDeposit, hasPnl, filters, onPendingChange]);
 
   if (!isOpen) return null;
 
@@ -42,7 +45,8 @@ const FilterModal = ({
     onApply({
       hasFloating,
       hasCredit,
-      noDeposit
+      noDeposit,
+      hasPnl
     });
     onClose();
   };
@@ -51,10 +55,12 @@ const FilterModal = ({
     setHasFloating(false);
     setHasCredit(false);
     setNoDeposit(false);
+    setHasPnl(false);
     onApply({
       hasFloating: false,
       hasCredit: false,
-      noDeposit: false
+      noDeposit: false,
+      hasPnl: false
     });
     onClose();
   };
@@ -275,6 +281,40 @@ const FilterModal = ({
               No Deposit
             </span>
           </label>
+
+          {/* Has P&L */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '16px 0',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={hasPnl}
+              onChange={(e) => setHasPnl(e.target.checked)}
+              style={{
+                width: '20px',
+                height: '20px',
+                accentColor: '#2563EB',
+                cursor: 'pointer',
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'Outfit, sans-serif',
+                fontWeight: 400,
+                fontSize: '16px',
+                lineHeight: '20px',
+                color: '#1B2D45',
+              }}
+            >
+              Has P&L
+            </span>
+          </label>
         </div>
 
         {/* Bottom divider */}
@@ -324,25 +364,25 @@ const FilterModal = ({
           {/* Apply button */}
           <button
             onClick={handleApply}
-            disabled={!hasFloating && !hasCredit && !noDeposit}
+            disabled={!hasFloating && !hasCredit && !noDeposit && !hasPnl}
             style={{
               flex: 1,
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               padding: '10px 27px',
-              background: (hasFloating || hasCredit || noDeposit) ? '#2563EB' : '#E5E7EB',
-              border: '1px solid ' + ((hasFloating || hasCredit || noDeposit) ? '#2563EB' : '#D1D5DB'),
+              background: (hasFloating || hasCredit || noDeposit || hasPnl) ? '#2563EB' : '#E5E7EB',
+              border: '1px solid ' + ((hasFloating || hasCredit || noDeposit || hasPnl) ? '#2563EB' : '#D1D5DB'),
               borderRadius: '20px',
               boxShadow: '0px 0px 50px rgba(0, 0, 0, 0.05)',
-              cursor: (hasFloating || hasCredit || noDeposit) ? 'pointer' : 'not-allowed',
+              cursor: (hasFloating || hasCredit || noDeposit || hasPnl) ? 'pointer' : 'not-allowed',
               fontFamily: 'Outfit, sans-serif',
               fontWeight: 400,
               fontSize: '12px',
               lineHeight: '20px',
               letterSpacing: '0.06em',
               textTransform: 'capitalize',
-              color: (hasFloating || hasCredit || noDeposit) ? '#FFFFFF' : '#6B7280',
+              color: (hasFloating || hasCredit || noDeposit || hasPnl) ? '#FFFFFF' : '#6B7280',
             }}
           >
             Apply

@@ -1942,7 +1942,7 @@ const PositionsPage = () => {
         { key: 'netType',        label: 'NET Type',                                 accessor: r => r.netType },
         { key: 'netVolume',      label: pct ? 'NET Volume %'    : 'NET Volume',     accessor: r => r.netVolume },
         { key: 'totalProfit',    label: pct ? 'Total Profit %'  : 'Total Profit',   accessor: r => r.totalProfit },
-        { key: 'totalStorage',   label: pct ? 'Total Storage %' : 'Total Storage',  accessor: r => r.totalStorage },
+        { key: 'totalStorage',   label: pct ? 'Swap %' : 'Swap',                    accessor: r => r.totalStorage },
         { key: 'loginCount',     label: 'Logins',                                   accessor: r => r.loginCount },
         { key: 'totalPositions', label: 'Positions',                                accessor: r => r.totalPositions },
       ]
@@ -1966,7 +1966,7 @@ const PositionsPage = () => {
     netType: 'NET Type',
     netVolume: 'NET Volume',
     totalProfit: 'Total Profit',
-    totalStorage: 'Total Storage',
+    totalStorage: 'Swap',
     loginCount: 'Logins',
     totalPositions: 'Positions',
   }
@@ -3023,7 +3023,7 @@ const PositionsPage = () => {
                               onClick={() => handleNetSort('totalStorage')}
                             >
                               <div className="flex items-center gap-1">
-                                <span>{displayMode === 'percentage' ? 'Total Storage %' : 'Total Storage'}</span>
+                                <span>{displayMode === 'percentage' ? 'Swap %' : 'Swap'}</span>
                                 {netSortColumn === 'totalStorage' ? (
                                   <svg className={`w-3 h-3 transition-transform ${netSortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />

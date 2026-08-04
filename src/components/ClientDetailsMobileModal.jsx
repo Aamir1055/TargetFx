@@ -10,7 +10,16 @@ const formatDate = (timestamp) => {
   const day = String(date.getDate()).padStart(2, '0')
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const year = date.getFullYear()
-  return `${day}/${month}/${year}`
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+}
+
+const formatDealTime = (deal) => {
+  const fromTimestamp = formatDate(deal?.time)
+  if (fromTimestamp !== '-') return fromTimestamp
+  return deal?.timeStr || '-'
 }
 
 const formatDateToDisplay = (dateStr) => {
@@ -236,7 +245,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [toDate, setToDate] = useState('')
   const [dealsLoading, setDealsLoading] = useState(false)
   const [hasAppliedFilter, setHasAppliedFilter] = useState(false)
-  const [quickFilter, setQuickFilter] = useState('Today')
+  const [quickFilter, setQuickFilter] = useState('today')
   const [totalDealsCount, setTotalDealsCount] = useState(0)
   const [currentDateFilter, setCurrentDateFilter] = useState({ from: 0, to: 0 })
   
@@ -272,10 +281,16 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [dealColumns, setDealColumns] = useState({
     deal: true,
     time: true,
+    order: true,
+    position: true,
     symbol: true,
     action: true,
     volume: true,
-    profit: true
+    price: true,
+    commission: true,
+    storage: true,
+    profit: true,
+    comment: true
   })
 
   // Live account data from overview API (balance, equity, credit, floating, etc.)
@@ -520,6 +535,35 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     return [...data].sort((a, b) => {
       let aVal = a[key]
       let bVal = b[key]
+
+      if (key === 'time') {
+        aVal = Number(a.time ?? 0)
+        bVal = Number(b.time ?? 0)
+      }
+      if (key === 'deal') {
+        aVal = Number(a.deal ?? 0)
+        bVal = Number(b.deal ?? 0)
+      }
+      if (key === 'order') {
+        aVal = Number(a.order ?? 0)
+        bVal = Number(b.order ?? 0)
+      }
+      if (key === 'position') {
+        aVal = Number(a.position ?? a.order ?? 0)
+        bVal = Number(b.position ?? b.order ?? 0)
+      }
+      if (key === 'price') {
+        aVal = Number(a.price ?? 0)
+        bVal = Number(b.price ?? 0)
+      }
+      if (key === 'commission') {
+        aVal = Number(a.commission ?? 0)
+        bVal = Number(b.commission ?? 0)
+      }
+      if (key === 'storage') {
+        aVal = Number(a.storage ?? 0)
+        bVal = Number(b.storage ?? 0)
+      }
       
       // Handle numeric values
       if (typeof aVal === 'number' && typeof bVal === 'number') {
@@ -795,39 +839,37 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   }
 
   const handleQuickFilter = async (filterType) => {
+    if (!filterType) return
     setQuickFilter(filterType)
     setCurrentPage(1) // Reset to page 1
-    const today = new Date()
+    const now = new Date()
     let fromDateObj, toDateObj
 
     switch(filterType) {
-      case 'Today':
-        fromDateObj = new Date(today)
-        toDateObj = new Date(today)
+      case 'today':
+        // Match desktop behavior: rolling last 24 hours
+        fromDateObj = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
-      case 'Last Week':
-        fromDateObj = new Date(today)
-        fromDateObj.setDate(today.getDate() - 7)
-        toDateObj = new Date(today)
+      case 'lastweek':
+        fromDateObj = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
-      case 'Last Month':
-        fromDateObj = new Date(today)
-        fromDateObj.setMonth(today.getMonth() - 1)
-        toDateObj = new Date(today)
+      case 'lastmonth':
+        fromDateObj = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
-      case 'Last 3 Months':
-        fromDateObj = new Date(today)
-        fromDateObj.setMonth(today.getMonth() - 3)
-        toDateObj = new Date(today)
+      case 'last3months':
+        fromDateObj = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
-      case 'Last 6 Months':
-        fromDateObj = new Date(today)
-        fromDateObj.setMonth(today.getMonth() - 6)
-        toDateObj = new Date(today)
+      case 'last6months':
+        fromDateObj = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+        toDateObj = now
         break
-      case 'All History':
-        fromDateObj = new Date('2020-01-01')
-        toDateObj = new Date(today)
+      case 'allhistory':
+        fromDateObj = new Date(now.getFullYear() - 2, 0, 1, 0, 0, 0)
+        toDateObj = now
         break
       default:
         return
@@ -839,9 +881,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     setFromDate(formatDateToDisplay(fromDateStr))
     setToDate(formatDateToDisplay(toDateStr))
 
-    // Fetch deals
-    fromDateObj.setHours(0, 0, 0, 0)
-    toDateObj.setHours(23, 59, 59, 999)
+    // Fetch deals with rolling-window timestamps, same as desktop presets
     await fetchDealsWithDateFilter(Math.floor(fromDateObj.getTime() / 1000), Math.floor(toDateObj.getTime() / 1000))
   }
 
@@ -871,8 +911,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     setToDate('')
     setDeals([])
     setHasAppliedFilter(false)
-    setQuickFilter('Today')
-    handleQuickFilter('Today')
+    setQuickFilter('today')
+    handleQuickFilter('today')
   }
 
   const fetchAvailableRules = async () => {
@@ -1032,6 +1072,11 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     return (isNegative ? '-' : '') + formattedInteger + '.' + decimalPart
   }
 
+  const formatOpenPrice = (num) => {
+    if (num == null || isNaN(num)) return '-'
+    return Number(num).toFixed(5).replace(/\.?0+$/, '')
+  }
+
   // Separate positions and orders for grouped display
   const groupedPositionsData = useMemo(() => {
     const regularPositions = positions.filter(p => {
@@ -1183,8 +1228,11 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       filtered = deals.filter(d => 
         (d.symbol || '').toLowerCase().includes(query) ||
         (d.deal || '').toString().includes(query) ||
+        (d.order || '').toString().includes(query) ||
+        (d.position || '').toString().includes(query) ||
         (d.action || '').toLowerCase().includes(query) ||
-        (d.type || '').toLowerCase().includes(query)
+        (d.type || '').toLowerCase().includes(query) ||
+        (d.comment || '').toLowerCase().includes(query)
       )
     }
     return sortData(filtered, sortConfig.key, sortConfig.direction)
@@ -1725,7 +1773,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               {positionColumns.priceOpen && (
                 <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('priceOpen')}>
                   <div className="flex items-center gap-1">
-                    Price
+                    Open Price
                     {sortConfig.key === 'priceOpen' && (
                       <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                     )}
@@ -1767,7 +1815,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                       </td>
                     )}
                     {positionColumns.volume && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(pos.volume || 0)}</td>}
-                    {positionColumns.priceOpen && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(pos.priceOpen || pos.price || 0, 5)}</td>}
+                    {positionColumns.priceOpen && <td className="px-3 py-2 text-xs text-gray-900">{formatOpenPrice(pos.priceOpen ?? pos.price)}</td>}
                     {positionColumns.profit && (
                       <td className={`px-3 py-2 text-xs ${(pos.profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {formatNum(pos.profit || 0)}
@@ -1809,7 +1857,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                       </td>
                     )}
                     {positionColumns.volume && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(order.volume || 0)}</td>}
-                    {positionColumns.priceOpen && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(order.priceOrder || order.price || 0, 5)}</td>}
+                    {positionColumns.priceOpen && <td className="px-3 py-2 text-xs text-gray-900">{formatOpenPrice(order.priceOrder ?? order.price)}</td>}
                     {positionColumns.profit && (
                       <td className="px-3 py-2 text-xs text-gray-400">
                         -
@@ -1943,6 +1991,26 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 </div>
               </th>
             )}
+            {dealColumns.order && (
+              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('order')}>
+                <div className="flex items-center gap-1">
+                  Order
+                  {sortConfig.key === 'order' && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </div>
+              </th>
+            )}
+            {dealColumns.position && (
+              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('position')}>
+                <div className="flex items-center gap-1">
+                  Position
+                  {sortConfig.key === 'position' && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </div>
+              </th>
+            )}
             {dealColumns.symbol && (
               <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('symbol')}>
                 <div className="flex items-center gap-1">
@@ -1973,11 +2041,51 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 </div>
               </th>
             )}
+            {dealColumns.price && (
+              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('price')}>
+                <div className="flex items-center gap-1">
+                  Price
+                  {sortConfig.key === 'price' && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </div>
+              </th>
+            )}
+            {dealColumns.commission && (
+              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('commission')}>
+                <div className="flex items-center gap-1">
+                  Commission
+                  {sortConfig.key === 'commission' && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </div>
+              </th>
+            )}
+            {dealColumns.storage && (
+              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('storage')}>
+                <div className="flex items-center gap-1">
+                  Storage
+                  {sortConfig.key === 'storage' && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </div>
+              </th>
+            )}
             {dealColumns.profit && (
               <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('profit')}>
                 <div className="flex items-center gap-1">
                   Profit
                   {sortConfig.key === 'profit' && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </div>
+              </th>
+            )}
+            {dealColumns.comment && (
+              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('comment')}>
+                <div className="flex items-center gap-1">
+                  Comment
+                  {sortConfig.key === 'comment' && (
                     <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                   )}
                 </div>
@@ -1989,7 +2097,9 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
           {paginatedDeals.map((deal, idx) => (
             <tr key={idx} className="hover:bg-gray-50">
               {dealColumns.deal && <td className="px-3 py-2 text-xs text-gray-900">{deal.deal}</td>}
-              {dealColumns.time && <td className="px-3 py-2 text-xs text-gray-900">{deal.timeStr || formatDate(deal.time)}</td>}
+              {dealColumns.time && <td className="px-3 py-2 text-xs text-gray-900">{formatDealTime(deal)}</td>}
+              {dealColumns.order && <td className="px-3 py-2 text-xs text-gray-900">{deal.order > 0 ? `#${deal.order}` : '-'}</td>}
+              {dealColumns.position && <td className="px-3 py-2 text-xs text-gray-900">{deal.position > 0 ? `#${deal.position}` : '-'}</td>}
               {dealColumns.symbol && <td className="px-3 py-2 text-xs text-gray-900">{deal.symbol}</td>}
               {dealColumns.action && (
                 <td className="px-3 py-2 text-xs">
@@ -2009,11 +2119,15 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 </td>
               )}
               {dealColumns.volume && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(deal.volume)}</td>}
+              {dealColumns.price && <td className="px-3 py-2 text-xs text-gray-900">{formatOpenPrice(deal.price)}</td>}
+              {dealColumns.commission && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(deal.commission || 0)}</td>}
+              {dealColumns.storage && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(deal.storage || 0)}</td>}
               {dealColumns.profit && (
                 <td className={`px-3 py-2 text-xs ${(deal.profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatNum(deal.profit || 0)}
                 </td>
               )}
+              {dealColumns.comment && <td className="px-3 py-2 text-xs text-gray-900">{deal.comment || '-'}</td>}
             </tr>
           ))}
         </tbody>
@@ -2245,14 +2359,16 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               <select
                 value={quickFilter}
                 onChange={(e) => handleQuickFilter(e.target.value)}
-                className="px-1.5 py-0.5 border border-blue-300 rounded text-[9px] font-medium text-blue-700 bg-white"
-                style={{ height: '24px', fontSize: '9px', width: '60px', flex: '0 0 60px' }}
+                className="px-1.5 py-0.5 border border-blue-300 rounded text-[10px] font-medium text-blue-700 bg-white"
+                style={{ height: '24px', fontSize: '10px', width: '98px', flex: '0 0 98px' }}
               >
-                <option value="Today">Today</option>
-                <option value="Last Week">Week</option>
-                <option value="Last Month">Month</option>
-                <option value="Last 3 Months">3M</option>
-                <option value="Last 6 Months">6M</option>
+                <option value="">Quick Filters</option>
+                <option value="today">Today</option>
+                <option value="lastweek">Last Week</option>
+                <option value="lastmonth">Last Month</option>
+                <option value="last3months">Last 3 Months</option>
+                <option value="last6months">Last 6 Months</option>
+                <option value="allhistory">All History</option>
               </select>
 
               {/* Action Buttons */}
@@ -2662,7 +2778,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                       symbol: 'Symbol',
                       action: 'Type',
                       volume: 'Volume',
-                      priceOpen: 'Price',
+                      priceOpen: 'Open Price',
                       profit: 'Profit'
                     }).map(([key, label]) => (
                       <div key={key} className="flex items-center justify-between px-3 py-2.5 hover:bg-blue-50 rounded-md transition-colors">
@@ -2688,10 +2804,17 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                   <div className="space-y-0.5">
                     {Object.entries({
                       deal: 'Deal',
+                      time: 'Time',
+                      order: 'Order',
+                      position: 'Position',
                       symbol: 'Symbol',
                       action: 'Type',
                       volume: 'Volume',
-                      profit: 'Profit'
+                      price: 'Price',
+                      commission: 'Commission',
+                      storage: 'Storage',
+                      profit: 'Profit',
+                      comment: 'Comment'
                     }).map(([key, label]) => (
                       <div key={key} className="flex items-center justify-between px-3 py-2.5 hover:bg-blue-50 rounded-md transition-colors">
                         <span className="text-sm text-gray-700 font-medium">{label}</span>

@@ -36,7 +36,7 @@ export default function ClientDashboardDesignC() {
   const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false)
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const columnDropdownRef = useRef(null)
-  const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
+  const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false, hasPnl: false })
   const carouselRef = useRef(null)
   const viewAllRef = useRef(null)
   const itemsPerPage = 12
@@ -196,6 +196,14 @@ export default function ClientDashboardDesignC() {
         if (!c) return false;
         const lifeDep = Number(c.lifetimeDeposit);
         return !(Number.isFinite(lifeDep) ? lifeDep !== 0 : false);
+      });
+    }
+    if (filters.hasPnl) {
+      filtered = filtered.filter(c => {
+        if (!c) return false;
+        const weekly = Number(c.thisWeekPnL);
+        const pnl = Number(c.pnl);
+        return (Number.isFinite(weekly) && weekly !== 0) || (Number.isFinite(pnl) && pnl !== 0);
       });
     }
 
@@ -973,7 +981,7 @@ export default function ClientDashboardDesignC() {
                 className="flex-1 h-10 rounded-xl bg-[#EFF4FB] text-[#1A63BC] text-[13px] font-semibold"
                 onClick={() => {
                   // Clear all filters
-                  setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
+                  setFilters({ hasFloating: false, hasCredit: false, noDeposit: false, hasPnl: false })
                   // Clear group filter
                   setActiveGroupFilter('dashboard', null)
                 }}
