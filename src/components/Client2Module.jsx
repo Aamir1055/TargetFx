@@ -300,7 +300,7 @@ export default function Client2Module() {
       // Run API call and minimum skeleton timer in parallel (initial load only)
       const minTimer = isInitialLoad ? new Promise(r => setTimeout(r, 600)) : Promise.resolve()
       const [response] = await Promise.all([
-        brokerAPI.searchClients(payload, { signal: abortControllerRef.current.signal }),
+        brokerAPI.searchClients(payload, { signal: abortControllerRef.current.signal, timeout: 15000 }),
         minTimer
       ])
       
@@ -366,8 +366,22 @@ export default function Client2Module() {
   // Initial fetch and periodic refresh every 1 second (matching desktop)
   useEffect(() => {
     fetchClients(null, true) // Initial load with loading state
-    const interval = setInterval(() => { if (!selectedClientRef.current) fetchClients(null, false) }, 5000) // Periodic refresh every 5s (skip if in-flight or modal open)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      if (!selectedClientRef.current) fetchClients(null, false)
+    }, 5000) // Periodic refresh every 5s (skip if in-flight or modal open)
     return () => clearInterval(interval)
+  }, [fetchClients])
+
+  // Refresh immediately when app/tab becomes visible again.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      if (!selectedClientRef.current) fetchClients(null, false)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [fetchClients])
 
   // Return clients as-is since search is handled server-side via API

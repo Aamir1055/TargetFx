@@ -922,6 +922,7 @@ const Client2Page = () => {
     }
     // Create new AbortController for this request
     abortControllerRef.current = new AbortController()
+    const requestOptions = { signal: abortControllerRef.current.signal, timeout: 15000 }
     lastRequestWasSilentRef.current = !!silent
     isFetchingRef.current = true
     if (!silent) setProgressActive(true)
@@ -1224,7 +1225,7 @@ const Client2Page = () => {
           do {
             chunkPayload.page = pageNum
             // Respect aborts and newer requests: pass signal and bail on staleness
-            const resp = await brokerAPI.searchClients(chunkPayload, { signal: abortControllerRef.current.signal })
+            const resp = await brokerAPI.searchClients(chunkPayload, requestOptions)
             if (abortControllerRef.current.signal.aborted || currentRequestId !== requestIdRef.current) {
               console.log('[Client2] ⏹️ Abort/replace detected during chunk merge; stopping early')
               return
@@ -1374,7 +1375,7 @@ const Client2Page = () => {
       // Fetch data - only fetch percentage data when in percentage mode
       if (shouldFetchPercentage) {
         // Fetch only percentage data
-        const percentResponse = await brokerAPI.searchClients({ ...payload, percentage: true }, { signal: abortControllerRef.current.signal })
+        const percentResponse = await brokerAPI.searchClients({ ...payload, percentage: true }, requestOptions)
         
         // Ignore response if it's from an outdated request (stale data)
         if (currentRequestId !== requestIdRef.current) {
@@ -1397,7 +1398,7 @@ const Client2Page = () => {
         setInitialLoad(false)
       } else {
         // Fetch only normal data
-        const normalResponse = await brokerAPI.searchClients(payload, { signal: abortControllerRef.current.signal })
+        const normalResponse = await brokerAPI.searchClients(payload, requestOptions)
         
         // Ignore response if it's from an outdated request (stale data)
         if (currentRequestId !== requestIdRef.current) {
@@ -1591,14 +1592,26 @@ const Client2Page = () => {
 
   useEffect(() => {
     if (isMobile || !isAuthenticated || unauthorized) return
-    // Avoid polling when tab is hidden
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
     const intervalId = setInterval(() => {
       // Skip polling while recent user filter actions are active or modal is open
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       if (Date.now() < pausePollingUntilRef.current || selectedClientRef.current) return
       fetchClients(true) // silent = true, no loading spinner - will refresh with current filters applied
     }, 2000)
     return () => clearInterval(intervalId)
+  }, [fetchClients, isMobile, isAuthenticated, unauthorized])
+
+  // Trigger refresh as soon as app/tab becomes visible again.
+  useEffect(() => {
+    if (isMobile || !isAuthenticated || unauthorized) return
+    if (typeof document === 'undefined') return
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() < pausePollingUntilRef.current || selectedClientRef.current) return
+      fetchClients(true)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [fetchClients, isMobile, isAuthenticated, unauthorized])
 
   // Handle search
