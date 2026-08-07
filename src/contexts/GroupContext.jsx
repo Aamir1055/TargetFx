@@ -33,29 +33,51 @@ const fromApiFilters = (filters) => {
   }))
 }
 
+// Helper: extract groups array from different API response envelopes
+const extractFiltersArray = (res) => {
+  if (Array.isArray(res)) return res
+  const candidates = [
+    res?.filters,
+    res?.data?.filters,
+    res?.data?.savedFilters,
+    res?.savedFilters,
+    res?.items,
+    res?.data?.items,
+    res?.data
+  ]
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c
+  }
+  return []
+}
+
 export const GroupProvider = ({ children }) => {
-  // Seed from localStorage so UI is instant on first render (avoids empty flash)
-  const [groups, setGroups] = useState(() => {
-    try {
-      const saved = localStorage.getItem('unifiedLoginGroups')
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
-  })
+  // API is the single source of truth for groups.
+  const [groups, setGroups] = useState([])
 
   // Track whether the initial API fetch has completed
   const [groupsLoaded, setGroupsLoaded] = useState(false)
 
   // Ref for debouncing the PUT call (avoid hammering on rapid mutations)
   const syncTimerRef = useRef(null)
+  // Guard to avoid syncing immediately after first API hydration.
+  const hasHydratedRef = useRef(false)
 
   // Track active group per module — cleared on page refresh
   const [activeGroupFilters, setActiveGroupFilters] = useState({})
 
-  // Clear stale active filters from localStorage on mount
-  useEffect(() => {
-    localStorage.removeItem('activeGroupFilters')
+  const refreshGroups = useCallback(async () => {
+    try {
+      const res = await brokerAPI.getSavedFilters()
+      const raw = extractFiltersArray(res)
+      const loaded = fromApiFilters(raw)
+      setGroups(loaded)
+      console.log('[Groups] Refreshed from API:', loaded.length, 'groups')
+      return loaded
+    } catch (err) {
+      console.warn('[Groups] Refresh failed:', err?.message)
+      return []
+    }
   }, [])
 
   // ── API: load groups on mount ─────────────────────────────────────────────
@@ -65,15 +87,13 @@ export const GroupProvider = ({ children }) => {
       try {
         const res = await brokerAPI.getSavedFilters()
         if (cancelled) return
-        // Response shape: { filters: [...] } or { data: { filters: [...] } } or just [...]
-        const raw = res?.data?.filters ?? res?.filters ?? res?.data ?? res
-        const loaded = fromApiFilters(Array.isArray(raw) ? raw : [])
+        const raw = extractFiltersArray(res)
+        const loaded = fromApiFilters(raw)
         setGroups(loaded)
-        // Mirror into localStorage as a cache
-        try { localStorage.setItem('unifiedLoginGroups', JSON.stringify(loaded)) } catch {}
         console.log('[Groups] Loaded from API:', loaded.length, 'groups')
       } catch (err) {
-        console.warn('[Groups] Failed to load from API, using localStorage cache:', err?.message)
+        setGroups([])
+        console.warn('[Groups] Failed to load from API:', err?.message)
       } finally {
         if (!cancelled) setGroupsLoaded(true)
       }
@@ -95,10 +115,13 @@ export const GroupProvider = ({ children }) => {
     }, 400)
   }, [])
 
-  // Mirror to localStorage + trigger API sync whenever groups state changes
+  // Trigger API sync whenever groups state changes
   useEffect(() => {
     if (!groupsLoaded) return // Don't overwrite API data before first load
-    try { localStorage.setItem('unifiedLoginGroups', JSON.stringify(groups)) } catch {}
+    if (!hasHydratedRef.current) {
+      hasHydratedRef.current = true
+      return
+    }
     syncToApi(groups)
   }, [groups, groupsLoaded, syncToApi])
 
@@ -243,7 +266,8 @@ export const GroupProvider = ({ children }) => {
     groups, groupsLoaded, activeGroupFilters,
     setActiveGroupFilter, getActiveGroupFilter,
     createGroup, createRangeGroup, updateGroup, deleteGroup,
-    getGroupLogins, isLoginInActiveGroup, filterByActiveGroup, generateLoginRange
+    getGroupLogins, isLoginInActiveGroup, filterByActiveGroup, generateLoginRange,
+    refreshGroups
   }
 
   return (

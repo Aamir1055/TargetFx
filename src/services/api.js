@@ -557,8 +557,17 @@ export const brokerAPI = {
 
   // Saved filters (groups) - GET
   getSavedFilters: async () => {
-    const response = await api.get('/api/broker/saved-filters')
-    return response.data
+    try {
+      const response = await api.get('/api/broker/saved-filter')
+      return response.data
+    } catch (err) {
+      // Backward compatibility with deployments still using plural path
+      if (err?.response?.status === 404) {
+        const response = await api.get('/api/broker/saved-filters')
+        return response.data
+      }
+      throw err
+    }
   },
 
   // Saved filters (groups) - PUT (replaces entire list)

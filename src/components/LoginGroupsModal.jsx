@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useGroups } from '../contexts/GroupContext';
 
 const LoginGroupsModal = ({ 
   isOpen, 
@@ -11,9 +12,16 @@ const LoginGroupsModal = ({
   activeGroupName,
   onPendingChange
 }) => {
+  const { refreshGroups } = useGroups()
   const [tempSelectedGroup, setTempSelectedGroup] = useState(activeGroupName)
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const modalRef = useRef(null)
+
+  // Always refresh from API when modal opens (mobile group picker path).
+  useEffect(() => {
+    if (!isOpen) return
+    refreshGroups()
+  }, [isOpen, refreshGroups])
 
   // Update temp selection when modal opens
   React.useEffect(() => {
