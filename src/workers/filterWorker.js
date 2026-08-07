@@ -42,9 +42,18 @@ function filterClients(clients, filters) {
     filterByPositions,
     filterByCredit,
     filterNoDeposit,
+    hasPnl,
     columnFilters,
     searchQuery
   } = filters || {}
+
+  const getPnlColumnValue = (client) => {
+    const pnl = Number(client?.pnl)
+    if (Number.isFinite(pnl)) return pnl
+    const credit = Number(client?.credit)
+    const equity = Number(client?.equity)
+    return (Number.isFinite(credit) ? credit : 0) - (Number.isFinite(equity) ? equity : 0)
+  }
 
   let out = []
   for (let i = 0; i < clients.length; i++) {
@@ -61,6 +70,11 @@ function filterClients(clients, filters) {
     // No Deposit
     if (filterNoDeposit) {
       if (c.lifetimeDeposit && c.lifetimeDeposit !== 0) continue
+    }
+    // PnL
+    if (hasPnl) {
+      const pnlValue = getPnlColumnValue(c)
+      if (!Number.isFinite(pnlValue) || pnlValue === 0) continue
     }
     // Column filters
     let columnReject = false

@@ -967,8 +967,8 @@ const Client2Page = () => {
         combinedFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
       }
       if (quickFilters?.hasPnl) {
-        // Has P&L: running-week P&L is non-zero
-        combinedFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
+        // Has P&L: PnL column is non-zero
+        combinedFilters.push({ field: 'pnl', operator: 'not_equal', value: '0' })
       }
       if (quickFilters?.accountEnabled) {
         // Account Enabled: accountEnabled == true
@@ -3417,7 +3417,7 @@ const Client2Page = () => {
           combinedFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
         }
         if (quickFilters?.hasPnl) {
-          combinedFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
+          combinedFilters.push({ field: 'pnl', operator: 'not_equal', value: '0' })
         }
         if (filters && filters.length > 0) {
           const _boolFields4 = new Set(['tradingEnabled', 'accountEnabled'])

@@ -219,6 +219,7 @@ const ClientsPage = () => {
   const [filterByPositions, setFilterByPositions] = useState(false)
   const [filterByCredit, setFilterByCredit] = useState(false)
   const [filterNoDeposit, setFilterNoDeposit] = useState(false)
+  const [hasPnl, setHasPnl] = useState(false)
   
   // Initialize columnFilters from localStorage
   const getInitialColumnFilters = () => {
@@ -577,6 +578,7 @@ const ClientsPage = () => {
     setFilterByPositions(false)
     setFilterByCredit(false)
     setFilterNoDeposit(false)
+    setHasPnl(false)
     clearIBSelection()
     setActiveGroupFilter('clients', null)
     setSearchQuery('')
@@ -1142,6 +1144,14 @@ const ClientsPage = () => {
         return true
     }
   }
+
+  const getPnlColumnValue = (client) => {
+    const pnl = Number(client?.pnl)
+    if (Number.isFinite(pnl)) return pnl
+    const credit = Number(client?.credit)
+    const equity = Number(client?.equity)
+    return (Number.isFinite(credit) ? credit : 0) - (Number.isFinite(equity) ? equity : 0)
+  }
   
   // Get filtered clients based on filter settings
   const getFilteredClients = useCallback(() => {
@@ -1170,6 +1180,14 @@ const ClientsPage = () => {
         if (!c) return false
         const lifeDep = Number(c.lifetimeDeposit)
         return !(Number.isFinite(lifeDep) ? lifeDep !== 0 : false)
+      })
+    }
+
+    if (hasPnl) {
+      filtered = filtered.filter(c => {
+        if (!c) return false
+        const pnlValue = getPnlColumnValue(c)
+        return Number.isFinite(pnlValue) && pnlValue !== 0
       })
     }
 
@@ -1203,7 +1221,7 @@ const ClientsPage = () => {
     })
     
     return filtered
-  }, [clients, filterByPositions, filterByCredit, filterNoDeposit, columnFilters])
+  }, [clients, filterByPositions, filterByCredit, filterNoDeposit, hasPnl, columnFilters])
   
   // Sorting function with type detection
   const sortClients = useCallback((clientsToSort) => {
@@ -1329,6 +1347,7 @@ const ClientsPage = () => {
       filterByPositions,
       filterByCredit,
       filterNoDeposit,
+      hasPnl,
       columnFiltersKeys: Object.keys(columnFilters || {}).sort().join(','),
       searchQuery: searchQuery || '',
       sortColumn: sortColumn || '',
@@ -1363,6 +1382,7 @@ const ClientsPage = () => {
       filterByPositions ||
       filterByCredit ||
       filterNoDeposit ||
+      hasPnl ||
       (searchQuery && String(searchQuery).trim()) ||
       (columnFilters && Object.keys(columnFilters).length > 0)
     )
@@ -1411,6 +1431,7 @@ const ClientsPage = () => {
             filterByPositions,
             filterByCredit,
             filterNoDeposit,
+            hasPnl,
             columnFilters,
             searchQuery
           },
@@ -1457,6 +1478,7 @@ const ClientsPage = () => {
     filterByPositions,
     filterByCredit,
     filterNoDeposit,
+    hasPnl,
     columnFilters,
     searchQuery,
     sortColumn,
@@ -1528,12 +1550,12 @@ const ClientsPage = () => {
       setWorkerStats(null)
       return
     }
-    const hasFilters = filterByPositions || filterByCredit || filterNoDeposit || searchQuery || Object.keys(columnFilters).length > 0
+    const hasFilters = filterByPositions || filterByCredit || filterNoDeposit || hasPnl || searchQuery || Object.keys(columnFilters).length > 0
     if (!hasFilters) {
       setWorkerStats(null)
       return
     }
-    const inputSignature = `${filteredClientsChecksum}_${filterByPositions}_${filterByCredit}_${filterNoDeposit}_${searchQuery}_${Object.keys(columnFilters).length}`
+    const inputSignature = `${filteredClientsChecksum}_${filterByPositions}_${filterByCredit}_${filterNoDeposit}_${hasPnl}_${searchQuery}_${Object.keys(columnFilters).length}`
     if (lastWorkerInputRef.current === inputSignature) return
     lastWorkerInputRef.current = inputSignature
     if (workerCalculationTimeoutRef.current) {
@@ -1560,6 +1582,7 @@ const ClientsPage = () => {
     filterByPositions,
     filterByCredit,
     filterNoDeposit,
+    hasPnl,
     searchQuery,
     Object.keys(columnFilters).length,
     showFaceCards
@@ -2535,9 +2558,9 @@ const ClientsPage = () => {
                     <path d="M4 6H12M5.5 9H10.5M7 12H9" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
                   <span className="text-xs font-medium text-[#374151]">Filter</span>
-                  {(filterByPositions || filterByCredit || filterNoDeposit) && (
+                  {(filterByPositions || filterByCredit || filterNoDeposit || hasPnl) && (
                     <span className="ml-1 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold h-4 min-w-4 px-1 leading-none">
-                      {(filterByPositions ? 1 : 0) + (filterByCredit ? 1 : 0) + (filterNoDeposit ? 1 : 0)}
+                      {(filterByPositions ? 1 : 0) + (filterByCredit ? 1 : 0) + (filterNoDeposit ? 1 : 0) + (hasPnl ? 1 : 0)}
                     </span>
                   )}
                 </button>
@@ -2575,6 +2598,15 @@ const ClientsPage = () => {
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
                           <span className="text-sm text-[#374151]">No Deposit</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded-md transition-all">
+                          <input
+                            type="checkbox"
+                            checked={hasPnl}
+                            onChange={(e) => setHasPnl(e.target.checked)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-[#374151]">Has PnL</span>
                         </label>
                       </div>
                     </div>

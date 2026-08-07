@@ -60,9 +60,18 @@ function filterClients(clients, filters) {
   const {
     filterByPositions,
     filterByCredit,
+    hasPnl,
     columnFilters,
     searchQuery
   } = filters
+
+  const getPnlColumnValue = (client) => {
+    const pnl = Number(client?.pnl)
+    if (Number.isFinite(pnl)) return pnl
+    const credit = Number(client?.credit)
+    const equity = Number(client?.equity)
+    return (Number.isFinite(credit) ? credit : 0) - (Number.isFinite(equity) ? equity : 0)
+  }
   
   let filtered = clients.slice() // Fast shallow copy
   
@@ -74,6 +83,15 @@ function filterClients(clients, filters) {
   // Filter by credit (has non-zero credit)
   if (filterByCredit) {
     filtered = filtered.filter(c => c && c.credit && c.credit !== 0)
+  }
+
+  // Filter by PnL (has non-zero pnl value)
+  if (hasPnl) {
+    filtered = filtered.filter(c => {
+      if (!c) return false
+      const pnlValue = getPnlColumnValue(c)
+      return Number.isFinite(pnlValue) && pnlValue !== 0
+    })
   }
   
   // Apply column filters

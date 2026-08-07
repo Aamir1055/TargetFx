@@ -252,8 +252,8 @@ export default function Client2Module() {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
       }
       if (filters.hasPnl) {
-        // Include clients with realized activity in the running week, even if floating is zero.
-        apiFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
+        // Has P&L: use pnl column value, not weekly bucket.
+        apiFilters.push({ field: 'pnl', operator: 'not_equal', value: '0' })
       }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
@@ -667,7 +667,7 @@ export default function Client2Module() {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
       }
       if (filters.hasPnl) {
-        apiFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
+        apiFilters.push({ field: 'pnl', operator: 'not_equal', value: '0' })
       }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
@@ -773,7 +773,7 @@ export default function Client2Module() {
         apiFilters.push({ field: 'lifetimeDeposit', operator: 'equal', value: '0' })
       }
       if (filters.hasPnl) {
-        apiFilters.push({ field: 'thisWeekPnL', operator: 'not_equal', value: '0' })
+        apiFilters.push({ field: 'pnl', operator: 'not_equal', value: '0' })
       }
       if (apiFilters.length > 0) {
         payload.filters = apiFilters
