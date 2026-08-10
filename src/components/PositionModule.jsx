@@ -1700,7 +1700,7 @@ export default function PositionModule() {
                 }}>
                   {/* Header - Sticky */}
                   <div
-                    className="grid bg-blue-500 text-white text-[10px] font-semibold h-[28px] sticky top-0 z-20"
+                    className="grid bg-blue-500 text-white text-[10px] font-semibold h-[28px] sticky top-0 z-30"
                     style={{
                       minWidth: 'max-content',
                       gridTemplateColumns: [
@@ -1721,7 +1721,7 @@ export default function PositionModule() {
                   >
                     {clientNetVisibleColumns.symbol && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer sticky left-0 z-40 bg-blue-500"
+                        className="flex items-center justify-start px-1 cursor-pointer sticky left-0 z-50 bg-blue-500"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('symbol'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('symbol'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto', boxShadow: '2px 0 4px rgba(0,0,0,0.08)' }}
