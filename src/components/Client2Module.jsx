@@ -1537,6 +1537,8 @@ export default function Client2Module() {
                         }
                       } else if (col.key === 'accountLastUpdate' || col.key === 'userLastUpdate' || col.key === 'lastAccess' || col.key === 'registration') {
                         rowData[col.key] = formatCellValue(col.key, client[col.key]);
+                      } else if (col.key === 'tradingEnabled' || col.key === 'accountEnabled') {
+                        rowData[col.key] = formatCellValue(col.key, client[col.key]);
                       } else {
                         rowData[col.key] = client[col.key] || '-';
                       }
@@ -1561,7 +1563,17 @@ export default function Client2Module() {
                               }`}>
                                 {client.processorType === true ? 'Connected' : 'Not Connected'}
                               </span>
-                            ) : col.key === 'accountType' ? (
+                            ) : col.key === 'tradingEnabled' || col.key === 'accountEnabled' ? (() => {
+                              const val = client[col.key]
+                              const isEnabled = val === true || val === 1 || val === '1' || String(val).toLowerCase() === 'true'
+                              return (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium ${
+                                  isEnabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {isEnabled ? 'Enabled' : 'Disabled'}
+                                </span>
+                              )
+                            })() : col.key === 'accountType' ? (
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium uppercase ${
                                 (client.accountType || '').toLowerCase() === 'gold' 
                                   ? 'bg-yellow-100 text-yellow-800' 
