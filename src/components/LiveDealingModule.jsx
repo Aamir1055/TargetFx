@@ -1366,7 +1366,6 @@ export default function LiveDealingModule() {
         }}
         onDeleteGroup={(group) => {
           deleteGroup(group.name)
-          setIsLoginGroupsOpen(false)
         }}
         onPendingChange={(hasPending, draftName) => {
           setHasPendingGroupChanges(hasPending)

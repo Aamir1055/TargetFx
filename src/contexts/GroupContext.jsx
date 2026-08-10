@@ -54,6 +54,7 @@ const extractFiltersArray = (res) => {
 export const GroupProvider = ({ children }) => {
   // API is the single source of truth for groups.
   const [groups, setGroups] = useState([])
+  const groupsRef = useRef([])
 
   // Track whether the initial API fetch has completed
   const [groupsLoaded, setGroupsLoaded] = useState(false)
@@ -62,11 +63,24 @@ export const GroupProvider = ({ children }) => {
   const syncTimerRef = useRef(null)
   // Guard to avoid syncing immediately after first API hydration.
   const hasHydratedRef = useRef(false)
+  // Guard to skip the effect-driven debounced sync right after explicit immediate mutation sync.
+  const skipNextDebouncedSyncRef = useRef(false)
+  // Timestamp used to avoid immediate API re-fetch overriding fresh local mutations.
+  const lastLocalMutationAtRef = useRef(0)
 
   // Track active group per module — cleared on page refresh
   const [activeGroupFilters, setActiveGroupFilters] = useState({})
 
+  useEffect(() => {
+    groupsRef.current = groups
+  }, [groups])
+
   const refreshGroups = useCallback(async () => {
+    // If user just created/edited/deleted a group, briefly trust local state
+    // to avoid a GET response overwriting pending fresh changes.
+    if (Date.now() - lastLocalMutationAtRef.current < 1500) {
+      return groupsRef.current
+    }
     try {
       const res = await brokerAPI.getSavedFilters()
       const raw = extractFiltersArray(res)
@@ -103,15 +117,25 @@ export const GroupProvider = ({ children }) => {
   }, [])
 
   // ── API: persist groups whenever they change (debounced 400 ms) ───────────
-  const syncToApi = useCallback((nextGroups) => {
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
-    syncTimerRef.current = setTimeout(async () => {
+  const syncToApi = useCallback((nextGroups, options = {}) => {
+    const immediate = options.immediate === true
+    const doSync = async () => {
       try {
         await brokerAPI.putSavedFilters(toApiFilters(nextGroups))
         console.log('[Groups] Synced to API:', nextGroups.length, 'groups')
       } catch (err) {
         console.warn('[Groups] Failed to sync to API:', err?.message)
       }
+    }
+
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    if (immediate) {
+      void doSync()
+      return
+    }
+
+    syncTimerRef.current = setTimeout(async () => {
+      await doSync()
     }, 400)
   }, [])
 
@@ -120,6 +144,10 @@ export const GroupProvider = ({ children }) => {
     if (!groupsLoaded) return // Don't overwrite API data before first load
     if (!hasHydratedRef.current) {
       hasHydratedRef.current = true
+      return
+    }
+    if (skipNextDebouncedSyncRef.current) {
+      skipNextDebouncedSyncRef.current = false
       return
     }
     syncToApi(groups)
@@ -139,7 +167,11 @@ export const GroupProvider = ({ children }) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-    setGroups(prev => [...prev, newGroup])
+    const nextGroups = [...groupsRef.current, newGroup]
+    lastLocalMutationAtRef.current = Date.now()
+    skipNextDebouncedSyncRef.current = true
+    setGroups(nextGroups)
+    syncToApi(nextGroups, { immediate: true })
     console.log('Group created:', newGroup)
     return true
   }
@@ -158,7 +190,11 @@ export const GroupProvider = ({ children }) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-    setGroups(prev => [...prev, newGroup])
+    const nextGroups = [...groupsRef.current, newGroup]
+    lastLocalMutationAtRef.current = Date.now()
+    skipNextDebouncedSyncRef.current = true
+    setGroups(nextGroups)
+    syncToApi(nextGroups, { immediate: true })
     console.log('Range group created:', newGroup)
     return true
   }
@@ -168,13 +204,18 @@ export const GroupProvider = ({ children }) => {
       console.error('Group name already exists'); return false
     }
 
-    setGroups(prev => prev.map(g => {
+    const nextGroups = groupsRef.current.map(g => {
       if (g.name !== oldGroupName) return g
       const updated = { ...g, name: newGroupName.trim(), updatedAt: new Date().toISOString() }
       if (newRange) { updated.range = newRange; updated.loginIds = [] }
       else if (newLoginIds) { updated.loginIds = [...new Set(newLoginIds)]; updated.range = null }
       return updated
-    }))
+    })
+
+    lastLocalMutationAtRef.current = Date.now()
+    skipNextDebouncedSyncRef.current = true
+    setGroups(nextGroups)
+    syncToApi(nextGroups, { immediate: true })
 
     if (oldGroupName !== newGroupName) {
       setActiveGroupFilters(prev => {
@@ -188,7 +229,11 @@ export const GroupProvider = ({ children }) => {
   }
 
   const deleteGroup = (groupName) => {
-    setGroups(prev => prev.filter(g => g.name !== groupName))
+    const nextGroups = groupsRef.current.filter(g => g.name !== groupName)
+    lastLocalMutationAtRef.current = Date.now()
+    skipNextDebouncedSyncRef.current = true
+    setGroups(nextGroups)
+    syncToApi(nextGroups, { immediate: true })
     setActiveGroupFilters(prev => {
       const next = { ...prev }
       Object.keys(next).forEach(mod => { if (next[mod] === groupName) next[mod] = null })

@@ -1116,7 +1116,6 @@ export default function PendingOrdersModule() {
         }}
         onDeleteGroup={(group) => {
           deleteGroup(group.name)
-          setIsLoginGroupsOpen(false)
         }}
         onPendingChange={(hasPending, draftName) => {
           setHasPendingGroupChanges(hasPending)

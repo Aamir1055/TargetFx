@@ -1689,7 +1689,6 @@ export default function Client2Module() {
         }}
         onDeleteGroup={(group) => {
           deleteGroup(group.name)
-          setIsLoginGroupsOpen(false)
         }}
         onPendingChange={useCallback((hasPending, draftName) => {
           setHasPendingGroupChanges(prev => (prev !== hasPending ? hasPending : prev))
