@@ -1125,16 +1125,14 @@ const LiveDealingPage = () => {
     if (!timestamp) return '-'
     const n = Number(timestamp)
     const ms = n < 10000000000 ? n * 1000 : n
-    const date = new Date(ms)
-    return date.toLocaleString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    })
+    const dt = new Date(ms)
+    const d = String(dt.getUTCDate()).padStart(2, '0')
+    const mo = String(dt.getUTCMonth() + 1).padStart(2, '0')
+    const y = dt.getUTCFullYear()
+    const h = String(dt.getUTCHours()).padStart(2, '0')
+    const mi = String(dt.getUTCMinutes()).padStart(2, '0')
+    const s = String(dt.getUTCSeconds()).padStart(2, '0')
+    return `${d}/${mo}/${y} ${h}:${mi}:${s}`
   }
 
   // Format number with Indian comma separator (1,00,000)

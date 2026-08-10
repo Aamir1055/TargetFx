@@ -36,14 +36,14 @@ const formatTime = (timestamp) => {
   if (!timestamp) return '-'
   const n = Number(timestamp)
   const ms = n < 10000000000 ? n * 1000 : n
-  const date = new Date(ms)
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const year = date.getFullYear()
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+  const dt = new Date(ms)
+  const d = String(dt.getUTCDate()).padStart(2, '0')
+  const mo = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const y = dt.getUTCFullYear()
+  const h = String(dt.getUTCHours()).padStart(2, '0')
+  const mi = String(dt.getUTCMinutes()).padStart(2, '0')
+  const s = String(dt.getUTCSeconds()).padStart(2, '0')
+  return `${d}/${mo}/${y} ${h}:${mi}:${s}`
 }
 
 export default function LiveDealingModule() {
