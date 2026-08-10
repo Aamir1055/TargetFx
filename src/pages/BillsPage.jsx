@@ -369,6 +369,9 @@ const BillsPage = () => {
   const { logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
+      // On mobile, always start closed to match other mobile modules and avoid
+      // fresh-login initial-open state that swallowed the first close tap.
+      if (typeof window !== 'undefined' && window.innerWidth < 640) return false
       const v = localStorage.getItem('sidebarOpen')
       return v !== null ? JSON.parse(v) : true
     } catch { return true }
@@ -377,6 +380,12 @@ const BillsPage = () => {
     setSidebarOpen(false)
     try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {}
   }, [])
+  const handleMobileNavSelect = useCallback((path) => {
+    closeMobileSidebar()
+    if (location.pathname !== path) {
+      navigate(path)
+    }
+  }, [closeMobileSidebar, location.pathname, navigate])
   const [numericMode, setNumericMode] = useState(() => {
     try {
       const s = localStorage.getItem('globalDisplayMode')
@@ -1715,7 +1724,15 @@ const BillsPage = () => {
                 <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eyes</div>
                 <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
               </div>
-              <button onClick={closeMobileSidebar} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
+              <button
+                onClick={closeMobileSidebar}
+                onTouchEnd={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  closeMobileSidebar()
+                }}
+                className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center"
+              >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/></svg>
               </button>
             </div>
@@ -1762,13 +1779,14 @@ const BillsPage = () => {
                 ].map((item) => (
                   <button
                     key={item.path}
-                    onClick={() => {
-                      closeMobileSidebar()
-                      if (location.pathname !== item.path) {
-                        navigate(item.path)
-                      }
+                    onClick={() => handleMobileNavSelect(item.path)}
+                    onTouchEnd={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleMobileNavSelect(item.path)
                     }}
                     className={`flex items-center gap-3 px-4 h-11 text-[13px] ${location.pathname === item.path ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                    style={{ touchAction: 'manipulation' }}
                   >
                     <span className="w-5 h-5 flex items-center justify-center">
                       <img
@@ -1796,6 +1814,12 @@ const BillsPage = () => {
             <div className="p-4 mt-auto border-t border-[#ECECEC]">
               <button
                 onClick={async () => {
+                  await logout()
+                  closeMobileSidebar()
+                }}
+                onTouchEnd={async (e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
                   await logout()
                   closeMobileSidebar()
                 }}
