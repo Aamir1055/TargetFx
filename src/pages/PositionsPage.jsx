@@ -101,6 +101,8 @@ const PositionsPage = () => {
     symbol: true,
     netType: true,
     netVolume: true,
+    avgPrice: true,
+    currentPrice: true,
     totalProfit: true,
     totalStorage: false,
     loginCount: true,
@@ -894,7 +896,8 @@ const PositionsPage = () => {
             symbol: item.symbol || item.baseSymbol,
             netType: item.action === 'BUY' ? 'Buy' : item.action === 'SELL' ? 'Sell' : (item.action === 'FLAT' ? 'Flat' : (item.action || 'Flat')),
             netVolume: item.netVolume || 0,
-            avgPrice: item.avgPrice || 0,
+            avgPrice: item.averagePrice ?? item.avgPrice ?? 0,
+            currentPrice: item.currentPrice ?? item.priceCurrent ?? 0,
             totalProfit: item.totalProfit || 0,
             totalStorage: item.totalStorage || 0,
             totalCommission: item.totalCommission || 0,
@@ -905,7 +908,8 @@ const PositionsPage = () => {
               exactSymbol: v.symbol || v.exactSymbol,
               netType: v.action === 'BUY' ? 'Buy' : v.action === 'SELL' ? 'Sell' : (v.action === 'FLAT' ? 'Flat' : (v.action || 'Flat')),
               netVolume: v.netVolume || 0,
-              avgPrice: v.avgPrice || 0,
+              avgPrice: v.averagePrice ?? v.avgPrice ?? 0,
+              currentPrice: v.currentPrice ?? v.priceCurrent ?? 0,
               totalProfit: v.totalProfit || 0,
               totalStorage: v.totalStorage || 0,
               totalCommission: v.totalCommission || 0
@@ -1904,6 +1908,8 @@ const PositionsPage = () => {
         symbol: item.symbol || item.baseSymbol,
         netType: ACTION_LABEL[item.action] ?? item.action ?? 'Flat',
         netVolume: item.netVolume ?? 0,
+        avgPrice: item.averagePrice ?? item.avgPrice ?? 0,
+        currentPrice: item.currentPrice ?? item.priceCurrent ?? 0,
         totalProfit: item.totalProfit ?? 0,
         totalStorage: item.totalStorage ?? 0,
         totalCommission: item.totalCommission ?? 0,
@@ -1941,6 +1947,7 @@ const PositionsPage = () => {
         { key: 'symbol',         label: 'Symbol',                                   accessor: r => r.symbol },
         { key: 'netType',        label: 'NET Type',                                 accessor: r => r.netType },
         { key: 'netVolume',      label: pct ? 'NET Volume %'    : 'NET Volume',     accessor: r => r.netVolume },
+        { key: 'currentPrice',   label: 'Current Price',                            accessor: r => r.currentPrice },
         { key: 'totalProfit',    label: pct ? 'Total Profit %'  : 'Total Profit',   accessor: r => r.totalProfit },
         { key: 'totalStorage',   label: pct ? 'Swap %' : 'Swap',                    accessor: r => r.totalStorage },
         { key: 'loginCount',     label: 'Logins',                                   accessor: r => r.loginCount },
@@ -1959,12 +1966,14 @@ const PositionsPage = () => {
 
   // NET table dynamic columns: order, labels, and cell renderers
   const netColumnOrder = [
-    'symbol','netType','netVolume','totalProfit','totalStorage','loginCount','totalPositions'
+    'symbol','netType','netVolume','avgPrice','currentPrice','totalProfit','totalStorage','loginCount','totalPositions'
   ]
   const netColumnLabels = {
     symbol: 'Symbol',
     netType: 'NET Type',
     netVolume: 'NET Volume',
+    avgPrice: 'Avg Price',
+    currentPrice: 'Current Price',
     totalProfit: 'Total Profit',
     totalStorage: 'Swap',
     loginCount: 'Logins',
@@ -2000,7 +2009,9 @@ const PositionsPage = () => {
       case 'netVolume':
         return formatNumber(netPos.netVolume, 2)
       case 'avgPrice':
-        return formatNumber(netPos.avgPrice, 5)
+        return formatNumber(netPos.avgPrice, 2)
+      case 'currentPrice':
+        return formatNumber(netPos.currentPrice, 2)
       case 'totalProfit':
       case 'profit': {
         const val = key === 'profit' ? netPos.totalProfit : netPos.totalProfit
@@ -2998,6 +3009,25 @@ const PositionsPage = () => {
                               </div>
                             </th>
                           )}
+                          {netVisibleColumns.currentPrice && (
+                            <th 
+                              className="px-2 py-2 text-left text-[11px] font-bold bg-blue-600 text-white uppercase tracking-wider cursor-pointer hover:bg-blue-700 transition-all select-none group"
+                              onClick={() => handleNetSort('currentPrice')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Current Price</span>
+                                {netSortColumn === 'currentPrice' ? (
+                                  <svg className={`w-3 h-3 transition-transform ${netSortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3 h-3 opacity-0 group-hover:opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                                  </svg>
+                                )}
+                              </div>
+                            </th>
+                          )}
                           {netVisibleColumns.totalProfit && (
                             <th 
                               className="px-2 py-2 text-left text-[11px] font-bold bg-blue-600 text-white uppercase tracking-wider cursor-pointer hover:bg-blue-700 transition-all select-none group"
@@ -3155,7 +3185,10 @@ const PositionsPage = () => {
                               <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(netPos.netVolume, 2) : undefined}>{fmtMoney(netPos.netVolume, 2)}</td>
                             )}
                             {netVisibleColumns.avgPrice && (
-                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{fmtPriceFull(netPos.avgPrice, getDigits(netPos))}</td>
+                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(netPos.avgPrice, 2)}</td>
+                            )}
+                            {netVisibleColumns.currentPrice && (
+                              <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(netPos.currentPrice, 2)}</td>
                             )}
                             {netVisibleColumns.totalProfit && (
                               <td className="px-2 py-1.5 text-sm whitespace-nowrap" title={numericMode === 'compact' ? fmtMoneyFull(netPos.totalProfit, 2) : undefined}>
@@ -3205,7 +3238,7 @@ const PositionsPage = () => {
                                       </div>
                                       <div className="mt-1 text-[12px] text-gray-600 flex gap-4">
                                         <div>NET Vol: <span className="font-semibold text-gray-900">{formatNumber(v.netVolume, 2)}</span></div>
-                                        <div>Avg: <span className="font-semibold text-gray-900">{formatNumber(v.avgPrice, 5)}</span></div>
+                                        <div>Avg: <span className="font-semibold text-gray-900">{formatNumber(v.avgPrice, 2)}</span></div>
                                         <div>P/L: <span className={`font-semibold ${v.totalProfit>=0?'text-green-700':'text-red-700'}`}>{formatNumber(v.totalProfit, 2)}</span></div>
                                       </div>
                                     </div>
@@ -3666,7 +3699,7 @@ const PositionsPage = () => {
                                   <span className={`px-2 py-0.5 text-xs font-medium rounded ${row.netType === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{row.netType}</span>
                                 </td>)}
                                 {clientNetVisibleColumns.netVolume && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(row.netVolume, 2) : undefined}>{fmtMoney(row.netVolume, 2)}</td>)}
-                                {clientNetVisibleColumns.avgPrice && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(row.avgPrice, 5)}</td>)}
+                                {clientNetVisibleColumns.avgPrice && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(row.avgPrice, 2)}</td>)}
                                 {clientNetVisibleColumns.totalProfit && (<td className="px-2 py-1.5 text-sm whitespace-nowrap">
                                   <span className={`px-2 py-0.5 text-xs font-medium rounded ${row.totalProfit >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`} title={numericMode === 'compact' ? fmtMoneyFull(row.totalProfit, 2) : undefined}>{fmtMoney(row.totalProfit, 2)}</span>
                                 </td>)}

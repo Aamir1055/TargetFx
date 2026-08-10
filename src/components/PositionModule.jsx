@@ -106,6 +106,8 @@ export default function PositionModule() {
     symbol: true,
     netType: true,
     netVolume: true,
+    avgPrice: true,
+    currentPrice: true,
     totalProfit: true,
     totalStorage: true,
     loginCount: true,
@@ -539,7 +541,8 @@ export default function PositionModule() {
             symbol: item.symbol || item.baseSymbol || '-',
             netType: normalizeNetTypeLabel(item.action),
             netVolume: item.netVolume || 0,
-            avgPrice: item.avgPrice || 0,
+            avgPrice: item.averagePrice ?? item.avgPrice ?? 0,
+            currentPrice: item.currentPrice ?? item.priceCurrent ?? 0,
             totalProfit: item.totalProfit || 0,
             totalStorage: item.totalStorage || 0,
             totalCommission: item.totalCommission || 0,
@@ -998,7 +1001,8 @@ export default function PositionModule() {
           symbol: item.symbol || item.baseSymbol || '-',
           netType: ACTION_LABEL[item.action] ?? item.action ?? 'Flat',
           netVolume: item.netVolume ?? 0,
-          avgPrice: item.avgPrice ?? 0,
+          avgPrice: item.averagePrice ?? item.avgPrice ?? 0,
+          currentPrice: item.currentPrice ?? item.priceCurrent ?? 0,
           totalProfit: item.totalProfit ?? 0,
           totalStorage: item.totalStorage ?? 0,
           totalCommission: item.totalCommission ?? 0,
@@ -1032,6 +1036,7 @@ export default function PositionModule() {
           { key: 'netType',        label: 'NET Type',                                   accessor: r => r.netType },
           { key: 'netVolume',      label: pct ? 'NET Volume %'    : 'NET Volume',       accessor: r => r.netVolume },
           { key: 'avgPrice',       label: 'Avg Price',                                  accessor: r => r.avgPrice },
+          { key: 'currentPrice',   label: 'Current Price',                              accessor: r => r.currentPrice },
           { key: 'totalProfit',    label: pct ? 'Total Profit %'  : 'Total Profit',     accessor: r => r.totalProfit },
           { key: 'totalStorage',   label: pct ? 'Swap %' : 'Swap',                      accessor: r => r.totalStorage },
           { key: 'totalCommission',label: 'Commission',                                 accessor: r => r.totalCommission },
@@ -1702,6 +1707,7 @@ export default function PositionModule() {
                         clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                         clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                         clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
+                        clientNetVisibleColumns.currentPrice ? 'minmax(90px, 1fr)' : '',
                         clientNetVisibleColumns.totalProfit ? 'minmax(90px, 1fr)' : '',
                         clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
                         clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
@@ -1766,6 +1772,21 @@ export default function PositionModule() {
                       >
                         Avg Price
                         {clientNetSortColumn === 'avgPrice' && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
+                            <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {clientNetVisibleColumns.currentPrice && (
+                      <div
+                        className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
+                        onClick={(e) => { e.stopPropagation(); handleClientNetSort('currentPrice'); }}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('currentPrice'); }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                      >
+                        Current Price
+                        {clientNetSortColumn === 'currentPrice' && (
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="ml-1">
                             <path d={clientNetSortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
@@ -1859,6 +1880,7 @@ export default function PositionModule() {
                             clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                             clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                             clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
+                            clientNetVisibleColumns.currentPrice ? 'minmax(90px, 1fr)' : '',
                             clientNetVisibleColumns.totalProfit ? 'minmax(90px, 1fr)' : '',
                             clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
                             clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
@@ -1870,6 +1892,7 @@ export default function PositionModule() {
                           {clientNetVisibleColumns.netType && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.netVolume && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.avgPrice && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
+                          {clientNetVisibleColumns.currentPrice && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.totalProfit && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.totalStorage && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
                           {clientNetVisibleColumns.totalCommission && <div className="h-[40px] flex items-center px-1 bg-white border-b border-[#E1E1E1]"><div className="h-3 w-[70%] bg-gray-200 rounded animate-pulse" /></div>}
@@ -1888,6 +1911,7 @@ export default function PositionModule() {
                           clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
                           clientNetVisibleColumns.netVolume ? 'minmax(80px, 1fr)' : '',
                           clientNetVisibleColumns.avgPrice ? 'minmax(80px, 1fr)' : '',
+                          clientNetVisibleColumns.currentPrice ? 'minmax(90px, 1fr)' : '',
                           clientNetVisibleColumns.totalProfit ? 'minmax(90px, 1fr)' : '',
                           clientNetVisibleColumns.totalStorage ? 'minmax(80px, 1fr)' : '',
                           clientNetVisibleColumns.totalCommission ? 'minmax(80px, 1fr)' : '',
@@ -1908,6 +1932,7 @@ export default function PositionModule() {
                         }`}>{pos.netType}</div>}
                         {clientNetVisibleColumns.netVolume && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.netVolume) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.netVolume)}</div>}
                         {clientNetVisibleColumns.avgPrice && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.avgPrice) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.avgPrice)}</div>}
+                        {clientNetVisibleColumns.currentPrice && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.currentPrice) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.currentPrice)}</div>}
                         {clientNetVisibleColumns.totalProfit && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalProfit) : undefined} className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
                           pos.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}>{fmtMoney(pos.totalProfit)}</div>}
@@ -2190,6 +2215,8 @@ export default function PositionModule() {
                   { key: 'symbol', label: 'Symbol' },
                   { key: 'netType', label: 'NET Type' },
                   { key: 'netVolume', label: 'NET Volume' },
+                  { key: 'avgPrice', label: 'Avg Price' },
+                  { key: 'currentPrice', label: 'Current Price' },
                   { key: 'totalProfit', label: 'Total Profit' },
                   { key: 'totalStorage', label: 'Swap' },
                   { key: 'totalCommission', label: 'Total Commission' },
