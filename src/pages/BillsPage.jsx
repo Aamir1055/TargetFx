@@ -373,6 +373,10 @@ const BillsPage = () => {
       return v !== null ? JSON.parse(v) : true
     } catch { return true }
   })
+  const closeMobileSidebar = useCallback(() => {
+    setSidebarOpen(false)
+    try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {}
+  }, [])
   const [numericMode, setNumericMode] = useState(() => {
     try {
       const s = localStorage.getItem('globalDisplayMode')
@@ -1701,7 +1705,7 @@ const BillsPage = () => {
       {/* Mobile Sidebar Drawer (same pattern as other mobile modules) */}
       {isMobile && sidebarOpen && (
         <div className="fixed inset-0 z-30">
-          <div className="absolute inset-0 bg-black/10" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute inset-0 bg-black/10" onClick={closeMobileSidebar} />
           <div className="absolute left-0 top-0 h-full w-[300px] bg-white shadow-xl rounded-r-2xl flex flex-col">
             <div className="p-4 flex items-center gap-3 border-b border-[#ECECEC]">
               <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -1711,7 +1715,7 @@ const BillsPage = () => {
                 <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eyes</div>
                 <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
+              <button onClick={closeMobileSidebar} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/></svg>
               </button>
             </div>
@@ -1759,8 +1763,10 @@ const BillsPage = () => {
                   <button
                     key={item.path}
                     onClick={() => {
-                      navigate(item.path)
-                      setSidebarOpen(false)
+                      closeMobileSidebar()
+                      if (location.pathname !== item.path) {
+                        navigate(item.path)
+                      }
                     }}
                     className={`flex items-center gap-3 px-4 h-11 text-[13px] ${location.pathname === item.path ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                   >
@@ -1791,7 +1797,7 @@ const BillsPage = () => {
               <button
                 onClick={async () => {
                   await logout()
-                  setSidebarOpen(false)
+                  closeMobileSidebar()
                 }}
                 className="flex items-center gap-3 px-2 h-[37px] text-[10px] text-[#404040]"
               >

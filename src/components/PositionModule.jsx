@@ -1702,6 +1702,7 @@ export default function PositionModule() {
                   <div
                     className="grid bg-blue-500 text-white text-[10px] font-semibold h-[28px] sticky top-0 z-20"
                     style={{
+                      minWidth: 'max-content',
                       gridTemplateColumns: [
                         clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                         clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
@@ -1720,10 +1721,10 @@ export default function PositionModule() {
                   >
                     {clientNetVisibleColumns.symbol && (
                       <div
-                        className="flex items-center justify-start px-1 cursor-pointer sticky left-0 z-30 bg-blue-500"
+                        className="flex items-center justify-start px-1 cursor-pointer sticky left-0 z-40 bg-blue-500"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('symbol'); }}
                         onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('symbol'); }}
-                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
+                        style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto', boxShadow: '2px 0 4px rgba(0,0,0,0.08)' }}
                       >
                         Symbol
                         {clientNetSortColumn === 'symbol' && (
@@ -1875,6 +1876,7 @@ export default function PositionModule() {
                     <>
                       {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={`client-net-skeleton-${i}`} className="grid text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]" style={{
+                          minWidth: 'max-content',
                           gridTemplateColumns: [
                             clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                             clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
@@ -1906,6 +1908,7 @@ export default function PositionModule() {
                   ) : (
                     clientNetPaginatedPositions.map((pos, idx) => (
                       <div key={idx} className="grid text-[10px] text-[#4B4B4B] hover:bg-[#F8FAFC]" style={{
+                        minWidth: 'max-content',
                         gridTemplateColumns: [
                           clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
                           clientNetVisibleColumns.netType ? 'minmax(60px, 1fr)' : '',
@@ -1921,7 +1924,7 @@ export default function PositionModule() {
                       }}>
                         {clientNetVisibleColumns.symbol && (
                           <div
-                            className="flex items-center justify-start px-1 h-[40px] font-semibold bg-white text-black sticky left-0 z-10 border-b border-[#E1E1E1]"
+                            className="flex items-center justify-start px-1 h-[40px] font-semibold bg-white text-black sticky left-0 z-20 border-b border-[#E1E1E1]"
                             style={{boxShadow: '2px 0 4px rgba(0,0,0,0.05)'}}
                           >
                             {pos.symbol || '-'}
@@ -1931,8 +1934,8 @@ export default function PositionModule() {
                           pos.netType === 'Buy' ? 'text-green-600' : 'text-red-600'
                         }`}>{pos.netType}</div>}
                         {clientNetVisibleColumns.netVolume && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.netVolume) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.netVolume)}</div>}
-                        {clientNetVisibleColumns.avgPrice && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.avgPrice) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.avgPrice)}</div>}
-                        {clientNetVisibleColumns.currentPrice && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.currentPrice) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.currentPrice)}</div>}
+                        {clientNetVisibleColumns.avgPrice && <div title={fmtMoneyFull(pos.avgPrice)} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoneyFull(pos.avgPrice)}</div>}
+                        {clientNetVisibleColumns.currentPrice && <div title={fmtMoneyFull(pos.currentPrice)} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoneyFull(pos.currentPrice)}</div>}
                         {clientNetVisibleColumns.totalProfit && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalProfit) : undefined} className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
                           pos.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}>{fmtMoney(pos.totalProfit)}</div>}
