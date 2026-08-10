@@ -1447,8 +1447,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     }
 
     // ── Allocation total for donut ─────────────────────────────────────────────
-    // Use equity as the base so percentages of credit/balance/floating are relative to equity
-    const allocTotal = Math.abs(equity) || (Math.abs(credit) + Math.abs(balance) + Math.abs(floating)) || 1
+    // Keep percentages consistent with donut segments (credit/balance/floating).
+    const allocTotal = (Math.abs(credit) + Math.abs(balance) + Math.abs(floating)) || Math.abs(equity) || 1
 
     return (
       <div className="p-3 space-y-3 pb-6 bg-[#F0F4FA]">

@@ -350,7 +350,7 @@ export default function ClientPercentageModule() {
       { label: 'TOTAL CLIENTS', value: Number(stats.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), numericValue: stats.total },
       { label: 'CUSTOM PERCENTAGES', value: fmtCount(stats.total_custom), numericValue: stats.total_custom },
       { label: 'USING DEFAULT', value: fmtCount(stats.total_default), numericValue: stats.total_default },
-      { label: 'DEFAULT PERCENTAGE', value: `${stats.default_percentage || 0}%`, numericValue: stats.default_percentage }
+      { label: 'DEFAULT PERCENTAGE', value: `${stats.default_percentage || 0}`, numericValue: stats.default_percentage }
     ]
     
     if (cards.length === 0) {
@@ -415,7 +415,7 @@ export default function ClientPercentageModule() {
         value = item.client_login || item.login || '-'
         return (
           <div 
-            className={`h-[28px] flex items-center justify-start px-2 cursor-pointer hover:underline text-blue-600 font-semibold ${isSticky ? 'sticky left-0 bg-white z-10' : ''}`}
+            className={`h-[28px] flex items-center justify-start px-2 cursor-pointer hover:underline text-blue-600 font-semibold ${isSticky ? 'sticky left-8 bg-white z-10' : ''}`}
             style={{
               border: 'none', 
               outline: 'none', 
@@ -460,7 +460,7 @@ export default function ClientPercentageModule() {
 
     return (
       <div 
-        className={`h-[28px] flex items-center justify-start px-2 ${isSticky ? 'sticky left-0 bg-white z-10' : ''}`}
+        className={`h-[28px] flex items-center justify-start px-2 ${isSticky ? 'sticky left-8 bg-white z-10' : ''}`}
         style={{
           border: 'none', 
           outline: 'none', 

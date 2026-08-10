@@ -689,11 +689,15 @@ export default function PositionModule() {
       { key: 'phone', label: 'Phone', width: '85px' },
       { key: 'position', label: 'Position', width: '70px' },
       { key: 'symbol', label: 'Symbol', width: '70px' },
-      { key: 'action', label: 'Action', width: '60px' },
-      { key: 'netType', label: 'Action', width: '60px' },
+      ...(isMobileView
+        ? [{ key: 'netType', label: 'Action', width: '60px' }]
+        : [
+            { key: 'action', label: 'Action', width: '60px' },
+            { key: 'netType', label: 'Action', width: '60px' }
+          ]),
       { key: 'volume', label: 'Volume', width: '70px' },
       { key: 'volumePercentage', label: 'Volume %', width: '75px' },
-      { key: 'priceOpen', label: 'Avg Price', width: '80px' },
+      { key: 'priceOpen', label: 'Open Price', width: '80px' },
       { key: 'priceCurrent', label: 'Price Current', width: '90px' },
       { key: 'netVolume', label: 'Net Volume', width: '80px' },
       { key: 'sl', label: 'S/L', width: '70px' },
@@ -714,7 +718,7 @@ export default function PositionModule() {
       filtered[0].sticky = true
     }
     return filtered
-  }, [visibleColumns])
+  }, [visibleColumns, isMobileView])
 
   // Generate grid template columns for the table
   const gridTemplateColumns = useMemo(() => {
@@ -2106,11 +2110,15 @@ export default function PositionModule() {
                     { label: 'Phone', key: 'phone' },
                     { label: 'Position', key: 'position' },
                     { label: 'Symbol', key: 'symbol' },
-                    { label: 'Action', key: 'action' },
-                    { label: 'Action', key: 'netType' },
+                    ...(isMobileView
+                      ? [{ label: 'Action', key: 'netType' }]
+                      : [
+                          { label: 'Action', key: 'action' },
+                          { label: 'Action', key: 'netType' }
+                        ]),
                     { label: 'Volume', key: 'volume' },
                     { label: 'Volume %', key: 'volumePercentage' },
-                    { label: 'Price Open', key: 'priceOpen' },
+                    { label: 'Open Price', key: 'priceOpen' },
                     { label: 'Price Current', key: 'priceCurrent' },
                     { label: 'Net Volume', key: 'netVolume' },
                     { label: 'S/L', key: 'sl' },

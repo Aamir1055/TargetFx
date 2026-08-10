@@ -1107,7 +1107,7 @@ const ClientPercentagePage = () => {
                 </div>
               </div>
               <div className="text-sm md:text-base font-bold text-[#000000] flex items-center gap-1.5 leading-none">
-                <span>{stats.default_percentage}%</span>
+                <span>{stats.default_percentage}</span>
               </div>
             </div>
           </div>

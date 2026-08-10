@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment, cloneElement } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import JSZip from 'jszip'
 import { brokerAPI } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageSizeSelect from '../components/PageSizeSelect'
@@ -362,12 +364,35 @@ const ALL_BILL_COLUMNS = [
 ]
 
 const BillsPage = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
       const v = localStorage.getItem('sidebarOpen')
       return v !== null ? JSON.parse(v) : true
     } catch { return true }
   })
+  const [numericMode, setNumericMode] = useState(() => {
+    try {
+      const s = localStorage.getItem('globalDisplayMode')
+      return s === 'full' ? 'full' : 'compact'
+    } catch {
+      return 'compact'
+    }
+  })
+  useEffect(() => {
+    const onChange = (e) => {
+      const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
+      if (v === 'full' || v === 'compact') setNumericMode(v)
+    }
+    window.addEventListener('globalDisplayModeChanged', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('globalDisplayModeChanged', onChange)
+      window.removeEventListener('storage', onChange)
+    }
+  }, [])
 
   const [weeks, setWeeks] = useState([])
   const [selectedWeekId, setSelectedWeekId] = useState(null)
@@ -848,11 +873,13 @@ const BillsPage = () => {
           subtitle="Please wait"
         />
       )}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
-      />
+      <div className="hidden lg:block">
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
+          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
+        />
+      </div>
 
       <main className={`flex-1 px-3 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
@@ -1491,12 +1518,7 @@ const BillsPage = () => {
               </div>
 
               {/* Mobile Footer */}
-              <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-white">
-                <div className="text-[10px] text-gray-600">
-                  {pagination.total > 0
-                    ? `Showing page ${pagination.page} of ${pagination.total_pages} — ${pagination.total} total`
-                    : '—'}
-                </div>
+              <div className="flex items-center justify-end px-3 py-2 border-t border-gray-100 bg-white">
                 {selected.size > 0 && (
                   <div className="text-[10px] text-blue-700 font-medium">{selected.size} selected</div>
                 )}
@@ -1675,6 +1697,111 @@ const BillsPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Mobile Sidebar Drawer (same pattern as other mobile modules) */}
+      {isMobile && sidebarOpen && (
+        <div className="fixed inset-0 z-30">
+          <div className="absolute inset-0 bg-black/10" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute left-0 top-0 h-full w-[300px] bg-white shadow-xl rounded-r-2xl flex flex-col">
+            <div className="p-4 flex items-center gap-3 border-b border-[#ECECEC]">
+              <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1A63BC"/></svg>
+              </div>
+              <div className="flex-1">
+                <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eyes</div>
+                <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
+              </div>
+              <button onClick={() => setSidebarOpen(false)} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/></svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto py-2">
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNumericMode('compact')
+                      try { localStorage.setItem('globalDisplayMode', 'compact') } catch {}
+                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'compact' })) } catch {}
+                    }}
+                    className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  >
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNumericMode('full')
+                      try { localStorage.setItem('globalDisplayMode', 'full') } catch {}
+                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'full' })) } catch {}
+                    }}
+                    className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  >
+                    Full
+                  </button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
+              <nav className="flex flex-col">
+                {[
+                  { label: 'Clients', path: '/client2' },
+                  { label: 'Positions', path: '/positions' },
+                  { label: 'Pending Orders', path: '/pending-orders' },
+                  { label: 'Margin Level', path: '/margin-level' },
+                  { label: 'Live Dealing', path: '/live-dealing' },
+                  { label: 'Client Percentage', path: '/client-percentage' },
+                  { label: 'Bills', path: '/bills' },
+                  { label: 'Settings', path: '/settings' },
+                ].map((item) => (
+                  <button
+                    key={item.path}
+                    onClick={() => {
+                      navigate(item.path)
+                      setSidebarOpen(false)
+                    }}
+                    className={`flex items-center gap-3 px-4 h-11 text-[13px] ${location.pathname === item.path ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                  >
+                    <span className="w-5 h-5 flex items-center justify-center">
+                      <img
+                        src={`${import.meta.env.BASE_URL || '/'}sidebar-icons/${{
+                          '/client2': 'Clients',
+                          '/positions': 'Positions',
+                          '/pending-orders': 'Pending-Orders',
+                          '/margin-level': 'Margin-Level',
+                          '/live-dealing': 'Live-Dealing',
+                          '/client-percentage': 'Client-Percentage',
+                          '/bills': 'Bills',
+                          '/settings': 'Settings'
+                        }[item.path]}.svg`}
+                        alt={item.label}
+                        style={{ filter: 'brightness(0)' }}
+                        className="w-5 h-5"
+                      />
+                    </span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            <div className="p-4 mt-auto border-t border-[#ECECEC]">
+              <button
+                onClick={async () => {
+                  await logout()
+                  setSidebarOpen(false)
+                }}
+                className="flex items-center gap-3 px-2 h-[37px] text-[10px] text-[#404040]"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M10 17l5-5-5-5" stroke="#404040" strokeWidth="2"/><path d="M4 12h11" stroke="#404040" strokeWidth="2"/></svg>
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Group Modal */}
       <GroupModal

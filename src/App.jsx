@@ -69,6 +69,7 @@ const AppContent = () => {
   const { isAuthenticated, loading } = useAuth()
   const [isMobile, setIsMobile] = useState(false)
   const marginPollTimer = useRef(null)
+  const lastHiddenAtRef = useRef(0)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -82,6 +83,54 @@ const AppContent = () => {
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // Mobile auto-reload when tab/app becomes active after inactivity.
+  useEffect(() => {
+    if (!isMobile) return
+
+    const INACTIVE_RELOAD_MS = 2 * 60 * 1000
+    const STORAGE_KEY = 'mobileLastHiddenAt'
+
+    const markHiddenTime = () => {
+      const now = Date.now()
+      lastHiddenAtRef.current = now
+      try { sessionStorage.setItem(STORAGE_KEY, String(now)) } catch {}
+    }
+
+    const maybeReloadAfterInactivity = () => {
+      let hiddenAt = lastHiddenAtRef.current
+      if (!hiddenAt) {
+        try { hiddenAt = Number(sessionStorage.getItem(STORAGE_KEY) || '0') } catch { hiddenAt = 0 }
+      }
+      if (!hiddenAt) return
+      if (Date.now() - hiddenAt >= INACTIVE_RELOAD_MS) {
+        window.location.reload()
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        markHiddenTime()
+      } else if (document.visibilityState === 'visible') {
+        maybeReloadAfterInactivity()
+      }
+    }
+
+    const onPageShow = (event) => {
+      // Handles mobile back-forward cache restores.
+      if (event.persisted) {
+        maybeReloadAfterInactivity()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pageshow', onPageShow)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [isMobile])
 
   // Global margin-level polling — runs every 3 minutes regardless of which page is active.
   // Stores the full client list in localStorage so any page can read fresh data on mount.
