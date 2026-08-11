@@ -759,9 +759,9 @@ const ClientPercentagePage = () => {
   const getCardIcon = (cardTitle) => {
     const iconMap = {
       'Total Clients': '/desktop-icons/Clients.svg',
-      'Custom Percentages': '/desktop-icons/Custom Percentages.svg',
+      'Total Custom': '/desktop-icons/Total Clients.svg',
       'Using Default': '/desktop-icons/Using Default.svg',
-      'Default Percentage': '/desktop-icons/Default Percentage.svg',
+      'Default Percentage': '/desktop-icons/Balance.svg',
     }
     return iconMap[cardTitle] || '/desktop-icons/Clients.svg'
   }
@@ -1067,11 +1067,11 @@ const ClientPercentagePage = () => {
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-1.5">
-                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-none">Custom Percentages</span>
+                <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-none">Total Custom</span>
                 <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#DBEAFE] flex items-center justify-center flex-shrink-0 p-1">
                   <img 
-                    src={getCardIcon('Custom Percentages')} 
-                    alt="Custom Percentages"
+                    src={getCardIcon('Total Custom')} 
+                    alt="Total Custom"
                     style={{ width: '100%', height: '100%', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
                   />
                 </div>

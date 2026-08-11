@@ -333,9 +333,9 @@ export default function ClientPercentageModule() {
     const baseUrl = import.meta.env.BASE_URL || '/'
     const iconMap = {
       'TOTAL CLIENTS': `${baseUrl}desktop-icons/Clients.svg`,
-      'CUSTOM PERCENTAGES': `${baseUrl}desktop-icons/Custom Percentages.svg`,
+      'TOTAL CUSTOM': `${baseUrl}desktop-icons/Total Clients.svg`,
       'USING DEFAULT': `${baseUrl}desktop-icons/Using Default.svg`,
-      'DEFAULT PERCENTAGE': `${baseUrl}desktop-icons/Default Percentage.svg`
+      'DEFAULT PERCENTAGE': `${baseUrl}desktop-icons/Balance.svg`
     }
     return iconMap[label] || `${baseUrl}desktop-icons/Clients.svg`
   }
@@ -348,7 +348,7 @@ export default function ClientPercentageModule() {
     }
     const newCards = [
       { label: 'TOTAL CLIENTS', value: Number(stats.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), numericValue: stats.total },
-      { label: 'CUSTOM PERCENTAGES', value: fmtCount(stats.total_custom), numericValue: stats.total_custom },
+      { label: 'TOTAL CUSTOM', value: fmtCount(stats.total_custom), numericValue: stats.total_custom },
       { label: 'USING DEFAULT', value: fmtCount(stats.total_default), numericValue: stats.total_default },
       { label: 'DEFAULT PERCENTAGE', value: `${stats.default_percentage || 0}`, numericValue: stats.default_percentage }
     ]
@@ -357,9 +357,9 @@ export default function ClientPercentageModule() {
       setCards(newCards)
     } else {
       setCards(prevCards => {
-        return prevCards.map(prevCard => {
+        return prevCards.map((prevCard, idx) => {
           const updated = newCards.find(c => c.label === prevCard.label)
-          return updated || prevCard
+          return updated || newCards[idx] || prevCard
         })
       })
     }
@@ -797,7 +797,7 @@ export default function ClientPercentageModule() {
               <path d="M3 12h18M3 6h18M3 18h18" stroke="#1F2937" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
-          <h1 className="text-xl font-bold text-[#1F2937] absolute left-1/2 transform -translate-x-1/2">Client Percentage</h1>
+          <h1 className="absolute left-1/2 transform -translate-x-1/2 max-w-[62vw] sm:max-w-none truncate whitespace-nowrap text-lg sm:text-xl font-bold text-[#1F2937]">Client Percentage</h1>
           {!isMobileView && (
             <button 
               onClick={() => navigate('/client2')}

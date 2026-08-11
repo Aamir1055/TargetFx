@@ -707,8 +707,32 @@ export default function LiveDealingModule() {
         value = deal.rawData?.symbol || '-'
         break
       case 'action':
-        value = deal.rawData?.action || '-'
-        break
+        {
+          const actionValue = String(deal.rawData?.action || '-').toLowerCase()
+          const isBuy = actionValue === 'buy'
+          const isSell = actionValue === 'sell'
+          const chipText = isBuy ? 'BUY' : isSell ? 'SELL' : String(deal.rawData?.action || '-').toUpperCase()
+          const chipClass = isBuy
+            ? 'bg-green-100 text-green-700 border border-green-200'
+            : isSell
+              ? 'bg-red-100 text-red-700 border border-red-200'
+              : 'bg-gray-100 text-gray-700 border border-gray-200'
+
+          return (
+            <div 
+              className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky left-0 bg-white z-10' : ''}`}
+              style={{
+                border: 'none', 
+                outline: 'none', 
+                boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
+              }}
+            >
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold leading-none ${chipClass}`}>
+                {chipText}
+              </span>
+            </div>
+          )
+        }
       case 'deal':
         value = deal.rawData?.deal || deal.id || '-'
         break
