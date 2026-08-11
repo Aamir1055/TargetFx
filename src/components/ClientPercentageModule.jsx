@@ -343,7 +343,10 @@ export default function ClientPercentageModule() {
   useEffect(() => {
     const fmtCount = (v) => {
       const n = Number(v) || 0
-      if (numericMode === 'compact') return formatCompactIndian(n)
+      if (numericMode === 'compact') {
+        if (Math.abs(n) < 1000) return String(Math.trunc(n))
+        return formatCompactIndian(n)
+      }
       return n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
     }
     const newCards = [
