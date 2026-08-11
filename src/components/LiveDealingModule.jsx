@@ -494,6 +494,7 @@ export default function LiveDealingModule() {
 
   const activeColumns = allColumns.filter(col => visibleColumns[col.key])
   const gridTemplateColumns = activeColumns.map(col => col.width).join(' ')
+  const getAppliedPercentage = (raw) => Number(raw?.applied_percentage ?? raw?.appliedPercentage ?? 0)
 
   // Export to CSV
   const handleExportToCSV = () => {
@@ -545,7 +546,7 @@ export default function LiveDealingModule() {
                 : (deal.rawData?.storage || 0)
               break
             case 'appliedPercentage':
-              value = (deal.rawData?.appliedPercentage || 0) + '%'
+              value = formatNum(getAppliedPercentage(deal.rawData), 2) + '%'
               break
             case 'symbol':
               value = deal.rawData?.symbol || '-'
@@ -701,7 +702,7 @@ export default function LiveDealingModule() {
         }
         break
       case 'appliedPercentage':
-        value = formatNum(deal.rawData?.appliedPercentage || 0, 2) + '%'
+        value = formatNum(getAppliedPercentage(deal.rawData), 2) + '%'
         break
       case 'symbol':
         value = deal.rawData?.symbol || '-'

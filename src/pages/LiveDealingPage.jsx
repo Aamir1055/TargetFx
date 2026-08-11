@@ -139,6 +139,7 @@ const LiveDealingPage = () => {
       symbol: true,
       volume: true,
       price: true,
+      appliedPercentage: true,
       profit: true,
       commission: true,
       storage: true,
@@ -172,6 +173,7 @@ const LiveDealingPage = () => {
     { key: 'symbol', label: 'Symbol' },
     { key: 'volume', label: 'Volume' },
     { key: 'price', label: 'Price' },
+    { key: 'appliedPercentage', label: 'Applied %' },
     { key: 'profit', label: 'Profit' },
     { key: 'commission', label: 'Commission' },
     { key: 'storage', label: 'Swap' },
@@ -302,6 +304,8 @@ const LiveDealingPage = () => {
         value = deal[columnKey]
       } else if (columnKey === 'deal') {
         value = deal.rawData?.deal || deal.id
+      } else if (columnKey === 'appliedPercentage') {
+        value = deal.rawData?.applied_percentage ?? deal.rawData?.appliedPercentage
       } else {
         // For columns like symbol, action, volume, price, profit, etc., check rawData
         value = deal.rawData?.[columnKey]
@@ -1287,6 +1291,9 @@ const LiveDealingPage = () => {
       } else if (sortColumn === 'deal') {
         aVal = a.rawData?.deal || a.id
         bVal = b.rawData?.deal || b.id
+      } else if (sortColumn === 'appliedPercentage') {
+        aVal = a.rawData?.applied_percentage ?? a.rawData?.appliedPercentage
+        bVal = b.rawData?.applied_percentage ?? b.rawData?.appliedPercentage
       } else {
         aVal = a.rawData?.[sortColumn]
         bVal = b.rawData?.[sortColumn]
@@ -2219,6 +2226,7 @@ const LiveDealingPage = () => {
                       case 'symbol': cell = renderHeaderCell('symbol', 'Symbol'); break
                       case 'volume': cell = renderHeaderCell('volume', 'Volume'); break
                       case 'price': cell = renderHeaderCell('price', 'Price'); break
+                      case 'appliedPercentage': cell = renderHeaderCell('appliedPercentage', 'Applied %'); break
                       case 'profit': cell = renderHeaderCell('profit', 'Profit'); break
                       case 'commission': cell = renderHeaderCell('commission', 'Commission'); break
                       case 'storage': cell = renderHeaderCell('storage', 'Swap'); break
@@ -2321,6 +2329,8 @@ const LiveDealingPage = () => {
                             return <td key="volume" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle} title={numericMode === 'compact' ? fmtMoneyFull(deal.rawData?.volume, 2) : undefined}>{fmtMoney(deal.rawData?.volume, 2)}</td>
                           case 'price':
                             return <td key="price" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{fmtPriceFull(deal.rawData?.price, getDigits(deal.rawData))}</td>
+                          case 'appliedPercentage':
+                            return <td key="appliedPercentage" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{formatIndianNumber(deal.rawData?.applied_percentage ?? deal.rawData?.appliedPercentage ?? 0, 2)}%</td>
                           case 'profit':
                             return (
                               <td key="profit" className={`px-3 py-2.5 whitespace-nowrap text-sm ${
