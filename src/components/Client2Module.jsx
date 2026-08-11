@@ -519,7 +519,7 @@ export default function Client2Module() {
       'NET Month Bonus': `${baseUrl}mobile-icons/NET MONTHLY BONUS.svg`,
       'NET Month D/W': `${baseUrl}mobile-icons/NET MONTHLY DW.svg`,
       'Profit': `${baseUrl}mobile-icons/Floating PNL.svg`,
-      'Storage': `${baseUrl}mobile-icons/Balance.svg`,
+      'Swap': `${baseUrl}mobile-icons/Balance.svg`,
       'This Month PnL': `${baseUrl}mobile-icons/THIS MONTH PNL.svg`,
       'Week Bonus In': `${baseUrl}mobile-icons/Weekly bonus in.svg`,
       'Week Bonus Out': `${baseUrl}mobile-icons/WEEK BONUS OUT.svg`,
@@ -888,7 +888,7 @@ export default function Client2Module() {
     { key: 'userLastUpdate', label: 'User Last Update', width: '140px' },
     { key: 'applied_percentage', label: 'Applied Percentage', width: '120px' },
     { key: 'applied_percentage_is_custom', label: 'Is Custom Percentage', width: '140px' },
-    { key: 'storage', label: 'Storage', width: '80px' },
+    { key: 'storage', label: 'Swap', width: '80px' },
     { key: 'tradingEnabled', label: 'Trading Enabled', width: '110px' },
     { key: 'accountEnabled', label: 'Account Enabled', width: '110px' }
   ]
@@ -1814,7 +1814,7 @@ export default function Client2Module() {
                 'User Last Update': 'userLastUpdate',
                 'Applied Percentage': 'applied_percentage',
                 'Is Custom Percentage': 'applied_percentage_is_custom',
-                'Storage': 'storage',
+                'Swap': 'storage',
                 'Trading Enabled': 'tradingEnabled',
                 'Account Enabled': 'accountEnabled',
               }).filter(([label]) => 

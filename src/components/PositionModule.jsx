@@ -750,6 +750,11 @@ export default function PositionModule() {
     if (Number.isNaN(num)) return '-'
     return formatNum(num)
   }
+  const fmtCount = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return '0'
+    return String(Math.trunc(num))
+  }
 
   // Render cell value based on column key
   const renderCellValue = (pos, columnKey, isSticky = false) => {
@@ -1373,7 +1378,7 @@ export default function PositionModule() {
             {
               label: 'Total Positions',
               icon: icon('Total Positions'),
-              value: fmtMoney(netTotals?.total || 0),
+              value: fmtCount(netTotals?.total || 0),
               fullValue: netTotals?.total || 0,
               color: '#000000',
               arrow: null

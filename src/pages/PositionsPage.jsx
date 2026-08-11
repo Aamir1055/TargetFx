@@ -225,7 +225,7 @@ const PositionsPage = () => {
     { key: 'sl', label: 'S/L' },
     { key: 'tp', label: 'T/P' },
     { key: 'profit', label: 'Profit' },
-    { key: 'storage', label: 'Storage' },
+    { key: 'storage', label: 'Swap' },
     { key: 'reason', label: 'Reason' },
     { key: 'comment', label: 'Comment' },
     { key: 'commission', label: 'Commission' }
@@ -1856,8 +1856,8 @@ const PositionsPage = () => {
         { key: 'tp',               label: 'T/P',         get: p => p.priceTP },
         { key: 'profit',           label: 'Profit',      get: p => p.profit },
         { key: 'profitPercentage', label: 'Profit %',    get: p => p.profit },
-        { key: 'storage',          label: 'Storage',     get: p => p.storage },
-        { key: 'storagePercentage',label: 'Storage %',   get: p => p.storage },
+        { key: 'storage',          label: 'Swap',        get: p => p.storage },
+        { key: 'storagePercentage',label: 'Swap %',      get: p => p.storage },
         { key: 'appliedPercentage',label: 'Applied %',   get: p => p.applied_percentage },
         { key: 'reason',           label: 'Reason',      get: p => p.reason },
         { key: 'comment',          label: 'Comment',     get: p => p.comment },
@@ -3933,8 +3933,8 @@ const PositionsPage = () => {
                             )
                             case 'storage': return (
                               <>
-                                {effectiveCols.storage && renderHeaderCell('storage', displayMode === 'percentage' ? 'Storage %' : 'Storage')}
-                                {effectiveCols.storagePercentage && renderHeaderCell('storage', 'Storage %')}
+                                {effectiveCols.storage && renderHeaderCell('storage', displayMode === 'percentage' ? 'Swap %' : 'Swap')}
+                                {effectiveCols.storagePercentage && renderHeaderCell('storage', 'Swap %')}
                               </>
                             )
                             case 'reason': return effectiveCols.reason && renderHeaderCell('reason', 'Reason')

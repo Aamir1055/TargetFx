@@ -967,7 +967,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">S/L</th>
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">T/P</th>
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Profit</th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Storage</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Swap</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
@@ -1384,7 +1384,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Price</th>
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Profit</th>
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Commission</th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Storage</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Swap</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">

@@ -584,7 +584,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     { key: 'volume', label: 'Volume' },
     { key: 'price', label: 'Price' },
     { key: 'commission', label: 'Commission' },
-    { key: 'storage', label: 'Storage' },
+    { key: 'storage', label: 'Swap' },
     { key: 'profit', label: 'Profit' },
     { key: 'comment', label: 'Comment' }
   ]
@@ -4042,7 +4042,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Volume</th>
                           <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Price</th>
                           <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Commission</th>
-                          <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Storage</th>
+                          <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Swap</th>
                           <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Profit</th>
                           <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Comment</th>
                         </tr>
@@ -4080,7 +4080,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Volume</th>
                         <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Price</th>
                         <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Commission</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Storage</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Swap</th>
                         <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Profit</th>
                         <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase">Comment</th>
                       </tr>
@@ -4280,7 +4280,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           onClick={() => handleDealsSort('storage')}
                         >
                           <div className="flex items-center gap-1.5">
-                            Storage
+                            Swap
                             <SortIcon column="storage" currentColumn={dealsSortColumn} direction={dealsSortDirection} />
                           </div>
                           <div

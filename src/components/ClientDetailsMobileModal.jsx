@@ -1292,8 +1292,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const totalVol         = Number(ds.totalVolume ?? ds.total_volume ?? (buyVolume + sellVolume)) || 1
     const netPL            = profitSum + losingSum
 
-    const computedWinRate  = totalDeals > 0 ? (profitableDeals / totalDeals * 100) : (Number(ds.winRate ?? ds.win_rate ?? 0))
-    const lossRate         = totalDeals > 0 ? (losingDeals / totalDeals * 100) : (100 - computedWinRate)
+    const apiWinRate       = Math.max(0, Math.min(100, winRate))
+    const lossRate         = Math.max(0, 100 - apiWinRate)
 
     const fmt = (n, d = 2) => formatNum(n, d)
     const fmtPct = (n) => `${Number(n).toFixed(1)}%`
@@ -1627,18 +1627,18 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                 <span className="text-[9px] text-gray-500">Profitable Deals</span>
-                <span className="ml-auto text-[10px] font-bold text-green-600">{profitableDeals} ({fmtPct(computedWinRate)})</span>
+                <span className="ml-auto text-[10px] font-bold text-green-600">{profitableDeals}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
                 <span className="text-[9px] text-gray-500">Losing Deals</span>
-                <span className="ml-auto text-[10px] font-bold text-red-600">{losingDeals} ({fmtPct(lossRate)})</span>
+                <span className="ml-auto text-[10px] font-bold text-red-600">{losingDeals}</span>
               </div>
               <div className="h-px bg-gray-100 my-1" />
               <div className="grid grid-cols-2 gap-1">
                 <div className="bg-green-50 rounded-lg p-1.5 text-center">
                   <p className="text-[9px] text-green-600 font-medium">Win Rate</p>
-                  <p className="text-[11px] font-bold text-green-700">{fmtPct(computedWinRate)}</p>
+                  <p className="text-[11px] font-bold text-green-700">{fmtPct(apiWinRate)}</p>
                 </div>
                 <div className="bg-red-50 rounded-lg p-1.5 text-center">
                   <p className="text-[9px] text-red-500 font-medium">Loss Rate</p>
@@ -2064,7 +2064,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
             {dealColumns.storage && (
               <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('storage')}>
                 <div className="flex items-center gap-1">
-                  Storage
+                  Swap
                   {sortConfig.key === 'storage' && (
                     <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                   )}
@@ -2812,7 +2812,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                       volume: 'Volume',
                       price: 'Price',
                       commission: 'Commission',
-                      storage: 'Storage',
+                      storage: 'Swap',
                       profit: 'Profit',
                       comment: 'Comment'
                     }).map(([key, label]) => (

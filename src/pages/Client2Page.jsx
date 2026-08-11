@@ -681,7 +681,7 @@ const Client2Page = () => {
     { key: 'userLastUpdate', label: 'User Last Update', type: 'timestamp' },
     { key: 'applied_percentage', label: 'Applied Percentage', type: 'float' },
     { key: 'applied_percentage_is_custom', label: 'Is Custom Percentage', type: 'text' },
-    { key: 'storage', label: 'Storage', type: 'float' },
+    { key: 'storage', label: 'Swap', type: 'float' },
     { key: 'tradingEnabled', label: 'Trading Enabled', type: 'boolean' },
     { key: 'accountEnabled', label: 'Account Enabled', type: 'boolean' }
   ]
@@ -3064,7 +3064,7 @@ const Client2Page = () => {
       soEquity: { label: 'SO Equity', color: 'fuchsia', getValue: () => totals?.soEquity || 0 },
       soLevel: { label: 'SO Level', color: 'rose', getValue: () => totals?.soLevel || 0 },
       soMargin: { label: 'SO Margin', color: 'amber', getValue: () => totals?.soMargin || 0 },
-      storage: { label: 'Storage', color: 'gray', getValue: () => totals?.storage || 0 },
+      storage: { label: 'Swap', color: 'gray', getValue: () => totals?.storage || 0 },
 
       // T - This Month
       thisMonthBonusIn: { label: 'This Month Bonus In', color: 'teal', getValue: () => totals?.thisMonthBonusIn || 0 },

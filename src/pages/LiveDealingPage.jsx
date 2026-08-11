@@ -174,7 +174,7 @@ const LiveDealingPage = () => {
     { key: 'price', label: 'Price' },
     { key: 'profit', label: 'Profit' },
     { key: 'commission', label: 'Commission' },
-    { key: 'storage', label: 'Storage' },
+    { key: 'storage', label: 'Swap' },
     { key: 'entry', label: 'Entry' },
     { key: 'order', label: 'Order' },
     { key: 'position', label: 'Position' },
@@ -2221,7 +2221,7 @@ const LiveDealingPage = () => {
                       case 'price': cell = renderHeaderCell('price', 'Price'); break
                       case 'profit': cell = renderHeaderCell('profit', 'Profit'); break
                       case 'commission': cell = renderHeaderCell('commission', 'Commission'); break
-                      case 'storage': cell = renderHeaderCell('storage', 'Storage'); break
+                      case 'storage': cell = renderHeaderCell('storage', 'Swap'); break
                       case 'entry': cell = renderHeaderCell('entry', 'Entry'); break
                       case 'order': cell = renderHeaderCell('order', 'Order'); break
                       case 'position': cell = renderHeaderCell('position', 'Position'); break

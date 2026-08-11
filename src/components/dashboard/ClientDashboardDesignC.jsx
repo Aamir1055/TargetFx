@@ -374,7 +374,7 @@ export default function ClientDashboardDesignC() {
     { key: 'liabilities', label: 'Liabilities', width: '90px' },
     { key: 'blockedCommission', label: 'Blocked Rebate', width: '120px' },
     { key: 'blockedProfit', label: 'Blocked Profit', width: '120px' },
-    { key: 'storage', label: 'Storage', width: '80px' },
+    { key: 'storage', label: 'Swap', width: '80px' },
     { key: 'company', label: 'Company', width: '100px' },
     { key: 'comment', label: 'Comment', width: '120px' },
     { key: 'color', label: 'Color', width: '70px' },

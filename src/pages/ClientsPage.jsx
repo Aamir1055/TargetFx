@@ -387,7 +387,7 @@ const ClientsPage = () => {
     { key: 'liabilities', label: 'Liabilities' },
     { key: 'blockedCommission', label: 'Blocked Rebate' },
     { key: 'blockedProfit', label: 'Blocked Profit' },
-    { key: 'storage', label: 'Storage' },
+    { key: 'storage', label: 'Swap' },
     { key: 'company', label: 'Company' },
     { key: 'comment', label: 'Comment' },
     { key: 'color', label: 'Color' },
