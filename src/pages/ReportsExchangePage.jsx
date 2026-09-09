@@ -460,8 +460,7 @@ const ReportsExchangePage = () => {
           const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })]
           cell.s = {
             alignment: { horizontal: column === 0 ? 'right' : 'right', vertical: 'center' },
-            border: dataBorder,
-            numFmt: '0.##'
+            border: dataBorder
           }
         }
       }
