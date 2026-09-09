@@ -158,7 +158,9 @@ const ReportsExchangePage = () => {
   const [dateError, setDateError] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
-  const datePickerRef = useRef(null)
+  const [exporting, setExporting] = useState(false)
+  const desktopDatePickerRef = useRef(null)
+  const mobileDatePickerRef = useRef(null)
 
   const activeGroupName = getActiveGroupFilter('exchange')
   const activeGroup = groups.find(group => group.name === activeGroupName) || null
@@ -166,7 +168,9 @@ const ReportsExchangePage = () => {
   useEffect(() => {
     if (!showDatePicker) return undefined
     const closeOnOutsideClick = (event) => {
-      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
+      const insideDesktopPicker = desktopDatePickerRef.current?.contains(event.target)
+      const insideMobilePicker = mobileDatePickerRef.current?.contains(event.target)
+      if (!insideDesktopPicker && !insideMobilePicker) {
         setShowDatePicker(false)
       }
     }
@@ -346,31 +350,84 @@ const ReportsExchangePage = () => {
     return (client.Exchanges || []).find(e => (e.Exchange || 'UNKNOWN') === name) || null
   }
 
-  const exportCsv = () => {
-    if (!clients.length) return
-    const headerTop = ['Login', 'Name', 'Agent Commission']
-    exchangeColumns.forEach(name => {
-      headerTop.push(`${name} Commission`, `${name} Lots`, `${name} Volume`)
-    })
-    const rows = [headerTop.join(',')]
-    clients.forEach(c => {
-      const cells = [c.Login, `"${String(c.Name ?? '').replace(/"/g, '""')}"`, Number(c.AgentCommission || 0)]
-      exchangeColumns.forEach(name => {
-        const ex = getExchange(c, name)
-        cells.push(Number(ex?.Commission || 0), Number(ex?.Lots || 0), Number(ex?.Volume || 0))
+  const exportCsv = async () => {
+    if (exporting || !selectedWeekId) return
+
+    setExporting(true)
+    try {
+      const dateFilters = appliedFromDate && appliedToDate
+        ? { from: appliedFromDate, to: appliedToDate }
+        : {}
+      const exportFilters = {
+        ...dateFilters,
+        ...getExchangeGroupFilters(activeGroup),
+        limit: 500
+      }
+      const exportClients = []
+      let page = 1
+      let totalPages = null
+
+      while (totalPages === null || page <= totalPages) {
+        const response = await brokerAPI.getExchangeData(Number(selectedWeekId), {
+          ...exportFilters,
+          page
+        })
+        const exportData = unwrapExchangeResponse(response)
+        const pageClients = exportData?.Clients ?? []
+        exportClients.push(...pageClients)
+
+        const pagination = exportData?.Pagination ?? {}
+        const parsedTotalPages = Number(
+          pagination.total_pages ?? pagination.totalPages ?? pagination.pages
+        )
+        totalPages = Number.isFinite(parsedTotalPages) && parsedTotalPages > 0
+          ? parsedTotalPages
+          : (pageClients.length < 500 ? page : null)
+        page += 1
+      }
+
+      if (!exportClients.length) return
+
+      const exportColumns = []
+      const seenExchanges = new Set()
+      exportClients.forEach(client => {
+        ;(client.Exchanges || []).forEach(exchange => {
+          const name = exchange.Exchange || 'UNKNOWN'
+          if (!seenExchanges.has(name)) {
+            seenExchanges.add(name)
+            exportColumns.push(name)
+          }
+        })
       })
-      rows.push(cells.join(','))
-    })
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    const wk = settlementWeek?.name ? settlementWeek.name.replace(/\s+/g, '_') : `week_${selectedWeekId}`
-    a.href = url
-    a.download = `exchange_${wk}.csv`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+
+      const headerTop = ['Login', 'Name', 'Agent Commission']
+      exportColumns.forEach(name => {
+        headerTop.push(`${name} Commission`, `${name} Lots`, `${name} Volume`)
+      })
+      const rows = [headerTop.join(',')]
+      exportClients.forEach(client => {
+        const cells = [client.Login, `"${String(client.Name ?? '').replace(/"/g, '""')}"`, Number(client.AgentCommission || 0)]
+        exportColumns.forEach(name => {
+          const exchange = (client.Exchanges || []).find(item => (item.Exchange || 'UNKNOWN') === name)
+          cells.push(Number(exchange?.Commission || 0), Number(exchange?.Lots || 0), Number(exchange?.Volume || 0))
+        })
+        rows.push(cells.join(','))
+      })
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const wk = settlementWeek?.name ? settlementWeek.name.replace(/\s+/g, '_') : `week_${selectedWeekId}`
+      link.href = url
+      link.download = `exchange_${wk}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to export exchange data')
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -433,7 +490,7 @@ const ReportsExchangePage = () => {
                   )}
                 </div>
 
-                <div className="relative" ref={datePickerRef}>
+                <div className="relative" ref={desktopDatePickerRef}>
                   <button
                     type="button"
                     onClick={() => {
@@ -511,13 +568,13 @@ const ReportsExchangePage = () => {
 
                 <button
                   onClick={exportCsv}
-                  disabled={!clients.length}
+                  disabled={!clients.length || exporting}
                   className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                   </svg>
-                  Export CSV
+                  {exporting ? 'Exporting...' : 'Export CSV'}
                 </button>
               </div>
             </div>
@@ -537,7 +594,7 @@ const ReportsExchangePage = () => {
                 </select>
               )}
 
-              <div className="relative flex-shrink-0" ref={datePickerRef}>
+              <div className="relative flex-shrink-0" ref={mobileDatePickerRef}>
                 <button
                   type="button"
                   onClick={() => {
@@ -594,7 +651,7 @@ const ReportsExchangePage = () => {
               <button
                 type="button"
                 onClick={exportCsv}
-                disabled={!clients.length}
+                disabled={!clients.length || exporting}
                 className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-gray-700 shadow-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Export CSV"
                 title="Export CSV"
