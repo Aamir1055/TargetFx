@@ -813,22 +813,22 @@ const ReportsExchangePage = () => {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="sticky bottom-0 bg-[#F8FAFC] text-[#4B4B4B] font-semibold">
-                    <tr>
-                      <td className="relative z-10 sticky left-0 bg-[#F8FAFC] px-3 py-2.5 border-t border-[#E1E1E1]">Totals</td>
-                      <td className="px-3 py-2.5 border-t border-[#E1E1E1] text-[#6B7280]">{totalClients} clients</td>
-                      <td className="px-3 py-2.5 border-t border-[#E1E1E1] text-right tabular-nums">
+                  <tfoot className="bg-[#F8FAFC] text-[#4B4B4B] font-semibold">
+                    <tr className="sticky bottom-0 z-20 bg-[#F8FAFC]">
+                      <td className="relative z-30 sticky bottom-0 left-0 bg-[#F8FAFC] px-3 py-2.5 border-t border-[#E1E1E1]">Totals</td>
+                      <td className="sticky bottom-0 z-20 bg-[#F8FAFC] px-3 py-2.5 border-t border-[#E1E1E1] text-[#6B7280]">{totalClients} clients</td>
+                      <td className="sticky bottom-0 z-20 bg-[#F8FAFC] px-3 py-2.5 border-t border-[#E1E1E1] text-right tabular-nums">
                         {fmtMoney(totals.agentCommission)}
                       </td>
                       {exchangeColumns.map(name => {
                         const t = totals.perEx[name] || { Commission: 0, Lots: 0, Volume: 0 }
                         return (
                           <Fragment key={name}>
-                            <td className={`px-2 py-2.5 border-t border-r border-[#E1E1E1] text-right tabular-nums ${t.Commission < 0 ? 'text-[#EF4444]' : t.Commission > 0 ? 'text-[#059669]' : 'text-[#6B7280]'}`}>
+                            <td className={`sticky bottom-0 z-20 bg-[#F8FAFC] px-2 py-2.5 border-t border-r border-[#E1E1E1] text-right tabular-nums ${t.Commission < 0 ? 'text-[#EF4444]' : t.Commission > 0 ? 'text-[#059669]' : 'text-[#6B7280]'}`}>
                               {fmtMoney(t.Commission)}
                             </td>
-                            <td className="px-2 py-2.5 border-t border-r border-[#E1E1E1] text-right tabular-nums">{fmtLots(t.Lots)}</td>
-                            <td className="px-2 py-2.5 border-t border-r-2 border-t-[#E1E1E1] border-r-[#94A3B8] text-right tabular-nums">{fmtVolume(t.Volume)}</td>
+                            <td className="sticky bottom-0 z-20 bg-[#F8FAFC] px-2 py-2.5 border-t border-r border-[#E1E1E1] text-right tabular-nums">{fmtLots(t.Lots)}</td>
+                            <td className="sticky bottom-0 z-20 bg-[#F8FAFC] px-2 py-2.5 border-t border-r-2 border-t-[#E1E1E1] border-r-[#94A3B8] text-right tabular-nums">{fmtVolume(t.Volume)}</td>
                           </Fragment>
                         )
                       })}
