@@ -41,13 +41,19 @@ const isSettlementWeekShape = (value) =>
   ('end_date' in value || 'endDate' in value)
 
 // Response envelopes vary (data / data.data / result / payload); walk the tree
-// once and pick up the first Clients array, Totals object, and SettlementWeek.
+// once and pick up the first Clients array, Totals object, SettlementWeek, and pagination block.
 const unwrapExchangeResponse = (response) => {
   if (!response || typeof response !== 'object') return null
 
   let clients = null
   let totals = null
   let settlementWeek = null
+  let pagination = null
+
+  const isPaginationShape = (value) =>
+    value && typeof value === 'object' && !Array.isArray(value) &&
+    ('total' in value || 'total_items' in value || 'totalItems' in value ||
+      'total_pages' in value || 'totalPages' in value || 'pages' in value)
 
   const visit = (node) => {
     if (!node || typeof node !== 'object') return
@@ -61,13 +67,14 @@ const unwrapExchangeResponse = (response) => {
     }
     if (!totals && isTotalsShape(node)) totals = node
     if (!settlementWeek && isSettlementWeekShape(node)) settlementWeek = node
+    if (!pagination && isPaginationShape(node) && !isTotalsShape(node)) pagination = node
     Object.values(node).forEach(visit)
   }
 
   visit(response)
 
   if (!clients && !totals && !settlementWeek) return null
-  return { Clients: clients || [], Totals: totals, SettlementWeek: settlementWeek }
+  return { Clients: clients || [], Totals: totals, SettlementWeek: settlementWeek, Pagination: pagination }
 }
 
 const getExchangeGroupFilters = (group) => {
@@ -192,7 +199,7 @@ const ReportsExchangePage = () => {
     return () => { cancelled = true }
   }, [isAuthenticated])
 
-  // Fetch exchange data when week changes
+  // Fetch exchange data when week / filters / page changes
   useEffect(() => {
     if (!isAuthenticated || !selectedWeekId) return
     let cancelled = false
@@ -205,7 +212,9 @@ const ReportsExchangePage = () => {
           : {}
         const res = await brokerAPI.getExchangeData(Number(selectedWeekId), {
           ...dateFilters,
-          ...getExchangeGroupFilters(activeGroup)
+          ...getExchangeGroupFilters(activeGroup),
+          page: currentPage,
+          limit: pageSize
         })
         if (cancelled) return
         setData(unwrapExchangeResponse(res))
@@ -220,7 +229,7 @@ const ReportsExchangePage = () => {
     }
     load()
     return () => { cancelled = true }
-  }, [activeGroup, appliedFromDate, appliedToDate, isAuthenticated, selectedWeekId])
+  }, [activeGroup, appliedFromDate, appliedToDate, currentPage, isAuthenticated, pageSize, selectedWeekId])
 
   const applyDateFilter = () => {
     if (!customFromDate || !customToDate) {
@@ -255,8 +264,21 @@ const ReportsExchangePage = () => {
   const clients = Array.isArray(rawClients) ? rawClients : []
   const settlementWeek = data?.SettlementWeek ?? data?.settlementWeek ?? null
   const responseTotals = data?.Totals ?? data?.totals ?? null
-  const totalPages = Math.max(1, Math.ceil(clients.length / pageSize))
-  const pagedClients = clients.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const responsePagination = data?.Pagination ?? data?.pagination ?? null
+
+  const totalClients = Number(
+    responsePagination?.total ??
+    responsePagination?.total_items ??
+    responsePagination?.totalItems ??
+    clients.length
+  ) || clients.length
+  const totalPages = Math.max(1, Number(
+    responsePagination?.total_pages ??
+    responsePagination?.totalPages ??
+    responsePagination?.pages ??
+    Math.ceil(totalClients / pageSize)
+  ) || 1)
+  const pagedClients = clients
 
   useEffect(() => {
     setCurrentPage(1)
@@ -625,13 +647,13 @@ const ReportsExchangePage = () => {
               <>
                 <div className="exchange-table-scrollbar flex-1 min-h-0 overflow-auto rounded-md isolate">
                   <table className="min-w-full text-xs border-separate border-spacing-0">
-                  <thead className="bg-blue-600 text-white sticky top-0 z-20">
+                  <thead className="sticky top-0 z-20">
                     <tr>
-                      <th rowSpan={2} className="relative z-30 bg-blue-600 px-3 py-3 text-left font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60 sticky left-0">Login</th>
-                      <th rowSpan={2} className="bg-blue-600 px-3 py-3 text-left font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60">Name</th>
-                      <th rowSpan={2} className="bg-blue-600 px-3 py-3 text-right font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60">Agent Commission</th>
+                      <th rowSpan={2} className="relative z-30 bg-blue-600 text-white px-3 py-3 text-left font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60 sticky left-0">Login</th>
+                      <th rowSpan={2} className="bg-blue-600 text-white px-3 py-3 text-left font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60">Name</th>
+                      <th rowSpan={2} className="bg-blue-600 text-white px-3 py-3 text-right font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60">Agent Commission</th>
                       {exchangeColumns.map(name => (
-                        <th key={name} colSpan={3} className="bg-blue-600 px-3 py-2 text-center font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60 border-b border-blue-500/60">
+                        <th key={name} colSpan={3} className="bg-blue-600 text-white px-3 py-2 text-center font-semibold uppercase tracking-wide text-[11px] border-r-2 border-r-[#94A3B8] border-b border-white/25">
                           {name}
                         </th>
                       ))}
@@ -639,19 +661,19 @@ const ReportsExchangePage = () => {
                     <tr>
                       {exchangeColumns.map(name => (
                         <Fragment key={name}>
-                          <th className="bg-blue-600 px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Commission</th>
-                          <th className="bg-blue-600 px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Lots</th>
-                          <th className="bg-blue-600 px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Volume</th>
+                          <th className="bg-[#DBEAFE] text-[#1E40AF] px-2 py-2 text-right font-semibold uppercase tracking-wide text-[10px] border-r border-[#BFDBFE]">Commission</th>
+                          <th className="bg-[#DBEAFE] text-[#1E40AF] px-2 py-2 text-right font-semibold uppercase tracking-wide text-[10px] border-r border-[#BFDBFE]">Lots</th>
+                          <th className="bg-[#DBEAFE] text-[#1E40AF] px-2 py-2 text-right font-semibold uppercase tracking-wide text-[10px] border-r-2 border-r-[#94A3B8]">Volume</th>
                         </Fragment>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {pagedClients.map((c) => (
-                      <tr key={c.Login} className="group bg-white hover:bg-[#F8FAFC] border-b border-[#E1E1E1]">
-                        <td className="relative z-10 sticky left-0 bg-white px-3 py-2 font-medium text-[#1A63BC] border-r border-[#E1E1E1] group-hover:bg-[#F8FAFC]">{c.Login}</td>
-                        <td className="px-3 py-2 text-[#1F2937] border-r border-[#E1E1E1]">{c.Name}</td>
-                        <td className="px-3 py-2 text-right border-r border-[#E1E1E1] tabular-nums text-[#1F2937]">
+                      <tr key={c.Login} className="group bg-white hover:bg-[#F8FAFC]">
+                        <td className="relative z-10 sticky left-0 bg-white px-3 py-2 font-medium text-[#1A63BC] border-b border-r border-[#E1E1E1] group-hover:bg-[#F8FAFC]">{c.Login}</td>
+                        <td className="px-3 py-2 text-[#4B4B4B] border-b border-r border-[#E1E1E1]">{c.Name}</td>
+                        <td className="px-3 py-2 text-right border-b border-r border-[#E1E1E1] tabular-nums text-[#4B4B4B]">
                           {fmtMoney(c.AgentCommission)}
                         </td>
                         {exchangeColumns.map(name => {
@@ -659,13 +681,13 @@ const ReportsExchangePage = () => {
                           const commission = Number(ex?.Commission || 0)
                           return (
                             <Fragment key={name}>
-                              <td className={`px-2 py-2 text-right border-r border-[#E1E1E1] tabular-nums ${commission < 0 ? 'text-red-600' : commission > 0 ? 'text-emerald-700' : 'text-[#9CA3AF]'}`}>
+                              <td className={`px-2 py-2 text-right border-b border-r border-[#E1E1E1] tabular-nums ${commission < 0 ? 'text-[#EF4444]' : commission > 0 ? 'text-[#059669]' : 'text-[#6B7280]'}`}>
                                 {fmtMoney(commission)}
                               </td>
-                              <td className="px-2 py-2 text-right border-r border-[#E1E1E1] tabular-nums text-[#374151]">
+                              <td className="px-2 py-2 text-right border-b border-r border-[#E1E1E1] tabular-nums text-[#4B4B4B]">
                                 {fmtLots(ex?.Lots)}
                               </td>
-                              <td className="px-2 py-2 text-right border-r border-[#E1E1E1] tabular-nums text-[#374151]">
+                              <td className="px-2 py-2 text-right border-b border-r-2 border-b-[#E1E1E1] border-r-[#94A3B8] tabular-nums text-[#4B4B4B]">
                                 {fmtVolume(ex?.Volume)}
                               </td>
                             </Fragment>
@@ -674,22 +696,22 @@ const ReportsExchangePage = () => {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="sticky bottom-0 bg-[#F1F5F9] text-[#1F2937] font-semibold">
+                  <tfoot className="sticky bottom-0 bg-[#F8FAFC] text-[#4B4B4B] font-semibold">
                     <tr>
-                      <td className="relative z-10 sticky left-0 bg-[#F1F5F9] px-3 py-2.5 border-t border-[#CBD5E1]">Totals</td>
-                      <td className="px-3 py-2.5 border-t border-[#CBD5E1] text-[#4B5563]">{clients.length} clients</td>
-                      <td className="px-3 py-2.5 border-t border-[#CBD5E1] text-right tabular-nums">
+                      <td className="relative z-10 sticky left-0 bg-[#F8FAFC] px-3 py-2.5 border-t border-[#E1E1E1]">Totals</td>
+                      <td className="px-3 py-2.5 border-t border-[#E1E1E1] text-[#6B7280]">{totalClients} clients</td>
+                      <td className="px-3 py-2.5 border-t border-[#E1E1E1] text-right tabular-nums">
                         {fmtMoney(totals.agentCommission)}
                       </td>
                       {exchangeColumns.map(name => {
                         const t = totals.perEx[name] || { Commission: 0, Lots: 0, Volume: 0 }
                         return (
                           <Fragment key={name}>
-                            <td className={`px-2 py-2.5 border-t border-[#CBD5E1] text-right tabular-nums ${t.Commission < 0 ? 'text-red-600' : t.Commission > 0 ? 'text-emerald-700' : ''}`}>
+                            <td className={`px-2 py-2.5 border-t border-r border-[#E1E1E1] text-right tabular-nums ${t.Commission < 0 ? 'text-[#EF4444]' : t.Commission > 0 ? 'text-[#059669]' : 'text-[#6B7280]'}`}>
                               {fmtMoney(t.Commission)}
                             </td>
-                            <td className="px-2 py-2.5 border-t border-[#CBD5E1] text-right tabular-nums">{fmtLots(t.Lots)}</td>
-                            <td className="px-2 py-2.5 border-t border-[#CBD5E1] text-right tabular-nums">{fmtVolume(t.Volume)}</td>
+                            <td className="px-2 py-2.5 border-t border-r border-[#E1E1E1] text-right tabular-nums">{fmtLots(t.Lots)}</td>
+                            <td className="px-2 py-2.5 border-t border-r-2 border-t-[#E1E1E1] border-r-[#94A3B8] text-right tabular-nums">{fmtVolume(t.Volume)}</td>
                           </Fragment>
                         )
                       })}
@@ -699,8 +721,8 @@ const ReportsExchangePage = () => {
                 </div>
                 <div className="flex items-center px-4 py-2 border-t border-gray-100 bg-white">
                   <div className="text-xs text-gray-600">
-                    {clients.length > 0
-                      ? `Showing page ${currentPage} of ${totalPages} — ${clients.length} total`
+                    {totalClients > 0
+                      ? `Showing page ${currentPage} of ${totalPages} — ${totalClients} total`
                       : '—'}
                   </div>
                 </div>
