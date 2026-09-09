@@ -814,6 +814,12 @@ export const brokerAPI = {
     const response = await api.post('/api/broker/bills', { week_id, logins }, options)
     return response.data
   },
+
+  // Reports - Exchange data for a settlement week and optional group filters
+  getExchangeData: async (week_id, filters = {}, options = {}) => {
+    const response = await api.post('/api/broker/exchange-data', { week_id, ...filters }, options)
+    return response.data
+  },
 }
 
 // Also export these methods on default api for backwards compatibility

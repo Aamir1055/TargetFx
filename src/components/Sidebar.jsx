@@ -68,8 +68,20 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
     { name: 'Live Dealing', path: '/live-dealing', icon: 'live-dealing', img: 'Live-Dealing.svg' },
     { name: 'Client Percentage', path: '/client-percentage', icon: 'percentage', img: 'Client-Percentage.svg' },
     { name: 'Bills', path: '/bills', icon: 'bills', img: 'Bills.svg' },
+    {
+      name: 'Reports',
+      icon: 'reports',
+      img: 'Bills.svg',
+      children: [
+        { name: 'Exchange', path: '/reports/exchange' }
+      ]
+    },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
   ]
+
+  const isReportsActive = location.pathname.startsWith('/reports')
+  const [reportsOpen, setReportsOpen] = useState(isReportsActive)
+  useEffect(() => { if (isReportsActive) setReportsOpen(true) }, [isReportsActive])
 
   const baseUrl = import.meta.env.BASE_URL || '/'
   
@@ -186,7 +198,67 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
           )}
 
           <nav className="flex-1 overflow-y-auto px-2 py-4">
-            {navigationItems.map((item) => (
+            {navigationItems.map((item) => {
+              if (item.children) {
+                const anyChildActive = item.children.some(c => isActivePath(c.path))
+                const expanded = isOpen && reportsOpen
+                return (
+                  <div key={item.name}>
+                    <button
+                      onClick={() => {
+                        if (!isOpen) {
+                          // Collapsed sidebar: navigate to first child directly
+                          handleNavigate(item.children[0].path)
+                        } else {
+                          setReportsOpen(v => !v)
+                        }
+                      }}
+                      className={`
+                        group w-full text-left flex items-center ${isOpen ? 'px-4' : 'px-2 justify-center'} py-3 rounded-xl text-sm font-medium
+                        transition-all duration-200 transform hover:scale-[1.02]
+                        ${anyChildActive
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                    >
+                      <img
+                        src={`${baseUrl}sidebar-icons/${item.img}`}
+                        alt={item.name}
+                        className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${anyChildActive ? '' : 'group-hover:scale-110'}`}
+                        style={{ filter: anyChildActive ? 'brightness(0) invert(1)' : 'brightness(0)' }}
+                      />
+                      {isOpen && <span className="flex-1 tracking-wide">{item.name}</span>}
+                      {isOpen && (
+                        <svg
+                          className={`w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''} ${anyChildActive ? 'text-white' : 'text-slate-500'}`}
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      )}
+                    </button>
+                    {expanded && (
+                      <div className="mt-1 ml-6 border-l border-slate-200 pl-2 space-y-1">
+                        {item.children.map(child => (
+                          <button
+                            key={child.name}
+                            onClick={() => handleNavigate(child.path)}
+                            className={`w-full text-left flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                              ${isActivePath(child.path)
+                                ? 'bg-blue-50 text-blue-700'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                              }`}
+                          >
+                            <span className="flex-1 tracking-wide">{child.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
+              return (
               <button
                 key={item.name}
                 onClick={() => handleNavigate(item.path)}
@@ -220,7 +292,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
                   <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-l-full"></div>
                 )}
               </button>
-            ))}
+              )
+            })}
           </nav>
         </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useGroups } from '../contexts/GroupContext'
 
 const GroupSelector = ({ onCreateClick, onEditClick, moduleName }) => {
-  const { groups, getActiveGroupFilter, setActiveGroupFilter, deleteGroup, refreshGroups } = useGroups()
+  const { groups, getActiveGroupFilter, setActiveGroupFilter, deleteGroup } = useGroups()
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -46,11 +46,7 @@ const GroupSelector = ({ onCreateClick, onEditClick, moduleName }) => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => {
-          const willShow = !showDropdown
-          setShowDropdown(willShow)
-          if (willShow) {
-            refreshGroups()
-          }
+          setShowDropdown(value => !value)
         }}
         className="px-2.5 py-1.5 rounded-md bg-white border border-[#E5E7EB] hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5 text-xs font-medium text-[#374151] shadow-sm h-8"
       >
