@@ -3,9 +3,6 @@ import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
 import { useAuth } from '../contexts/AuthContext'
 
-// Max number of deals to request in one fetch. Increase if needed.
-const CLIENT_DEALS_FETCH_LIMIT = 1000
-
 // -- Profit Trend Chart with hover crosshair ---------------------------------
 const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
   const [hovered, setHovered] = useState(null)
@@ -1220,9 +1217,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       // Response shape: { data: { deals, total, page, limit }, ... } or flat
       const payload = response?.data ?? response
       const clientDeals = payload?.deals ?? []
-      // Cap total at CLIENT_DEALS_FETCH_LIMIT (1000) so pagination stays ≤ 1000 records
+      // Use the API-reported total so pagination covers the full result set
       const rawTotal = payload?.total ?? clientDeals.length
-      const total = Math.min(Number(rawTotal) || 0, CLIENT_DEALS_FETCH_LIMIT)
+      const total = Number(rawTotal) || 0
 
       setDeals(clientDeals)
       setAllDeals(clientDeals)
@@ -2159,15 +2156,14 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   })()
 
   // Pagination:
-  // - search, sort, and action filter are server-side → use totalDealsCount (capped at 1000)
+  // - search, sort, and action filter are server-side → use totalDealsCount
   // - Only symbol/time column filters are client-side → paginate over filteredDealsResult
   const hasClientFilter = !!(
     Object.entries(dealsColumnFilters || {}).some(([k, v]) => k !== 'action' && v && v.length > 0)
   )
-  const maxDealsPages = Math.ceil(CLIENT_DEALS_FETCH_LIMIT / dealsItemsPerPage)
   const dealsTotalPages = hasClientFilter
-    ? Math.min(maxDealsPages, Math.ceil(filteredDealsResult.length / dealsItemsPerPage) || 1)
-    : Math.min(maxDealsPages, Math.ceil(totalDealsCount / dealsItemsPerPage) || 1)
+    ? (Math.ceil(filteredDealsResult.length / dealsItemsPerPage) || 1)
+    : (Math.ceil(totalDealsCount / dealsItemsPerPage) || 1)
   const dealsStartIdx = (dealsCurrentPage - 1) * dealsItemsPerPage
   const displayedDeals = hasClientFilter
     ? filteredDealsResult.slice(dealsStartIdx, dealsStartIdx + dealsItemsPerPage)
@@ -3926,7 +3922,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Showing first {CLIENT_DEALS_FETCH_LIMIT} deals for this range. Narrow date range to see older records.
+                    Showing a limited window of deals for this range. Narrow the date range to see older records.
                   </p>
                 </div>
               )}
