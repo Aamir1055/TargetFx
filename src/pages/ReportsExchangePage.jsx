@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo, Fragment } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useGroups } from '../contexts/GroupContext'
 import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
+import PageSizeSelect from '../components/PageSizeSelect'
 
 const fmtMoney = (n) => {
   const num = Number(n)
@@ -88,6 +89,12 @@ const getExchangeGroupFilters = (group) => {
   return logins.length ? { logins: [...new Set(logins)] } : {}
 }
 
+const CalendarIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+  </svg>
+)
+
 const ExchangeTableSkeleton = () => (
   <div className="flex-1 overflow-auto" aria-label="Loading exchange data" aria-busy="true">
     <table className="min-w-full text-xs">
@@ -121,6 +128,7 @@ const ReportsExchangePage = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) return false
       const v = localStorage.getItem('sidebarOpen')
       return v === null ? true : JSON.parse(v)
     } catch { return true }
@@ -135,9 +143,29 @@ const ReportsExchangePage = () => {
   const [error, setError] = useState('')
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [customFromDate, setCustomFromDate] = useState('')
+  const [customToDate, setCustomToDate] = useState('')
+  const [appliedFromDate, setAppliedFromDate] = useState('')
+  const [appliedToDate, setAppliedToDate] = useState('')
+  const [dateError, setDateError] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 15 : 100))
+  const datePickerRef = useRef(null)
 
   const activeGroupName = getActiveGroupFilter('exchange')
   const activeGroup = groups.find(group => group.name === activeGroupName) || null
+
+  useEffect(() => {
+    if (!showDatePicker) return undefined
+    const closeOnOutsideClick = (event) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
+        setShowDatePicker(false)
+      }
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick)
+  }, [showDatePicker])
 
   // Load settlement weeks; select highest-id week by default
   useEffect(() => {
@@ -172,10 +200,13 @@ const ReportsExchangePage = () => {
       try {
         setLoading(true)
         setError('')
-        const res = await brokerAPI.getExchangeData(
-          Number(selectedWeekId),
-          getExchangeGroupFilters(activeGroup)
-        )
+        const dateFilters = appliedFromDate && appliedToDate
+          ? { from: appliedFromDate, to: appliedToDate }
+          : {}
+        const res = await brokerAPI.getExchangeData(Number(selectedWeekId), {
+          ...dateFilters,
+          ...getExchangeGroupFilters(activeGroup)
+        })
         if (cancelled) return
         setData(unwrapExchangeResponse(res))
       } catch (err) {
@@ -189,12 +220,51 @@ const ReportsExchangePage = () => {
     }
     load()
     return () => { cancelled = true }
-  }, [activeGroup, isAuthenticated, selectedWeekId])
+  }, [activeGroup, appliedFromDate, appliedToDate, isAuthenticated, selectedWeekId])
+
+  const applyDateFilter = () => {
+    if (!customFromDate || !customToDate) {
+      setDateError('Select both From and To dates')
+      return
+    }
+    if (customFromDate > customToDate) {
+      setDateError('From date must be before To date')
+      return
+    }
+    setDateError('')
+    setAppliedFromDate(customFromDate)
+    setAppliedToDate(customToDate)
+    setShowDatePicker(false)
+  }
+
+  const clearDateFilter = () => {
+    setCustomFromDate('')
+    setCustomToDate('')
+    setAppliedFromDate('')
+    setAppliedToDate('')
+    setDateError('')
+    setShowDatePicker(false)
+  }
+
+  const handlePageSizeChange = (value) => {
+    setPageSize(value)
+    setCurrentPage(1)
+  }
 
   const rawClients = data?.Clients ?? data?.clients ?? data?.Client ?? data?.client ?? []
   const clients = Array.isArray(rawClients) ? rawClients : []
   const settlementWeek = data?.SettlementWeek ?? data?.settlementWeek ?? null
   const responseTotals = data?.Totals ?? data?.totals ?? null
+  const totalPages = Math.max(1, Math.ceil(clients.length / pageSize))
+  const pagedClients = clients.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeGroupName, appliedFromDate, appliedToDate, selectedWeekId])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   // Build the union of exchange columns across all clients (stable order = first-seen)
   const exchangeColumns = useMemo(() => {
@@ -283,7 +353,7 @@ const ReportsExchangePage = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <div className="hidden lg:block">
+      <div>
         <Sidebar
           isOpen={sidebarOpen}
           onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
@@ -295,6 +365,20 @@ const ReportsExchangePage = () => {
         <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
           {/* Header Card */}
           <div className="-mx-3 sm:mx-0 bg-white rounded-none sm:rounded-2xl shadow-sm px-0 sm:px-6 py-0 sm:py-3 mb-2 sm:mb-4">
+            <div className="sm:hidden flex items-center px-4 py-3 bg-white border-b border-[#ECECEC] relative">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="w-9 h-9 rounded-lg bg-[#F8F8F8] flex items-center justify-center"
+                aria-label="Open menu"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-lg font-semibold text-black absolute left-1/2 -translate-x-1/2">Exchange</h1>
+            </div>
+
             <div className="hidden sm:flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Reports · Exchange</h1>
@@ -327,6 +411,76 @@ const ReportsExchangePage = () => {
                   )}
                 </div>
 
+                <div className="relative" ref={datePickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomFromDate(appliedFromDate)
+                      setCustomToDate(appliedToDate)
+                      setDateError('')
+                      setShowDatePicker(value => !value)
+                    }}
+                    className={`h-10 px-3 rounded-md border shadow-sm text-sm font-medium inline-flex items-center gap-1.5 transition-colors ${
+                      appliedFromDate && appliedToDate
+                        ? 'border-blue-300 bg-blue-50 text-blue-700'
+                        : 'border-[#E5E7EB] bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                    aria-label="Choose custom date range"
+                    title="Choose custom date range"
+                  >
+                    <CalendarIcon />
+                    <span className="hidden xl:inline">Custom Dates</span>
+                  </button>
+
+                  {showDatePicker && (
+                    <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-xl">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-[#1F2937]">Custom date range</p>
+                        <p className="mt-0.5 text-[11px] text-[#6B7280]">Filter exchange data for the selected period.</p>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="block text-xs font-medium text-[#374151]">
+                          From
+                          <input
+                            type="date"
+                            value={customFromDate}
+                            onChange={(event) => setCustomFromDate(event.target.value)}
+                            className="mt-1 h-9 w-full rounded-md border border-[#E5E7EB] px-2.5 text-sm text-[#1F2937] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                        </label>
+                        <label className="block text-xs font-medium text-[#374151]">
+                          To
+                          <input
+                            type="date"
+                            value={customToDate}
+                            min={customFromDate || undefined}
+                            onChange={(event) => setCustomToDate(event.target.value)}
+                            className="mt-1 h-9 w-full rounded-md border border-[#E5E7EB] px-2.5 text-sm text-[#1F2937] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                        </label>
+                      </div>
+                      {dateError && <p className="mt-2 text-xs text-red-600">{dateError}</p>}
+                      <div className="mt-4 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={clearDateFilter}
+                          disabled={!appliedFromDate && !appliedToDate}
+                          className="h-8 rounded-md px-2.5 text-xs font-medium text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          onClick={applyDateFilter}
+                          className="h-8 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
+                        >
+                          Apply dates
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <GroupSelector
                   moduleName="exchange"
                   onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }}
@@ -345,10 +499,93 @@ const ReportsExchangePage = () => {
                 </button>
               </div>
             </div>
+
+            <div className="sm:hidden flex items-center gap-1.5 px-3 py-2 overflow-visible">
+              {weeksLoading ? (
+                <div className="h-8 rounded-md bg-gray-200 animate-pulse flex-1 min-w-0" aria-label="Loading weeks" />
+              ) : (
+                <select
+                  value={selectedWeekId}
+                  onChange={(e) => setSelectedWeekId(e.target.value)}
+                  disabled={!weeks.length}
+                  className="h-8 flex-1 min-w-0 px-2 rounded-md border border-[#E5E7EB] bg-white text-[11px] text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 truncate"
+                >
+                  {!weeks.length && <option>No weeks</option>}
+                  {weeks.map(w => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
+                </select>
+              )}
+
+              <div className="relative flex-shrink-0" ref={datePickerRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomFromDate(appliedFromDate)
+                    setCustomToDate(appliedToDate)
+                    setDateError('')
+                    setShowDatePicker(value => !value)
+                  }}
+                  className={`h-8 w-8 rounded-md border shadow-sm flex items-center justify-center ${appliedFromDate && appliedToDate ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-[#E5E7EB] bg-white text-gray-700'}`}
+                  aria-label="Choose custom date range"
+                  title="Choose custom date range"
+                >
+                  <CalendarIcon />
+                </button>
+                {showDatePicker && (
+                  <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-xl">
+                    <p className="text-sm font-semibold text-[#1F2937]">Custom date range</p>
+                    <p className="mt-0.5 text-[11px] text-[#6B7280]">Filter exchange data for the selected period.</p>
+                    <div className="mt-3 space-y-3">
+                      <label className="block text-xs font-medium text-[#374151]">
+                        From
+                        <input
+                          type="date"
+                          value={customFromDate}
+                          onChange={(event) => setCustomFromDate(event.target.value)}
+                          className="mt-1 h-9 w-full rounded-md border border-[#E5E7EB] px-2.5 text-sm text-[#1F2937] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      </label>
+                      <label className="block text-xs font-medium text-[#374151]">
+                        To
+                        <input
+                          type="date"
+                          value={customToDate}
+                          min={customFromDate || undefined}
+                          onChange={(event) => setCustomToDate(event.target.value)}
+                          className="mt-1 h-9 w-full rounded-md border border-[#E5E7EB] px-2.5 text-sm text-[#1F2937] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      </label>
+                    </div>
+                    {dateError && <p className="mt-2 text-xs text-red-600">{dateError}</p>}
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <button type="button" onClick={clearDateFilter} disabled={!appliedFromDate && !appliedToDate} className="h-8 rounded-md px-2.5 text-xs font-medium text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">Clear</button>
+                      <button type="button" onClick={applyDateFilter} className="h-8 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700">Apply dates</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <GroupSelector
+                moduleName="exchange"
+                onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }}
+                onEditClick={(group) => { setEditingGroup(group); setShowGroupModal(true) }}
+              />
+              <button
+                type="button"
+                onClick={exportCsv}
+                disabled={!clients.length}
+                className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-gray-700 shadow-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Export CSV"
+                title="Export CSV"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Content */}
-          <div className="bg-white rounded-2xl shadow-sm flex-1 overflow-hidden flex flex-col">
+          <div className="bg-white rounded-md shadow-sm flex-1 overflow-hidden flex flex-col">
             {loading ? (
               <ExchangeTableSkeleton />
             ) : error ? (
@@ -356,15 +593,16 @@ const ReportsExchangePage = () => {
             ) : !hasExchangeData ? (
               <div className="flex-1 flex items-center justify-center text-sm text-slate-500">No exchange data</div>
             ) : (
-              <div className="flex-1 overflow-auto">
-                <table className="min-w-full text-xs border-collapse">
+              <>
+                <div className="flex-1 min-h-0 overflow-auto rounded-md isolate">
+                  <table className="min-w-full text-xs border-separate border-spacing-0">
                   <thead className="bg-blue-600 text-white sticky top-0 z-20">
                     <tr>
-                      <th rowSpan={2} className="px-3 py-3 text-left font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60 sticky left-0 bg-blue-600 z-30">Login</th>
-                      <th rowSpan={2} className="px-3 py-3 text-left font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60">Name</th>
-                      <th rowSpan={2} className="px-3 py-3 text-right font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60">Agent Commission</th>
+                      <th rowSpan={2} className="relative z-30 bg-blue-600 px-3 py-3 text-left font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60 sticky left-0">Login</th>
+                      <th rowSpan={2} className="bg-blue-600 px-3 py-3 text-left font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60">Name</th>
+                      <th rowSpan={2} className="bg-blue-600 px-3 py-3 text-right font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60">Agent Commission</th>
                       {exchangeColumns.map(name => (
-                        <th key={name} colSpan={3} className="px-3 py-2 text-center font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60 border-b border-blue-500/60">
+                        <th key={name} colSpan={3} className="bg-blue-600 px-3 py-2 text-center font-semibold uppercase tracking-wide text-[11px] border-r border-blue-500/60 border-b border-blue-500/60">
                           {name}
                         </th>
                       ))}
@@ -372,17 +610,17 @@ const ReportsExchangePage = () => {
                     <tr>
                       {exchangeColumns.map(name => (
                         <Fragment key={name}>
-                          <th className="px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Commission</th>
-                          <th className="px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Lots</th>
-                          <th className="px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Volume</th>
+                          <th className="bg-blue-600 px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Commission</th>
+                          <th className="bg-blue-600 px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Lots</th>
+                          <th className="bg-blue-600 px-2 py-2 text-right font-medium uppercase tracking-wide text-[10px] border-r border-blue-500/60">Volume</th>
                         </Fragment>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {clients.map((c) => (
+                    {pagedClients.map((c) => (
                       <tr key={c.Login} className="group bg-white hover:bg-[#F8FAFC] border-b border-[#E1E1E1]">
-                        <td className="px-3 py-2 font-medium text-[#1A63BC] border-r border-[#E1E1E1] sticky left-0 bg-white group-hover:bg-[#F8FAFC]">{c.Login}</td>
+                        <td className="relative z-10 sticky left-0 bg-white px-3 py-2 font-medium text-[#1A63BC] border-r border-[#E1E1E1] group-hover:bg-[#F8FAFC]">{c.Login}</td>
                         <td className="px-3 py-2 text-[#1F2937] border-r border-[#E1E1E1]">{c.Name}</td>
                         <td className="px-3 py-2 text-right border-r border-[#E1E1E1] tabular-nums text-[#1F2937]">
                           {fmtMoney(c.AgentCommission)}
@@ -409,7 +647,7 @@ const ReportsExchangePage = () => {
                   </tbody>
                   <tfoot className="sticky bottom-0 bg-[#F1F5F9] text-[#1F2937] font-semibold">
                     <tr>
-                      <td className="px-3 py-2.5 border-t border-[#CBD5E1] sticky left-0 bg-[#F1F5F9]">Totals</td>
+                      <td className="relative z-10 sticky left-0 bg-[#F1F5F9] px-3 py-2.5 border-t border-[#CBD5E1]">Totals</td>
                       <td className="px-3 py-2.5 border-t border-[#CBD5E1] text-[#4B5563]">{clients.length} clients</td>
                       <td className="px-3 py-2.5 border-t border-[#CBD5E1] text-right tabular-nums">
                         {fmtMoney(totals.agentCommission)}
@@ -428,8 +666,40 @@ const ReportsExchangePage = () => {
                       })}
                     </tr>
                   </tfoot>
-                </table>
-              </div>
+                  </table>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 border-t border-gray-100 bg-white">
+                  <div className="text-xs text-gray-600">
+                    {clients.length > 0
+                      ? `Showing page ${currentPage} of ${totalPages} — ${clients.length} total`
+                      : '—'}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <PageSizeSelect value={pageSize} options={[15, 25, 50, 100, 500]} onChange={handlePageSizeChange} />
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                        disabled={currentPage <= 1}
+                        className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Previous page"
+                      >
+                        ‹
+                      </button>
+                      <span className="min-w-14 text-center text-xs text-[#374151]">{currentPage} / {totalPages}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Next page"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

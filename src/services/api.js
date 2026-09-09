@@ -817,7 +817,14 @@ export const brokerAPI = {
 
   // Reports - Exchange data for a settlement week and optional group filters
   getExchangeData: async (week_id, filters = {}, options = {}) => {
-    const response = await api.post('/api/broker/exchange-data', { week_id, ...filters }, options)
+    const { from, to, ...groupFilters } = filters || {}
+    const body = {
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+      week_id,
+      ...groupFilters
+    }
+    const response = await api.post('/api/broker/exchange-data', body, options)
     return response.data
   },
 }
