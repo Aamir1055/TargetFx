@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
+import * as XLSX from 'xlsx-js-style'
 import { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useGroups } from '../contexts/GroupContext'
@@ -350,7 +351,7 @@ const ReportsExchangePage = () => {
     return (client.Exchanges || []).find(e => (e.Exchange || 'UNKNOWN') === name) || null
   }
 
-  const exportCsv = async () => {
+  const exportExcel = async () => {
     if (exporting || !selectedWeekId) return
 
     setExporting(true)
@@ -400,29 +401,93 @@ const ReportsExchangePage = () => {
         })
       })
 
-      const headerTop = ['Login', 'Name', 'Agent Commission']
+      const totalColumns = 1 + exportColumns.length * 3
+      const worksheetData = [Array(totalColumns).fill('')]
+      worksheetData[0][0] = 'Exchange Data'
+      const groupedHeader = Array(totalColumns).fill('')
+      const subHeader = Array(totalColumns).fill('')
+      groupedHeader[0] = 'Login'
+      subHeader[0] = 'Login'
       exportColumns.forEach(name => {
-        headerTop.push(`${name} Commission`, `${name} Lots`, `${name} Volume`)
+        const startColumn = 1 + exportColumns.indexOf(name) * 3
+        groupedHeader[startColumn] = name
+        subHeader[startColumn] = 'Lots'
+        subHeader[startColumn + 1] = 'Volume'
+        subHeader[startColumn + 2] = 'Commission'
       })
-      const rows = [headerTop.join(',')]
+      worksheetData.push(groupedHeader, subHeader)
       exportClients.forEach(client => {
-        const cells = [client.Login, `"${String(client.Name ?? '').replace(/"/g, '""')}"`, Number(client.AgentCommission || 0)]
+        const cells = [client.Login]
         exportColumns.forEach(name => {
           const exchange = (client.Exchanges || []).find(item => (item.Exchange || 'UNKNOWN') === name)
-          cells.push(Number(exchange?.Commission || 0), Number(exchange?.Lots || 0), Number(exchange?.Volume || 0))
+          cells.push(Number(exchange?.Lots || 0), Number(exchange?.Volume || 0), Number(exchange?.Commission || 0))
         })
-        rows.push(cells.join(','))
+        worksheetData.push(cells)
       })
-      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
+      const lastColumn = totalColumns - 1
+      const headerBorder = {
+        top: { style: 'thin', color: { rgb: '000000' } },
+        bottom: { style: 'thin', color: { rgb: '000000' } },
+        left: { style: 'thin', color: { rgb: '000000' } },
+        right: { style: 'thin', color: { rgb: '000000' } }
+      }
+      const dataBorder = {
+        top: { style: 'thin', color: { rgb: 'B7B7B7' } },
+        bottom: { style: 'thin', color: { rgb: 'B7B7B7' } },
+        left: { style: 'thin', color: { rgb: 'B7B7B7' } },
+        right: { style: 'thin', color: { rgb: 'B7B7B7' } }
+      }
+      const darkHeaderStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 14 },
+        fill: { patternType: 'solid', fgColor: { rgb: '006B9A' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: headerBorder
+      }
+      const subHeaderStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 12 },
+        fill: { patternType: 'solid', fgColor: { rgb: '006B9A' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: headerBorder
+      }
+      for (let column = 0; column <= lastColumn; column += 1) {
+        worksheet[XLSX.utils.encode_cell({ r: 0, c: column })].s = darkHeaderStyle
+        worksheet[XLSX.utils.encode_cell({ r: 1, c: column })].s = darkHeaderStyle
+        worksheet[XLSX.utils.encode_cell({ r: 2, c: column })].s = subHeaderStyle
+      }
+      for (let row = 3; row < worksheetData.length; row += 1) {
+        for (let column = 0; column <= lastColumn; column += 1) {
+          const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })]
+          cell.s = {
+            alignment: { horizontal: column === 0 ? 'right' : 'right', vertical: 'center' },
+            border: dataBorder,
+            numFmt: '0.##'
+          }
+        }
+      }
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: lastColumn } },
+        { s: { r: 1, c: 0 }, e: { r: 2, c: 0 } },
+        ...exportColumns.map((_, index) => {
+          const startColumn = 1 + index * 3
+          return { s: { r: 1, c: startColumn }, e: { r: 1, c: startColumn + 2 } }
+        })
+      ]
+      worksheet['!cols'] = [
+        { wch: 14 },
+        ...exportColumns.flatMap(() => [{ wch: 14 }, { wch: 16 }, { wch: 14 }])
+      ]
+      worksheet['!rows'] = [
+        { hpt: 28 },
+        { hpt: 24 },
+        { hpt: 22 }
+      ]
+      worksheet['!freeze'] = { xSplit: 1, ySplit: 3 }
+
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Exchange Data')
       const wk = settlementWeek?.name ? settlementWeek.name.replace(/\s+/g, '_') : `week_${selectedWeekId}`
-      link.href = url
-      link.download = `exchange_${wk}.csv`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(url)
+      XLSX.writeFile(workbook, `exchange_data_${wk}.xlsx`)
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to export exchange data')
     } finally {
@@ -455,17 +520,12 @@ const ReportsExchangePage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <h1 className="text-lg font-semibold text-black absolute left-1/2 -translate-x-1/2">Exchange</h1>
+              <h1 className="text-lg font-semibold text-black absolute left-1/2 -translate-x-1/2">Exchange Data</h1>
             </div>
 
             <div className="hidden sm:flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Reports · Exchange</h1>
-                {settlementWeek && (
-                  <p className="hidden sm:block text-xs text-[#6B7280] mt-0.5">
-                    {settlementWeek.name ? `${settlementWeek.name} · ` : ''}{settlementWeek.start_date} → {settlementWeek.end_date}
-                  </p>
-                )}
+                <h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Reports · Exchange Data</h1>
               </div>
 
               <div className="hidden sm:flex flex-nowrap items-center gap-2 flex-shrink-0">
@@ -567,14 +627,14 @@ const ReportsExchangePage = () => {
                 />
 
                 <button
-                  onClick={exportCsv}
+                  onClick={exportExcel}
                   disabled={!clients.length || exporting}
                   className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                   </svg>
-                  {exporting ? 'Exporting...' : 'Export CSV'}
+                  {exporting ? 'Exporting...' : 'Export Excel'}
                 </button>
               </div>
             </div>
@@ -650,11 +710,11 @@ const ReportsExchangePage = () => {
               />
               <button
                 type="button"
-                onClick={exportCsv}
+                onClick={exportExcel}
                 disabled={!clients.length || exporting}
                 className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-gray-700 shadow-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Export CSV"
-                title="Export CSV"
+                aria-label="Export Excel"
+                title="Export Excel"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
@@ -775,13 +835,6 @@ const ReportsExchangePage = () => {
                     </tr>
                   </tfoot>
                   </table>
-                </div>
-                <div className="flex items-center px-4 py-2 border-t border-gray-100 bg-white">
-                  <div className="text-xs text-gray-600">
-                    {totalClients > 0
-                      ? `Showing page ${currentPage} of ${totalPages} — ${totalClients} total`
-                      : '—'}
-                  </div>
                 </div>
               </>
             )}

@@ -73,7 +73,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
       icon: 'reports',
       img: 'Bills.svg',
       children: [
-        { name: 'Exchange', path: '/reports/exchange' }
+        { name: 'Exchange Data', path: '/reports/exchange' }
       ]
     },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
