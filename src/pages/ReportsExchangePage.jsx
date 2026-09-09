@@ -150,7 +150,7 @@ const ReportsExchangePage = () => {
   const [appliedToDate, setAppliedToDate] = useState('')
   const [dateError, setDateError] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 15 : 100))
+  const [pageSize, setPageSize] = useState(100)
   const datePickerRef = useRef(null)
 
   const activeGroupName = getActiveGroupFilter('exchange')
@@ -584,6 +584,35 @@ const ReportsExchangePage = () => {
             </div>
           </div>
 
+          {!loading && !error && hasExchangeData && (
+            <div className="mb-2 flex items-center justify-end rounded-md bg-white px-3 py-2 shadow-sm sm:mb-4 sm:px-4">
+              <div className="flex items-center gap-3">
+                <PageSizeSelect value={pageSize} options={[50, 100, 200, 500]} onChange={handlePageSizeChange} />
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                    disabled={currentPage <= 1}
+                    className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Previous page"
+                  >
+                    ‹
+                  </button>
+                  <span className="min-w-14 text-center text-xs text-[#374151]">{currentPage} / {totalPages}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Next page"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Content */}
           <div className="bg-white rounded-md shadow-sm flex-1 overflow-hidden flex flex-col">
             {loading ? (
@@ -594,7 +623,7 @@ const ReportsExchangePage = () => {
               <div className="flex-1 flex items-center justify-center text-sm text-slate-500">No exchange data</div>
             ) : (
               <>
-                <div className="flex-1 min-h-0 overflow-auto rounded-md isolate">
+                <div className="exchange-table-scrollbar flex-1 min-h-0 overflow-auto rounded-md isolate">
                   <table className="min-w-full text-xs border-separate border-spacing-0">
                   <thead className="bg-blue-600 text-white sticky top-0 z-20">
                     <tr>
@@ -668,35 +697,11 @@ const ReportsExchangePage = () => {
                   </tfoot>
                   </table>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 border-t border-gray-100 bg-white">
+                <div className="flex items-center px-4 py-2 border-t border-gray-100 bg-white">
                   <div className="text-xs text-gray-600">
                     {clients.length > 0
                       ? `Showing page ${currentPage} of ${totalPages} — ${clients.length} total`
                       : '—'}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <PageSizeSelect value={pageSize} options={[15, 25, 50, 100, 500]} onChange={handlePageSizeChange} />
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-                        disabled={currentPage <= 1}
-                        className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Previous page"
-                      >
-                        ‹
-                      </button>
-                      <span className="min-w-14 text-center text-xs text-[#374151]">{currentPage} / {totalPages}</span>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
-                        disabled={currentPage >= totalPages}
-                        className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Next page"
-                      >
-                        ›
-                      </button>
-                    </div>
                   </div>
                 </div>
               </>

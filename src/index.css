@@ -287,6 +287,30 @@ body {
   scrollbar-color: #3b82f6 #f1f5f9;
 }
 
+/* Compact scrollbar for the wide Exchange report table */
+.exchange-table-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.exchange-table-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.exchange-table-scrollbar::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
+
+.exchange-table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.exchange-table-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
 /* Hide scrollbar but keep functionality */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* IE and Edge */
