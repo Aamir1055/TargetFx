@@ -830,6 +830,20 @@ export const brokerAPI = {
     const response = await api.post('/api/broker/exchange-data', body, options)
     return response.data
   },
+
+  // Reports - Historical positions for a date range
+  getHistoricalPositions: async (payload = {}, options = {}) => {
+    const body = {
+      from: payload.from,
+      to: payload.to,
+      up_down_percentage: payload.up_down_percentage ?? 5,
+      ...(payload.percentage === undefined ? {} : { percentage: payload.percentage }),
+      page: payload.page ?? 1,
+      limit: payload.limit ?? 100
+    }
+    const response = await api.post('/api/broker/historical-position', body, options)
+    return response.data
+  },
 }
 
 // Also export these methods on default api for backwards compatibility

@@ -73,7 +73,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
       icon: 'reports',
       img: 'Bills.svg',
       children: [
-        { name: 'Exchange Data', path: '/reports/exchange' }
+        { name: 'Exchange Data', path: '/reports/exchange' },
+        { name: 'Historical Positions', path: '/reports/historical-positions' }
       ]
     },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
@@ -82,6 +83,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
   const isReportsActive = location.pathname.startsWith('/reports')
   const [reportsOpen, setReportsOpen] = useState(isReportsActive)
   useEffect(() => { if (isReportsActive) setReportsOpen(true) }, [isReportsActive])
+  const reportsExpanded = reportsOpen
 
   const baseUrl = import.meta.env.BASE_URL || '/'
   
@@ -180,11 +182,11 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                             style={{ filter: 'brightness(0)' }}
                           />
                           <span className="flex-1 text-left">{item.name}</span>
-                          <svg className={`w-4 h-4 transition-transform ${reportsOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <svg className={`w-4 h-4 transition-transform ${reportsExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
-                        {reportsOpen && item.children.map(child => (
+                        {reportsExpanded && item.children.map(child => (
                           <button
                             key={child.path}
                             type="button"
@@ -320,7 +322,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
             {navigationItems.map((item) => {
               if (item.children) {
                 const anyChildActive = item.children.some(c => isActivePath(c.path))
-                const expanded = isOpen && reportsOpen
+                const expanded = isOpen && reportsExpanded
                 return (
                   <div key={item.name}>
                     <button
