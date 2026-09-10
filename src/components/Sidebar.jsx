@@ -82,7 +82,9 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
 
   const isReportsActive = location.pathname.startsWith('/reports')
   const [reportsOpen, setReportsOpen] = useState(isReportsActive)
-  useEffect(() => { if (isReportsActive) setReportsOpen(true) }, [isReportsActive])
+  useEffect(() => {
+    setReportsOpen(isReportsActive)
+  }, [isReportsActive])
   const reportsExpanded = reportsOpen
 
   const baseUrl = import.meta.env.BASE_URL || '/'

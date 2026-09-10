@@ -77,7 +77,7 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="historical-position-title">
       <button type="button" onClick={onClose} className="absolute inset-0 cursor-default bg-slate-950/45 backdrop-blur-[2px]" aria-label="Close historical position details" />
       <div className="relative flex max-h-[calc(100vh-24px)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100vh-48px)]">
-        <div className="flex items-start justify-between gap-4 bg-blue-600 px-4 py-3 text-white sm:px-6 sm:py-4">
+        <div className="flex items-start justify-between gap-4 bg-blue-600 px-4 py-2.5 text-white sm:px-6 sm:py-3">
           <div className="min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-blue-100 sm:text-[10px]">Historical position details</p>
             <h2 id="historical-position-title" className="mt-0.5 truncate text-lg font-extrabold tracking-tight sm:text-xl">{symbol}</h2>
@@ -85,10 +85,10 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
           <button type="button" onClick={onClose} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/30 bg-white/10 text-xl leading-none text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60" aria-label="Close details" title="Close details">&times;</button>
         </div>
 
-        <div className="overflow-hidden px-5 py-4 sm:px-7 sm:py-5">
-          <div className="overflow-hidden rounded-xl border border-slate-200">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3"><h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">Position events</h3><div className="flex w-full items-center justify-between gap-3 sm:w-auto"><span className="text-xs text-slate-500">Showing {visibleEvents.length.toLocaleString()} of {eventCount.toLocaleString()}</span><PaginationControls page={eventPage} totalPages={eventTotalPages} onPageChange={setEventPage} /></div></div>
-            <div className="max-h-[430px] overflow-auto sm:max-h-[560px]">
+        <div className="min-h-0 overflow-hidden p-3 sm:p-4">
+          <div className="overflow-hidden">
+            <div className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 sm:px-4"><div className="flex w-full items-center justify-between gap-3 sm:w-auto"><span className="text-xs text-slate-500">Showing {visibleEvents.length.toLocaleString()} of {eventCount.toLocaleString()}</span><PaginationControls page={eventPage} totalPages={eventTotalPages} onPageChange={setEventPage} /></div></div>
+            <div className="max-h-[330px] overflow-auto sm:max-h-[420px]">
               <div className="sm:hidden">
                 <div className="grid grid-cols-[1.55fr_0.72fr_0.82fr_0.82fr_0.78fr_0.78fr] gap-1 bg-blue-600 px-2 py-2 text-[8px] font-bold uppercase tracking-[0.03em] text-white">
                   <span>Time</span><span>Action</span><span className="text-right">Previous</span><span className="text-right">New</span><span className="text-right">Change</span><span>Direction</span>
@@ -113,10 +113,10 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
                 <tbody className="divide-y divide-slate-100">{visibleEvents.map((event, index) => { const change = Number(event.ChangePercentage ?? event.changePercentage); const increase = String(event.Direction ?? event.direction ?? '').toLowerCase() === 'increase' || change > 0; return <tr key={`${symbol}-${event.Timestamp ?? event.timestamp ?? index}`} className="hover:bg-slate-50"><td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatTime(event.Time ?? event.time)}</td><td className="px-4 py-3 font-semibold capitalize text-slate-800">{event.PositionAction ?? event.positionAction ?? '-'}</td><td className="px-4 py-3 text-right tabular-nums text-slate-600">{formatNumber(event.PreviousPosition ?? event.previousPosition)}</td><td className="px-4 py-3 text-right tabular-nums text-slate-800">{formatNumber(event.NewPosition ?? event.newPosition)}</td><td className={`px-4 py-3 text-right font-semibold tabular-nums ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{change > 0 ? '+' : ''}{formatNumber(change)}%</td><td className={`px-4 py-3 capitalize ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{event.Direction ?? event.direction ?? '-'}</td></tr> })}</tbody>
               </table>
             </div>
-          </div>
         </div>
-        <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-3 sm:px-7"><button type="button" onClick={onClose} className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30">Close details</button></div>
+        <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-4 py-2.5 sm:px-6"><button type="button" onClick={onClose} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30">Close details</button></div>
       </div>
+    </div>
     </div>
   )
 }
@@ -232,11 +232,11 @@ const HistoricalPositionsPage = () => {
       <main className={`flex-1 min-w-0 px-3 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col overflow-hidden">
           <header className="mb-0 rounded-none bg-transparent sm:mb-3 sm:rounded-xl sm:bg-white sm:px-6 sm:py-4 sm:shadow-sm">
-            <div className="relative flex items-center justify-between border-b border-[#ECECEC] bg-transparent px-4 py-4 shadow-sm sm:hidden">
+            <div className="relative flex items-center justify-between border-b border-[#ECECEC] bg-white px-4 py-4 shadow-sm sm:hidden">
               <button type="button" onClick={() => setSidebarOpen(true)} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F8F8F8] text-slate-900" aria-label="Open menu">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25}><path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
               </button>
-              <h1 className="absolute left-1/2 -translate-x-1/2 text-xl font-semibold text-black">Historical Positions</h1>
+              <h1 className="absolute left-1/2 max-w-[calc(100vw-7rem)] -translate-x-1/2 truncate whitespace-nowrap text-xl font-semibold text-black">Historical Positions</h1>
               <span className="h-12 w-12" aria-hidden="true" />
             </div>
             <div className="hidden items-center gap-5 sm:flex">

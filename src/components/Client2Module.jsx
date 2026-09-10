@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import FilterModal from './FilterModal'
 import CustomizeViewModal from './CustomizeViewModal'
@@ -30,6 +30,7 @@ const formatCompactIndian = (v) => {
 
 export default function Client2Module() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { logout } = useAuth()
   const { positions: cachedPositions, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
@@ -39,6 +40,9 @@ export default function Client2Module() {
   const currencyDropdownRef = useRef(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [mobileReportsOpen, setMobileReportsOpen] = useState(false)
+  useEffect(() => {
+    setMobileReportsOpen(location.pathname.startsWith('/reports'))
+  }, [location.pathname])
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [showPercent, setShowPercent] = useState(false)
@@ -1061,10 +1065,12 @@ export default function Client2Module() {
                       <span className="flex-1">Reports</span>
                       <svg className={`w-4 h-4 transition-transform ${mobileReportsOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
-                    {mobileReportsOpen && <>
-                      <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className="flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold">Exchange Data</button>
-                      <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className="flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] text-[#404040]">Historical Positions</button>
-                    </>}
+                    {mobileReportsOpen && (
+                      <div className="flex flex-col pb-1">
+                        <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Exchange Data</button>
+                        <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Historical Positions</button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <button
