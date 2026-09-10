@@ -7,6 +7,8 @@ import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import PageSizeSelect from '../components/PageSizeSelect'
+import ClientPositionsModal from '../components/ClientPositionsModal'
+import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
 
 const fmtMoney = (n) => {
   const num = Number(n)
@@ -162,11 +164,19 @@ const ReportsExchangePage = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
   const [exporting, setExporting] = useState(false)
+  const [selectedClient, setSelectedClient] = useState(null)
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640))
   const desktopDatePickerRef = useRef(null)
   const mobileDatePickerRef = useRef(null)
 
   const activeGroupName = getActiveGroupFilter('exchange')
   const activeGroup = groups.find(group => group.name === activeGroupName) || null
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     if (!showDatePicker) return undefined
@@ -871,7 +881,11 @@ const ReportsExchangePage = () => {
                   <tbody>
                     {pagedClients.map((c) => (
                       <tr key={c.Login} className="group bg-white hover:bg-[#F8FAFC]">
-                        <td className="relative z-10 sticky left-0 bg-white px-3 py-2 font-medium text-[#1A63BC] border-b border-r border-[#E1E1E1] group-hover:bg-[#F8FAFC]">{c.Login}</td>
+                        <td
+                          className="relative z-10 sticky left-0 bg-white px-3 py-2 font-medium text-[#1A63BC] hover:text-blue-700 hover:underline cursor-pointer border-b border-r border-[#E1E1E1] group-hover:bg-[#F8FAFC]"
+                          onClick={(e) => { e.stopPropagation(); setSelectedClient({ login: c.Login, name: c.Name, ...c }) }}
+                          title="Click to view client details"
+                        >{c.Login}</td>
                         <td className="px-3 py-2 text-[#4B4B4B] border-b border-r border-[#E1E1E1]">{c.Name}</td>
                         <td className="px-3 py-2 text-right border-b border-r border-[#E1E1E1] tabular-nums text-[#4B4B4B]">
                           {fmtMoney(c.AgentCommission)}
@@ -933,6 +947,27 @@ const ReportsExchangePage = () => {
         displayField="Name"
         editGroup={editingGroup}
       />
+
+      {/* Client Details Modal */}
+      {selectedClient && (
+        isMobile ? (
+          <ClientDetailsMobileModal
+            client={selectedClient}
+            onClose={() => setSelectedClient(null)}
+            allPositionsCache={[]}
+            allOrdersCache={[]}
+          />
+        ) : (
+          <ClientPositionsModal
+            client={selectedClient}
+            onClose={() => setSelectedClient(null)}
+            onClientUpdate={() => {}}
+            allPositionsCache={[]}
+            allOrdersCache={[]}
+            onCacheUpdate={() => {}}
+          />
+        )
+      )}
     </div>
   )
 }

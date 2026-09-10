@@ -2488,57 +2488,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   )}
                 </div>
 
-                {/* Card Filter Button */}
-                <div className="relative" ref={dealStatsFilterRef}>
-                  <button
-                    onClick={() => setShowDealStatsFilter(v => !v)}
-                    className="text-gray-600 hover:text-gray-900 px-2 py-0.5 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center gap-1 text-xs"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M6 8h12M9 12h6M11 16h2"/></svg>
-                    Card Filter
-                  </button>
-                  {showDealStatsFilter && (
-                    <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-50 w-64 max-h-80 overflow-y-auto">
-                      <p className="text-[11px] font-semibold text-gray-700 uppercase mb-1">Position Metrics</p>
-                      {[
-                        ['pf_totalPositions','Total Positions'],
-                        ['pf_totalVolume','Total Volume'],
-                        ['pf_totalPL','Floating Profit'],
-                        ['pf_maxProfit','Max Profit'],
-                        ['pf_maxLoss','Max Loss']
-                      ].map(([key,label]) => (
-                        <label key={key} className="flex items-center gap-2 py-1 px-1 hover:bg-gray-50 rounded cursor-pointer">
-                          <input type="checkbox" className="w-3 h-3" checked={fixedCardVisibility[key]} onChange={() => setFixedCardVisibility(prev => ({...prev, [key]: !prev[key]}))} />
-                          <span className="text-[12px] text-gray-700">{label}</span>
-                        </label>
-                      ))}
-                      <div className="h-px bg-gray-200 my-2" />
-                      <p className="text-[11px] font-semibold text-gray-700 uppercase mb-1">Money Metrics</p>
-                      {[
-                        ['pf_balance','Balance'],
-                        ['pf_credit','Credit'],
-                        ['pf_equity','Equity']
-                      ].map(([key,label]) => (
-                        <label key={key} className="flex items-center gap-2 py-1 px-1 hover:bg-gray-50 rounded cursor-pointer">
-                          <input type="checkbox" className="w-3 h-3" checked={fixedCardVisibility[key]} onChange={() => setFixedCardVisibility(prev => ({...prev, [key]: !prev[key]}))} />
-                          <span className="text-[12px] text-gray-700">{label}</span>
-                        </label>
-                      ))}
-                      <div className="h-px bg-gray-200 my-2" />
-                      <p className="text-[11px] font-semibold text-gray-700 uppercase mb-1">Deals Summary</p>
-                      {(dealStats ? Object.keys({ ...dealStats }) : Object.keys(defaultDealStatVisibility))
-                        .filter(key => !blockedDealStatKeys.has(key))
-                        .sort()
-                        .map(key => (
-                        <label key={key} className="flex items-center gap-2 py-1 px-1 hover:bg-gray-50 rounded cursor-pointer">
-                          <input type="checkbox" className="w-3 h-3" checked={dealStatVisibility[key] ?? false} onChange={() => toggleDealStatKey(key)} />
-                          <span className="text-[12px] text-gray-700">{toTitle(key)}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 {filteredPositions.length > 0 && positionsItemsPerPage !== 'All' && (
                 <div className="flex items-center gap-1">
                   <button
