@@ -1811,19 +1811,34 @@ const BillsPage = () => {
                           </svg>
                         </button>
                         {mobileReportsOpen && (
-                          <button
-                            type="button"
-                            onClick={() => handleMobileNavSelect('/reports/exchange')}
-                            onTouchEnd={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleMobileNavSelect('/reports/exchange')
-                            }}
-                            className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
-                            style={{ touchAction: 'manipulation' }}
-                          >
-                            Exchange Data
-                          </button>
+                          <div className="flex flex-col pb-1">
+                            <button
+                              type="button"
+                              onClick={() => handleMobileNavSelect('/reports/exchange')}
+                              onTouchEnd={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleMobileNavSelect('/reports/exchange')
+                              }}
+                              className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              style={{ touchAction: 'manipulation' }}
+                            >
+                              Exchange Data
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMobileNavSelect('/reports/historical-positions')}
+                              onTouchEnd={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleMobileNavSelect('/reports/historical-positions')
+                              }}
+                              className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              style={{ touchAction: 'manipulation' }}
+                            >
+                              Historical Positions
+                            </button>
+                          </div>
                         )}
                       </div>
                     )

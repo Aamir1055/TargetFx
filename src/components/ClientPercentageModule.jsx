@@ -1597,7 +1597,12 @@ export default function ClientPercentageModule() {
                       <span className="flex-1">Reports</span>
                       <svg className={`w-4 h-4 transition-transform ${mobileReportsOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
-                    {mobileReportsOpen && <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className="flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold">Exchange Data</button>}
+                    {mobileReportsOpen && (
+                      <div className="flex flex-col pb-1">
+                        <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Exchange Data</button>
+                        <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Historical Positions</button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <button

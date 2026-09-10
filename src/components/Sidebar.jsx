@@ -83,7 +83,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
   const isReportsActive = location.pathname.startsWith('/reports')
   const [reportsOpen, setReportsOpen] = useState(isReportsActive)
   useEffect(() => {
-    setReportsOpen(isReportsActive)
+    if (isReportsActive) setReportsOpen(true)
   }, [isReportsActive])
   const reportsExpanded = reportsOpen
 
