@@ -749,7 +749,7 @@ const ReportsExchangePage = () => {
 
           {!loading && !error && selectedWeekId && (
             <div className="flex items-center gap-2 px-3 py-4 sm:px-4 sm:py-5">
-              <form onSubmit={submitSearch} className="min-w-0 flex-1">
+              <form onSubmit={submitSearch} className="min-w-0 flex-1 sm:max-w-md">
                 <div className="relative w-full">
                   <svg className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9CA3AF] sm:hidden" viewBox="0 0 18 18" fill="none" aria-hidden="true">
                     <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
@@ -791,7 +791,7 @@ const ReportsExchangePage = () => {
                   </div>
                 </div>
               </form>
-              <div className="flex items-center gap-1 sm:gap-3">
+              <div className="ml-auto flex items-center gap-1 sm:gap-3">
                 <div className="hidden sm:block">
                   <PageSizeSelect value={pageSize} options={[50, 100, 200, 500]} onChange={handlePageSizeChange} />
                 </div>
