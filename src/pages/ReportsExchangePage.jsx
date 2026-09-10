@@ -836,7 +836,7 @@ const ReportsExchangePage = () => {
               <div className="flex-1 flex items-center justify-center text-sm text-slate-500">No exchange data</div>
             ) : (
               <>
-                <div className="exchange-table-scrollbar flex-1 min-h-0 overflow-auto rounded-md isolate">
+                <div className="exchange-table-scrollbar flex-1 min-h-0 overflow-auto isolate">
                   <table className="min-w-full text-xs border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20">
                     <tr>
