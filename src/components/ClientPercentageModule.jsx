@@ -37,6 +37,7 @@ export default function ClientPercentageModule() {
   const { positions: cachedPositions, clients: cachedClients, rawClients, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [mobileReportsOpen, setMobileReportsOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
@@ -1583,12 +1584,24 @@ export default function ClientPercentageModule() {
                   {label:'Bills', path:'/bills', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="#404040"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#404040" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   )},
+                  {label:'Reports', path:'/reports/exchange', icon:(
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" stroke="#404040"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#404040" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  )},
                   {label:'Settings', path:'/settings', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" stroke="#404040"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2" stroke="#404040"/></svg>
                   )},
-                ].map((item, idx) => (
-                  <button 
-                    key={idx} 
+                ].map((item, idx) => item.path === '/reports/exchange' ? (
+                  <div key={idx}>
+                    <button type="button" onClick={() => setMobileReportsOpen(value => !value)} className="flex items-center gap-3 px-4 h-11 w-full text-left text-[13px] text-[#404040]">
+                      <span className="w-5 h-5 flex items-center justify-center"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/Bills.svg`} alt="Reports" style={{filter:'brightness(0)'}} className="w-5 h-5"/></span>
+                      <span className="flex-1">Reports</span>
+                      <svg className={`w-4 h-4 transition-transform ${mobileReportsOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                    {mobileReportsOpen && <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className="flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold">Exchange Data</button>}
+                  </div>
+                ) : (
+                  <button
+                    key={idx}
                     onClick={() => {
                       navigate(item.path)
                       setIsSidebarOpen(false)

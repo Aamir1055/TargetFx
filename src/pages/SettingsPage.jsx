@@ -229,11 +229,16 @@ const SettingsPage = () => {
   if (isMobile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50">
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
+          onToggle={() => setSidebarOpen(value => { const next = !value; try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch {}; return next })}
+        />
 
         {/* Sticky header */}
         <div className="sticky top-0 bg-white shadow-md z-30 px-4 py-5">
           <div className="flex items-center justify-between">
-            <button onClick={() => setIsMobileSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center">
+            <button onClick={() => setSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M3 6h18M3 12h18M3 18h18" stroke="#000" strokeWidth="2" strokeLinecap="round"/>
               </svg>
@@ -269,10 +274,12 @@ const SettingsPage = () => {
                     { label: 'Margin Level',     path: '/margin-level' },
                     { label: 'Live Dealing',     path: '/live-dealing' },
                     { label: 'Client Percentage',path: '/client-percentage' },
+                    { label: 'Bills',            path: '/bills' },
+                    { label: 'Reports',          path: '/reports/exchange' },
                     { label: 'Settings',         path: '/settings' },
                   ].map((item) => {
                     const isActive = item.path === '/settings'
-                    const iconName = { '/client2': 'Clients', '/positions': 'Positions', '/pending-orders': 'Pending-Orders', '/margin-level': 'Margin-Level', '/live-dealing': 'Live-Dealing', '/client-percentage': 'Client-Percentage', '/settings': 'Settings' }[item.path]
+                    const iconName = { '/client2': 'Clients', '/positions': 'Positions', '/pending-orders': 'Pending-Orders', '/margin-level': 'Margin-Level', '/live-dealing': 'Live-Dealing', '/client-percentage': 'Client-Percentage', '/bills': 'Bills', '/reports/exchange': 'Bills', '/settings': 'Settings' }[item.path]
                     return (
                       <button key={item.path} onClick={() => { navigate(item.path); setIsMobileSidebarOpen(false) }}
                         className={`flex items-center gap-3 px-4 h-11 text-[13px] ${isActive ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>

@@ -52,6 +52,7 @@ export default function LiveDealingModule() {
   const { positions: cachedPositions, clients, rawClients, orders } = useData()
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [mobileReportsOpen, setMobileReportsOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
   const [activeCardIndex, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
@@ -864,7 +865,16 @@ export default function LiveDealingModule() {
                       {item.label}
                     </span>
                   </button>
-                ))}              </nav>
+                ))}
+                <div>
+                  <button type="button" onClick={() => setMobileReportsOpen(value => !value)} className="flex items-center gap-3 px-4 h-[37px] w-full text-left text-[10px] text-[#404040]">
+                    <span className="w-5 h-5 flex items-center justify-center"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/Bills.svg`} alt="Reports" style={{filter:'brightness(0)'}} className="w-5 h-5"/></span>
+                    <span className="flex-1">Reports</span>
+                    <svg className={`w-4 h-4 transition-transform ${mobileReportsOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                  {mobileReportsOpen && <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className="flex items-center w-full h-10 pl-14 pr-4 text-left text-[10px] text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold">Exchange Data</button>}
+                </div>
+              </nav>
             </div>
 
             <div className="p-4 mt-auto border-t border-[#ECECEC]">

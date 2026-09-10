@@ -376,6 +376,7 @@ const BillsPage = () => {
       return v !== null ? JSON.parse(v) : true
     } catch { return true }
   })
+  const [mobileReportsOpen, setMobileReportsOpen] = useState(() => location.pathname.startsWith('/reports'))
   const closeMobileSidebar = useCallback(() => {
     setSidebarOpen(false)
     try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {}
@@ -394,6 +395,10 @@ const BillsPage = () => {
       return 'compact'
     }
   })
+  useEffect(() => {
+    if (location.pathname.startsWith('/reports')) setMobileReportsOpen(true)
+  }, [location.pathname])
+
   useEffect(() => {
     const onChange = (e) => {
       const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
@@ -1775,39 +1780,88 @@ const BillsPage = () => {
                   { label: 'Live Dealing', path: '/live-dealing' },
                   { label: 'Client Percentage', path: '/client-percentage' },
                   { label: 'Bills', path: '/bills' },
+                  { label: 'Reports', path: '/reports/exchange' },
                   { label: 'Settings', path: '/settings' },
-                ].map((item) => (
-                  <button
-                    key={item.path}
-                    onClick={() => handleMobileNavSelect(item.path)}
-                    onTouchEnd={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleMobileNavSelect(item.path)
-                    }}
-                    className={`flex items-center gap-3 px-4 h-11 text-[13px] ${location.pathname === item.path ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
-                    style={{ touchAction: 'manipulation' }}
-                  >
-                    <span className="w-5 h-5 flex items-center justify-center">
-                      <img
-                        src={`${import.meta.env.BASE_URL || '/'}sidebar-icons/${{
-                          '/client2': 'Clients',
-                          '/positions': 'Positions',
-                          '/pending-orders': 'Pending-Orders',
-                          '/margin-level': 'Margin-Level',
-                          '/live-dealing': 'Live-Dealing',
-                          '/client-percentage': 'Client-Percentage',
-                          '/bills': 'Bills',
-                          '/settings': 'Settings'
-                        }[item.path]}.svg`}
-                        alt={item.label}
-                        style={{ filter: 'brightness(0)' }}
-                        className="w-5 h-5"
-                      />
-                    </span>
-                    <span>{item.label}</span>
-                  </button>
-                ))}
+                ].map((item) => {
+                  if (item.path === '/reports/exchange') {
+                    return (
+                      <div key={item.path}>
+                        <button
+                          type="button"
+                          onClick={() => setMobileReportsOpen(value => !value)}
+                          onTouchEnd={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setMobileReportsOpen(value => !value)
+                          }}
+                          className={`flex items-center gap-3 px-4 h-11 w-full text-left text-[13px] ${mobileReportsOpen || location.pathname.startsWith('/reports') ? 'text-[#404040]' : 'text-[#404040]'}`}
+                          style={{ touchAction: 'manipulation' }}
+                        >
+                          <span className="w-5 h-5 flex items-center justify-center">
+                            <img
+                              src={`${import.meta.env.BASE_URL || '/'}sidebar-icons/Bills.svg`}
+                              alt="Reports"
+                              style={{ filter: 'brightness(0)' }}
+                              className="w-5 h-5"
+                            />
+                          </span>
+                          <span className="flex-1">Reports</span>
+                          <svg className={`w-4 h-4 transition-transform ${mobileReportsOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                        {mobileReportsOpen && (
+                          <button
+                            type="button"
+                            onClick={() => handleMobileNavSelect('/reports/exchange')}
+                            onTouchEnd={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleMobileNavSelect('/reports/exchange')
+                            }}
+                            className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                            style={{ touchAction: 'manipulation' }}
+                          >
+                            Exchange Data
+                          </button>
+                        )}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => handleMobileNavSelect(item.path)}
+                      onTouchEnd={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleMobileNavSelect(item.path)
+                      }}
+                      className={`flex items-center gap-3 px-4 h-11 text-[13px] ${location.pathname === item.path ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                      style={{ touchAction: 'manipulation' }}
+                    >
+                      <span className="w-5 h-5 flex items-center justify-center">
+                        <img
+                          src={`${import.meta.env.BASE_URL || '/'}sidebar-icons/${{
+                            '/client2': 'Clients',
+                            '/positions': 'Positions',
+                            '/pending-orders': 'Pending-Orders',
+                            '/margin-level': 'Margin-Level',
+                            '/live-dealing': 'Live-Dealing',
+                            '/client-percentage': 'Client-Percentage',
+                            '/bills': 'Bills',
+                            '/settings': 'Settings'
+                          }[item.path]}.svg`}
+                          alt={item.label}
+                          style={{ filter: 'brightness(0)' }}
+                          className="w-5 h-5"
+                        />
+                      </span>
+                      <span>{item.label}</span>
+                    </button>
+                  )
+                })}
               </nav>
             </div>
 

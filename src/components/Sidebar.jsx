@@ -4,7 +4,7 @@ import { useGroups } from '../contexts/GroupContext'
 import { useIB } from '../contexts/IBContext'
 import { useState, useEffect } from 'react'
 
-const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
+const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly = false, desktopOnly = false }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { logout } = useAuth()
@@ -113,22 +113,141 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
 
   return (
     <>
-      {/* Mobile overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden animate-fadeIn"
-          onClick={() => typeof onClose === 'function' && onClose()}
-        />
+      {/* Mobile navigation drawer */}
+      {!desktopOnly && isOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/10"
+            onClick={() => typeof onClose === 'function' && onClose()}
+          />
+          <aside className="absolute left-0 top-0 h-full w-[300px] bg-white shadow-xl rounded-r-2xl flex flex-col">
+            <div className="p-4 flex items-center gap-3 border-b border-[#ECECEC]">
+              <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                <img src={`${baseUrl}Favicon.svg`} alt="Broker Eyes" className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eyes</div>
+                <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => typeof onClose === 'function' && onClose()}
+                className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center"
+                aria-label="Close menu"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto py-2">
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
+                <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
+                  <button
+                    type="button"
+                    onClick={() => changeDisplayMode('compact')}
+                    className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${displayMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  >
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => changeDisplayMode('full')}
+                    className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${displayMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
+                  >
+                    Full
+                  </button>
+                </div>
+              </div>
+              <div className="border-t border-[#ECECEC] mb-2" />
+              <nav className="flex flex-col">
+                {navigationItems.map(item => {
+                  const isParentActive = item.children?.some(child => isActivePath(child.path))
+                  if (item.children) {
+                    return (
+                      <div key={item.name}>
+                        <button
+                          type="button"
+                          onClick={() => setReportsOpen(value => !value)}
+                          className="flex items-center gap-3 px-4 h-11 w-full text-[13px] text-[#404040]"
+                        >
+                          <img
+                            src={`${baseUrl}sidebar-icons/${item.img}`}
+                            alt={item.name}
+                            className="w-5 h-5"
+                            style={{ filter: 'brightness(0)' }}
+                          />
+                          <span className="flex-1 text-left">{item.name}</span>
+                          <svg className={`w-4 h-4 transition-transform ${reportsOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                        {reportsOpen && item.children.map(child => (
+                          <button
+                            key={child.path}
+                            type="button"
+                            onClick={() => handleNavigate(child.path)}
+                            className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${isActivePath(child.path) ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                          >
+                            {child.name}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={() => handleNavigate(item.path)}
+                      onTouchEnd={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        handleNavigate(item.path)
+                      }}
+                      className={`flex items-center gap-3 px-4 h-11 w-full text-[13px] ${isActivePath(item.path) ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                    >
+                      <img
+                        src={`${baseUrl}sidebar-icons/${item.img}`}
+                        alt={item.name}
+                        className="w-5 h-5"
+                        style={{ filter: isActivePath(item.path) ? undefined : 'brightness(0)' }}
+                      />
+                      <span>{item.name}</span>
+                      {item.icon === 'margin' && displayCount > 0 && <span className="ml-auto rounded-full bg-red-400 px-2 py-0.5 text-[11px] font-bold text-white">{displayCount}</span>}
+                    </button>
+                  )
+                })}
+              </nav>
+            </div>
+
+            <div className="p-4 mt-auto border-t border-[#ECECEC]">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-2 h-[37px] text-[10px] text-[#404040]"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M10 17l5-5-5-5M4 12h11" stroke="#404040" strokeWidth="2" />
+                </svg>
+                <span>Logout</span>
+              </button>
+            </div>
+          </aside>
+        </div>
       )}
 
       {/* Sidebar */}
-      <aside
+      {!mobileOnly && <aside
         className={`
-          fixed inset-y-0 left-0 z-50 lg:z-auto
+          hidden lg:flex fixed inset-y-0 left-0 z-50 lg:z-auto
           w-64 bg-white
           border-r border-slate-200 shadow-lg
           transform transition-transform duration-300 ease-in-out
-          flex flex-col h-screen overflow-visible
+          lg:flex-col h-screen overflow-visible
           ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
           ${isOpen ? 'lg:w-60' : 'lg:w-16'}
         `}
@@ -309,7 +428,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0 }) => {
             {isOpen && <span className="tracking-wide">Logout</span>}
           </button>
         </div>
-      </aside>
+      </aside>}
     </>
   )
 }

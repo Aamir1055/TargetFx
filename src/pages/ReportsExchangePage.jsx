@@ -6,7 +6,6 @@ import { useGroups } from '../contexts/GroupContext'
 import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
-import PageSizeSelect from '../components/PageSizeSelect'
 
 const fmtMoney = (n) => {
   const num = Number(n)
@@ -139,7 +138,7 @@ const ReportsExchangePage = () => {
       if (typeof window !== 'undefined' && window.innerWidth < 1024) return false
       const v = localStorage.getItem('sidebarOpen')
       return v === null ? true : JSON.parse(v)
-    } catch { return true }
+    } catch { return false }
   })
 
   const [weeks, setWeeks] = useState([])
@@ -273,11 +272,6 @@ const ReportsExchangePage = () => {
     setAppliedToDate('')
     setDateError('')
     setShowDatePicker(false)
-  }
-
-  const handlePageSizeChange = (value) => {
-    setPageSize(value)
-    setCurrentPage(1)
   }
 
   const rawClients = data?.Clients ?? data?.clients ?? data?.Client ?? data?.client ?? []
@@ -512,30 +506,39 @@ const ReportsExchangePage = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <div>
+      <div className="hidden lg:block">
         <Sidebar
+          desktopOnly
+          isOpen={sidebarOpen}
+          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
+          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+        />
+      </div>
+      <div className="lg:hidden">
+        <Sidebar
+          mobileOnly
           isOpen={sidebarOpen}
           onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
           onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
         />
       </div>
 
-      <main className={`flex-1 px-3 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
+      <main className={`flex-1 px-0 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
           {/* Header Card */}
-          <div className="-mx-3 sm:mx-0 bg-white rounded-none sm:rounded-2xl shadow-sm px-0 sm:px-6 py-0 sm:py-3 mb-2 sm:mb-4">
-            <div className="sm:hidden flex items-center px-4 py-3 bg-white border-b border-[#ECECEC] relative">
+          <div className="bg-white rounded-none sm:rounded-2xl shadow-sm px-0 sm:px-6 py-0 sm:py-3 mb-0 sm:mb-2">
+            <div className="sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
               <button
                 type="button"
-                onClick={() => setSidebarOpen(true)}
-                className="w-9 h-9 rounded-lg bg-[#F8F8F8] flex items-center justify-center"
+                onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
+                className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center"
                 aria-label="Open menu"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </button>
-              <h1 className="text-lg font-semibold text-black absolute left-1/2 -translate-x-1/2">Exchange Data</h1>
+              <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Exchange Data</h1>
             </div>
 
             <div className="hidden sm:flex items-center gap-3">
@@ -739,15 +742,20 @@ const ReportsExchangePage = () => {
           </div>
 
           {!loading && !error && selectedWeekId && (
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 shadow-sm sm:mb-4 sm:px-4">
-              <form onSubmit={submitSearch} className="flex-1 min-w-0 sm:max-w-md">
+            <div className="flex items-center gap-2 px-3 py-4 sm:px-4 sm:py-5">
+              <form onSubmit={submitSearch} className="min-w-0 flex-1">
                 <div className="relative w-full">
+                  <svg className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9CA3AF] sm:hidden" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                    <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
                   <input
                     type="text"
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
-                    placeholder="Search by Login or Name"
-                    className="w-full h-10 pl-3 pr-16 text-sm border border-[#E5E7EB] rounded-md bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all"
+                    placeholder="Search"
+                    aria-label="Search by Login or Name"
+                    className="h-8 w-full rounded-md border border-[#E5E7EB] bg-[#F9FAFB] pl-7 pr-12 text-[11px] text-[#1F2937] placeholder:text-[#9CA3AF] transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 sm:h-10 sm:pl-3 sm:pr-16 sm:text-sm"
                   />
                   <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                     {searchInput && (
@@ -756,7 +764,7 @@ const ReportsExchangePage = () => {
                         onClick={clearSearch}
                         title="Clear search"
                         aria-label="Clear search"
-                        className="h-6 w-6 flex items-center justify-center text-[#9CA3AF] hover:text-[#4B5563] transition-colors"
+                        className="flex h-6 w-6 items-center justify-center text-[#9CA3AF] transition-colors hover:text-[#4B5563]"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -767,7 +775,7 @@ const ReportsExchangePage = () => {
                       type="submit"
                       title="Search"
                       aria-label="Search"
-                      className="p-1 rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                      className="flex h-6 w-6 items-center justify-center rounded bg-blue-500 text-white transition-colors hover:bg-blue-600 sm:h-8 sm:w-8"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 18 18">
                         <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
@@ -777,27 +785,41 @@ const ReportsExchangePage = () => {
                   </div>
                 </div>
               </form>
-              <div className="flex items-center gap-3">
-                <PageSizeSelect value={pageSize} options={[50, 100, 200, 500]} onChange={handlePageSizeChange} />
+              <div className="flex items-center gap-1 sm:gap-3">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
                     disabled={currentPage <= 1}
-                    className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
                     aria-label="Previous page"
                   >
-                    ‹
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M12 14L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
-                  <span className="min-w-14 text-center text-xs text-[#374151]">{currentPage} / {totalPages}</span>
+                  <div className="flex items-center gap-0.5 text-[11px] font-medium text-[#4B5563] sm:text-sm">
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={currentPage}
+                      onChange={(event) => {
+                        const page = Number(event.target.value)
+                        if (Number.isInteger(page) && page >= 1 && page <= totalPages) setCurrentPage(page)
+                      }}
+                      className="h-7 w-8 rounded-md border border-[#E5E7EB] text-center text-[11px] font-semibold text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-blue-500 sm:h-8 sm:w-10 sm:text-sm"
+                      aria-label="Current page"
+                    />
+                    <span className="text-[#9CA3AF]">/</span>
+                    <span>{totalPages}</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
                     disabled={currentPage >= totalPages}
-                    className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
                     aria-label="Next page"
                   >
-                    ›
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8 6L12 10L8 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
                 </div>
               </div>
@@ -805,7 +827,7 @@ const ReportsExchangePage = () => {
           )}
 
           {/* Content */}
-          <div className="bg-white rounded-md shadow-sm flex-1 overflow-hidden flex flex-col">
+          <div className="bg-white rounded-none shadow-sm flex-1 overflow-hidden flex flex-col">
             {loading ? (
               <ExchangeTableSkeleton />
             ) : error ? (
