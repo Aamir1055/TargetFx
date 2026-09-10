@@ -657,7 +657,7 @@ const ReportsExchangePage = () => {
               </div>
             </div>
 
-            <div className="sm:hidden flex items-center gap-1.5 px-3 py-2 overflow-visible">
+            <div className="sm:hidden relative flex items-center gap-1.5 px-3 py-2 overflow-visible">
               {weeksLoading ? (
                 <div className="h-8 rounded-md bg-gray-200 animate-pulse flex-1 min-w-0" aria-label="Loading weeks" />
               ) : (
@@ -672,7 +672,7 @@ const ReportsExchangePage = () => {
                 </select>
               )}
 
-              <div className="relative flex-shrink-0" ref={mobileDatePickerRef}>
+              <div className="flex-shrink-0" ref={mobileDatePickerRef}>
                 <button
                   type="button"
                   onClick={() => {
@@ -688,7 +688,7 @@ const ReportsExchangePage = () => {
                   <CalendarIcon />
                 </button>
                 {showDatePicker && (
-                  <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-xl">
+                  <div className="absolute left-1/2 top-full z-50 mt-2 w-[calc(100vw-1rem)] max-w-72 -translate-x-1/2 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-xl">
                     <p className="text-sm font-semibold text-[#1F2937]">Custom date range</p>
                     <p className="mt-0.5 text-[11px] text-[#6B7280]">Filter exchange data for the selected period.</p>
                     <div className="mt-3 space-y-3">
