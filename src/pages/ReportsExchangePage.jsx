@@ -6,6 +6,7 @@ import { useGroups } from '../contexts/GroupContext'
 import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
+import PageSizeSelect from '../components/PageSizeSelect'
 
 const fmtMoney = (n) => {
   const num = Number(n)
@@ -272,6 +273,11 @@ const ReportsExchangePage = () => {
     setAppliedToDate('')
     setDateError('')
     setShowDatePicker(false)
+  }
+
+  const handlePageSizeChange = (value) => {
+    setPageSize(value)
+    setCurrentPage(1)
   }
 
   const rawClients = data?.Clients ?? data?.clients ?? data?.Client ?? data?.client ?? []
@@ -786,6 +792,9 @@ const ReportsExchangePage = () => {
                 </div>
               </form>
               <div className="flex items-center gap-1 sm:gap-3">
+                <div className="hidden sm:block">
+                  <PageSizeSelect value={pageSize} options={[50, 100, 200, 500]} onChange={handlePageSizeChange} />
+                </div>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
