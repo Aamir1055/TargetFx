@@ -157,6 +157,8 @@ const ReportsExchangePage = () => {
   const [appliedFromDate, setAppliedFromDate] = useState('')
   const [appliedToDate, setAppliedToDate] = useState('')
   const [dateError, setDateError] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
   const [exporting, setExporting] = useState(false)
@@ -218,6 +220,7 @@ const ReportsExchangePage = () => {
         const res = await brokerAPI.getExchangeData(Number(selectedWeekId), {
           ...dateFilters,
           ...getExchangeGroupFilters(activeGroup),
+          ...(search ? { search } : {}),
           page: currentPage,
           limit: pageSize
         })
@@ -234,7 +237,19 @@ const ReportsExchangePage = () => {
     }
     load()
     return () => { cancelled = true }
-  }, [activeGroup, appliedFromDate, appliedToDate, currentPage, isAuthenticated, pageSize, selectedWeekId])
+  }, [activeGroup, appliedFromDate, appliedToDate, search, currentPage, isAuthenticated, pageSize, selectedWeekId])
+
+  const submitSearch = (event) => {
+    event?.preventDefault?.()
+    setSearch(searchInput.trim())
+    setCurrentPage(1)
+  }
+
+  const clearSearch = () => {
+    setSearchInput('')
+    setSearch('')
+    setCurrentPage(1)
+  }
 
   const applyDateFilter = () => {
     if (!customFromDate || !customToDate) {
@@ -362,6 +377,7 @@ const ReportsExchangePage = () => {
       const exportFilters = {
         ...dateFilters,
         ...getExchangeGroupFilters(activeGroup),
+        ...(search ? { search } : {}),
         limit: 500
       }
       const exportClients = []
@@ -722,8 +738,45 @@ const ReportsExchangePage = () => {
             </div>
           </div>
 
-          {!loading && !error && hasExchangeData && (
-            <div className="mb-2 flex items-center justify-end rounded-md bg-white px-3 py-2 shadow-sm sm:mb-4 sm:px-4">
+          {!loading && !error && selectedWeekId && (
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 shadow-sm sm:mb-4 sm:px-4">
+              <form onSubmit={submitSearch} className="flex-1 min-w-0 sm:max-w-md">
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Search by Login or Name"
+                    className="w-full h-10 pl-3 pr-16 text-sm border border-[#E5E7EB] rounded-md bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all"
+                  />
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {searchInput && (
+                      <button
+                        type="button"
+                        onClick={clearSearch}
+                        title="Clear search"
+                        aria-label="Clear search"
+                        className="h-6 w-6 flex items-center justify-center text-[#9CA3AF] hover:text-[#4B5563] transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      title="Search"
+                      aria-label="Search"
+                      className="p-1 rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 18 18">
+                        <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </form>
               <div className="flex items-center gap-3">
                 <PageSizeSelect value={pageSize} options={[50, 100, 200, 500]} onChange={handlePageSizeChange} />
                 <div className="flex items-center gap-1">
