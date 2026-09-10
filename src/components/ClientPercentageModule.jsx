@@ -10,8 +10,10 @@ import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import SetCustomPercentageModal from './SetCustomPercentageModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
+import AutoPercentageModal from './AutoPercentageModal'
 import { useGroups } from '../contexts/GroupContext'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
+import { getPercentageType } from '../utils/percentageType'
 
 const formatNum = (n, decimals = 2) => {
   const v = Number(n || 0)
@@ -80,6 +82,9 @@ export default function ClientPercentageModule() {
   const [bulkPercentage, setBulkPercentage] = useState('')
   const [bulkComment, setBulkComment] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
+
+  // Auto Percentage (autofill ranges) modal
+  const [showAutoPercentageModal, setShowAutoPercentageModal] = useState(false)
 
   // CSV Import State
   const [showImportModal, setShowImportModal] = useState(false)
@@ -257,11 +262,15 @@ export default function ClientPercentageModule() {
       const query = searchInput.toLowerCase()
       
       // Special handling for Type column search
+      const itemType = getPercentageType(item)
+      if (query === 'auto' || query === 'autofill') {
+        return itemType === 'Auto'
+      }
       if (query === 'default') {
-        return item.is_custom === false
+        return itemType === 'Default'
       }
       if (query === 'custom') {
-        return item.is_custom === true
+        return itemType === 'Custom'
       }
       
       // Search across all primitive fields
@@ -269,7 +278,7 @@ export default function ClientPercentageModule() {
         String(item.client_login || item.login || '').toLowerCase().includes(query) ||
         String(item.percentage || '').toLowerCase().includes(query) ||
         String(item.comment || '').toLowerCase().includes(query) ||
-        (item.is_custom ? 'custom' : 'default').includes(query) ||
+        itemType.toLowerCase().includes(query) ||
         String(item.updated_at || '').toLowerCase().includes(query)
       )
     })
@@ -287,8 +296,8 @@ export default function ClientPercentageModule() {
           aVal = a.updated_at
           bVal = b.updated_at
         } else if (sortColumn === 'type') {
-          aVal = a.is_custom ? 'Custom' : 'Default'
-          bVal = b.is_custom ? 'Custom' : 'Default'
+          aVal = getPercentageType(a)
+          bVal = getPercentageType(b)
         } else {
           aVal = a[sortColumn]
           bVal = b[sortColumn]
@@ -439,7 +448,7 @@ export default function ClientPercentageModule() {
         value = item.percentage ? `${item.percentage}%` : '-'
         break
       case 'type':
-        value = item.is_custom ? 'Custom' : 'Default'
+        value = getPercentageType(item)
         break
       case 'comment':
         value = item.comment || '-'
@@ -598,7 +607,7 @@ export default function ClientPercentageModule() {
       switch (col.key) {
         case 'login': return escape(item.client_login || item.login || '')
         case 'percentage': return escape(item.percentage ?? 0)
-        case 'type': return escape(item.is_custom ? 'Custom' : 'Default')
+        case 'type': return escape(getPercentageType(item))
         case 'comment': return escape(item.comment || '')
         case 'updatedAt': return escape(item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-GB') : '')
         default: return escape(item[col.key] ?? '')
@@ -684,7 +693,7 @@ export default function ClientPercentageModule() {
               value = item.percentage || 0
               break
             case 'type':
-              value = item.is_custom ? 'Custom' : 'Default'
+              value = getPercentageType(item)
               break
             case 'comment':
               value = item.comment || '-'
@@ -859,6 +868,19 @@ export default function ClientPercentageModule() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/>
                   </svg>
                 </button>
+              )}
+              {/* Auto Percentage Button */}
+              {canSetPercentage && (
+              <button
+                onClick={() => setShowAutoPercentageModal(true)}
+                className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151]"
+                title="Auto Percentage Ranges"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Auto %
+              </button>
               )}
               {/* Import CSV Button */}
               {canSetPercentage && (
@@ -1214,6 +1236,13 @@ export default function ClientPercentageModule() {
           </div>
         </div>
       </div>
+
+      {/* Auto Percentage Modal */}
+      <AutoPercentageModal
+        isOpen={showAutoPercentageModal}
+        onClose={() => setShowAutoPercentageModal(false)}
+        onChanged={() => { fetchAllClientPercentages(currentPage) }}
+      />
 
       {/* Bulk Update Modal */}
       {showBulkModal && (

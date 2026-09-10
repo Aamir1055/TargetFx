@@ -641,6 +641,28 @@ export const brokerAPI = {
     return response.data
   },
 
+  // Auto-fill percentage ranges (CRUD)
+  getAutoFillPercentages: async () => {
+    const response = await api.get('/api/broker/clients/autofill-percentages')
+    return response.data
+  },
+  createAutoFillPercentage: async ({ login_start, login_end, percentage, comment }) => {
+    const response = await api.post('/api/broker/clients/autofill-percentages', {
+      login_start, login_end, percentage, comment
+    })
+    return response.data
+  },
+  updateAutoFillPercentage: async (rangeId, { login_start, login_end, percentage, comment }) => {
+    const response = await api.put(`/api/broker/clients/autofill-percentages/${rangeId}`, {
+      login_start, login_end, percentage, comment
+    })
+    return response.data
+  },
+  deleteAutoFillPercentage: async (rangeId) => {
+    const response = await api.delete(`/api/broker/clients/autofill-percentages/${rangeId}`)
+    return response.data
+  },
+
   // Get available rules
   getAvailableRules: async () => {
     const response = await api.get('/api/broker/rules')

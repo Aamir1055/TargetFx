@@ -11,8 +11,10 @@ import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import ClientPercentageModule from '../components/ClientPercentageModule'
+import AutoPercentageModal from '../components/AutoPercentageModal'
 import ColumnChooserList from '../components/ColumnChooserList'
 import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
+import { getPercentageType, getPercentageTypeBadgeClass } from '../utils/percentageType'
 
 const ClientPercentagePage = () => {
   // Detect mobile device
@@ -211,6 +213,9 @@ const ClientPercentagePage = () => {
   const [bulkComment, setBulkComment] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
 
+  // Auto Percentage (autofill ranges) modal
+  const [showAutoPercentageModal, setShowAutoPercentageModal] = useState(false)
+
   // CSV import states
   const [showImportModal, setShowImportModal] = useState(false)
   const [csvData, setCsvData] = useState([])
@@ -401,7 +406,7 @@ const ClientPercentagePage = () => {
         case 'login': return escape(item.client_login || item.login || '')
         case 'clientName': return escape(item.client_name || item.name || '')
         case 'percentage': return escape(item.percentage ?? 0)
-        case 'type': return escape(item.is_custom ? 'Custom' : 'Default')
+        case 'type': return escape(getPercentageType(item))
         case 'comment': return escape(item.comment || '')
         case 'updatedAt': return escape(item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-GB') : '')
         default: return escape(item[col.key] ?? '')
@@ -941,6 +946,20 @@ const ClientPercentagePage = () => {
 
             {/* Action Buttons - All on right side */}
             <div className="flex items-center gap-2">
+                  {/* Auto Percentage Button */}
+                  {canSetPercentage && (
+                  <button
+                    onClick={() => setShowAutoPercentageModal(true)}
+                    className="h-10 px-3 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1.5 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+                    title="Manage auto-fill percentage ranges"
+                  >
+                    <svg className="w-4 h-4 text-grey-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Auto Percentage
+                  </button>
+                  )}
+
                   {/* Import CSV Button */}
                   {canSetPercentage && (
                   <button
@@ -1427,12 +1446,8 @@ const ClientPercentagePage = () => {
                           ); break
                           case 'type': cell = (
                             <td className="px-4 py-3 whitespace-nowrap text-sm" style={{ borderRight: '1px solid #e5e7eb' }}>
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                client.is_custom
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {client.is_custom ? 'Custom' : 'Default'}
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${getPercentageTypeBadgeClass(client)}`}>
+                                {getPercentageType(client)}
                               </span>
                             </td>
                           ); break
@@ -1595,6 +1610,13 @@ const ClientPercentagePage = () => {
         displayField="percentage"
         secondaryField="type"
         editGroup={editingGroup}
+      />
+
+      {/* Auto Percentage Modal */}
+      <AutoPercentageModal
+        isOpen={showAutoPercentageModal}
+        onClose={() => setShowAutoPercentageModal(false)}
+        onChanged={() => { fetchAllClientPercentages(currentPage) }}
       />
 
       {/* Bulk Update Modal */}
