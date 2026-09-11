@@ -37,15 +37,6 @@ const HistorySkeleton = () => (
   </div>
 )
 
-const ReportPaginationControls = ({ page, totalPages, onPageChange }) => (
-  <div className="flex shrink-0 items-center gap-1">
-    <button type="button" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-base leading-none text-slate-400 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Previous page">&#8249;</button>
-    <input type="number" min="1" max={totalPages} value={page} onChange={(event) => { const nextPage = Number(event.target.value); if (Number.isInteger(nextPage) && nextPage >= 1 && nextPage <= totalPages) onPageChange(nextPage) }} onBlur={(event) => { if (!event.target.value || Number(event.target.value) < 1) onPageChange(1); else if (Number(event.target.value) > totalPages) onPageChange(totalPages) }} className="h-8 w-10 rounded-md border border-slate-200 bg-white px-1 text-center text-xs font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" aria-label="Current page" />
-    <span className="text-[11px] font-medium text-slate-400">/ {totalPages}</span>
-    <button type="button" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page >= totalPages} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-base leading-none text-slate-400 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Next page">&#8250;</button>
-  </div>
-)
-
 const HistoricalPositionDetails = ({ row, onClose }) => {
   const symbol = row.Symbol ?? row.symbol ?? 'Unknown symbol'
   const visibleEvents = useMemo(() => {
@@ -66,10 +57,10 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
   }, [onClose])
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 flex h-[100dvh] items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="historical-position-title">
+    <div className="fixed inset-x-0 top-0 z-50 flex h-[100dvh] items-stretch justify-center px-0 pb-0 pt-12 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="historical-position-title">
       <button type="button" onClick={onClose} className="absolute inset-0 cursor-default bg-slate-950/45 backdrop-blur-[2px]" aria-label="Close historical position details" />
-      <div className="relative flex max-h-[calc(100dvh-24px)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-48px)]">
-        <div className="flex items-center justify-between gap-4 bg-blue-600 px-4 py-1.5 text-white sm:px-6 sm:py-2">
+      <div className="relative flex w-full max-w-6xl flex-col overflow-hidden rounded-t-2xl border border-b-0 border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-48px)] sm:rounded-2xl sm:border-b">
+        <div className="flex items-center justify-between gap-4 bg-[#4285F4] px-4 py-1.5 text-white sm:px-6 sm:py-2">
           <div className="min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-blue-100 sm:text-[10px]">Historical position details</p>
             <h2 id="historical-position-title" className="truncate text-base font-extrabold tracking-tight sm:text-lg">{symbol}</h2>
@@ -77,11 +68,11 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
           <button type="button" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/30 bg-white/10 text-lg leading-none text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60" aria-label="Close details" title="Close details">&times;</button>
         </div>
 
-        <div className="min-h-0 overflow-hidden p-3 sm:p-4">
-          <div className="overflow-hidden">
-            <div className="max-h-[min(74vh,560px)] overflow-auto">
+        <div className="min-h-0 flex-1 overflow-hidden px-0 pb-0 pt-3 sm:p-4">
+          <div className="h-full overflow-hidden sm:rounded-lg sm:border sm:border-slate-200">
+            <div className="h-full max-h-none overflow-auto sm:max-h-[min(74vh,560px)]">
               <div className="sm:hidden">
-                <div className="grid grid-cols-[1.55fr_0.72fr_0.82fr_0.82fr_0.78fr_0.78fr] gap-1 bg-blue-600 px-2 py-2 text-[10px] font-bold uppercase tracking-[0.03em] text-white">
+                <div className="sticky top-0 z-10 grid grid-cols-[1.55fr_0.72fr_0.82fr_0.82fr_0.78fr_0.78fr] gap-1 bg-[#4285F4] px-2 py-2 text-[10px] font-bold uppercase tracking-[0.03em] text-white">
                   <span>Time</span><span>Action</span><span className="text-right">Previous</span><span className="text-right">New</span><span className="text-right">Change</span><span>Direction</span>
                 </div>
                 <div className="divide-y divide-slate-100">
@@ -100,7 +91,7 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
                 </div>
               </div>
               <table className="hidden min-w-[720px] w-full text-sm sm:table">
-                <thead className="sticky top-0 z-10 bg-blue-600 text-[11px] uppercase tracking-wide text-white shadow-[0_1px_0_#1d4ed8]"><tr><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Action</th><th className="px-4 py-2 text-right">Previous</th><th className="px-4 py-2 text-right">New</th><th className="px-4 py-2 text-right">Change</th><th className="px-4 py-2 text-left">Direction</th></tr></thead>
+                <thead className="sticky top-0 z-10 bg-[#4285F4] text-[11px] uppercase tracking-wide text-white shadow-[0_1px_0_#3b78e7]"><tr><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Action</th><th className="px-4 py-2 text-right">Previous</th><th className="px-4 py-2 text-right">New</th><th className="px-4 py-2 text-right">Change</th><th className="px-4 py-2 text-left">Direction</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">{visibleEvents.map((event, index) => { const change = Number(event.ChangePercentage ?? event.changePercentage); const increase = String(event.Direction ?? event.direction ?? '').toLowerCase() === 'increase' || change > 0; return <tr key={`${symbol}-row-${index}`} className="hover:bg-slate-50"><td className="whitespace-nowrap px-4 py-2 text-slate-600">{formatTime(event.Time ?? event.time)}</td><td className="px-4 py-2 font-semibold capitalize text-slate-800">{event.PositionAction ?? event.positionAction ?? '-'}</td><td className="px-4 py-2 text-right tabular-nums text-slate-600">{formatNumber(event.PreviousPosition ?? event.previousPosition)}</td><td className="px-4 py-2 text-right tabular-nums text-slate-800">{formatNumber(event.NewPosition ?? event.newPosition)}</td><td className={`px-4 py-2 text-right font-semibold tabular-nums ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{change > 0 ? '+' : ''}{formatNumber(change)}%</td><td className={`px-4 py-2 capitalize ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{event.Direction ?? event.direction ?? '-'}</td></tr> })}</tbody>
               </table>
             </div>
@@ -300,29 +291,28 @@ const HistoricalPositionsPage = () => {
               <button type="button" onClick={() => setAppliedFilters(value => ({ ...value }))} disabled={loading} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-50" aria-label="Refresh report" title="Refresh report"><svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 11a8.1 8.1 0 0 0-15.5-3M4 5v3h3M4 13a8.1 8.1 0 0 0 15.5 3M20 19v-3h-3" /></svg></button>
           </form>
 
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-4 py-3 sm:px-5">
-              <div className="flex items-center gap-2 sm:hidden">
-                <label className="relative min-w-0 flex-1">
-                  <span className="sr-only">Search symbols</span>
-                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="m16.5 16.5 4 4" /></svg>
-                  <input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search by symbol" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
-                </label>
-                <ReportPaginationControls page={page} totalPages={totalPages} onPageChange={setPage} />
-              </div>
-              <div className="hidden flex-wrap items-center justify-between gap-3 sm:flex">
-                <label className="relative min-w-0 flex-1 sm:max-w-md">
-                  <span className="sr-only">Search symbols</span>
-                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="m16.5 16.5 4 4" /></svg>
-                  <input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search by symbol" className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
-                </label>
-                <div className="flex w-full items-center justify-end gap-2 sm:w-auto"><ReportPaginationControls page={page} totalPages={totalPages} onPageChange={setPage} /></div>
-              </div>
+          <div className="mb-3 flex items-center gap-1.5">
+            <div className="flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-[10px] border border-[#ECECEC] bg-white px-2.5 shadow-[0_0_12px_rgba(75,75,75,0.05)] sm:h-10 sm:max-w-md sm:px-3">
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="shrink-0" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="#4B4B4B" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              <input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search by symbol" aria-label="Search symbols" className="min-w-0 flex-1 border-0 bg-transparent font-outfit text-[12px] text-[#4B4B4B] outline-none placeholder:text-[#999999] sm:text-sm" />
             </div>
+            <button type="button" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[#ECECEC] bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] transition-colors sm:h-10 sm:w-10 ${page <= 1 ? 'cursor-not-allowed opacity-40' : 'hover:bg-gray-50'}`} aria-label="Previous page">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 14L8 10L12 6" stroke="#4B4B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+            <div className="flex h-9 shrink-0 items-center gap-1 rounded-[10px] border border-[#ECECEC] bg-white px-2.5 shadow-[0_0_12px_rgba(75,75,75,0.05)] sm:h-10 sm:px-3">
+              <input type="number" min="1" max={totalPages} value={page} onChange={(event) => { const nextPage = Number(event.target.value); if (Number.isInteger(nextPage) && nextPage >= 1 && nextPage <= totalPages) setPage(nextPage) }} onBlur={(event) => { if (!event.target.value || Number(event.target.value) < 1) setPage(1); else if (Number(event.target.value) > totalPages) setPage(totalPages) }} aria-label="Current page" className="h-6 w-8 border-0 bg-transparent p-0 text-center font-outfit text-[12px] font-semibold text-[#4B4B4B] outline-none sm:text-sm" />
+              <span className="font-outfit text-[11px] font-medium text-[#999999] sm:text-xs">/ {totalPages}</span>
+            </div>
+            <button type="button" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages} className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[#ECECEC] bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] transition-colors sm:h-10 sm:w-10 ${page >= totalPages ? 'cursor-not-allowed opacity-40' : 'hover:bg-gray-50'}`} aria-label="Next page">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 6L12 10L8 14" stroke="#4B4B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          </div>
+
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
             {loading ? <div className="flex-1 overflow-auto"><HistorySkeleton /></div> : error ? <div className="flex flex-1 items-center justify-center px-5 text-center text-sm text-red-600">{error}</div> : !filteredReport.length ? <div className="flex flex-1 flex-col items-center justify-center px-5 text-center"><div className="mb-3 rounded-full bg-slate-100 p-3 text-slate-400"><svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5m0 14h16M8 16v-4m4 4V8m4 8v-6" /></svg></div><p className="text-sm font-semibold text-slate-700">{searchTerm ? 'No matching symbols found' : 'No historical position changes found'}</p><p className="mt-1 text-xs text-slate-500">{searchTerm ? 'Try a different symbol name.' : 'Try a wider date range or a lower threshold.'}</p></div> : (
               <div className="min-h-0 flex-1 overflow-auto">
                 <div className="sm:hidden">
-                  <div className="grid grid-cols-[minmax(0,1.3fr)_0.8fr_0.8fr_36px] gap-2 bg-blue-600 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.06em] text-white">
+                  <div className="grid grid-cols-[minmax(0,1.3fr)_0.8fr_0.8fr_36px] gap-2 bg-[#4285F4] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.06em] text-white">
                     <span className="text-left">Symbol</span>
                     <span className="text-right">Open</span>
                     <span className="text-right">Close</span>
@@ -343,7 +333,7 @@ const HistoricalPositionsPage = () => {
                   </div>
                 </div>
                 <table className="hidden min-w-[720px] w-full text-sm sm:table">
-                  <thead className="sticky top-0 z-10 border-b border-blue-700 bg-blue-600 text-[11px] uppercase tracking-[0.08em] text-white"><tr><th className="px-4 py-3.5 text-left font-bold">Symbol</th><th className="px-4 py-3.5 text-right font-bold">Opening position</th><th className="px-4 py-3.5 text-right font-bold">Closing position</th><th className="px-4 py-3.5 text-right font-bold">Events</th></tr></thead>
+                  <thead className="sticky top-0 z-10 bg-[#4285F4] text-[11px] uppercase tracking-[0.08em] text-white"><tr><th className="px-4 py-3.5 text-left font-bold">Symbol</th><th className="px-4 py-3.5 text-right font-bold">Opening position</th><th className="px-4 py-3.5 text-right font-bold">Closing position</th><th className="px-4 py-3.5 text-right font-bold">Events</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredReport.map((row, index) => {
                       const symbol = row.Symbol ?? row.symbol ?? `Symbol ${index + 1}`
