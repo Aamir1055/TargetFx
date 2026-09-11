@@ -2,6 +2,7 @@
 import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
 import { useAuth } from '../contexts/AuthContext'
+import { exportRowsToExcel } from '../utils/exportExcel'
 
 // -- Profit Trend Chart with hover crosshair ---------------------------------
 const ProfitTrendChart = ({ data, w = 220, h = 110 }) => {
@@ -395,6 +396,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [dealsServerLimitReached, setDealsServerLimitReached] = useState(false)
   const [totalDealsCount, setTotalDealsCount] = useState(0)
   const [currentDateFilter, setCurrentDateFilter] = useState({ from: 0, to: 0 })
+  const [isExportingDeals, setIsExportingDeals] = useState(false)
   
   // Search and filter states for positions
   const [searchQuery, setSearchQuery] = useState('')
@@ -585,7 +587,126 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     { key: 'profit', label: 'Profit' },
     { key: 'comment', label: 'Comment' }
   ]
-  
+
+  const exportLoginTag = () => {
+    const login = client?.login ?? client?.Login ?? ''
+    const stamp = new Date().toISOString().split('T')[0]
+    return { login, stamp }
+  }
+
+  // Export currently-visible Positions columns/rows to Excel
+  const handleExportPositions = () => {
+    const rows = filteredPositions
+    if (!rows || rows.length === 0) return
+    const columnValueMap = {
+      position: (r) => (r.order != null ? `#${r.order}` : r.position != null ? `#${r.position}` : ''),
+      time: (r) => formatDate(r.timeSetup != null ? r.timeSetup : r.timeCreate),
+      symbol: (r) => r.symbol || '',
+      action: (r) => getActionLabel(r.action),
+      volume: (r) => Number(r.volume || 0),
+      priceOpen: (r) => Number(r.priceOpen ?? r.priceOrder ?? r.price ?? 0),
+      priceCurrent: (r) => (r.priceCurrent != null ? Number(r.priceCurrent) : ''),
+      sl: (r) => Number(r.priceSL || 0),
+      tp: (r) => Number(r.priceTP || 0),
+      profit: (r) => Number(r.profit || 0),
+      storage: (r) => Number(r.storage || 0),
+      commission: (r) => Number(r.commission || 0),
+      comment: (r) => r.comment || '',
+    }
+    const cols = positionsColumns
+      .filter(c => positionsVisibleColumns[c.key])
+      .map(c => ({ label: c.label, value: columnValueMap[c.key] }))
+    const { login, stamp } = exportLoginTag()
+    exportRowsToExcel(cols, rows, 'Positions', `positions_${login}_${stamp}.xlsx`)
+  }
+
+  // Fetch the entire deals result set for the current filters, in chunks of 500.
+  const fetchAllDealsForExport = async () => {
+    const CHUNK = 500
+    const from = currentDateFilter.from
+    const to = currentDateFilter.to
+    if (!from) return []
+
+    // Rebuild the same filter/sort context as fetchDeals
+    const apiFilters = []
+    Object.entries(dealsColumnFilters || {}).forEach(([field, values]) => {
+      if (!values || values.length === 0) return
+      if (field === 'action') {
+        apiFilters.push({ field: 'action', operator: 'in', value: values.map(actionLabelToServer) })
+      } else if (field === 'time') {
+        // client-side only
+      } else {
+        apiFilters.push({ field, operator: 'in', value: values })
+      }
+    })
+    const sortFieldMap = { time: 'time', deal: 'deal', order: 'order', position: 'position', symbol: 'symbol', action: 'action', volume: 'volume', price: 'price', profit: 'profit', commission: 'commission', storage: 'storage', comment: 'comment' }
+    const apiSortBy = sortFieldMap[dealsSortColumn] || dealsSortColumn || 'time'
+    const apiSortOrder = dealsSortDirection || 'desc'
+
+    const buildBody = (page) => {
+      const body = { from, to, page, limit: CHUNK, sortBy: apiSortBy, sortOrder: apiSortOrder }
+      if (dealsSearchQuery && dealsSearchQuery.trim()) body.search = dealsSearchQuery.trim()
+      if (apiFilters.length > 0) body.filters = apiFilters
+      return body
+    }
+
+    const first = await brokerAPI.searchClientDeals(client.login, buildBody(1))
+    const firstPayload = first?.data ?? first
+    let all = firstPayload?.deals ?? []
+    const total = Number(firstPayload?.total ?? all.length) || all.length
+
+    const totalPages = Math.max(1, Math.ceil(total / CHUNK))
+    for (let page = 2; page <= totalPages; page += 1) {
+      const res = await brokerAPI.searchClientDeals(client.login, buildBody(page))
+      const payload = res?.data ?? res
+      const chunk = payload?.deals ?? []
+      if (!chunk.length) break
+      all = all.concat(chunk)
+    }
+    return all
+  }
+
+  // Export ALL deals (full result set) matching current filters to Excel
+  const handleExportDeals = async () => {
+    if (isExportingDeals) return
+    const columnValueMap = {
+      time: (r) => formatDate(r.time),
+      deal: (r) => (r.deal != null ? `#${r.deal}` : ''),
+      order: (r) => (r.order > 0 ? `#${r.order}` : ''),
+      position: (r) => (r.position > 0 ? `#${r.position}` : ''),
+      symbol: (r) => r.symbol || '',
+      action: (r) => getDealActionLabel(r.action),
+      volume: (r) => Number(r.volume || 0),
+      price: (r) => Number(r.price || 0),
+      commission: (r) => Number(r.commission || 0),
+      storage: (r) => Number(r.storage || 0),
+      profit: (r) => Number(r.profit || 0),
+      comment: (r) => r.comment || '',
+    }
+    const cols = dealsColumns
+      .filter(c => dealsVisibleColumns[c.key])
+      .map(c => ({ label: c.label, value: columnValueMap[c.key] }))
+
+    setIsExportingDeals(true)
+    try {
+      let rows = await fetchAllDealsForExport()
+      // Apply the same client-side symbol/time column filters used by the table view
+      if (rows.length && Object.keys(dealsColumnFilters || {}).length) {
+        const timeFilterVals = dealsColumnFilters?.time
+        if (Array.isArray(timeFilterVals) && timeFilterVals.length) {
+          rows = rows.filter(d => timeFilterVals.includes(formatDate(d.time)))
+        }
+      }
+      if (!rows || rows.length === 0) return
+      const { login, stamp } = exportLoginTag()
+      exportRowsToExcel(cols, rows, 'Deals', `deals_${login}_${stamp}.xlsx`)
+    } catch {
+      setError('Failed to export deals')
+    } finally {
+      setIsExportingDeals(false)
+    }
+  }
+
   // Prevent duplicate calls in React StrictMode
   const hasLoadedData = useRef(false)
 
@@ -2488,6 +2609,19 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                   )}
                 </div>
 
+                {/* Export Positions to Excel */}
+                <button
+                  onClick={handleExportPositions}
+                  disabled={filteredPositions.length === 0}
+                  className="text-gray-600 hover:text-gray-900 px-2 py-0.5 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center gap-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Export to Excel"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                  </svg>
+                  Export
+                </button>
+
                 {filteredPositions.length > 0 && positionsItemsPerPage !== 'All' && (
                 <div className="flex items-center gap-1">
                   <button
@@ -3968,6 +4102,24 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       </div>
                     )}
                   </div>
+                  {/* Export Deals to Excel (fetches full result set in chunks) */}
+                  <button
+                    onClick={handleExportDeals}
+                    disabled={isExportingDeals || (totalDealsCount === 0 && filteredDealsResult.length === 0)}
+                    className="text-gray-600 hover:text-gray-900 px-2 py-2 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center justify-center text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Export all deals to Excel"
+                  >
+                    {isExportingDeals ? (
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               )}
 

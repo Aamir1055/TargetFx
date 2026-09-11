@@ -126,7 +126,7 @@ const AutoPercentageModal = ({ isOpen, onClose, onChanged }) => {
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-blue-600 border-b border-blue-700">
           <div className="min-w-0">
             <h2 className="text-base sm:text-lg font-semibold text-white truncate">Auto Percentage Ranges</h2>
-            <p className="hidden sm:block text-xs text-blue-100 mt-0.5">Automatically apply a percentage to any client whose login falls within a range</p>
+            <p className="hidden sm:block text-xs text-blue-100 mt-0.5"></p>
           </div>
           <button
             onClick={onClose}
@@ -149,7 +149,7 @@ const AutoPercentageModal = ({ isOpen, onClose, onChanged }) => {
                 type="number"
                 value={form.login_start}
                 onChange={(e) => setForm(f => ({ ...f, login_start: e.target.value }))}
-                placeholder="90031"
+                placeholder="Login Start"
                 disabled={saving}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
               />
@@ -160,7 +160,7 @@ const AutoPercentageModal = ({ isOpen, onClose, onChanged }) => {
                 type="number"
                 value={form.login_end}
                 onChange={(e) => setForm(f => ({ ...f, login_end: e.target.value }))}
-                placeholder="90050"
+                placeholder="Login End"
                 disabled={saving}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
               />
@@ -174,7 +174,7 @@ const AutoPercentageModal = ({ isOpen, onClose, onChanged }) => {
                 max="100"
                 value={form.percentage}
                 onChange={(e) => setForm(f => ({ ...f, percentage: e.target.value }))}
-                placeholder="25"
+                placeholder="Percentage (%)"
                 disabled={saving}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
               />
@@ -185,7 +185,7 @@ const AutoPercentageModal = ({ isOpen, onClose, onChanged }) => {
                 type="text"
                 value={form.comment}
                 onChange={(e) => setForm(f => ({ ...f, comment: e.target.value }))}
-                placeholder="Batch A"
+                placeholder="Comment"
                 disabled={saving}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
               />
@@ -309,14 +309,6 @@ const AutoPercentageModal = ({ isOpen, onClose, onChanged }) => {
           </div>
         </div>
 
-        <div className="px-4 sm:px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Close
-          </button>
-        </div>
       </div>
     </div>
   )

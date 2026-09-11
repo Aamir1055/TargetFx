@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import api, { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import { exportRowsToExcel } from '../utils/exportExcel'
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '-'
@@ -247,6 +248,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [hasAppliedFilter, setHasAppliedFilter] = useState(false)
   const [quickFilter, setQuickFilter] = useState('today')
   const [totalDealsCount, setTotalDealsCount] = useState(0)
+  const [isExportingDeals, setIsExportingDeals] = useState(false)
   const [currentDateFilter, setCurrentDateFilter] = useState({ from: 0, to: 0 })
   
   // Refs for date inputs
@@ -1260,6 +1262,86 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     return filteredDeals
   }, [filteredDeals])
 
+  // ── Excel export (Positions / Deals) ─────────────────────────────────────
+  const exportStamp = () => new Date().toISOString().split('T')[0]
+
+  const handleExportPositions = () => {
+    const rows = filteredPositions
+    if (!rows || rows.length === 0) return
+    const columnDefs = [
+      { key: 'position', label: 'Position', value: (r) => (r.order || r.position || r.ticket || '') },
+      { key: 'symbol', label: 'Symbol', value: (r) => r.symbol || '' },
+      { key: 'action', label: 'Type', value: (r) => getActionText(r) },
+      { key: 'volume', label: 'Volume', value: (r) => Number(r.volume || 0) },
+      { key: 'priceOpen', label: 'Open Price', value: (r) => Number(r.priceOpen ?? r.price ?? 0) },
+      { key: 'profit', label: 'Profit', value: (r) => Number(r.profit || 0) },
+    ]
+    const cols = columnDefs.filter(c => positionColumns[c.key]).map(c => ({ label: c.label, value: c.value }))
+    exportRowsToExcel(cols, rows, 'Positions', `positions_${client.login}_${exportStamp()}.xlsx`)
+  }
+
+  // Fetch every deal for the current date range, in chunks of 500 (offset based).
+  const fetchAllDealsForExport = async () => {
+    const CHUNK = 500
+    const from = currentDateFilter.from
+    const to = currentDateFilter.to
+    if (!from) return []
+
+    const firstRes = await brokerAPI.getClientDeals(client.login, from, to, CHUNK, 0)
+    let all = firstRes.data?.deals || firstRes.deals || []
+    const total = Number(firstRes.data?.total ?? firstRes.total ?? all.length) || all.length
+
+    const totalPages = Math.max(1, Math.ceil(total / CHUNK))
+    for (let page = 2; page <= totalPages; page += 1) {
+      const offset = (page - 1) * CHUNK
+      const res = await brokerAPI.getClientDeals(client.login, from, to, CHUNK, offset)
+      const chunk = res.data?.deals || res.deals || []
+      if (!chunk.length) break
+      all = all.concat(chunk)
+    }
+    return all
+  }
+
+  const handleExportDeals = async () => {
+    if (isExportingDeals) return
+    const columnDefs = [
+      { key: 'deal', label: 'Deal', value: (r) => r.deal ?? '' },
+      { key: 'time', label: 'Time', value: (r) => formatDealTime(r) },
+      { key: 'order', label: 'Order', value: (r) => (r.order > 0 ? r.order : '') },
+      { key: 'position', label: 'Position', value: (r) => (r.position > 0 ? r.position : '') },
+      { key: 'symbol', label: 'Symbol', value: (r) => r.symbol || '' },
+      { key: 'action', label: 'Type', value: (r) => r.action || '' },
+      { key: 'volume', label: 'Volume', value: (r) => Number(r.volume || 0) },
+      { key: 'price', label: 'Price', value: (r) => Number(r.price || 0) },
+      { key: 'commission', label: 'Commission', value: (r) => Number(r.commission || 0) },
+      { key: 'storage', label: 'Swap', value: (r) => Number(r.storage || 0) },
+      { key: 'profit', label: 'Profit', value: (r) => Number(r.profit || 0) },
+      { key: 'comment', label: 'Comment', value: (r) => r.comment || '' },
+    ]
+    const cols = columnDefs.filter(c => dealColumns[c.key]).map(c => ({ label: c.label, value: c.value }))
+
+    setIsExportingDeals(true)
+    try {
+      let rows = await fetchAllDealsForExport()
+      // Apply the same client-side symbol search used by the table view
+      if (rows.length && dealsSearch.trim()) {
+        const query = dealsSearch.toLowerCase()
+        rows = rows.filter(d =>
+          (d.symbol || '').toLowerCase().includes(query) ||
+          (d.deal || '').toString().includes(query) ||
+          (d.order || '').toString().includes(query) ||
+          (d.position || '').toString().includes(query)
+        )
+      }
+      if (!rows || rows.length === 0) return
+      exportRowsToExcel(cols, rows, 'Deals', `deals_${client.login}_${exportStamp()}.xlsx`)
+    } catch (e) {
+      console.error('[ClientDetailsMobileModal] deals export failed', e)
+    } finally {
+      setIsExportingDeals(false)
+    }
+  }
+
   const renderOverview = () => {
     // Account data
     const balance   = Number(clientData.balance   ?? client.balance   ?? 0)
@@ -2261,6 +2343,26 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 <rect x="14" y="5" width="3" height="10" stroke="#4B4B4B" strokeWidth="1.5" rx="1"/>
               </svg>
             </button>
+            {/* Export to Excel Button (positions / deals tabs). Deals fetch full set in chunks. */}
+            {(activeTab === 'positions' || activeTab === 'deals') && (
+            <button
+              onClick={activeTab === 'positions' ? handleExportPositions : handleExportDeals}
+              disabled={activeTab === 'deals' && isExportingDeals}
+              className="w-[28px] h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center justify-center transition-colors flex-shrink-0 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Export to Excel"
+            >
+              {activeTab === 'deals' && isExportingDeals ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="animate-spin">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="#4B4B4B" strokeWidth="4" />
+                  <path className="opacity-75" fill="#4B4B4B" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B4B4B" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                </svg>
+              )}
+            </button>
+            )}
             {/* Pagination Buttons - Visible for deals tab only */}
             {activeTab === 'deals' && (
               <>
