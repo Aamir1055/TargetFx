@@ -438,8 +438,18 @@ const ReportsExchangePage = () => {
       })
 
       const totalColumns = 1 + exportColumns.length * 3
+      const selectedWeek = weeks.find(week => String(week.id) === String(selectedWeekId))
+      const exportWeek = settlementWeek || selectedWeek || {}
+      const weekName = exportWeek.name || selectedWeek?.name || `Week ${selectedWeekId}`
+      const weekStart = exportWeek.start_date ?? exportWeek.startDate ?? selectedWeek?.start_date ?? selectedWeek?.startDate
+      const weekEnd = exportWeek.end_date ?? exportWeek.endDate ?? selectedWeek?.end_date ?? selectedWeek?.endDate
+      const exportFromDate = appliedFromDate || weekStart
+      const exportToDate = appliedToDate || weekEnd
+      const exportTitle = exportFromDate && exportToDate
+        ? `Exchange Data ${exportFromDate} to ${exportToDate}`
+        : 'Exchange Data'
       const worksheetData = [Array(totalColumns).fill('')]
-      worksheetData[0][0] = 'Exchange Data'
+      worksheetData[0][0] = exportTitle
       const groupedHeader = Array(totalColumns).fill('')
       const subHeader = Array(totalColumns).fill('')
       groupedHeader[0] = 'Login'
@@ -477,7 +487,7 @@ const ReportsExchangePage = () => {
       const darkHeaderStyle = {
         font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 14 },
         fill: { patternType: 'solid', fgColor: { rgb: '006B9A' } },
-        alignment: { horizontal: 'center', vertical: 'center' },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
         border: headerBorder
       }
       const subHeaderStyle = {
@@ -521,8 +531,11 @@ const ReportsExchangePage = () => {
 
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Exchange Data')
-      const wk = settlementWeek?.name ? settlementWeek.name.replace(/\s+/g, '_') : `week_${selectedWeekId}`
-      XLSX.writeFile(workbook, `exchange_data_${wk}.xlsx`)
+      const weekFileTag = String(weekName).replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '')
+      const customDateTag = appliedFromDate && appliedToDate
+        ? `_custom_${appliedFromDate}_to_${appliedToDate}`
+        : ''
+      XLSX.writeFile(workbook, `exchange_data_${weekFileTag || `week_${selectedWeekId}`}${customDateTag}.xlsx`)
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to export exchange data')
     } finally {
