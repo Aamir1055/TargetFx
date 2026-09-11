@@ -521,7 +521,7 @@ const ReportsExchangePage = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-[100dvh] bg-gray-50">
       <div className="hidden lg:block">
         <Sidebar
           desktopOnly
