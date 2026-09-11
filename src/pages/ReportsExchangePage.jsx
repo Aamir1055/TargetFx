@@ -7,8 +7,7 @@ import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import PageSizeSelect from '../components/PageSizeSelect'
-import ClientPositionsModal from '../components/ClientPositionsModal'
-import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
+import ExchangeBreakdownModal from '../components/ExchangeBreakdownModal'
 
 const fmtMoney = (n) => {
   const num = Number(n)
@@ -165,18 +164,11 @@ const ReportsExchangePage = () => {
   const [pageSize, setPageSize] = useState(100)
   const [exporting, setExporting] = useState(false)
   const [selectedClient, setSelectedClient] = useState(null)
-  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640))
   const desktopDatePickerRef = useRef(null)
   const mobileDatePickerRef = useRef(null)
 
   const activeGroupName = getActiveGroupFilter('exchange')
   const activeGroup = groups.find(group => group.name === activeGroupName) || null
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 640)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
 
   useEffect(() => {
     if (!showDatePicker) return undefined
@@ -374,6 +366,24 @@ const ReportsExchangePage = () => {
   // Lookup helper: exchange row for a given client
   const getExchange = (client, name) => {
     return (client.Exchanges || []).find(e => (e.Exchange || 'UNKNOWN') === name) || null
+  }
+
+  // Fetch a single login's exchange breakdown via POST /api/broker/exchange-data
+  const fetchExchangeForLogin = async (login) => {
+    if (!selectedWeekId) return null
+    const dateFilters = (appliedFromDate && appliedToDate)
+      ? { from: appliedFromDate, to: appliedToDate }
+      : {}
+    const res = await brokerAPI.getExchangeData(Number(selectedWeekId), {
+      ...dateFilters,
+      ...getExchangeGroupFilters(activeGroup),
+      search: String(login),
+      page: 1,
+      limit: 50,
+    })
+    const unwrapped = unwrapExchangeResponse(res)
+    const list = Array.isArray(unwrapped?.Clients) ? unwrapped.Clients : []
+    return list.find(c => String(c.Login ?? c.login) === String(login)) ?? list[0] ?? null
   }
 
   const exportExcel = async () => {
@@ -948,25 +958,13 @@ const ReportsExchangePage = () => {
         editGroup={editingGroup}
       />
 
-      {/* Client Details Modal */}
+      {/* Exchange Breakdown Modal */}
       {selectedClient && (
-        isMobile ? (
-          <ClientDetailsMobileModal
-            client={selectedClient}
-            onClose={() => setSelectedClient(null)}
-            allPositionsCache={[]}
-            allOrdersCache={[]}
-          />
-        ) : (
-          <ClientPositionsModal
-            client={selectedClient}
-            onClose={() => setSelectedClient(null)}
-            onClientUpdate={() => {}}
-            allPositionsCache={[]}
-            allOrdersCache={[]}
-            onCacheUpdate={() => {}}
-          />
-        )
+        <ExchangeBreakdownModal
+          client={selectedClient}
+          onFetch={fetchExchangeForLogin}
+          onClose={() => setSelectedClient(null)}
+        />
       )}
     </div>
   )
