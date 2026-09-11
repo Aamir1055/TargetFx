@@ -239,9 +239,8 @@ const HistoricalPositionsPage = () => {
               </div>
               <form onSubmit={applyFilters} className="flex min-w-0 flex-1 items-center justify-end gap-2">
               <div className="relative shrink-0" ref={datePickerDesktopRef}>
-                <button type="button" onClick={() => setDatePickerOpen(value => !value)} className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[10px] font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:text-sm" aria-expanded={datePickerOpen} aria-haspopup="dialog">
-                  <svg className="h-4 w-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="4.5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M8 2.5v4M16 2.5v4M3 9h18M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01" /></svg>
-                  <span>Custom Dates</span>
+                <button type="button" onClick={() => setDatePickerOpen(value => !value)} className="flex h-10 w-12 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20" aria-expanded={datePickerOpen} aria-haspopup="dialog" aria-label="Custom dates" title="Custom dates">
+                  <svg className="h-3.5 w-3.5 text-[#4B4B4B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="4.5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M8 2.5v4M16 2.5v4M3 9h18M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01" /></svg>
                 </button>
                 {datePickerOpen && <div className="absolute right-0 top-11 z-30 w-[min(340px,calc(100vw-32px))] rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xl" role="dialog" aria-label="Custom date range">
                   <div className="flex items-start justify-between gap-3">
@@ -255,25 +254,21 @@ const HistoricalPositionsPage = () => {
                   <div className="mt-4 flex items-center justify-between gap-2"><button type="button" onClick={() => { setFrom(''); setTo('') }} disabled={!from && !to} className="h-9 rounded-lg px-3 text-xs font-semibold text-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">Clear</button><button type="button" onClick={applyCustomDates} className="h-9 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm hover:bg-blue-700">Apply dates</button></div>
                 </div>}
               </div>
-              <label className="flex h-9 w-[126px] shrink-0 items-center gap-1 text-[9px] font-semibold text-slate-600 sm:w-[142px] sm:text-[11px]">Threshold (%)<input type="number" min="0" step="0.1" value={threshold} onChange={event => setThreshold(event.target.value)} className="h-9 w-12 rounded-lg border border-slate-200 px-2 text-[10px] font-normal text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:w-14 sm:text-sm" /></label>
-              <label className="relative flex h-6 w-11 shrink-0 cursor-pointer items-center" title={percentage ? 'Percentage filter is on' : 'Percentage filter is off'}>
-                <input type="checkbox" checked={percentage} onChange={event => setPercentage(event.target.checked)} className="peer sr-only" aria-label="Apply percentage filter" />
-                <span className="absolute inset-0 rounded-full bg-slate-200 transition-colors peer-checked:bg-blue-600" aria-hidden="true" />
-                <span className="pointer-events-none absolute left-0.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[10px] font-bold text-slate-500 shadow-sm transition-transform peer-checked:translate-x-5 peer-checked:text-blue-600" aria-hidden="true">%</span>
-              </label>
-              <button type="submit" className="h-9 shrink-0 rounded-lg bg-blue-600 px-3 text-[10px] font-semibold text-white shadow-sm hover:bg-blue-700 sm:px-4 sm:text-sm">Apply</button>
-              <button type="button" onClick={() => setAppliedFilters(value => ({ ...value }))} disabled={loading} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 sm:w-auto sm:gap-2 sm:px-3" title="Refresh report">
-                <svg className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 11a8.1 8.1 0 0 0-15.5-3M4 5v3h3M4 13a8.1 8.1 0 0 0 15.5 3M20 19v-3h-3" /></svg>
-                <span className="hidden sm:inline">Refresh</span>
+              <label className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[11px] font-medium text-[#4B4B4B] shadow-sm sm:text-xs">Threshold<input type="number" min="0" step="0.1" value={threshold} onChange={event => setThreshold(event.target.value)} className="h-7 w-12 rounded-md border-0 bg-transparent px-1 text-center text-sm font-semibold text-slate-800 outline-none sm:w-14" aria-label="Threshold percentage" /></label>
+              <button type="button" onClick={() => setPercentage(value => !value)} aria-pressed={percentage} title={percentage ? 'Percentage filter is on' : 'Percentage filter is off'} className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-lg border shadow-sm transition-all ${percentage ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-[#4B4B4B] hover:bg-gray-50'}`}>
+                <span className="text-[9px] font-bold leading-none">%</span>
+              </button>
+              <button type="submit" className="h-10 shrink-0 rounded-lg bg-blue-600 px-7 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">Apply</button>
+              <button type="button" onClick={() => setAppliedFilters(value => ({ ...value }))} disabled={loading} className="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4B4B4B] shadow-sm hover:bg-gray-50 disabled:opacity-50" aria-label="Refresh report" title="Refresh report">
+                <svg className={`h-2.5 w-2.5 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 11a8.1 8.1 0 0 0-15.5-3M4 5v3h3M4 13a8.1 8.1 0 0 0 15.5 3M20 19v-3h-3" /></svg>
               </button>
               </form>
             </div>
           </header>
-          <form onSubmit={applyFilters} className="mb-3 flex items-center gap-2 overflow-visible border-b border-slate-200 bg-white px-3 py-2 shadow-sm sm:hidden">
+          <form onSubmit={applyFilters} className="mb-3 flex items-center gap-1.5 bg-transparent px-3 py-2 sm:hidden">
               <div className="relative shrink-0" ref={datePickerMobileRef}>
-                <button type="button" onClick={() => setDatePickerOpen(value => !value)} className="flex h-8 w-[110px] items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-1 text-[9px] font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50" aria-expanded={datePickerOpen} aria-haspopup="dialog">
-                  <svg className="h-3 w-3 shrink-0 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="4.5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M8 2.5v4M16 2.5v4M3 9h18" /></svg>
-                  <span className="truncate">Custom Dates</span>
+                <button type="button" onClick={() => setDatePickerOpen(value => !value)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white shadow-sm transition hover:bg-gray-50" aria-expanded={datePickerOpen} aria-haspopup="dialog" aria-label="Custom dates" title="Custom dates">
+                  <svg className="h-3.5 w-3.5 shrink-0 text-[#4B4B4B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="4.5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M8 2.5v4M16 2.5v4M3 9h18" /></svg>
                 </button>
                 {datePickerOpen && <div className="fixed inset-x-0 top-0 z-50 flex h-[100dvh] items-center justify-center p-4" onClick={() => setDatePickerOpen(false)}>
                   <div className="absolute inset-0 bg-slate-950/40" aria-hidden="true" />
@@ -285,10 +280,10 @@ const HistoricalPositionsPage = () => {
                   </div>
                 </div>}
               </div>
-              <label className="flex h-8 shrink-0 items-center gap-1 whitespace-nowrap text-[8px] font-semibold text-slate-600">Threshold (%)<input type="number" min="0" step="0.1" value={threshold} onChange={event => setThreshold(event.target.value)} className="h-8 w-10 rounded-md border border-slate-200 bg-white px-1.5 text-[10px] font-normal text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" /></label>
-              <label className="relative flex h-6 w-11 shrink-0 cursor-pointer items-center" title={percentage ? 'Percentage filter is on' : 'Percentage filter is off'}><input type="checkbox" checked={percentage} onChange={event => setPercentage(event.target.checked)} className="peer sr-only" aria-label="Apply percentage filter" /><span className="absolute inset-0 rounded-full bg-slate-200 transition-colors peer-checked:bg-blue-600" aria-hidden="true" /><span className="pointer-events-none absolute left-0.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[9px] font-bold text-slate-500 shadow-sm transition-transform peer-checked:translate-x-5 peer-checked:text-blue-600" aria-hidden="true">%</span></label>
-              <button type="submit" className="h-8 shrink-0 rounded-md bg-blue-600 px-2.5 text-[10px] font-bold text-white shadow-sm transition hover:bg-blue-700">Apply</button>
-              <button type="button" onClick={() => setAppliedFilters(value => ({ ...value }))} disabled={loading} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-50" aria-label="Refresh report" title="Refresh report"><svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 11a8.1 8.1 0 0 0-15.5-3M4 5v3h3M4 13a8.1 8.1 0 0 0 15.5 3M20 19v-3h-3" /></svg></button>
+              <label className="flex h-9 min-w-0 flex-1 items-center gap-1 whitespace-nowrap rounded-lg border border-[#E5E7EB] bg-white px-2 text-[10px] font-medium text-[#4B4B4B] shadow-sm">Threshold<input type="number" min="0" step="0.1" value={threshold} onChange={event => setThreshold(event.target.value)} className="h-6 w-full min-w-0 rounded-md border-0 bg-transparent px-1 text-center text-[12px] font-semibold text-slate-800 outline-none" aria-label="Threshold percentage" /></label>
+              <button type="button" onClick={() => setPercentage(value => !value)} aria-pressed={percentage} title={percentage ? 'Percentage filter is on' : 'Percentage filter is off'} className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border shadow-sm transition-all ${percentage ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-[#4B4B4B] hover:bg-gray-50'}`}><span className="text-[9px] font-bold leading-none">%</span></button>
+              <button type="submit" className="h-9 shrink-0 rounded-lg bg-blue-600 px-3.5 text-[11px] font-bold text-white shadow-sm transition hover:bg-blue-700">Apply</button>
+              <button type="button" onClick={() => setAppliedFilters(value => ({ ...value }))} disabled={loading} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4B4B4B] shadow-sm hover:bg-gray-50 disabled:opacity-50" aria-label="Refresh report" title="Refresh report"><svg className={`h-2.5 w-2.5 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 11a8.1 8.1 0 0 0-15.5-3M4 5v3h3M4 13a8.1 8.1 0 0 0 15.5 3M20 19v-3h-3" /></svg></button>
           </form>
 
           <div className="mb-3 flex items-center gap-1.5">
