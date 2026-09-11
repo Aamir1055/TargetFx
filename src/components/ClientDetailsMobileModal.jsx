@@ -1280,26 +1280,81 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     exportRowsToExcel(cols, rows, 'Positions', `positions_${client.login}_${exportStamp()}.xlsx`)
   }
 
-  // Fetch every deal for the current date range, in chunks of 500 (offset based).
+  // Fetch every deal for the current date range in page-based chunks.
   const fetchAllDealsForExport = async () => {
     const CHUNK = 500
     const from = currentDateFilter.from
     const to = currentDateFilter.to
     if (!from) return []
 
-    const firstRes = await brokerAPI.getClientDeals(client.login, from, to, CHUNK, 0)
-    let all = firstRes.data?.deals || firstRes.deals || []
-    const total = Number(firstRes.data?.total ?? firstRes.total ?? all.length) || all.length
+    const getResult = async (page) => {
+      const response = await brokerAPI.searchClientDeals(client.login, {
+        from,
+        to,
+        page,
+        limit: CHUNK,
+        sortBy: 'time',
+        sortOrder: 'desc'
+      })
+      const payload = response?.data ?? response
+      return {
+        deals: payload?.deals ?? payload?.data?.deals ?? [],
+        total: Number(
+          payload?.total ??
+          payload?.total_count ??
+          payload?.totalItems ??
+          payload?.pagination?.total ??
+          payload?.data?.total ??
+          payload?.data?.total_count
+        )
+      }
+    }
+
+    const getDealKey = (deal) => {
+      const id = deal?.deal ?? deal?.deal_id ?? deal?.dealId ?? deal?.id
+      if (id !== undefined && id !== null) return `deal:${id}`
+      return JSON.stringify([
+        deal?.time,
+        deal?.order,
+        deal?.position,
+        deal?.symbol,
+        deal?.action,
+        deal?.volume,
+        deal?.price,
+        deal?.commission,
+        deal?.storage,
+        deal?.profit,
+        deal?.comment
+      ])
+    }
+
+    const seen = new Set()
+    const appendUnique = (rows) => {
+      const uniqueRows = []
+      for (const row of Array.isArray(rows) ? rows : []) {
+        const key = getDealKey(row)
+        if (seen.has(key)) continue
+        seen.add(key)
+        uniqueRows.push(row)
+      }
+      return uniqueRows
+    }
+
+    const firstResult = await getResult(1)
+    let all = appendUnique(firstResult.deals)
+    const reportedTotal = Number.isFinite(firstResult.total) && firstResult.total > 0
+      ? firstResult.total
+      : totalDealsCount
+    const total = Number(reportedTotal) > 0 ? Number(reportedTotal) : all.length
 
     const totalPages = Math.max(1, Math.ceil(total / CHUNK))
     for (let page = 2; page <= totalPages; page += 1) {
-      const offset = (page - 1) * CHUNK
-      const res = await brokerAPI.getClientDeals(client.login, from, to, CHUNK, offset)
-      const chunk = res.data?.deals || res.deals || []
+      const result = await getResult(page)
+      const chunk = appendUnique(result.deals)
       if (!chunk.length) break
       all = all.concat(chunk)
     }
-    return all
+    return all.slice(0, total)
   }
 
   const handleExportDeals = async () => {

@@ -424,7 +424,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   
   // Pagination states for positions
   const [positionsCurrentPage, setPositionsCurrentPage] = useState(1)
-  const [positionsItemsPerPage, setPositionsItemsPerPage] = useState(10)
+  const [positionsItemsPerPage, setPositionsItemsPerPage] = useState(100)
   
   // Column visibility for positions
   const [showPositionsColumnSelector, setShowPositionsColumnSelector] = useState(false)
@@ -548,6 +548,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     return [25, 50, 100, 500]
   }
 
+  const positionsPageSizeOptions = [25, 50, 100, 500]
+
   // Build dynamic page-size options for Positions based on total rows
   const getPositionsPageSizeOptions = (total) => {
     const base = [10, 25, 50, 100, 200]
@@ -650,20 +652,66 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       return body
     }
 
-    const first = await brokerAPI.searchClientDeals(client.login, buildBody(1))
-    const firstPayload = first?.data ?? first
-    let all = firstPayload?.deals ?? []
-    const total = Number(firstPayload?.total ?? all.length) || all.length
+    const getPayloadDeals = (response) => {
+      const payload = response?.data ?? response
+      return {
+        payload,
+        deals: payload?.deals ?? payload?.data?.deals ?? [],
+        total: Number(
+          payload?.total ??
+          payload?.total_count ??
+          payload?.totalItems ??
+          payload?.pagination?.total ??
+          payload?.data?.total ??
+          payload?.data?.total_count
+        )
+      }
+    }
+
+    const getDealKey = (deal) => {
+      const id = deal?.deal ?? deal?.deal_id ?? deal?.dealId ?? deal?.id
+      if (id !== undefined && id !== null) return `deal:${id}`
+      return JSON.stringify([
+        deal?.time,
+        deal?.order,
+        deal?.position,
+        deal?.symbol,
+        deal?.action,
+        deal?.volume,
+        deal?.price,
+        deal?.commission,
+        deal?.storage,
+        deal?.profit,
+        deal?.comment
+      ])
+    }
+
+    const firstResult = getPayloadDeals(await brokerAPI.searchClientDeals(client.login, buildBody(1)))
+    const seen = new Set()
+    const appendUnique = (rows) => {
+      const uniqueRows = []
+      for (const row of Array.isArray(rows) ? rows : []) {
+        const key = getDealKey(row)
+        if (seen.has(key)) continue
+        seen.add(key)
+        uniqueRows.push(row)
+      }
+      return uniqueRows
+    }
+
+    let all = appendUnique(firstResult.deals)
+    const total = Number.isFinite(firstResult.total) && firstResult.total > 0
+      ? firstResult.total
+      : all.length
 
     const totalPages = Math.max(1, Math.ceil(total / CHUNK))
     for (let page = 2; page <= totalPages; page += 1) {
-      const res = await brokerAPI.searchClientDeals(client.login, buildBody(page))
-      const payload = res?.data ?? res
-      const chunk = payload?.deals ?? []
+      const { deals: rawChunk } = getPayloadDeals(await brokerAPI.searchClientDeals(client.login, buildBody(page)))
+      const chunk = appendUnique(rawChunk)
       if (!chunk.length) break
       all = all.concat(chunk)
     }
-    return all
+    return all.slice(0, total)
   }
 
   // Export ALL deals (full result set) matching current filters to Excel
@@ -2150,16 +2198,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     setPositionsCurrentPage(1)
   }, [searchQuery])
 
-  // Keep positions page-size selection valid when total filtered rows changes
-  useEffect(() => {
-    const total = filteredPositions.length
-    const options = getPositionsPageSizeOptions(total)
-    if (options.length > 0 && (!options.includes(positionsItemsPerPage) || positionsItemsPerPage > total)) {
-      setPositionsItemsPerPage(options[0] || 50)
-      setPositionsCurrentPage(1)
-    }
-  }, [filteredPositions.length])
-
   // Apply search and filters to deals
   const filteredDealsResult = (() => {
     if (!hasAppliedFilter) return []
@@ -2553,113 +2591,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               Security
             </button>
           </div>
-
-          {/* Controls for Positions Tab */}
-          {activeTab === 'positions' && (
-            <div className="flex items-center justify-between gap-1.5 py-2">
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-600">Show:</span>
-                <select
-                  value={positionsItemsPerPage}
-                  onChange={(e) => setPositionsItemsPerPage(parseInt(e.target.value))}
-                  className="px-1.5 py-0.5 text-xs border border-gray-300 rounded bg-white text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                >
-                  {getPositionsPageSizeOptions(filteredPositions.length).map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                {/* Columns Button */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowPositionsColumnSelector(!showPositionsColumnSelector)}
-                    className="text-gray-600 hover:text-gray-900 px-2 py-0.5 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center gap-1 text-xs"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                    </svg>
-                    Columns
-                  </button>
-                  {showPositionsColumnSelector && (
-                    <div
-                      ref={positionsColumnSelectorRef}
-                      className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48"
-                      style={{ maxHeight: '300px', overflowY: 'auto' }}
-                    >
-                      <div className="px-2 py-1 border-b border-gray-100">
-                        <p className="text-xs font-semibold text-gray-700 uppercase">Show/Hide Columns</p>
-                      </div>
-                      {positionsColumns.map(col => (
-                        <label
-                          key={col.key}
-                          className="flex items-center px-2 py-1 hover:bg-blue-50 cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={positionsVisibleColumns[col.key] === true}
-                            onChange={() => togglePositionsColumn(col.key)}
-                            className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-1"
-                          />
-                          <span className="ml-2 text-xs text-gray-700">{col.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Export Positions to Excel */}
-                <button
-                  onClick={handleExportPositions}
-                  disabled={filteredPositions.length === 0}
-                  className="text-gray-600 hover:text-gray-900 px-2 py-0.5 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center gap-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Export to Excel"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
-                  </svg>
-                  Export
-                </button>
-
-                {filteredPositions.length > 0 && positionsItemsPerPage !== 'All' && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setPositionsCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={positionsCurrentPage === 1}
-                    className={`p-0.5 rounded transition-colors ${
-                      positionsCurrentPage === 1
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-600 hover:bg-blue-100 cursor-pointer'
-                    }`}
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  
-                  <span className="text-xs text-gray-700 font-medium px-1">
-                    {positionsCurrentPage}/{positionsTotalPages}
-                  </span>
-                  
-                  <button
-                    onClick={() => setPositionsCurrentPage(prev => Math.min(positionsTotalPages, prev + 1))}
-                    disabled={positionsCurrentPage === positionsTotalPages}
-                    className={`p-0.5 rounded transition-colors ${
-                      positionsCurrentPage === positionsTotalPages
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-600 hover:bg-blue-100 cursor-pointer'
-                    }`}
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-              </div>
-            </div>
-          )}
 
           {/* Controls for NET Tab */}
           {activeTab === 'netpositions' && (
@@ -3230,8 +3161,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                 <>
                   
                   {/* Search Bar */}
-                  <div className="mb-4 flex items-center gap-3">
-                    <div className="relative flex-1" ref={searchRef}>
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    <div className="relative flex-1 lg:max-w-xl" ref={searchRef}>
                       <svg
                         className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
                         fill="none"
@@ -3279,9 +3210,105 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         </svg>
                       </button>
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {displayedPositions.length} of {filteredPositions.length} positions
+
+                    <div className="relative" ref={positionsColumnSelectorRef}>
+                      <button
+                        onClick={() => setShowPositionsColumnSelector(!showPositionsColumnSelector)}
+                        className="w-8 h-8 text-gray-600 hover:text-gray-900 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center justify-center"
+                        title="Columns"
+                        aria-label="Choose visible columns"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                      </button>
+                      {showPositionsColumnSelector && (
+                        <div
+                          className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 w-48"
+                          style={{ maxHeight: '300px', overflowY: 'auto' }}
+                        >
+                          <div className="px-2 py-1 border-b border-gray-100">
+                            <p className="text-xs font-semibold text-gray-700 uppercase">Show/Hide Columns</p>
+                          </div>
+                          {positionsColumns.map(col => (
+                            <label
+                              key={col.key}
+                              className="flex items-center px-2 py-1 hover:bg-blue-50 cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={positionsVisibleColumns[col.key] === true}
+                                onChange={() => togglePositionsColumn(col.key)}
+                                className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-1"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">{col.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
+
+                    <button
+                      onClick={handleExportPositions}
+                      disabled={filteredPositions.length === 0}
+                      className="w-8 h-8 text-gray-600 hover:text-gray-900 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Export to Excel"
+                      aria-label="Export positions to Excel"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                    </button>
+
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      <span className="text-xs text-gray-600">Show:</span>
+                      <select
+                        value={positionsItemsPerPage}
+                        onChange={(e) => {
+                          setPositionsItemsPerPage(parseInt(e.target.value))
+                          setPositionsCurrentPage(1)
+                        }}
+                        className="px-1.5 py-1.5 text-xs border border-gray-300 rounded bg-white text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                      >
+                        {positionsPageSizeOptions.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {filteredPositions.length > 0 && positionsItemsPerPage !== 'All' && (
+                      <div className="flex h-8 shrink-0 items-center gap-0.5 whitespace-nowrap">
+                        <button
+                          onClick={() => setPositionsCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={positionsCurrentPage === 1}
+                          className={`inline-flex h-8 w-7 items-center justify-center rounded transition-colors ${
+                            positionsCurrentPage === 1
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : 'text-gray-600 hover:bg-blue-100 cursor-pointer'
+                          }`}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <span className="inline-flex h-8 min-w-9 items-center justify-center px-1 text-xs font-medium text-gray-700 tabular-nums">
+                          {positionsCurrentPage}/{positionsTotalPages}
+                        </span>
+                        <button
+                          onClick={() => setPositionsCurrentPage(prev => Math.min(positionsTotalPages, prev + 1))}
+                          disabled={positionsCurrentPage === positionsTotalPages}
+                          className={`inline-flex h-8 w-7 items-center justify-center rounded transition-colors ${
+                            positionsCurrentPage === positionsTotalPages
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : 'text-gray-600 hover:bg-blue-100 cursor-pointer'
+                          }`}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   
                   {filteredPositions.length === 0 ? (
