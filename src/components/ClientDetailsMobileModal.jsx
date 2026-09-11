@@ -445,6 +445,82 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     return () => { cancelled = true; if (timer) clearTimeout(timer) }
   }, [client?.login, activeTab])
 
+  // Keep mobile Positions values live while the user remains on the tab.
+  useEffect(() => {
+    if (!client?.login || activeTab !== 'positions') return
+    let timer = null
+    let cancelled = false
+
+    const mergeLiveRows = (currentRows, liveRows, keyFields) => {
+      if (!Array.isArray(currentRows) || !Array.isArray(liveRows)) return currentRows
+      const liveByKey = new Map(liveRows.map(row => {
+        const key = keyFields.map(field => row?.[field]).find(value => value != null)
+        return [String(key), row]
+      }))
+      return currentRows.map(row => {
+        const key = keyFields.map(field => row?.[field]).find(value => value != null)
+        const liveRow = liveByKey.get(String(key))
+        return liveRow ? { ...row, ...liveRow } : row
+      })
+    }
+
+    const refresh = async () => {
+      if (cancelled) return
+      try {
+        const raw = await brokerAPI.getClientOverview(client.login)
+        if (cancelled) return
+
+        const data = raw?.data ?? raw
+        const account = data?.account ?? data?.client ?? data?.info ?? {}
+        const updatedPositions = data?.positions ?? data?.open_positions ?? data?.data?.positions ?? null
+        const updatedOrders = data?.orders ?? data?.pending_orders ?? data?.data?.orders ?? null
+
+        if (account && Object.keys(account).length > 0) {
+          setClientData(prev => ({ ...prev, ...account }))
+        }
+        if (Array.isArray(updatedPositions)) {
+          setPositions(updatedPositions)
+          setSearchedPositions(prev => mergeLiveRows(prev, updatedPositions, ['position', 'order', 'ticket']))
+        }
+        if (Array.isArray(updatedOrders)) {
+          setOrders(updatedOrders)
+          setSearchedOrders(prev => mergeLiveRows(prev, updatedOrders, ['order', 'position', 'ticket']))
+        }
+
+        const livePositions = Array.isArray(updatedPositions) ? updatedPositions : positions
+        const totalPnL = livePositions.reduce((sum, position) => sum + Number(position?.profit || 0), 0)
+        setStats(prev => {
+          const lifetimePnL = Number(account.lifetimePnL ?? account.pnl ?? prev.lifetimePnL)
+          const floating = Number(account.floatingProfit ?? account.floating ?? totalPnL)
+          return {
+            ...prev,
+            positionsCount: livePositions.length,
+            totalPnL,
+            lifetimePnL,
+            bookPnL: lifetimePnL + floating,
+            balance: Number(account.balance ?? prev.balance),
+            credit: Number(account.credit ?? prev.credit),
+            equity: Number(account.equity ?? prev.equity),
+            margin: Number(account.margin ?? prev.margin),
+            marginFree: Number(account.margin_free ?? account.marginFree ?? prev.marginFree),
+            marginLevel: Number(account.margin_level ?? account.marginLevel ?? prev.marginLevel)
+          }
+        })
+
+        const overviewStats = data?.dealsStats ?? data?.dealStats ?? data?.deal_stats ?? data?.stats ?? data?.analytics ?? null
+        if (overviewStats) setDealStats(overviewStats)
+      } catch { /* silently ignore transient refresh errors */ }
+
+      if (!cancelled) timer = setTimeout(refresh, 1000)
+    }
+
+    refresh()
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [client?.login, activeTab])
+
   // Fetch profit trend using pnl-overview API — only when Overview tab is active
   const fetchProfitTrend = async (range = '7d') => {
     setTrendLoading(true)
