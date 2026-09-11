@@ -37,15 +37,6 @@ const HistorySkeleton = () => (
   </div>
 )
 
-const PaginationControls = ({ page, totalPages, onPageChange }) => (
-  <div className="flex items-center gap-1.5">
-    <button type="button" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1} className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-50 text-sm leading-none text-slate-400 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Previous page">&#8249;</button>
-    <input type="number" min="1" max={totalPages} value={page} onChange={(event) => { const nextPage = Number(event.target.value); if (Number.isInteger(nextPage) && nextPage >= 1 && nextPage <= totalPages) onPageChange(nextPage) }} onBlur={(event) => { if (!event.target.value || Number(event.target.value) < 1) onPageChange(1); else if (Number(event.target.value) > totalPages) onPageChange(totalPages) }} className="h-6 w-9 rounded-md border border-slate-200 bg-white px-1 text-center text-[11px] font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" aria-label="Current page" />
-    <span className="text-[11px] font-medium text-slate-400">/ {totalPages}</span>
-    <button type="button" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page >= totalPages} className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-50 text-sm leading-none text-slate-400 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Next page">&#8250;</button>
-  </div>
-)
-
 const ReportPaginationControls = ({ page, totalPages, onPageChange }) => (
   <div className="flex shrink-0 items-center gap-1">
     <button type="button" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1} className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-base leading-none text-slate-400 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Previous page">&#8249;</button>
@@ -57,11 +48,14 @@ const ReportPaginationControls = ({ page, totalPages, onPageChange }) => (
 
 const HistoricalPositionDetails = ({ row, onClose }) => {
   const symbol = row.Symbol ?? row.symbol ?? 'Unknown symbol'
-  const events = Array.isArray(row.Events) ? row.Events : Array.isArray(row.events) ? row.events : []
-  const [eventPage, setEventPage] = useState(1)
-  const eventPageSize = 10
-  const eventTotalPages = Math.max(1, Math.ceil(events.length / eventPageSize))
-  const visibleEvents = events.slice((eventPage - 1) * eventPageSize, eventPage * eventPageSize)
+  const visibleEvents = useMemo(() => {
+    const events = Array.isArray(row.Events) ? row.Events : Array.isArray(row.events) ? row.events : []
+    const getTime = (event) => {
+      const parsed = Date.parse(String(event.Time ?? event.time ?? '').replace(' ', 'T'))
+      return Number.isNaN(parsed) ? 0 : parsed
+    }
+    return [...events].sort((a, b) => getTime(b) - getTime(a))
+  }, [row])
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -85,7 +79,6 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
 
         <div className="min-h-0 overflow-hidden p-3 sm:p-4">
           <div className="overflow-hidden">
-            <div className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-200 bg-slate-50 px-3 py-1 sm:px-4"><PaginationControls page={eventPage} totalPages={eventTotalPages} onPageChange={setEventPage} /></div>
             <div className="max-h-[min(74vh,560px)] overflow-auto">
               <div className="sm:hidden">
                 <div className="grid grid-cols-[1.55fr_0.72fr_0.82fr_0.82fr_0.78fr_0.78fr] gap-1 bg-blue-600 px-2 py-2 text-[10px] font-bold uppercase tracking-[0.03em] text-white">
@@ -95,7 +88,7 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
                   {visibleEvents.map((event, index) => {
                     const change = Number(event.ChangePercentage ?? event.changePercentage)
                     const increase = String(event.Direction ?? event.direction ?? '').toLowerCase() === 'increase' || change > 0
-                    return <div key={`${symbol}-mobile-${(eventPage - 1) * eventPageSize + index}`} className="grid grid-cols-[1.55fr_0.72fr_0.82fr_0.82fr_0.78fr_0.78fr] items-center gap-1 px-2 py-2 text-[11px] leading-tight odd:bg-white even:bg-slate-50/50">
+                    return <div key={`${symbol}-mobile-${index}`} className="grid grid-cols-[1.55fr_0.72fr_0.82fr_0.82fr_0.78fr_0.78fr] items-center gap-1 px-2 py-2 text-[11px] leading-tight odd:bg-white even:bg-slate-50/50">
                       <span className="min-w-0 break-words text-slate-600">{formatTime(event.Time ?? event.time)}</span>
                       <span className="capitalize text-slate-800">{event.PositionAction ?? event.positionAction ?? '-'}</span>
                       <span className="text-right tabular-nums text-slate-600">{formatNumber(event.PreviousPosition ?? event.previousPosition)}</span>
@@ -108,7 +101,7 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
               </div>
               <table className="hidden min-w-[720px] w-full text-sm sm:table">
                 <thead className="sticky top-0 z-10 bg-blue-600 text-[11px] uppercase tracking-wide text-white shadow-[0_1px_0_#1d4ed8]"><tr><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Action</th><th className="px-4 py-2 text-right">Previous</th><th className="px-4 py-2 text-right">New</th><th className="px-4 py-2 text-right">Change</th><th className="px-4 py-2 text-left">Direction</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">{visibleEvents.map((event, index) => { const change = Number(event.ChangePercentage ?? event.changePercentage); const increase = String(event.Direction ?? event.direction ?? '').toLowerCase() === 'increase' || change > 0; return <tr key={`${symbol}-row-${(eventPage - 1) * eventPageSize + index}`} className="hover:bg-slate-50"><td className="whitespace-nowrap px-4 py-2 text-slate-600">{formatTime(event.Time ?? event.time)}</td><td className="px-4 py-2 font-semibold capitalize text-slate-800">{event.PositionAction ?? event.positionAction ?? '-'}</td><td className="px-4 py-2 text-right tabular-nums text-slate-600">{formatNumber(event.PreviousPosition ?? event.previousPosition)}</td><td className="px-4 py-2 text-right tabular-nums text-slate-800">{formatNumber(event.NewPosition ?? event.newPosition)}</td><td className={`px-4 py-2 text-right font-semibold tabular-nums ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{change > 0 ? '+' : ''}{formatNumber(change)}%</td><td className={`px-4 py-2 capitalize ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{event.Direction ?? event.direction ?? '-'}</td></tr> })}</tbody>
+                <tbody className="divide-y divide-slate-100">{visibleEvents.map((event, index) => { const change = Number(event.ChangePercentage ?? event.changePercentage); const increase = String(event.Direction ?? event.direction ?? '').toLowerCase() === 'increase' || change > 0; return <tr key={`${symbol}-row-${index}`} className="hover:bg-slate-50"><td className="whitespace-nowrap px-4 py-2 text-slate-600">{formatTime(event.Time ?? event.time)}</td><td className="px-4 py-2 font-semibold capitalize text-slate-800">{event.PositionAction ?? event.positionAction ?? '-'}</td><td className="px-4 py-2 text-right tabular-nums text-slate-600">{formatNumber(event.PreviousPosition ?? event.previousPosition)}</td><td className="px-4 py-2 text-right tabular-nums text-slate-800">{formatNumber(event.NewPosition ?? event.newPosition)}</td><td className={`px-4 py-2 text-right font-semibold tabular-nums ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{change > 0 ? '+' : ''}{formatNumber(change)}%</td><td className={`px-4 py-2 capitalize ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{event.Direction ?? event.direction ?? '-'}</td></tr> })}</tbody>
               </table>
             </div>
         </div>
