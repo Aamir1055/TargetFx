@@ -470,6 +470,18 @@ const ReportsExchangePage = () => {
         })
         worksheetData.push(cells)
       })
+      const totalRow = ['Totals']
+      exportColumns.forEach(name => {
+        const exchangeTotals = exportClients.reduce((sum, client) => {
+          const exchange = (client.Exchanges || []).find(item => (item.Exchange || 'UNKNOWN') === name)
+          sum.lots += Number(exchange?.Lots || 0)
+          sum.volume += Number(exchange?.Volume || 0)
+          sum.commission += Number(exchange?.Commission || 0)
+          return sum
+        }, { lots: 0, volume: 0, commission: 0 })
+        totalRow.push(exchangeTotals.lots, exchangeTotals.volume, exchangeTotals.commission)
+      })
+      worksheetData.push(totalRow)
       const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
       const lastColumn = totalColumns - 1
       const headerBorder = {
@@ -496,6 +508,12 @@ const ReportsExchangePage = () => {
         alignment: { horizontal: 'center', vertical: 'center' },
         border: headerBorder
       }
+      const totalRowStyle = {
+        font: { bold: true, color: { rgb: '1F2937' } },
+        fill: { patternType: 'solid', fgColor: { rgb: 'E5E7EB' } },
+        alignment: { horizontal: 'right', vertical: 'center' },
+        border: headerBorder
+      }
       for (let column = 0; column <= lastColumn; column += 1) {
         worksheet[XLSX.utils.encode_cell({ r: 0, c: column })].s = darkHeaderStyle
         worksheet[XLSX.utils.encode_cell({ r: 1, c: column })].s = darkHeaderStyle
@@ -504,7 +522,7 @@ const ReportsExchangePage = () => {
       for (let row = 3; row < worksheetData.length; row += 1) {
         for (let column = 0; column <= lastColumn; column += 1) {
           const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })]
-          cell.s = {
+          cell.s = row === worksheetData.length - 1 ? totalRowStyle : {
             alignment: { horizontal: column === 0 ? 'right' : 'right', vertical: 'center' },
             border: dataBorder
           }

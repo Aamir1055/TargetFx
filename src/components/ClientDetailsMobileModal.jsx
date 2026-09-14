@@ -672,7 +672,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     })
   }
 
-  const fetchPositionsAndInitDeals = async () => {
+  const fetchPositionsAndInitDeals = async () => {  
     try {
       setLoading(true)
       
