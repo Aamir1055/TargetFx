@@ -2010,9 +2010,9 @@ const ClientsPage = () => {
       'Lifetime PnL': '/desktop-icons/LIFETIME PNL.svg',
       'Daily Net D/W': '/desktop-icons/NET WD.svg',
       'Total Rebate': '/desktop-icons/TOTAL COMMISION.svg',
-      'Available Rebate': '/desktop-icons/AVAILABLE Commision.svg',
+      'Available Rebate': '/desktop-icons/AVAILABLE Commission.svg',
       'Total Rebate %': '/desktop-icons/TOTAL COMMISION%25.svg',
-      'Available Rebate %': '/desktop-icons/AVAILABLE Commision%25.svg',
+      'Available Rebate %': '/desktop-icons/AVAILABLE Commission%25.svg',
       'Blocked Rebate': '/desktop-icons/Blocked commision.svg',
       'Daily Bonus IN': '/desktop-icons/Daily BONUS IN.svg',
       'Daily Bonus OUT': '/desktop-icons/Daily BONUS OUT.svg',
@@ -2056,7 +2056,17 @@ const ClientsPage = () => {
       'Book PnL %': '/desktop-icons/P&L.svg',
       'Net Lifetime PnL': '/desktop-icons/NET LIFETIME BONUS.svg',
     }
-    return iconMap[cardTitle] || '/desktop-icons/Clients.svg' // Default icon
+      return iconMap[cardTitle] || '/desktop-icons/Clients.svg' // Default icon
+    }
+
+    const handleCardIconError = (event, cardTitle) => {
+      const iconPath = getCardIcon(cardTitle)
+      console.error('[ClientsPage] KPI icon failed to load', {
+        card: cardTitle,
+        url: iconPath,
+        message: 'Check the Network tab for the HTTP status and verify the filename in public/desktop-icons.'
+      })
+      event.currentTarget.style.display = 'none'
   }
 
   // Get face card configuration by ID (for draggable cards)
@@ -2919,9 +2929,7 @@ const ClientsPage = () => {
                               src={getCardIcon(card.title)} 
                               alt={card.title}
                               style={{ width: '16px', height: '16px', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
-                              onError={(e) => {
-                                e.target.style.display = 'none'
-                              }}
+                              onError={(e) => handleCardIconError(e, card.title)}
                             />
                           </div>
                         </div>
@@ -3016,9 +3024,7 @@ const ClientsPage = () => {
                               src={getCardIcon(card.title)} 
                               alt={card.title}
                               style={{ width: '16px', height: '16px', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
-                              onError={(e) => {
-                                e.target.style.display = 'none'
-                              }}
+                              onError={(e) => handleCardIconError(e, card.title)}
                             />
                           </div>
                         </div>
@@ -3119,9 +3125,7 @@ const ClientsPage = () => {
                                 src={getCardIcon(card.title)} 
                                 alt={card.title}
                                 style={{ width: '16px', height: '16px', filter: 'brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(1500%) hue-rotate(213deg) brightness(100%)' }}
-                                onError={(e) => {
-                                  e.target.style.display = 'none'
-                                }}
+                                onError={(e) => handleCardIconError(e, card.title)}
                               />
                             </div>
                           </div>
