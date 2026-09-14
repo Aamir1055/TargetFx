@@ -968,22 +968,15 @@ const BillsPage = () => {
                   onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }}
                   onEditClick={(group) => { setEditingGroup(group); setShowGroupModal(true) }}
                 />
-                <div className="flex items-center gap-1 rounded-md border border-[#E5E7EB] bg-white p-1 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => setZeroValueVisibility(false)}
-                    className={`h-8 rounded px-2 text-xs font-medium transition-colors ${!hideZeroNet ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    Show Zero Value
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setZeroValueVisibility(true)}
-                    className={`h-8 rounded px-2 text-xs font-medium transition-colors ${hideZeroNet ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    Hide Zero Value
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={hideZeroNet}
+                  onClick={() => setZeroValueVisibility(!hideZeroNet)}
+                  className={`h-10 rounded-md border px-3 text-xs font-medium shadow-sm transition-colors ${hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  {hideZeroNet ? 'Hide Zero Value' : 'Show Zero Value'}
+                </button>
                 <div ref={selectedMenuRef} className="relative">
                   <div className="flex h-10 rounded-md bg-white border border-[#E5E7EB] shadow-sm text-gray-700 overflow-hidden">
                     <button
@@ -1135,23 +1128,14 @@ const BillsPage = () => {
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="sm:hidden flex items-center gap-1.5 mb-3 px-3">
-            <span className="text-[10px] font-medium text-gray-500">Zero values:</span>
             <button
               type="button"
-              onClick={() => setZeroValueVisibility(false)}
-              className={`h-8 rounded-md border px-2 text-[10px] font-medium shadow-sm transition-colors ${!hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
+              role="switch"
+              aria-checked={hideZeroNet}
+              onClick={() => setZeroValueVisibility(!hideZeroNet)}
+              className={`h-8 flex-shrink-0 rounded-md border px-2 text-[10px] font-medium shadow-sm transition-colors ${hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
             >
-              Show Zero Value
-            </button>
-            <button
-              type="button"
-              onClick={() => setZeroValueVisibility(true)}
-              className={`h-8 rounded-md border px-2 text-[10px] font-medium shadow-sm transition-colors ${hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
-            >
-              Hide Zero Value
+              {hideZeroNet ? 'Hide Zero' : 'Show Zero'}
             </button>
           </div>
 
