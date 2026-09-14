@@ -972,10 +972,14 @@ const BillsPage = () => {
                   type="button"
                   role="switch"
                   aria-checked={hideZeroNet}
+                  aria-label="Hide zero net values"
                   onClick={() => setZeroValueVisibility(!hideZeroNet)}
-                  className={`h-10 rounded-md border px-3 text-xs font-medium shadow-sm transition-colors ${hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
+                  className="group flex h-10 items-center gap-3 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
                 >
-                  {hideZeroNet ? 'Hide Zero Value' : 'Show Zero Value'}
+                  <span className="whitespace-nowrap">Hide zero</span>
+                  <span className={`relative h-6 w-10 rounded-full p-0.5 transition-colors ${hideZeroNet ? 'bg-blue-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}>
+                    <span className={`block h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)] transition-transform duration-200 ease-out ${hideZeroNet ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </span>
                 </button>
                 <div ref={selectedMenuRef} className="relative">
                   <div className="flex h-10 rounded-md bg-white border border-[#E5E7EB] shadow-sm text-gray-700 overflow-hidden">
@@ -1132,10 +1136,14 @@ const BillsPage = () => {
               type="button"
               role="switch"
               aria-checked={hideZeroNet}
+              aria-label="Hide zero net values"
               onClick={() => setZeroValueVisibility(!hideZeroNet)}
-              className={`h-8 flex-shrink-0 rounded-md border px-2 text-[10px] font-medium shadow-sm transition-colors ${hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
+              className="group flex h-9 flex-shrink-0 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-[10px] font-semibold text-gray-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
             >
-              {hideZeroNet ? 'Hide Zero' : 'Show Zero'}
+              <span className="whitespace-nowrap">Hide zero</span>
+              <span className={`relative h-5 w-9 rounded-full p-0.5 transition-colors ${hideZeroNet ? 'bg-blue-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}>
+                <span className={`block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)] transition-transform duration-200 ease-out ${hideZeroNet ? 'translate-x-4' : 'translate-x-0'}`} />
+              </span>
             </button>
           </div>
 
