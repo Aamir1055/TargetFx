@@ -447,6 +447,7 @@ const BillsPage = () => {
   }, [searchInput])
   const [sortBy, setSortBy] = useState('login')
   const [sortOrder, setSortOrder] = useState('asc')
+  const [hideZeroNet, setHideZeroNet] = useState(true)
 
   // Groups
   const { getActiveGroupFilter, getGroupLogins, activeGroupFilters, setActiveGroupFilter, groups, deleteGroup } = useGroups()
@@ -636,6 +637,7 @@ const BillsPage = () => {
           mt5Accounts: groupMt5Accounts,
           sortBy,
           sortOrder,
+          hideZeroNet,
         })
         if (cancelled) return
         const data = res?.data ?? res
@@ -668,7 +670,7 @@ const BillsPage = () => {
     }
     load()
     return () => { cancelled = true }
-  }, [selectedWeekId, page, limit, search, sortBy, sortOrder, groupMt5Accounts, weeksLoading])
+  }, [selectedWeekId, page, limit, search, sortBy, sortOrder, groupMt5Accounts, hideZeroNet, weeksLoading])
 
   const selectedWeek = useMemo(
     () => weeks.find(w => w.id === selectedWeekId) || null,
@@ -706,6 +708,12 @@ const BillsPage = () => {
       setSortOrder('asc')
     }
     setPage(1)
+  }
+
+  const setZeroValueVisibility = (hide) => {
+    setHideZeroNet(hide)
+    setPage(1)
+    setSelected(new Set())
   }
 
   // Download bill (PDF) for a single login
@@ -960,6 +968,22 @@ const BillsPage = () => {
                   onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }}
                   onEditClick={(group) => { setEditingGroup(group); setShowGroupModal(true) }}
                 />
+                <div className="flex items-center gap-1 rounded-md border border-[#E5E7EB] bg-white p-1 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setZeroValueVisibility(false)}
+                    className={`h-8 rounded px-2 text-xs font-medium transition-colors ${!hideZeroNet ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Show Zero Value
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZeroValueVisibility(true)}
+                    className={`h-8 rounded px-2 text-xs font-medium transition-colors ${hideZeroNet ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Hide Zero Value
+                  </button>
+                </div>
                 <div ref={selectedMenuRef} className="relative">
                   <div className="flex h-10 rounded-md bg-white border border-[#E5E7EB] shadow-sm text-gray-700 overflow-hidden">
                     <button
@@ -1111,6 +1135,24 @@ const BillsPage = () => {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="sm:hidden flex items-center gap-1.5 mb-3 px-3">
+            <span className="text-[10px] font-medium text-gray-500">Zero values:</span>
+            <button
+              type="button"
+              onClick={() => setZeroValueVisibility(false)}
+              className={`h-8 rounded-md border px-2 text-[10px] font-medium shadow-sm transition-colors ${!hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Show Zero Value
+            </button>
+            <button
+              type="button"
+              onClick={() => setZeroValueVisibility(true)}
+              className={`h-8 rounded-md border px-2 text-[10px] font-medium shadow-sm transition-colors ${hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Hide Zero Value
+            </button>
           </div>
 
           {error && (

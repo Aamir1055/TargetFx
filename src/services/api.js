@@ -826,6 +826,7 @@ export const brokerAPI = {
       mt5Accounts: payload.mt5Accounts ?? [],
       sortBy: payload.sortBy ?? 'login',
       sortOrder: payload.sortOrder ?? 'asc',
+      hideZeroNet: payload.hideZeroNet ?? true,
     }
     const response = await api.post('/api/broker/bills/summary', body, options)
     return response.data
