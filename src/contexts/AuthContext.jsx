@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { authAPI, scheduleTokenRefresh, cancelTokenRefresh } from '../services/api'
 
 const AuthContext = createContext()
@@ -19,24 +19,49 @@ export const AuthProvider = ({ children }) => {
   const [requires2FA, setRequires2FA] = useState(false)
   const [tempToken, setTempToken] = useState(null)
 
-  // Check if user is already logged in on app start
+  const [initializing, setInitializing] = useState(true)
+  const startupStarted = useRef(false)
+  const logoutInProgress = useRef(false)
+
+  // Authentication belongs to the provider, which survives login screen remounts.
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    const userData = localStorage.getItem('user_data')
-    
-    if (token && userData) {
+    if (startupStarted.current) return
+    startupStarted.current = true
+
+    const restoreSession = async () => {
       try {
-        const parsedUser = JSON.parse(userData)
-        setUser(parsedUser)
-        setIsAuthenticated(true)
-        scheduleTokenRefresh() // proactively refresh before token expires
-        console.log('[Auth] Session restored from localStorage')
-      } catch (error) {
-        console.error('Error parsing stored user data:', error)
-        logout()
+        const initData = window.Telegram?.WebApp?.initData
+        if (initData) {
+          // Always authenticate the current Telegram identity, not a cached browser user.
+          cancelTokenRefresh()
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          localStorage.removeItem('user_data')
+          await telegramLogin(initData)
+          return
+        }
+        const token = localStorage.getItem('access_token')
+        const userData = localStorage.getItem('user_data')
+        if (token && userData) {
+          const parsedUser = JSON.parse(userData)
+          if (parsedUser) {
+            setUser(parsedUser)
+            setIsAuthenticated(true)
+            scheduleTokenRefresh()
+          }
+        }
+      } catch {
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('user_data')
+      } finally {
+        setLoading(false)
+        setInitializing(false)
       }
     }
-    setLoading(false)
+    void restoreSession()
+    // Run once per provider lifetime, including React StrictMode effect replay.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const login = async (username, password) => {
@@ -146,6 +171,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = async () => {
+    if (logoutInProgress.current) return
+    logoutInProgress.current = true
+    setInitializing(true)
+    cancelTokenRefresh()
     try {
       await authAPI.logout()
     } catch (error) {
@@ -162,11 +191,19 @@ export const AuthProvider = ({ children }) => {
       setRequires2FA(false)
       setTempToken(null)
 
-      // Navigate to login explicitly so user is redirected immediately
+      // Dispatch logout event
       try { window.dispatchEvent(new CustomEvent('auth:logout')) } catch {}
-      if (typeof window !== 'undefined') {
+      
+      const initData = window.Telegram?.WebApp?.initData
+      if (initData) {
+        // Logout ends the session, but does not unlink the Telegram account.
+        // Obtain fresh tokens once; failure leaves the linking form available.
+        await telegramLogin(initData)
+      } else {
         window.location.href = window.location.origin + '/login'
       }
+      logoutInProgress.current = false
+      setInitializing(false)
     }
   }
 
@@ -228,6 +265,94 @@ export const AuthProvider = ({ children }) => {
     setLoading(false)
   }
 
+  const telegramLogin = async (initData) => {
+    try {
+      setLoading(true)
+      setAuthError(null)
+      const response = await authAPI.telegramLogin(initData)
+      
+      if (response.status === 'success' && response.data?.access_token) {
+        handleLoginSuccess(response.data)
+        return { success: true }
+      } else {
+        const errMsg = response.message || 'Telegram login failed'
+        setAuthError(errMsg)
+        return { 
+          success: false, 
+          error: errMsg,
+          notRegistered: response.status === 'error' && response.message?.toLowerCase().includes('not found')
+        }
+      }
+    } catch (error) {
+      console.error('Telegram login error:', error)
+      
+      let errorMessage = 'Telegram login failed'
+      let notRegistered = false
+      
+      if (error.response?.data) {
+        errorMessage = error.response.data.message 
+          || error.response.data.data?.message 
+          || error.response.data.error
+          || errorMessage
+        
+        // Check if user is not registered
+        if (errorMessage.toLowerCase().includes('not found') || 
+            errorMessage.toLowerCase().includes('not registered') ||
+            error.response.status === 404) {
+          notRegistered = true
+        }
+      }
+      
+      setAuthError(errorMessage)
+      return { 
+        success: false, 
+        error: errorMessage,
+        notRegistered
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const telegramLink = async (initData, username, password) => {
+    try {
+      setLoading(true)
+      setAuthError(null)
+      const response = await authAPI.telegramLink(initData, username, password)
+      
+      if (response.status === 'success' && response.data?.access_token) {
+        handleLoginSuccess(response.data)
+        return { success: true }
+      } else {
+        const errMsg = response.message || 'Telegram linking failed'
+        setAuthError(errMsg)
+        return { 
+          success: false, 
+          error: errMsg 
+        }
+      }
+    } catch (error) {
+      console.error('Telegram link error:', error)
+      
+      let errorMessage = 'Failed to link Telegram account'
+      
+      if (error.response?.data) {
+        errorMessage = error.response.data.message 
+          || error.response.data.data?.message 
+          || error.response.data.error
+          || errorMessage
+      }
+      
+      setAuthError(errorMessage)
+      return { 
+        success: false, 
+        error: errorMessage 
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Refresh user rights from /api/auth/broker/me on every page load/refresh.
   useEffect(() => {
     if (!isAuthenticated) return
@@ -260,6 +385,7 @@ export const AuthProvider = ({ children }) => {
     user,
     isAuthenticated,
     loading,
+    initializing,
     requires2FA,
     authError,
     login,
@@ -269,7 +395,9 @@ export const AuthProvider = ({ children }) => {
     enable2FA,
     get2FAStatus,
     regenerateBackupCodes,
-    resetLogin
+    resetLogin,
+    telegramLogin,
+    telegramLink
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

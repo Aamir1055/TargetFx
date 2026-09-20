@@ -113,8 +113,6 @@ const doRefresh = () => {
       const newRefresh = data?.data?.refresh_token || data?.refresh_token
       localStorage.setItem('access_token', newAccess)
       if (newRefresh) localStorage.setItem('refresh_token', newRefresh) // handle rotating tokens
-      api.defaults.headers.common['Authorization'] = `Bearer ${newAccess}`
-      ibApi.defaults.headers.common['Authorization'] = `Bearer ${newAccess}`
       broadcastTokenRefreshed(newAccess)
       console.log('[API] ✅ Token refreshed successfully')
       scheduleTokenRefresh() // schedule next refresh
@@ -270,7 +268,7 @@ export const authAPI = {
 
   // Login
   login: async (username, password) => {
-    const response = await api.post('/api/auth/broker/login', {
+    const response = await rawApi.post('/api/auth/broker/login', {
       username,
       password
     })
@@ -279,7 +277,7 @@ export const authAPI = {
 
   // Verify 2FA code
   verify2FA: async (tempToken, code) => {
-    const response = await api.post('/api/auth/broker/verify-2fa', {
+    const response = await rawApi.post('/api/auth/broker/verify-2fa', {
       temp_token: tempToken,
       code
     })
@@ -333,7 +331,28 @@ export const authAPI = {
 
   // Logout
   logout: async () => {
-    const response = await api.post('/api/auth/logout')
+    const token = localStorage.getItem('access_token')
+    const response = await rawApi.post('/api/auth/logout', undefined, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
+    return response.data
+  },
+
+  // Telegram login
+  telegramLogin: async (initData) => {
+    const response = await rawApi.post('/api/auth/broker/telegram/login', {
+      init_data: initData
+    })
+    return response.data
+  },
+
+  // Telegram link (self-register)
+  telegramLink: async (initData, username, password) => {
+    const response = await rawApi.post('/api/auth/broker/telegram/link', {
+      init_data: initData,
+      username,
+      password
+    })
     return response.data
   }
 }

@@ -68,7 +68,7 @@ const ClientDashboardDesignCPage = lazy(() => import('./pages/ClientDashboardDes
 
 // Main App Content Component
 const AppContent = () => {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, initializing } = useAuth()
   const [isMobile, setIsMobile] = useState(false)
   const marginPollTimer = useRef(null)
   const lastHiddenAtRef = useRef(0)
@@ -87,8 +87,14 @@ const AppContent = () => {
   }, [])
 
   // Mobile auto-reload when tab/app becomes active after inactivity.
+  // Skip this logic in Telegram WebApp to prevent interference
   useEffect(() => {
     if (!isMobile) return
+    if (window.Telegram?.WebApp?.initData) {
+      // Don't auto-reload in Telegram context
+      console.log('[App] Skipping auto-reload logic - Telegram WebApp detected')
+      return
+    }
 
     const INACTIVE_RELOAD_MS = 2 * 60 * 1000
     const STORAGE_KEY = 'mobileLastHiddenAt'
@@ -181,7 +187,7 @@ const AppContent = () => {
     }
   }, [isAuthenticated])
 
-  if (loading) {
+  if (initializing) {
     return <PageSkeleton />
   }
 

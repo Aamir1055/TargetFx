@@ -12,8 +12,9 @@ const LoginPage = () => {
   const [errorMessage, setErrorMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
+  const showSelfRegister = Boolean(window.Telegram?.WebApp?.initData)
 
-  const { login, requires2FA, authError } = useAuth()
+  const { login, requires2FA, authError, telegramLink } = useAuth()
 
   useEffect(() => {
     setIsVisible(true)
@@ -21,11 +22,8 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    // Clear previous error
     setErrorMessage('')
 
-    // Validation
     if (!username.trim() || !password.trim()) {
       setErrorMessage('Please fill in all fields')
       return
@@ -34,29 +32,28 @@ const LoginPage = () => {
     setIsLoading(true)
 
     try {
-      const result = await login(username, password)
+      const initData = window.Telegram?.WebApp?.initData
       
-      // Handle login response
-      if (result?.requires2FA) {
-        // 2FA required - AuthContext will handle the state
-        setIsLoading(false)
-      } else if (result?.success) {
-        // Login successful - user will be redirected by AuthContext
-        setIsLoading(false)
+      if (initData && showSelfRegister) {
+        // Telegram self-register flow
+        const result = await telegramLink(initData, username, password)
+        if (!result.success) {
+          setErrorMessage(result.error || 'Failed to link account')
+        }
       } else {
-        // Login failed - show error
-        setErrorMessage(result?.error || 'Invalid username or password. Please try again.')
-        setIsLoading(false)
+        // Regular login
+        const result = await login(username, password)
+        if (!result?.success && !result?.requires2FA) {
+          setErrorMessage(result?.error || 'Invalid credentials')
+        }
       }
     } catch (err) {
-      // Handle unexpected errors
-      console.error('Login error:', err)
-      setErrorMessage('An unexpected error occurred. Please try again.')
+      setErrorMessage('An error occurred. Please try again.')
+    } finally {
       setIsLoading(false)
     }
   }
 
-  // Show 2FA verification if required
   if (requires2FA) {
     return <TwoFactorVerification />
   }
@@ -71,7 +68,6 @@ const LoginPage = () => {
           {/* Logo and Header */}
           <div className="mb-8">
             <div className="flex items-center justify-center gap-4 mb-8">
-              {/* Favicon logo */}
               <div
                 className="w-16 h-16 rounded-2xl relative flex items-center justify-center shadow-sm"
                 style={{ background: '#DBEAFE' }}
@@ -84,8 +80,14 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <h2 className="text-[20px] leading-[25px] font-semibold text-[#333333] mb-2">Welcome Back</h2>
-            <p className="text-[#8C8C8C] text-[12px] leading-[15px]">Welcome back to access your account. Make sure you use correct information</p>
+            <h2 className="text-[20px] leading-[25px] font-semibold text-[#333333] mb-2">
+              {showSelfRegister ? 'Complete Registration' : 'Welcome Back'}
+            </h2>
+            <p className="text-[#8C8C8C] text-[12px] leading-[15px]">
+              {showSelfRegister 
+                ? 'Link your Telegram account with your broker credentials' 
+                : 'Welcome back to access your account. Make sure you use correct information'}
+            </p>
           </div>
 
           {/* Login Form */}
@@ -149,7 +151,6 @@ const LoginPage = () => {
                   )}
                 </button>
               </div>
-              {/* Reset Password link removed as requested */}
             </div>
 
             {/* Error Message */}
@@ -175,63 +176,54 @@ const LoginPage = () => {
               {isLoading ? (
                 <div className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
-                  <span>Signing in...</span>
+                  <span>{showSelfRegister ? 'Linking Account...' : 'Signing in...'}</span>
                 </div>
               ) : (
-                'Log In'
+                showSelfRegister ? 'Link & Continue' : 'Log In'
               )}
             </button>
           </form>
-
-          {/* Footer removed; copyright moved to hero side */}
         </div>
       </div>
 
-      {/* Right Side - Blue Wave Design (true circles, beyond semicircle, absolute overlay) */}
+      {/* Right Side - Blue Wave Design */}
       <div className="hidden lg:block pointer-events-none absolute inset-0 z-0">
-        {/* Ellipse 49 (shifted right with stronger bottom-right taper) */}
-         <div
-           className="absolute rounded-full"
-           style={{
+        <div
+          className="absolute rounded-full"
+          style={{
             width: '1549px',
             height: '1490px',
             left: '758px',
             top: '-372px',
-             background: '#4471D6',
-             WebkitMaskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)',
-             maskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)'
-           }}
-         />
-
-        {/* Ellipse 51 (shifted right with stronger bottom-right taper) */}
-         <div
-           className="absolute rounded-full"
-           style={{
+            background: '#4471D6',
+            WebkitMaskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)',
+            maskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)'
+          }}
+        />
+        <div
+          className="absolute rounded-full"
+          style={{
             width: '1549px',
             height: '1490px',
             left: '808px',
             top: '-377px',
-             background: '#3B65C5',
-             WebkitMaskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)',
-             maskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)'
-           }}
-         />
-
-        {/* Ellipse 50 (shifted right with stronger bottom-right taper) */}
-         <div
-           className="absolute rounded-full"
-           style={{
+            background: '#3B65C5',
+            WebkitMaskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)',
+            maskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)'
+          }}
+        />
+        <div
+          className="absolute rounded-full"
+          style={{
             width: '1549px',
             height: '1456px',
             left: '856px',
             top: '-359px',
-             background: '#1641A2',
-             WebkitMaskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)',
-             maskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)'
-           }}
-         />
-
-        {/* Ellipse 29 - Border Circle (no mask per Figma) */}
+            background: '#1641A2',
+            WebkitMaskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)',
+            maskImage: 'linear-gradient(115deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%)'
+          }}
+        />
         <div
           className="absolute rounded-full box-border"
           style={{
@@ -243,8 +235,6 @@ const LoginPage = () => {
             background: 'transparent'
           }}
         />
-
-        {/* Copyright at page bottom inside the dark inner circle */}
         <div
           className="absolute text-white text-[12px]"
           style={{
@@ -255,8 +245,6 @@ const LoginPage = () => {
         >
           Copyright © {new Date().getFullYear()} Brokers Eye Platform
         </div>
-
-        {/* Content inside dark blue semicircle */}
         <div
           className="absolute text-white text-left"
           style={{
@@ -265,7 +253,6 @@ const LoginPage = () => {
             maxWidth: '540px',
           }}
         >
-          {/* Main Heading */}
           <h1
             className="font-bold text-3xl lg:text-4xl xl:text-5xl mb-10"
             style={{
@@ -275,26 +262,19 @@ const LoginPage = () => {
           >
             Your Path To Financial<br />Recovery!
           </h1>
-
-          {/* Feature Icons */}
           <div className="flex gap-8 mb-6 justify-center">
-            {/* Secure Trading Infrastructure */}
             <div className="flex flex-col items-center text-center" style={{ width: '160px' }}>
               <div className="relative w-20 h-20 mb-3">
                 <img src={Group8} alt="Secure Trading Infrastructure" className="absolute inset-0 w-full h-full select-none" />
               </div>
               <span className="text-sm font-semibold" style={{ lineHeight: '1.3' }}>Secure Trading<br />Infrastructure</span>
             </div>
-
-            {/* Fast And Reliable Execution */}
             <div className="flex flex-col items-center text-center" style={{ width: '160px' }}>
               <div className="relative w-20 h-20 mb-3">
                 <img src={Group9} alt="Fast And Reliable Execution" className="absolute inset-0 w-full h-full select-none" />
               </div>
               <span className="text-sm font-semibold" style={{ lineHeight: '1.3' }}>Fast And Reliable<br />Execution</span>
             </div>
-
-            {/* Real-Time Market Insights */}
             <div className="flex flex-col items-center text-center" style={{ width: '160px' }}>
               <div className="relative w-20 h-20 mb-3">
                 <img src={Group10} alt="Real-Time Market Insights" className="absolute inset-0 w-full h-full select-none" />
@@ -302,11 +282,6 @@ const LoginPage = () => {
               <span className="text-sm font-semibold" style={{ lineHeight: '1.3' }}>Real-Time Market<br />Insights</span>
             </div>
           </div>
-
-          {/* Subtitle */}
-          <p className="text-sm text-center" style={{ lineHeight: '1.6', opacity: 0.9, paddingLeft: '30px' }}>
-            
-          </p>
         </div>
       </div>
     </div>
