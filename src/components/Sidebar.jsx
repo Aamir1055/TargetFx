@@ -73,7 +73,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
       icon: 'reports',
       img: 'Bills.svg',
       children: [
-        { name: 'Exchange Data', path: '/reports/exchange' },
+        { name: 'Brokerage Data', path: '/reports/exchange' },
         { name: 'Historical Positions', path: '/reports/historical-positions' }
       ]
     },

@@ -48,7 +48,7 @@ const TwoFactorVerification = () => {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="mobile-login relative">
       {/* Enhanced Background - Responsive */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100">
         {/* Animated Background Patterns - Responsive */}
@@ -75,7 +75,7 @@ const TwoFactorVerification = () => {
         </div>
       </div>
 
-      <div className="relative z-10 flex items-center justify-center min-h-screen py-4 sm:py-8 lg:py-12 px-3 sm:px-4 lg:px-6">
+      <div className="relative z-10 flex items-center justify-center min-h-full py-4 sm:py-8 lg:py-12 px-3 sm:px-4 lg:px-6">
         <div className={`max-w-xs sm:max-w-sm w-full space-y-4 sm:space-y-6 transition-all duration-1000 transform ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>

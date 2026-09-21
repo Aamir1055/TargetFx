@@ -1,6 +1,10 @@
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { initializeAppViewport } from './utils/appViewport'
+
+const cleanupViewport = initializeAppViewport()
+if (import.meta.hot) import.meta.hot.dispose(cleanupViewport)
 
 // Recover from stale cached chunks after app updates (common on mobile reopen).
 const CHUNK_RELOAD_KEY = 'chunk-reload-once'

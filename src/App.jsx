@@ -69,7 +69,7 @@ const ClientDashboardDesignCPage = lazy(() => import('./pages/ClientDashboardDes
 // Main App Content Component
 const AppContent = () => {
   const { isAuthenticated, initializing } = useAuth()
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768)
   const marginPollTimer = useRef(null)
   const lastHiddenAtRef = useRef(0)
 

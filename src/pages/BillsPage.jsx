@@ -892,7 +892,7 @@ const BillsPage = () => {
   )
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="report-viewport flex bg-gray-50">
       {(bulkDownloading || exportingAll) && (
         <LoadingSpinner
           message={exportingAll ? 'Exporting all bills…' : 'Downloading selected bills…'}
@@ -907,8 +907,8 @@ const BillsPage = () => {
         />
       </div>
 
-      <main className={`flex-1 px-3 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
-        <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
+      <main className={`min-w-0 min-h-0 flex-1 px-3 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
+        <div className="max-w-full min-w-0 min-h-0 mx-auto w-full flex flex-col flex-1 overflow-hidden">
           {/* Header Card */}
           <div className="-mx-3 sm:mx-0 bg-white rounded-none sm:rounded-2xl shadow-sm px-0 sm:px-6 py-0 sm:py-3 mb-2 sm:mb-4">
             {/* Mobile-only header (centered title, large rounded hamburger) — matches other modules */}
@@ -974,11 +974,11 @@ const BillsPage = () => {
                   aria-checked={hideZeroNet}
                   aria-label="Hide zero net values"
                   onClick={() => setZeroValueVisibility(!hideZeroNet)}
-                  className="group flex h-10 items-center gap-3 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                  className="group flex h-10 w-28 shrink-0 items-center justify-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 text-xs font-medium text-gray-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
                 >
                   <span className="whitespace-nowrap">Hide zero</span>
-                  <span className={`relative h-6 w-10 rounded-full p-0.5 transition-colors ${hideZeroNet ? 'bg-blue-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}>
-                    <span className={`block h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)] transition-transform duration-200 ease-out ${hideZeroNet ? 'translate-x-4' : 'translate-x-0'}`} />
+                  <span className={`relative h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors ${hideZeroNet ? 'bg-blue-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}>
+                    <span className={`block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)] transition-transform duration-200 ease-out ${hideZeroNet ? 'translate-x-4' : 'translate-x-0'}`} />
                   </span>
                 </button>
                 <div ref={selectedMenuRef} className="relative">
@@ -1055,17 +1055,17 @@ const BillsPage = () => {
             </div>
           </div>
 
-          {/* Mobile-only: wide week selector and toggle above the action buttons */}
-          <div className="sm:hidden grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 mb-3 px-3">
+          {/* Mobile-only: all controls aligned in one compact row */}
+          <div className="sm:hidden flex flex-nowrap items-center gap-1 mb-3 px-1">
             {weeksLoading ? (
-              <div className="col-span-2 h-8 rounded-md bg-gray-200 animate-pulse min-w-0" aria-label="Loading weeks" />
+              <div className="h-8 flex-1 rounded-md bg-gray-200 animate-pulse min-w-0" aria-label="Loading weeks" />
             ) : (
               <select
                 value={selectedWeekId ?? ''}
                 onChange={(e) => { setSelectedWeekId(Number(e.target.value)); setPage(1); setSelected(new Set()) }}
                 disabled={weeks.length === 0}
                 aria-label="Select week"
-                className="col-span-2 h-8 w-full min-w-0 px-2 rounded-md border border-[#E5E7EB] bg-white text-[11px] text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 truncate"
+                className="h-8 flex-1 w-0 min-w-0 px-1 rounded-md border border-[#E5E7EB] bg-white text-[10px] text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 truncate"
               >
                 {weeks.length === 0 && <option>No weeks</option>}
                 {weeks.map(w => (
@@ -1075,20 +1075,8 @@ const BillsPage = () => {
             )}
             <button
               type="button"
-              role="switch"
-              aria-checked={hideZeroNet}
-              onClick={() => setZeroValueVisibility(!hideZeroNet)}
-              className="col-start-3 row-start-1 flex h-8 items-center justify-end gap-1.5 rounded-md text-[10px] font-medium text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-            >
-              <span className="whitespace-nowrap">Hide Zero</span>
-              <span aria-hidden="true" className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${hideZeroNet ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                <span className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${hideZeroNet ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
-              </span>
-            </button>
-            <button
-              type="button"
               onClick={() => setIsCustomizeOpen(true)}
-              className={`relative h-8 px-2.5 rounded-md border shadow-sm flex items-center justify-center gap-1.5 flex-shrink-0 ${
+              className={`relative h-8 px-1 rounded-md border shadow-sm flex items-center justify-center gap-1 flex-shrink-0 ${
                 getActiveGroupFilter('bills')
                   ? 'bg-blue-50 border-blue-200'
                   : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
@@ -1097,7 +1085,7 @@ const BillsPage = () => {
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                 <path d="M4.5 6.5H9.5M2.5 3.5H11.5M5.5 9.5H8.5" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
-              <span className="text-[10px] font-medium text-[#4B4B4B]">Filter</span>
+              <span className="text-[9px] font-medium text-[#4B4B4B]">Filter</span>
               {getActiveGroupFilter('bills') && (
                 <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-blue-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center">1</span>
               )}
@@ -1106,9 +1094,9 @@ const BillsPage = () => {
               <button
                 onClick={() => setSelectedMenuOpen(o => !o)}
                 disabled={selected.size === 0 || bulkDownloading || exportingAll}
-                className="h-8 px-2 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-8 px-1 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="hidden min-[400px]:block w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 12V4m0 8l-3-3m3 3l3-3" />
                 </svg>
                 <span className="text-[9px] font-medium text-gray-700">Selected</span>
@@ -1128,9 +1116,9 @@ const BillsPage = () => {
               <button
                 onClick={() => setAllMenuOpen(o => !o)}
                 disabled={exportingAll || bulkDownloading || !selectedWeekId}
-                className="h-8 px-2 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-8 px-1 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="hidden min-[400px]:block w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16" />
                 </svg>
                 <span className="text-[9px] font-medium text-gray-700">All</span>
@@ -1145,22 +1133,19 @@ const BillsPage = () => {
                 </div>
               )}
             </div>
-<<<<<<< HEAD
-=======
             <button
               type="button"
               role="switch"
               aria-checked={hideZeroNet}
               aria-label="Hide zero net values"
               onClick={() => setZeroValueVisibility(!hideZeroNet)}
-              className="group flex h-9 flex-shrink-0 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-[10px] font-semibold text-gray-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+              className="flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-[#E5E7EB] bg-white px-1 text-[9px] font-medium text-gray-700 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
-              <span className="whitespace-nowrap">Hide zero</span>
-              <span className={`relative h-5 w-9 rounded-full p-0.5 transition-colors ${hideZeroNet ? 'bg-blue-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}>
-                <span className={`block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.28)] transition-transform duration-200 ease-out ${hideZeroNet ? 'translate-x-4' : 'translate-x-0'}`} />
+              <span className="whitespace-nowrap">Hide Zero</span>
+              <span aria-hidden="true" className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${hideZeroNet ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <span className={`h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${hideZeroNet ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
               </span>
             </button>
->>>>>>> a9f16bc230d623bc8bce3de2fa7e1ce228ed6db2
           </div>
 
           {error && (
@@ -1171,7 +1156,7 @@ const BillsPage = () => {
 
           {/* Summary Cards — mobile: horizontal carousel; desktop: 3-col grid */}
           <div className="sm:hidden mb-3">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1">
+            <div className="flex gap-2 overflow-x-auto overscroll-x-none scrollbar-hide snap-x snap-mandatory pb-1">
               {[
                 { label: 'Total Brokerage', value: totals.TotalBrokerage, iconPath: 'M12 8c-3.866 0-7 1.79-7 4s3.134 4 7 4 7-1.79 7-4-3.134-4-7-4zm0 0V5m0 11v3m-5-6h10' },
                 { label: 'Total Gross', value: totals.TotalGrossAmount, iconPath: 'M9 7h6m-6 4h6m-6 4h4M5 5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5z' },
@@ -1448,15 +1433,11 @@ const BillsPage = () => {
           </div>
 
           {/* Table (own card, edge-to-edge content) */}
-          <div className="bg-white rounded-none shadow-sm flex-1 flex flex-col overflow-hidden">
+          <div className="bg-white rounded-none shadow-sm min-w-0 min-h-0 flex-1 flex flex-col overflow-hidden">
 
             {/* ═══ MOBILE Table (CSS Grid — matches Client Percentage pattern) ═══ */}
-            <div className="sm:hidden flex-1 overflow-hidden">
-              <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
-                WebkitOverflowScrolling: 'touch',
-                scrollbarWidth: 'none',
-                maxHeight: 'calc(100vh - 280px)'
-              }}>
+            <div className="sm:hidden flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="report-table-scroll w-full min-h-0 flex-1 overflow-auto scrollbar-hide">
                 <div className="relative" style={{ minWidth: 'max-content' }}>
                   {/* Grid Header */}
                   <div
@@ -1873,7 +1854,7 @@ const BillsPage = () => {
                               className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
-                              Exchange Data
+                              Brokerage Data
                             </button>
                             <button
                               type="button"

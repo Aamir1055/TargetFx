@@ -105,7 +105,7 @@ const CalendarIcon = () => (
 )
 
 const ExchangeTableSkeleton = () => (
-  <div className="flex-1 overflow-auto" aria-label="Loading exchange data" aria-busy="true">
+  <div className="flex-1 overflow-auto" aria-label="Loading brokerage data" aria-busy="true">
     <table className="min-w-full text-xs">
       <thead className="bg-slate-100">
         <tr>
@@ -208,7 +208,7 @@ const ReportsExchangePage = () => {
     return () => { cancelled = true }
   }, [isAuthenticated])
 
-  // Fetch exchange data when week / filters / page changes
+  // Fetch brokerage data when week / filters / page changes
   useEffect(() => {
     if (!isAuthenticated || !selectedWeekId) return
     let cancelled = false
@@ -230,7 +230,7 @@ const ReportsExchangePage = () => {
         setData(unwrapExchangeResponse(res))
       } catch (err) {
         if (!cancelled) {
-          setError(err?.response?.data?.message || 'Failed to load exchange data')
+          setError(err?.response?.data?.message || 'Failed to load brokerage data')
           setData(null)
         }
       } finally {
@@ -446,8 +446,8 @@ const ReportsExchangePage = () => {
       const exportFromDate = appliedFromDate || weekStart
       const exportToDate = appliedToDate || weekEnd
       const exportTitle = exportFromDate && exportToDate
-        ? `Exchange Data ${exportFromDate} to ${exportToDate}`
-        : 'Exchange Data'
+        ? `Brokerage Data ${exportFromDate} to ${exportToDate}`
+        : 'Brokerage Data'
       const worksheetData = [Array(totalColumns).fill('')]
       worksheetData[0][0] = exportTitle
       const groupedHeader = Array(totalColumns).fill('')
@@ -548,21 +548,21 @@ const ReportsExchangePage = () => {
       worksheet['!freeze'] = { xSplit: 1, ySplit: 3 }
 
       const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Exchange Data')
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Brokerage Data')
       const weekFileTag = String(weekName).replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '')
       const customDateTag = appliedFromDate && appliedToDate
         ? `_custom_${appliedFromDate}_to_${appliedToDate}`
         : ''
-      XLSX.writeFile(workbook, `exchange_data_${weekFileTag || `week_${selectedWeekId}`}${customDateTag}.xlsx`)
+      XLSX.writeFile(workbook, `brokerage_data_${weekFileTag || `week_${selectedWeekId}`}${customDateTag}.xlsx`)
     } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to export exchange data')
+      setError(err?.response?.data?.message || 'Failed to export brokerage data')
     } finally {
       setExporting(false)
     }
   }
 
   return (
-    <div className="flex h-[100dvh] bg-gray-50">
+    <div className="report-viewport flex bg-gray-50">
       <div className="hidden lg:block">
         <Sidebar
           desktopOnly
@@ -580,8 +580,8 @@ const ReportsExchangePage = () => {
         />
       </div>
 
-      <main className={`flex-1 px-0 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
-        <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
+      <main className={`min-w-0 min-h-0 flex-1 px-0 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
+        <div className="max-w-full min-w-0 min-h-0 mx-auto w-full flex flex-col flex-1 overflow-hidden">
           {/* Header Card */}
           <div className="bg-white rounded-none sm:rounded-2xl shadow-sm px-0 sm:px-6 py-0 sm:py-3 mb-0 sm:mb-2">
             <div className="sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
@@ -595,12 +595,12 @@ const ReportsExchangePage = () => {
                   <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </button>
-              <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Exchange Data</h1>
+              <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Brokerage Data</h1>
             </div>
 
             <div className="hidden sm:flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Reports · Exchange Data</h1>
+                <h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Reports · Brokerage Data</h1>
               </div>
 
               <div className="hidden sm:flex flex-nowrap items-center gap-2 flex-shrink-0">
@@ -650,7 +650,7 @@ const ReportsExchangePage = () => {
                     <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-xl">
                       <div className="mb-3">
                         <p className="text-sm font-semibold text-[#1F2937]">Custom date range</p>
-                        <p className="mt-0.5 text-[11px] text-[#6B7280]">Filter exchange data for the selected period.</p>
+                        <p className="mt-0.5 text-[11px] text-[#6B7280]">Filter brokerage data for the selected period.</p>
                       </div>
                       <div className="space-y-3">
                         <label className="block text-xs font-medium text-[#374151]">
@@ -747,7 +747,7 @@ const ReportsExchangePage = () => {
                 {showDatePicker && (
                   <div className="absolute left-1/2 top-full z-50 mt-2 w-[calc(100vw-1rem)] max-w-72 -translate-x-1/2 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-xl">
                     <p className="text-sm font-semibold text-[#1F2937]">Custom date range</p>
-                    <p className="mt-0.5 text-[11px] text-[#6B7280]">Filter exchange data for the selected period.</p>
+                    <p className="mt-0.5 text-[11px] text-[#6B7280]">Filter brokerage data for the selected period.</p>
                     <div className="mt-3 space-y-3">
                       <label className="block text-xs font-medium text-[#374151]">
                         From
@@ -887,16 +887,16 @@ const ReportsExchangePage = () => {
           )}
 
           {/* Content */}
-          <div className="bg-white rounded-none shadow-sm flex-1 overflow-hidden flex flex-col">
+          <div className="bg-white rounded-none shadow-sm min-w-0 min-h-0 flex-1 overflow-hidden flex flex-col">
             {loading ? (
               <ExchangeTableSkeleton />
             ) : error ? (
               <div className="flex-1 flex items-center justify-center text-sm text-red-600">{error}</div>
             ) : !hasExchangeData ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-slate-500">No exchange data</div>
+              <div className="flex-1 flex items-center justify-center text-sm text-slate-500">No brokerage data</div>
             ) : (
               <>
-                <div className="exchange-table-scrollbar flex-1 min-h-0 overflow-auto isolate">
+                <div className="report-table-scroll exchange-table-scrollbar flex-1 min-w-0 min-h-0 overflow-auto isolate">
                   <table className="min-w-full text-xs border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20">
                     <tr>

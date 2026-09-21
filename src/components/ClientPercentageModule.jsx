@@ -767,25 +767,8 @@ export default function ClientPercentageModule() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showExportMenu])
 
-  // Fix mobile viewport height on actual devices
-  useEffect(() => {
-    const setVH = () => {
-      const vh = window.innerHeight * 0.01
-      document.documentElement.style.setProperty('--vh', `${vh}px`)
-    }
-    
-    setVH()
-    window.addEventListener('resize', setVH)
-    window.addEventListener('orientationchange', setVH)
-    
-    return () => {
-      window.removeEventListener('resize', setVH)
-      window.removeEventListener('orientationchange', setVH)
-    }
-  }, [])
-
   return (
-    <div className="h-screen flex flex-col bg-[#F5F7FA] overflow-hidden" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+    <div className="app-viewport-panel flex flex-col bg-[#F5F7FA] overflow-hidden">
       {/* Error Message */}
       {error && (
         <div className="fixed top-4 right-4 bg-red-50 border-l-4 border-red-500 rounded-r p-4 shadow-lg z-50 max-w-md">
@@ -1487,14 +1470,17 @@ export default function ClientPercentageModule() {
 
       {/* Column Selector Modal */}
       {isColumnSelectorOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setIsColumnSelectorOpen(false)}>
+        <div className="app-sheet-overlay fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setIsColumnSelectorOpen(false)}>
           <div 
-            className="bg-white w-full rounded-t-[24px] max-h-[100vh] flex flex-col overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="percentage-column-title"
+            className="app-sheet bg-white w-full rounded-t-[24px] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between flex-shrink-0">
-              <h3 className="text-base font-semibold text-[#000000]">Show/Hide Columns</h3>
-              <button onClick={() => setIsColumnSelectorOpen(false)}>
+              <h3 id="percentage-column-title" className="text-base font-semibold text-[#000000]">Show/Hide Columns</h3>
+              <button aria-label="Close column selector" className="flex h-11 w-11 items-center justify-center" onClick={() => setIsColumnSelectorOpen(false)}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="#404040" strokeWidth="2"/>
                 </svg>
@@ -1508,7 +1494,7 @@ export default function ClientPercentageModule() {
                   placeholder="Search Columns"
                   value={columnSearch}
                   onChange={(e) => setColumnSearch(e.target.value)}
-                  className="w-full h-12 pl-12 pr-4 bg-gray-100 border-0 rounded-xl text-[10px] text-black font-semibold font-outfit placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full h-12 pl-12 pr-4 bg-gray-100 border-0 rounded-xl text-base text-black font-semibold font-outfit placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <svg 
                   width="20" 
@@ -1523,7 +1509,7 @@ export default function ClientPercentageModule() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto min-h-[450px] max-h-[55vh]">
+            <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
               <div className="px-5 py-3">
                 {allColumns.filter(col => col.label.toLowerCase().includes(columnSearch.toLowerCase())).length > 0 ? (
                   allColumns
@@ -1628,7 +1614,7 @@ export default function ClientPercentageModule() {
                     </button>
                     {mobileReportsOpen && (
                       <div className="flex flex-col pb-1">
-                        <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Exchange Data</button>
+                        <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Brokerage Data</button>
                         <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Historical Positions</button>
                       </div>
                     )}
