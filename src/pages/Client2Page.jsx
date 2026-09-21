@@ -223,7 +223,7 @@ const Client2Page = () => {
 
   // Define default face card order for Client2 — only 6 allowed cards
   const defaultClient2FaceCardOrder = [
-    'totalClients', 'balance', 'credit', 'equity', 'floating', 'pnl'
+    'totalClients', 'pnl', 'balance', 'credit', 'equity', 'floating'
   ]
 
   const getInitialClient2FaceCardOrder = () => {
@@ -239,12 +239,20 @@ const Client2Page = () => {
           const cleaned = parsed.filter(k => defaultSet.has(k))
           // Append any new keys missing from saved order
           defaults.forEach(k => { if (!cleaned.includes(k)) cleaned.push(k) })
+          // Apply the new leading cards once for existing saved layouts.
+          if (localStorage.getItem('client2FaceCardPnlSecond') !== '1') {
+            const reordered = ['totalClients', 'pnl', ...cleaned.filter(k => k !== 'totalClients' && k !== 'pnl')]
+            localStorage.setItem('client2FaceCardOrder', JSON.stringify(reordered))
+            localStorage.setItem('client2FaceCardPnlSecond', '1')
+            return reordered
+          }
           return cleaned
         }
       }
     } catch (e) {
       console.warn('Failed to parse client2FaceCardOrder from localStorage:', e)
     }
+    try { localStorage.setItem('client2FaceCardPnlSecond', '1') } catch { /* Storage may be unavailable. */ }
     return defaultClient2FaceCardOrder
   }
 

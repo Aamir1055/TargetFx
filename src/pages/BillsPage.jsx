@@ -1051,16 +1051,17 @@ const BillsPage = () => {
             </div>
           </div>
 
-          {/* Mobile-only: Week + Filter + Selected + All in one row */}
-          <div className="sm:hidden flex items-center gap-1.5 mb-3 px-3">
+          {/* Mobile-only: wide week selector and toggle above the action buttons */}
+          <div className="sm:hidden grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 mb-3 px-3">
             {weeksLoading ? (
-              <div className="h-8 rounded-md bg-gray-200 animate-pulse flex-1 min-w-0" aria-label="Loading weeks" />
+              <div className="col-span-2 h-8 rounded-md bg-gray-200 animate-pulse min-w-0" aria-label="Loading weeks" />
             ) : (
               <select
                 value={selectedWeekId ?? ''}
                 onChange={(e) => { setSelectedWeekId(Number(e.target.value)); setPage(1); setSelected(new Set()) }}
                 disabled={weeks.length === 0}
-                className="h-8 flex-1 min-w-0 px-2 rounded-md border border-[#E5E7EB] bg-white text-[11px] text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 truncate"
+                aria-label="Select week"
+                className="col-span-2 h-8 w-full min-w-0 px-2 rounded-md border border-[#E5E7EB] bg-white text-[11px] text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 truncate"
               >
                 {weeks.length === 0 && <option>No weeks</option>}
                 {weeks.map(w => (
@@ -1070,8 +1071,20 @@ const BillsPage = () => {
             )}
             <button
               type="button"
+              role="switch"
+              aria-checked={hideZeroNet}
+              onClick={() => setZeroValueVisibility(!hideZeroNet)}
+              className="col-start-3 row-start-1 flex h-8 items-center justify-end gap-1.5 rounded-md text-[10px] font-medium text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              <span className="whitespace-nowrap">Hide Zero</span>
+              <span aria-hidden="true" className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${hideZeroNet ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <span className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${hideZeroNet ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setIsCustomizeOpen(true)}
-              className={`h-8 px-2.5 rounded-md border shadow-sm flex items-center gap-1.5 flex-shrink-0 ${
+              className={`relative h-8 px-2.5 rounded-md border shadow-sm flex items-center justify-center gap-1.5 flex-shrink-0 ${
                 getActiveGroupFilter('bills')
                   ? 'bg-blue-50 border-blue-200'
                   : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
@@ -1128,15 +1141,6 @@ const BillsPage = () => {
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hideZeroNet}
-              onClick={() => setZeroValueVisibility(!hideZeroNet)}
-              className={`h-8 flex-shrink-0 rounded-md border px-2 text-[10px] font-medium shadow-sm transition-colors ${hideZeroNet ? 'border-blue-600 bg-blue-600 text-white' : 'border-[#E5E7EB] bg-white text-gray-600 hover:bg-gray-50'}`}
-            >
-              {hideZeroNet ? 'Hide Zero' : 'Show Zero'}
-            </button>
           </div>
 
           {error && (

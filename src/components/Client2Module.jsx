@@ -407,11 +407,11 @@ export default function Client2Module() {
     // Only show 6 face cards as requested
     return [
       { label: 'Total Clients', value: Number(clientCount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), unit: 'Count', numericValue: clientCount },
+      { label: addPercent('P&L'), value: fmtMoney(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0, isArrow: true },
       { label: addPercent('Balance'), value: fmtMoney(t.balance || 0), unit: 'USD', numericValue: t.balance || 0 },
       { label: addPercent('Credit'), value: fmtMoney(t.credit || 0), unit: 'USD', numericValue: t.credit || 0 },
       { label: addPercent('Equity'), value: fmtMoney(t.equity || 0), unit: 'USD', numericValue: t.equity || 0 },
       { label: addPercent('Floating P/L'), value: fmtMoney(t.floating || 0), unit: 'USD', numericValue: t.floating || 0, isArrow: true },
-      { label: addPercent('P&L'), value: fmtMoney(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0, isArrow: true }
     ]
   }, [filteredClients, totals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent, numericMode])
 
@@ -454,6 +454,16 @@ export default function Client2Module() {
 
     // Append any new labels not in saved order
     labels.forEach(l => { if (!order.includes(l)) order.push(l) })
+
+    // Migrate existing layouts once, including percentage-mode labels.
+    try {
+      if (localStorage.getItem('client2ModulePnlSecond') !== '1') {
+        const leading = labels.filter(l => l === 'Total Clients' || l.replace(' %', '') === 'P&L')
+        order = [...leading, ...order.filter(l => !leading.includes(l))]
+        localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(order))
+        localStorage.setItem('client2ModulePnlSecond', '1')
+      }
+    } catch { /* Storage may be unavailable. */ }
 
     // If order differs, update state and persist
     const changed = JSON.stringify(order) !== JSON.stringify(cardOrder)

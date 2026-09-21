@@ -197,8 +197,12 @@ export const AuthProvider = ({ children }) => {
       const initData = window.Telegram?.WebApp?.initData
       if (initData) {
         // Logout ends the session, but does not unlink the Telegram account.
-        // Obtain fresh tokens once; failure leaves the linking form available.
-        await telegramLogin(initData)
+        // Automatic login runs only when the user opens the app again.
+        try {
+          window.Telegram.WebApp.close()
+        } catch (error) {
+          console.error('Failed to close Telegram app:', error)
+        }
       } else {
         window.location.href = window.location.origin + '/login'
       }

@@ -20,7 +20,7 @@ function mount({ initData = 'signed-launch-data', stored = {}, login = async () 
   const calls = []
   const storage = new Map(Object.entries(stored))
   const window = {
-    Telegram: { WebApp: { initData } },
+    Telegram: { WebApp: { initData, close: () => calls.push(['close']) } },
     location: { origin: 'https://example.test', href: '' },
     dispatchEvent() {}
   }
@@ -92,15 +92,23 @@ test('unlinked Telegram user settles on login and can link with credentials', as
   assert.deepEqual(app.calls[1], ['link', 'signed-launch-data', 'test-broker', 'test-password'])
 })
 
-test('logout automatically signs Telegram user back in without navigation', async () => {
+test('logout closes Telegram without signing back in, and reopening auto-authenticates', async () => {
   const app = mount()
   await settle()
   const auth = app.render()
   await Promise.all([auth.logout(), auth.logout()])
-  assert.equal(app.render().isAuthenticated, true)
+  assert.equal(app.render().isAuthenticated, false)
   assert.equal(app.render().initializing, false)
   assert.equal(app.window.location.href, '')
-  assert.deepEqual(app.calls.map(call => call[0]), ['login', 'logout', 'login'])
+  assert.deepEqual(app.calls.map(call => call[0]), ['login', 'logout', 'close'])
+  assert.equal(app.storage.has('access_token'), false)
+  assert.equal(app.storage.has('refresh_token'), false)
+  assert.equal(app.storage.has('user_data'), false)
+
+  const reopened = mount({ stored: Object.fromEntries(app.storage) })
+  await settle()
+  assert.equal(reopened.render().isAuthenticated, true)
+  assert.deepEqual(reopened.calls.map(call => call[0]), ['login'])
 })
 
 test('failed Telegram login clears cached identity and does not retry on renders', async () => {
