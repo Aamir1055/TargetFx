@@ -97,11 +97,11 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
     try {
       clearIBSelection()
     } catch {}
-    navigate(path)
-    // Close sidebar after navigation only on mobile (below lg breakpoint)
+    // Close the current mobile drawer before switching routes.
     if (typeof onClose === 'function' && window.innerWidth < 1024) {
       onClose()
     }
+    navigate(path)
   }
   
   const isActivePath = (path) => {

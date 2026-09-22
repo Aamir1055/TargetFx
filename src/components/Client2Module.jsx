@@ -188,7 +188,7 @@ export default function Client2Module() {
   // Visible columns state (mirrors desktop's 34-column list)
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
-    name: true,
+    name: false,
     equity: true,
     profit: true,
     pnl: true,
@@ -406,12 +406,12 @@ export default function Client2Module() {
     
     // Only show 6 face cards as requested
     return [
-      { label: 'Total Clients', value: Number(clientCount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), unit: 'Count', numericValue: clientCount },
       { label: addPercent('P&L'), value: fmtMoney(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0, isArrow: true },
+      { label: addPercent('Floating P/L'), value: fmtMoney(t.floating || 0), unit: 'USD', numericValue: t.floating || 0, isArrow: true },
       { label: addPercent('Balance'), value: fmtMoney(t.balance || 0), unit: 'USD', numericValue: t.balance || 0 },
       { label: addPercent('Credit'), value: fmtMoney(t.credit || 0), unit: 'USD', numericValue: t.credit || 0 },
       { label: addPercent('Equity'), value: fmtMoney(t.equity || 0), unit: 'USD', numericValue: t.equity || 0 },
-      { label: addPercent('Floating P/L'), value: fmtMoney(t.floating || 0), unit: 'USD', numericValue: t.floating || 0, isArrow: true },
+      { label: 'Total Clients', value: Number(clientCount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), unit: 'Count', numericValue: clientCount },
     ]
   }, [filteredClients, totals, totalClients, filters, getActiveGroupFilter, debouncedSearchInput, showPercent, numericMode])
 
@@ -426,42 +426,18 @@ export default function Client2Module() {
     } catch {}
 
     let order = Array.isArray(saved) && saved.length > 0
-      ? saved.filter(l => labels.includes(l))
-      : (() => {
-          // Default order: prioritize key KPIs and requested commission/correction/swap cards
-          const priority = [
-            'Total Clients',
-            'Lifetime P&L',
-            'NET Lifetime DW',
-            'Total Rebate',
-            // Commission variants
-            'This Week Commission',
-            'This Month Commission',
-            'Lifetime Commission',
-            // Correction variants
-            'This Week Correction',
-            'This Month Correction',
-            'Lifetime Correction',
-            // Swap variants
-            'This Week Swap',
-            'This Month Swap',
-            'Lifetime Swap'
-          ]
-          const priorityOrder = priority.filter(l => labels.includes(l))
-          const remaining = labels.filter(l => !priority.includes(l))
-          return [...priorityOrder, ...remaining]
-        })()
+      ? saved.map(label => labels.find(current => current.replace(' %', '') === label.replace(' %', ''))).filter(Boolean)
+      : [...labels]
 
     // Append any new labels not in saved order
     labels.forEach(l => { if (!order.includes(l)) order.push(l) })
 
     // Migrate existing layouts once, including percentage-mode labels.
     try {
-      if (localStorage.getItem('client2ModulePnlSecond') !== '1') {
-        const leading = labels.filter(l => l === 'Total Clients' || l.replace(' %', '') === 'P&L')
-        order = [...leading, ...order.filter(l => !leading.includes(l))]
+      if (localStorage.getItem('client2ModuleCardOrderV3') !== '1') {
+        order = [...labels]
         localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(order))
-        localStorage.setItem('client2ModulePnlSecond', '1')
+        localStorage.setItem('client2ModuleCardOrderV3', '1')
       }
     } catch { /* Storage may be unavailable. */ }
 
@@ -624,6 +600,13 @@ export default function Client2Module() {
     }
     // Otherwise use the regular field
     return client[key]
+  }
+
+  const getProfitLossColor = (key, client) => {
+    if (key !== 'pnl' && key !== 'profit') return ''
+    const value = Number(getCellValue(key, client))
+    if (!Number.isFinite(value) || value === 0) return ''
+    return value > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'
   }
 
   // Pagination - use totalClients from API for accurate page count
@@ -874,10 +857,10 @@ export default function Client2Module() {
   // Table columns configuration
   const columnConfig = [
     { key: 'login', label: 'Login', width: '80px', sticky: true },
-    { key: 'name', label: 'Name', width: '120px' },
-    { key: 'equity', label: 'Equity', width: '90px' },
-    { key: 'profit', label: 'Floating Profit', width: '110px' },
     { key: 'pnl', label: 'PnL', width: '100px' },
+    { key: 'profit', label: 'Floating Profit', width: '110px' },
+    { key: 'equity', label: 'Equity', width: '90px' },
+    { key: 'name', label: 'Name', width: '120px' },
     { key: 'lastName', label: 'Last Name', width: '100px' },
     { key: 'middleName', label: 'Middle Name', width: '100px' },
     { key: 'email', label: 'Email', width: '140px' },
@@ -1364,7 +1347,7 @@ export default function Client2Module() {
                       letterSpacing: '-0.01em',
                       color: card.isArrow
                         ? (card.numericValue > 0 ? '#16A34A' : card.numericValue < 0 ? '#DC2626' : '#000000')
-                        : (card.numericValue > 0 ? '#16A34A' : card.numericValue < 0 ? '#DC2626' : '#000000')
+                        : '#000000'
                     }}>
                       {card.value === '' || card.value === undefined ? '0.00' : card.value}
                     </span>
@@ -1583,7 +1566,7 @@ export default function Client2Module() {
                             key={col.key}
                             onClick={() => col.key === 'login' && setSelectedClient(client)}
                             className={`h-[38px] flex items-center justify-start px-2 overflow-hidden text-ellipsis whitespace-nowrap ${
-                              col.key === 'login' ? 'text-[#1A63BC] font-semibold sticky left-0 bg-white z-10 cursor-pointer hover:underline' : ''
+                              col.key === 'login' ? 'text-[#1A63BC] font-semibold sticky left-0 bg-white z-10 cursor-pointer hover:underline' : getProfitLossColor(col.key, client)
                             }`}
                             style={{border: 'none', outline: 'none', boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'}}
                           >
@@ -2053,22 +2036,22 @@ export default function Client2Module() {
                   <div className="flex-1">
                     <div className="text-xs font-medium text-gray-600 uppercase mb-1">{card.label}</div>
                     <div className="flex items-baseline gap-1.5">
-                      {card.numericValue > 0 && (
+                      {card.isArrow && card.numericValue > 0 && (
                         <svg width="12" height="12" viewBox="0 0 8 8" className="flex-shrink-0">
                           <polygon points="4,0 8,8 0,8" fill="#16A34A"/>
                         </svg>
                       )}
-                      {card.numericValue < 0 && (
+                      {card.isArrow && card.numericValue < 0 && (
                         <svg width="12" height="12" viewBox="0 0 8 8" className="flex-shrink-0">
                           <polygon points="4,8 0,0 8,0" fill="#DC2626"/>
                         </svg>
                       )}
-                      {card.numericValue === 0 && (
+                      {card.isArrow && card.numericValue === 0 && (
                         <svg width="12" height="12" viewBox="0 0 8 8" className="flex-shrink-0">
                           <polygon points="4,0 8,8 0,8" fill="#000000"/>
                         </svg>
                       )}
-                      <span className={`text-xl font-bold ${card.numericValue > 0 ? 'text-[#16A34A]' : card.numericValue < 0 ? 'text-[#DC2626]' : 'text-black'}`}>
+                      <span className={`text-xl font-bold ${card.isArrow && card.numericValue > 0 ? 'text-[#16A34A]' : card.isArrow && card.numericValue < 0 ? 'text-[#DC2626]' : 'text-black'}`}>
                         {card.value === '' || card.value === undefined ? '0.00' : card.value}
                       </span>
                     </div>

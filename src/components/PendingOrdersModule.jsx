@@ -18,6 +18,14 @@ const formatNum = (n, decimals = 2) => {
   return v.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
+// Match the API precision per order, including zero-decimal instruments.
+const getOrderPriceDigits = (order) => {
+  const raw = order.digits ?? order.digit ?? order.priceDigits
+  if (raw == null || String(raw).trim() === '') return 3
+  const digits = Number(raw)
+  return Number.isInteger(digits) && digits >= 0 && digits <= 20 ? digits : 3
+}
+
 const formatCompactIndian = (v) => {
   const n = Number(v)
   if (!isFinite(n)) return '0.00'
@@ -524,16 +532,16 @@ export default function PendingOrdersModule() {
         value = fmtMoney(order.volumeCurrent || order.volume || 0)
         break
       case 'priceOrder':
-        value = formatNum(order.priceOrder || order.price || 0, 5)
+        value = formatNum(order.priceOrder ?? order.price ?? 0, getOrderPriceDigits(order))
         break
       case 'priceTrigger':
-        value = formatNum(order.priceTrigger || order.trigger || 0, 5)
+        value = formatNum(order.priceTrigger ?? order.trigger ?? 0, getOrderPriceDigits(order))
         break
       case 'priceSL':
-        value = formatNum(order.priceSL || order.sl || 0, 5)
+        value = formatNum(order.priceSL ?? order.sl ?? 0, getOrderPriceDigits(order))
         break
       case 'priceTP':
-        value = formatNum(order.priceTP || order.tp || 0, 5)
+        value = formatNum(order.priceTP ?? order.tp ?? 0, getOrderPriceDigits(order))
         break
       case 'timeSetup':
         value = order.timeSetupStr || order.timeUpdateStr || order.timeCreateStr || formatTime(order.timeSetup || order.timeUpdate || order.timeCreate)

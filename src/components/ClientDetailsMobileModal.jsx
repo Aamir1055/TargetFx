@@ -577,9 +577,10 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     if (activeTab === 'overview') fetchProfitTrend(trendRange)
   }, [client.login, trendRange, activeTab])
 
-  // Reset pagination when tab changes
+  // Reset pagination and close column settings when switching tabs
   useEffect(() => {
     setCurrentPage(1)
+    setShowColumnSelector(false)
   }, [activeTab])
 
   // Fetch deals when page changes in deals tab
@@ -2440,7 +2441,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         </div>
 
         {/* Search */}
-        {activeTab !== 'overview' && activeTab !== 'security' && activeTab !== 'money' && activeTab !== 'rules' && (
+        {(activeTab === 'positions' || activeTab === 'deals') && (
         <div className="px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-2 mb-2">
             <div className="flex-1 min-w-0 h-[28px] bg-white border border-[#ECECEC] rounded-[10px] shadow-[0_0_12px_rgba(75,75,75,0.05)] flex items-center px-2 gap-1">
@@ -2457,8 +2458,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                   else if (activeTab === 'deals') setDealsSearch(value)
                   setCurrentPage(1)
                 }}
-                placeholder={activeTab === 'positions' || activeTab === 'deals' ? 'Search' : 'Search not required'}
-                disabled={activeTab !== 'positions' && activeTab !== 'deals'}
+                placeholder="Search"
                 className="flex-1 min-w-0 text-[11px] text-[#000000] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit"
               />
             </div>
@@ -2985,7 +2985,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
 
 
         {/* Column Selector Dropdown */}
-        {showColumnSelector && (
+        {showColumnSelector && (activeTab === 'positions' || activeTab === 'deals') && (
           <>
             <div className="fixed inset-0 bg-transparent z-40" onClick={() => setShowColumnSelector(false)} />
             <div className="absolute top-[118px] right-[58px] bg-white rounded-lg shadow-xl border border-blue-500 z-50 w-56">

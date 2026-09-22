@@ -617,8 +617,6 @@ export default function MarginLevelModule() {
             <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
               WebkitOverflowScrolling: 'touch',
               scrollbarWidth: 'none',
-              paddingRight: '8px',
-              paddingBottom: '8px',
               maxHeight: 'calc(100vh - 280px)'
             }}>
               <div className="relative" style={{ minWidth: 'max-content' }}>
@@ -636,7 +634,7 @@ export default function MarginLevelModule() {
                     <div 
                       key={col.key} 
                       onClick={() => handleSort(col.key)}
-                      className={`h-[28px] flex items-center justify-center px-1 cursor-pointer ${col.sticky ? 'sticky left-0 bg-blue-500 z-30' : ''}`}
+                      className={`h-[28px] flex items-center justify-start px-2 cursor-pointer ${col.sticky ? 'sticky left-0 bg-blue-500 z-30' : ''}`}
                       style={{
                         border: 'none', 
                         outline: 'none', 
@@ -680,7 +678,7 @@ export default function MarginLevelModule() {
                         {activeColumns.map((col) => (
                           <div 
                             key={col.key}
-                            className={`h-[38px] flex items-center justify-center px-1 ${col.sticky ? 'sticky left-0 bg-white z-10' : ''}`}
+                            className={`h-[28px] flex items-center justify-start px-2 ${col.sticky ? 'sticky left-0 bg-white z-10' : ''}`}
                             style={{border: 'none', outline: 'none', boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'}}
                           >
                             <div 

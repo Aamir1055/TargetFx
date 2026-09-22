@@ -437,7 +437,8 @@ const ReportsExchangePage = () => {
         })
       })
 
-      const totalColumns = 1 + exportColumns.length * 3
+      const fixedColumnCount = 3
+      const totalColumns = fixedColumnCount + exportColumns.length * 3
       const selectedWeek = weeks.find(week => String(week.id) === String(selectedWeekId))
       const exportWeek = settlementWeek || selectedWeek || {}
       const weekName = exportWeek.name || selectedWeek?.name || `Week ${selectedWeekId}`
@@ -452,10 +453,12 @@ const ReportsExchangePage = () => {
       worksheetData[0][0] = exportTitle
       const groupedHeader = Array(totalColumns).fill('')
       const subHeader = Array(totalColumns).fill('')
-      groupedHeader[0] = 'Login'
-      subHeader[0] = 'Login'
+      ;['Login', 'Name', 'Agent Commission'].forEach((label, index) => {
+        groupedHeader[index] = label
+        subHeader[index] = label
+      })
       exportColumns.forEach(name => {
-        const startColumn = 1 + exportColumns.indexOf(name) * 3
+        const startColumn = fixedColumnCount + exportColumns.indexOf(name) * 3
         groupedHeader[startColumn] = name
         subHeader[startColumn] = 'Lots'
         subHeader[startColumn + 1] = 'Volume'
@@ -463,14 +466,14 @@ const ReportsExchangePage = () => {
       })
       worksheetData.push(groupedHeader, subHeader)
       exportClients.forEach(client => {
-        const cells = [client.Login]
+        const cells = [client.Login ?? client.login, client.Name ?? client.name ?? '', Number(client.AgentCommission ?? client.agentCommission ?? 0)]
         exportColumns.forEach(name => {
           const exchange = (client.Exchanges || []).find(item => (item.Exchange || 'UNKNOWN') === name)
           cells.push(Number(exchange?.Lots || 0), Number(exchange?.Volume || 0), Number(exchange?.Commission || 0))
         })
         worksheetData.push(cells)
       })
-      const totalRow = ['Totals']
+      const totalRow = ['Totals', `${exportClients.length} clients`, exportClients.reduce((sum, client) => sum + Number(client.AgentCommission ?? client.agentCommission ?? 0), 0)]
       exportColumns.forEach(name => {
         const exchangeTotals = exportClients.reduce((sum, client) => {
           const exchange = (client.Exchanges || []).find(item => (item.Exchange || 'UNKNOWN') === name)
@@ -523,21 +526,23 @@ const ReportsExchangePage = () => {
         for (let column = 0; column <= lastColumn; column += 1) {
           const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })]
           cell.s = row === worksheetData.length - 1 ? totalRowStyle : {
-            alignment: { horizontal: column === 0 ? 'right' : 'right', vertical: 'center' },
+            alignment: { horizontal: column === 1 ? 'left' : 'right', vertical: 'center' },
             border: dataBorder
           }
         }
       }
       worksheet['!merges'] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: lastColumn } },
-        { s: { r: 1, c: 0 }, e: { r: 2, c: 0 } },
+        ...Array.from({ length: fixedColumnCount }, (_, column) => ({ s: { r: 1, c: column }, e: { r: 2, c: column } })),
         ...exportColumns.map((_, index) => {
-          const startColumn = 1 + index * 3
+          const startColumn = fixedColumnCount + index * 3
           return { s: { r: 1, c: startColumn }, e: { r: 1, c: startColumn + 2 } }
         })
       ]
       worksheet['!cols'] = [
         { wch: 14 },
+        { wch: 28 },
+        { wch: 20 },
         ...exportColumns.flatMap(() => [{ wch: 14 }, { wch: 16 }, { wch: 14 }])
       ]
       worksheet['!rows'] = [
@@ -545,7 +550,7 @@ const ReportsExchangePage = () => {
         { hpt: 24 },
         { hpt: 22 }
       ]
-      worksheet['!freeze'] = { xSplit: 1, ySplit: 3 }
+      worksheet['!freeze'] = { xSplit: fixedColumnCount, ySplit: 3 }
 
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Brokerage Data')

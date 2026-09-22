@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
@@ -19,15 +18,14 @@ const SettingsPage = () => {
   const { user } = useAuth()
   // Mobile detection to hide sidebar on small screens
   const [isMobile, setIsMobile] = useState(() => {
-    try { return typeof window !== 'undefined' ? window.innerWidth <= 768 : false } catch { return false }
+    try { return typeof window !== 'undefined' ? window.innerWidth < 1024 : false } catch { return false }
   })
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth <= 768)
+    const onResize = () => setIsMobile(window.innerWidth < 1024)
     onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
-  const navigate = useNavigate()
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
   // 2FA States
@@ -230,15 +228,16 @@ const SettingsPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50">
         <Sidebar
-          isOpen={sidebarOpen}
-          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-          onToggle={() => setSidebarOpen(value => { const next = !value; try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch {}; return next })}
+          isOpen={isMobileSidebarOpen}
+          onClose={() => setIsMobileSidebarOpen(false)}
+          onToggle={() => setIsMobileSidebarOpen(value => !value)}
+          mobileOnly
         />
 
         {/* Sticky header */}
         <div className="sticky top-0 bg-white shadow-md z-30 px-4 py-5">
           <div className="flex items-center justify-between">
-            <button onClick={() => setSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center">
+            <button aria-label="Open navigation" onClick={() => setIsMobileSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M3 6h18M3 12h18M3 18h18" stroke="#000" strokeWidth="2" strokeLinecap="round"/>
               </svg>
@@ -247,63 +246,6 @@ const SettingsPage = () => {
             <div className="w-9 h-9" />
           </div>
         </div>
-
-        {/* Sidebar drawer */}
-        {isMobileSidebarOpen && (
-          <div className="fixed inset-0 z-40">
-            <div className="absolute inset-0 bg-black/25" onClick={() => setIsMobileSidebarOpen(false)} />
-            <div className="absolute left-0 top-0 h-full w-[300px] bg-white shadow-xl rounded-r-2xl flex flex-col">
-              <div className="p-4 flex items-center gap-3 border-b border-[#ECECEC]">
-                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1A63BC"/></svg>
-                </div>
-                <div className="flex-1">
-                  <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eyes</div>
-                  <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
-                </div>
-                <button onClick={() => setIsMobileSidebarOpen(false)} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/></svg>
-                </button>
-              </div>
-              <div className="flex-1 overflow-auto py-2">
-                <nav className="flex flex-col">
-                  {[
-                    { label: 'Clients',          path: '/client2' },
-                    { label: 'Positions',        path: '/positions' },
-                    { label: 'Pending Orders',   path: '/pending-orders' },
-                    { label: 'Margin Level',     path: '/margin-level' },
-                    { label: 'Live Dealing',     path: '/live-dealing' },
-                    { label: 'Client Percentage',path: '/client-percentage' },
-                    { label: 'Bills',            path: '/bills' },
-                    { label: 'Reports',          path: '/reports/exchange' },
-                    { label: 'Settings',         path: '/settings' },
-                  ].map((item) => {
-                    const isActive = item.path === '/settings'
-                    const iconName = { '/client2': 'Clients', '/positions': 'Positions', '/pending-orders': 'Pending-Orders', '/margin-level': 'Margin-Level', '/live-dealing': 'Live-Dealing', '/client-percentage': 'Client-Percentage', '/bills': 'Bills', '/reports/exchange': 'Bills', '/settings': 'Settings' }[item.path]
-                    return (
-                      <button key={item.path} onClick={() => { navigate(item.path); setIsMobileSidebarOpen(false) }}
-                        className={`flex items-center gap-3 px-4 h-11 text-[13px] ${isActive ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>
-                        <span className="w-5 h-5 flex items-center justify-center">
-                          <img src={`${import.meta.env.BASE_URL || '/'}sidebar-icons/${iconName}.svg`} alt={item.label} style={{ filter: isActive ? undefined : 'brightness(0)' }} className="w-5 h-5" />
-                        </span>
-                        <span>{item.label}</span>
-                      </button>
-                    )
-                  })}
-                </nav>
-              </div>
-              <div className="p-4 mt-auto border-t border-[#ECECEC]">
-                <button onClick={() => { navigate('/login') }} className="flex items-center gap-3 px-2 h-10 text-[13px] text-[#404040]">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 18.25C11.8011 18.25 11.6103 18.329 11.4697 18.4697C11.329 18.6103 11.25 18.8011 11.25 19C11.25 19.1989 11.329 19.3897 11.4697 19.5303C11.6103 19.671 11.8011 19.75 12 19.75H18C18.4641 19.75 18.9092 19.5656 19.2374 19.2374C19.5656 18.9092 19.75 18.4641 19.75 18V6C19.75 5.53587 19.5656 5.09075 19.2374 4.76256C18.9092 4.43437 18.4641 4.25 18 4.25H12C11.8011 4.25 11.6103 4.32902 11.4697 4.46967C11.329 4.61032 11.25 4.80109 11.25 5C11.25 5.19891 11.329 5.38968 11.4697 5.53033C11.6103 5.67098 11.8011 5.75 12 5.75H18C18.0663 5.75 18.1299 5.77634 18.1768 5.82322C18.2237 5.87011 18.25 5.9337 18.25 6V18C18.25 18.0663 18.2237 18.1299 18.1768 18.1768C18.1299 18.2237 18.0663 18.25 18 18.25H12Z" fill="#FF5F57"/>
-                    <path fillRule="evenodd" clipRule="evenodd" d="M14.5029 14.365C15.1929 14.365 15.7529 13.805 15.7529 13.115V10.875C15.7529 10.185 15.1929 9.62498 14.5029 9.62498H9.8899L9.8699 9.40498L9.8159 8.84898C9.79681 8.65261 9.73064 8.46373 9.62301 8.29838C9.51538 8.13302 9.36946 7.99606 9.19763 7.8991C9.0258 7.80214 8.83312 7.74805 8.63593 7.74142C8.43874 7.73478 8.24286 7.77579 8.0649 7.86098C6.42969 8.64307 4.94977 9.71506 3.6969 11.025L3.5979 11.128C3.37433 11.3612 3.24951 11.6719 3.24951 11.995C3.24951 12.3181 3.37433 12.6287 3.5979 12.862L3.6979 12.965C4.95047 14.2748 6.43005 15.3468 8.0649 16.129C8.24286 16.2142 8.43874 16.2552 8.63593 16.2485C8.83312 16.2419 9.0258 16.1878 9.19763 16.0909C9.36946 15.9939 9.51538 15.8569 9.62301 15.6916C9.73064 15.5262 9.79681 15.3374 9.8159 15.141L9.8699 14.585L9.8899 14.365H14.5029ZM9.1949 12.865C9.00405 12.8651 8.82044 12.938 8.68147 13.0688C8.54249 13.1996 8.45861 13.3785 8.4469 13.569C8.42823 13.859 8.4049 14.1493 8.3769 14.44L8.3609 14.602C7.05583 13.9285 5.86846 13.0481 4.8449 11.995C5.86846 10.9418 7.05583 10.0614 8.3609 9.38798L8.3769 9.54998C8.4049 9.83998 8.42823 10.1303 8.4469 10.421C8.45861 10.6115 8.54249 10.7903 8.68147 10.9211C8.82044 11.0519 9.00405 11.1248 9.1949 11.125H14.2529V12.865H9.1949Z" fill="#FF5F57"/>
-                  </svg>
-                  <span>Logout</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="p-4 space-y-4">
 

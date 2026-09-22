@@ -223,7 +223,7 @@ const Client2Page = () => {
 
   // Define default face card order for Client2 — only 6 allowed cards
   const defaultClient2FaceCardOrder = [
-    'totalClients', 'pnl', 'balance', 'credit', 'equity', 'floating'
+    'pnl', 'floating', 'balance', 'credit', 'equity', 'totalClients'
   ]
 
   const getInitialClient2FaceCardOrder = () => {
@@ -240,10 +240,10 @@ const Client2Page = () => {
           // Append any new keys missing from saved order
           defaults.forEach(k => { if (!cleaned.includes(k)) cleaned.push(k) })
           // Apply the new leading cards once for existing saved layouts.
-          if (localStorage.getItem('client2FaceCardPnlSecond') !== '1') {
-            const reordered = ['totalClients', 'pnl', ...cleaned.filter(k => k !== 'totalClients' && k !== 'pnl')]
+          if (localStorage.getItem('client2FaceCardOrderV3') !== '1') {
+            const reordered = [...defaults]
             localStorage.setItem('client2FaceCardOrder', JSON.stringify(reordered))
-            localStorage.setItem('client2FaceCardPnlSecond', '1')
+            localStorage.setItem('client2FaceCardOrderV3', '1')
             return reordered
           }
           return cleaned
@@ -252,7 +252,7 @@ const Client2Page = () => {
     } catch (e) {
       console.warn('Failed to parse client2FaceCardOrder from localStorage:', e)
     }
-    try { localStorage.setItem('client2FaceCardPnlSecond', '1') } catch { /* Storage may be unavailable. */ }
+    try { localStorage.setItem('client2FaceCardOrderV3', '1') } catch { /* Storage may be unavailable. */ }
     return defaultClient2FaceCardOrder
   }
 
@@ -263,11 +263,21 @@ const Client2Page = () => {
     const saved = localStorage.getItem('client2ColumnOrder')
     if (saved) {
       try {
-        return JSON.parse(saved)
+        const parsed = JSON.parse(saved)
+        if (!Array.isArray(parsed)) return null
+        if (localStorage.getItem('client2LoginPnlColumnOrder') !== '1') {
+          const leading = ['login', 'pnl', 'profit', 'equity']
+          const reordered = [...leading, ...parsed.filter(key => !leading.includes(key))]
+          localStorage.setItem('client2ColumnOrder', JSON.stringify(reordered))
+          localStorage.setItem('client2LoginPnlColumnOrder', '1')
+          return reordered
+        }
+        return parsed
       } catch (e) {
         console.error('Failed to parse saved column order:', e)
       }
     }
+    try { localStorage.setItem('client2LoginPnlColumnOrder', '1') } catch { /* Storage may be unavailable. */ }
     return null // Will use default order from allColumns
   }
 
@@ -584,6 +594,11 @@ const Client2Page = () => {
         const defaults = getDefaultColumns()
         let merged = { ...parsed }
         Object.keys(defaults).forEach(k => { if (!merged.hasOwnProperty(k)) merged[k] = defaults[k] })
+        if (localStorage.getItem('client2NameHiddenDefault') !== '1') {
+          merged.name = false
+          localStorage.setItem('client2PageVisibleColumns', JSON.stringify(merged))
+          localStorage.setItem('client2NameHiddenDefault', '1')
+        }
         return merged
       } catch (e) {
         console.error('Failed to parse saved columns:', e)
@@ -596,7 +611,7 @@ const Client2Page = () => {
   const getDefaultColumns = () => {
     return {
       login: true,
-      name: true,
+      name: false,
       email: false,
       group: false,
       balance: false,
@@ -660,10 +675,10 @@ const Client2Page = () => {
   // All available columns (restricted to requested list)
   const allColumns = [
     { key: 'login', label: 'Login', type: 'integer', sticky: true },
-    { key: 'name', label: 'Name', type: 'text' },
-    { key: 'equity', label: 'Equity', type: 'float' },
-    { key: 'profit', label: 'Floating Profit', type: 'float' },
     { key: 'pnl', label: 'PnL', type: 'float' },
+    { key: 'profit', label: 'Floating Profit', type: 'float' },
+    { key: 'equity', label: 'Equity', type: 'float' },
+    { key: 'name', label: 'Name', type: 'text' },
     { key: 'lastName', label: 'Last Name', type: 'text' },
     { key: 'middleName', label: 'Middle Name', type: 'text' },
     { key: 'email', label: 'Email', type: 'text' },
@@ -3679,7 +3694,7 @@ const Client2Page = () => {
     }
 
     // Format numbers with Indian style
-    if (['balance', 'credit', 'equity', 'margin', 'marginFree', 'profit', 'floating',
+    if (['balance', 'credit', 'equity', 'margin', 'marginFree', 'profit', 'floating', 'pnl',
       'dailyPnL', 'thisWeekPnL', 'thisMonthPnL', 'lifetimePnL'].includes(key)) {
       const num = parseFloat(value)
       if (isNaN(num)) return '-'
@@ -3729,7 +3744,7 @@ const Client2Page = () => {
     }
 
     // Color code profit/loss fields
-    if (['profit', 'floating', 'dailyPnL', 'thisWeekPnL', 'thisMonthPnL', 'lifetimePnL'].includes(key)) {
+    if (['profit', 'floating', 'pnl', 'dailyPnL', 'thisWeekPnL', 'thisMonthPnL', 'lifetimePnL'].includes(key)) {
       const num = parseFloat(value)
       if (isNaN(num)) return ''
       if (num > 0) return 'text-green-600 font-semibold'
@@ -3815,7 +3830,7 @@ const Client2Page = () => {
 
   // Fields that participate in the Compact/Full display toggle
   const compactNumberFields = new Set([
-    'balance', 'credit', 'equity', 'margin', 'marginFree', 'profit', 'floating'
+    'balance', 'credit', 'equity', 'margin', 'marginFree', 'profit', 'floating', 'pnl'
   ])
 
   // Percentage mode: just append a percent sign to the normal formatted number

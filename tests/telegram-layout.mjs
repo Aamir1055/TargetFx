@@ -157,6 +157,24 @@ try {
       console.log(`PASS ${route} at ${width}px: stationary frame, contained two-axis scrolling`)
     }
   }
+  for (const width of [390, 820]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: true })
+    await evaluate(`localStorage.setItem('sidebarOpen', 'true')`)
+    await send('Page.navigate', { url: origin + '/settings' })
+    for (let i = 0; i < 100; i++) {
+      if (await evaluate(`!!document.querySelector('[aria-label="Open navigation"]')`)) break
+      await delay(100)
+    }
+    assert.ok(await evaluate(`!!document.querySelector('[aria-label="Open navigation"]')`), 'Settings rendered')
+    assert.ok(await evaluate(`!document.querySelector('.fixed.inset-0')`), 'Settings drawer starts closed despite saved desktop preference')
+    await evaluate(`document.querySelector('[aria-label="Open navigation"]').click()`)
+    await delay(100)
+    assert.ok(await evaluate(`!!document.querySelector('.fixed.inset-0')`), 'Drawer opens on request')
+    await evaluate(`Array.from(document.querySelectorAll('.fixed.inset-0 button')).find(b => b.textContent.trim() === 'Settings').click()`)
+    await delay(100)
+    assert.ok(await evaluate(`!document.querySelector('.fixed.inset-0')`), 'Selecting Settings closes its drawer')
+    console.log(`PASS Settings sidebar at ${width}px: starts closed and closes on navigation`)
+  }
   await send('Browser.close')
 } finally {
   ws?.close()
