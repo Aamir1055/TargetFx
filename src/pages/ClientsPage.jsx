@@ -17,6 +17,7 @@ import ColumnChooserList from '../components/ColumnChooserList'
 // import ClientDashboardDesignC from '../components/dashboard/ClientDashboardDesignC'
 import workerManager from '../workers/workerManager'
 import { brokerAPI } from '../services/api'
+import { formatTime } from '../utils/dateFormatter'
 
 const ClientsPage = () => {
     // Card filter search query for filter modal
@@ -2413,7 +2414,9 @@ const ClientsPage = () => {
     }
     
     // Integer fields
-    if (['leverage', 'marginLeverage', 'agent', 'clientID', 'soActivation', 'soTime', 
+    if (key === 'soTime') return formatTime(value, '-')
+
+    if (['leverage', 'marginLeverage', 'agent', 'clientID', 'soActivation', 
          'currencyDigits', 'rightsMask', 'language'].includes(key)) {
       const formatted = formatIndianNumber(parseInt(value))
       return formatted
@@ -2426,15 +2429,7 @@ const ClientsPage = () => {
     
     // Date/timestamp fields (Unix timestamps - auto-detect seconds vs milliseconds)
     if (['registration', 'lastAccess', 'lastUpdate', 'accountLastUpdate', 'userLastUpdate'].includes(key)) {
-      const n = Number(value)
-      const ms = n < 10000000000 ? n * 1000 : n
-      return new Date(ms).toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      return formatTime(value, '-')
     }
     
     // Array fields (rights)

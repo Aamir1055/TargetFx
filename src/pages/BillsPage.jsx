@@ -18,6 +18,7 @@ import LoginGroupModal from '../components/LoginGroupModal'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
 import { useGroups } from '../contexts/GroupContext'
+import { formatDate, formatTime } from '../utils/dateFormatter'
 
 const fmtMoney = (n) => {
   const num = Number(n)
@@ -321,7 +322,7 @@ const flattenBills = (bills = []) => {
 
 const downloadCsv = (filename, rows, columns) => {
   const header = columns.map(c => escapeCsv(c.label || c.key)).join(',')
-  const body = rows.map(r => columns.map(c => escapeCsv(r[c.key])).join(',')).join('\n')
+  const body = rows.map(r => columns.map(c => escapeCsv(c.key === 'Datetime' ? formatTime(r[c.key], '') : r[c.key])).join(',')).join('\n')
   const csv = '\ufeff' + header + '\n' + body
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -957,7 +958,7 @@ const BillsPage = () => {
                       {weeks.length === 0 && <option>No weeks available</option>}
                       {weeks.map(w => (
                         <option key={w.id} value={w.id}>
-                          {w.name}{w.description ? ` — ${w.description}` : ''} ({w.start_date} → {w.end_date})
+                          {w.name}{w.description ? ` — ${w.description}` : ''} ({formatDate(w.start_date, '')} → {formatDate(w.end_date, '')})
                         </option>
                       ))}
                     </select>

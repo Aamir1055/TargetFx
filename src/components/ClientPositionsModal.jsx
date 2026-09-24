@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
-import { formatTime } from '../utils/dateFormatter'
+import { formatDate as formatDayOnly, formatTime, serverNowDate, toServerEpoch } from '../utils/dateFormatter'
 import { useAuth } from '../contexts/AuthContext'
 import { exportRowsToExcel } from '../utils/exportExcel'
 
@@ -773,7 +773,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     setTrendLoading(true)
     try {
       let from, to
-      const now = new Date()
+      const now = serverNowDate()
       if (range === '7d') {
         // This week: Monday 00:00 to Sunday 23:59:59
         const day = now.getDay() // 0=Sun,1=Mon,...
@@ -784,14 +784,14 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         const sunday = new Date(monday)
         sunday.setDate(monday.getDate() + 6)
         sunday.setHours(23, 59, 59, 999)
-        from = Math.floor(monday.getTime() / 1000)
-        to   = Math.floor(sunday.getTime() / 1000)
+        from = toServerEpoch(monday)
+        to   = toServerEpoch(sunday)
       } else {
         // This month: 1st 00:00 to last day 23:59:59
         const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
         const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-        from = Math.floor(start.getTime() / 1000)
-        to   = Math.floor(end.getTime() / 1000)
+        from = toServerEpoch(start)
+        to   = toServerEpoch(end)
       }
       const resp = await brokerAPI.getClientPnlOverview(client.login, from, to)
       const daysArr = resp?.data?.days ?? []
@@ -1714,19 +1714,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     )
   }
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-'
-    const n = Number(timestamp)
-    const ms = n < 10000000000 ? n * 1000 : n
-    const date = new Date(ms)
-    const day = String(date.getDate()).padStart(2, '0')
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const year = date.getFullYear()
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const seconds = String(date.getSeconds()).padStart(2, '0')
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
-  }
+  const formatDate = (timestamp) => formatTime(timestamp, '-')
 
   const parseDateInput = (dateStr) => {
     // Parse dd/mm/yyyy format or yyyy-mm-dd format (from date picker)
@@ -1797,8 +1785,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
 
     // Convert to Unix timestamp (seconds)
-    const fromTimestamp = fromDateObj ? Math.floor(fromDateObj.getTime() / 1000) : 0
-    const toTimestamp = toDateObj ? Math.floor(toDateObj.getTime() / 1000) : Math.floor(Date.now() / 1000)
+    const fromTimestamp = fromDateObj ? toServerEpoch(fromDateObj) : 0
+    const toTimestamp = toServerEpoch(toDateObj || serverNowDate())
 
     // Fetch deals from API with selected date range
     setDealsCurrentPage(1)
@@ -1818,7 +1806,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }
 
   const handleDatePreset = async (preset) => {
-    const now = new Date()
+    const now = serverNowDate()
     let fromDateObj, toDateObj
     
     setSelectedPreset(preset)
@@ -1869,8 +1857,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     setToDate(formatToInput(toDateObj))
     
     // Automatically apply the filter
-    const fromTimestamp = Math.floor(fromDateObj.getTime() / 1000)
-    const toTimestamp = Math.floor(toDateObj.getTime() / 1000)
+    const fromTimestamp = toServerEpoch(fromDateObj)
+    const toTimestamp = toServerEpoch(toDateObj)
     await fetchDeals(fromTimestamp, toTimestamp, 1, dealsItemsPerPage)
     setOperationError('')
   }
@@ -1960,7 +1948,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       } else if (columnKey === 'symbol') {
         value = pos.symbol
       } else if (columnKey === 'time') {
-        value = pos.timeCreateStr || formatDate(pos.timeCreate)
+        value = formatDate(pos.timeCreate || pos.timeCreateStr)
       }
       if (value) values.add(value)
     })
@@ -2056,7 +2044,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       const type = getActionLabel(pos.action)
       const positionNum = String(pos.position || '')
       const volume = String(pos.volume || '')
-      const time = pos.timeCreateStr || formatDate(pos.timeCreate)
+      const time = formatDate(pos.timeCreate || pos.timeCreateStr)
       
       // Check each field and add to suggestions if matches
       if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
@@ -2098,7 +2086,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           } else if (columnKey === 'symbol') {
             value = pos.symbol
           } else if (columnKey === 'time') {
-            value = pos.timeCreateStr || formatDate(pos.timeCreate)
+            value = formatDate(pos.timeCreate || pos.timeCreateStr)
           }
           return selectedValues.includes(value)
         })
@@ -2495,10 +2483,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             {(() => {
               const ts = clientData?.lastTradingDate ?? clientData?.last_trading_date
               if (ts == null || ts === '' || Number(ts) <= 0) return null
-              const ms = Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts)
-              const d = new Date(ms)
-              if (isNaN(d.getTime())) return null
-              const formatted = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              const formatted = formatDayOnly(ts, '')
+              if (!formatted) return null
               return (
                 <p className="mt-1 inline-block text-[11px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md shadow-sm">
                   Last Trade: {formatted}
@@ -3559,7 +3545,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                             <tr key={`pos-${position.position}`} className="hover:bg-blue-50 transition-colors border-b border-gray-100">
                               {positionsVisibleColumns.time && (
                               <td className="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">
-                                {position.timeCreateStr || formatDate(position.timeCreate)}
+                                {formatDate(position.timeCreate || position.timeCreateStr)}
                               </td>
                               )}
                               {positionsVisibleColumns.position && (
@@ -3650,7 +3636,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                             <tr key={`order-${order.order}`} className="hover:bg-blue-50 transition-colors border-b border-gray-100">
                               {positionsVisibleColumns.time && (
                               <td className="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">
-                                {order.timeSetupStr || order.timeCreateStr || formatDate(order.timeSetup || order.timeCreate)}
+                                {formatDate(order.timeSetup || order.timeCreate || order.timeSetupStr || order.timeCreateStr)}
                               </td>
                               )}
                               {positionsVisibleColumns.position && (

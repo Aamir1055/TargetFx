@@ -12,6 +12,7 @@ import ClientDetailsMobileModal from './ClientDetailsMobileModal'
 import { useGroups } from '../contexts/GroupContext'
 import { applyCumulativeFilters, applySearchFilter, applySorting } from '../utils/mobileFilters'
 import { normalizePositions } from '../utils/currencyNormalization'
+import { formatTime as apiFormatTime, serverNowEpoch } from '../utils/dateFormatter'
 import { brokerAPI } from '../services/api'
 
 const formatNum = (n) => {
@@ -82,7 +83,7 @@ export default function PositionModule() {
   const itemsPerPage = 15
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
-  const [showClientNet, setShowClientNet] = useState(false)
+  const [showClientNet, setShowClientNet] = useState(true)
   const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)
   const [displayMode, setDisplayMode] = useState('value') // 'value' or 'percentage'
   const [isExporting, setIsExporting] = useState(false)
@@ -410,7 +411,7 @@ export default function PositionModule() {
         if (debouncedSearch && debouncedSearch.trim()) params.search = debouncedSearch.trim()
         if (displayMode === 'percentage') params.percentage = true
         if (dateFilter) {
-          const now = Math.floor(Date.now() / 1000)
+          const now = serverNowEpoch()
           params.dateFrom = now - dateFilter * 24 * 60 * 60
           params.dateTo = now
         }
@@ -844,9 +845,7 @@ export default function PositionModule() {
           </div>
         )
       case 'updated':
-        const timeStr = pos.timeUpdateStr || pos.timeCreateStr
-        const timeValue = pos.timeUpdate || pos.timeCreate
-        const formattedTime = timeStr || (timeValue ? (() => { const n = Number(timeValue); const ms = n < 10000000000 ? n * 1000 : n; return new Date(ms).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', '') })() : '-')
+        const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.timeUpdateStr || pos.timeCreateStr, '-')
         return <div className={`h-[38px] flex items-center justify-start px-2 text-[10px] ${stickyClass}`} style={stickyStyle}>{formattedTime}</div>
       case 'firstName':
       case 'middleName':
@@ -968,15 +967,7 @@ export default function PositionModule() {
     const EXPORT_LIMIT = 1000
     const CONCURRENCY = 5
 
-    const formatTime = (ts) => {
-      if (!ts) return '-'
-      try {
-        const n = Number(ts)
-        const ms = n < 10000000000 ? n * 1000 : n
-        const d = new Date(ms)
-        return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
-      } catch { return '-' }
-    }
+    const formatTime = (ts) => apiFormatTime(ts, '-')
 
     try {
       if (showClientNet) {
@@ -997,7 +988,7 @@ export default function PositionModule() {
           baseParams.filters = _netExportApiFilters
         }
         if (dateFilter) {
-          const now = Math.floor(Date.now() / 1000)
+          const now = serverNowEpoch()
           baseParams.dateFrom = now - dateFilter * 24 * 60 * 60
           baseParams.dateTo = now
         }
@@ -1067,7 +1058,7 @@ export default function PositionModule() {
           baseParams.filters = _regExportApiFilters
         }
         if (dateFilter) {
-          const now = Math.floor(Date.now() / 1000)
+          const now = serverNowEpoch()
           baseParams.dateFrom = now - dateFilter * 24 * 60 * 60
           baseParams.dateTo = now
         }
@@ -1112,7 +1103,7 @@ export default function PositionModule() {
           { key: 'commission',   label: 'Commission',                               accessor: r => r.commission },
           { key: 'reason',       label: 'Reason',                                   accessor: r => r.reason },
           { key: 'comment',      label: 'Comment',                                  accessor: r => r.comment },
-          { key: 'updated',      label: 'Updated',                                  accessor: r => r.timeUpdateStr || r.timeCreateStr || formatTime(r.timeUpdate || r.timeCreate) },
+          { key: 'updated',      label: 'Updated',                                  accessor: r => formatTime(r.timeUpdate || r.timeCreate || r.timeUpdateStr || r.timeCreateStr) },
         ]
         downloadFile(`positions_${Date.now()}.csv`, toCSV(allPositions, headers))
       }

@@ -14,6 +14,7 @@ import PositionModule from '../components/PositionModule'
 import DateFilterModal from '../components/DateFilterModal'
 import ColumnChooserList from '../components/ColumnChooserList'
 import { normalizePositions } from '../utils/currencyNormalization'
+import { formatTime as apiFormatTime, fromServerEpoch, serverNowEpoch, toServerEpoch } from '../utils/dateFormatter'
 import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
 
 const PositionsPage = () => {
@@ -368,7 +369,7 @@ const PositionsPage = () => {
   const prevNetPageRef = useRef(1)
   
   // NET positions toggle and grouping
-  const [showNetPositions, setShowNetPositions] = useState(false)
+  const [showNetPositions, setShowNetPositions] = useState(true)
   const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)
   const [expandedNetKeys, setExpandedNetKeys] = useState(new Set())
   
@@ -743,7 +744,7 @@ const PositionsPage = () => {
           params.search = activeSearch.trim()
         }
         if (dateFilter) {
-          const now = Math.floor(Date.now() / 1000)
+          const now = serverNowEpoch()
           const daysInSeconds = dateFilter * 24 * 60 * 60
           params.dateFrom = now - daysInSeconds
           params.dateTo = now
@@ -1229,23 +1230,7 @@ const PositionsPage = () => {
     return value
   }
 
-  const formatTime = (ts) => {
-    if (!ts) return '-'
-    try {
-      const n = Number(ts)
-      const ms = n < 10000000000 ? n * 1000 : n
-      const d = new Date(ms)
-      const day = String(d.getDate()).padStart(2, '0')
-      const month = String(d.getMonth() + 1).padStart(2, '0')
-      const year = d.getFullYear()
-      const hours = String(d.getHours()).padStart(2, '0')
-      const minutes = String(d.getMinutes()).padStart(2, '0')
-      const seconds = String(d.getSeconds()).padStart(2, '0')
-      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
-    } catch {
-      return '-'
-    }
-  }
+  const formatTime = (ts) => apiFormatTime(ts, '-')
 
   // Normalize action label and chip classes to match Live Dealing
   const getActionLabel = (action) => {
@@ -1762,7 +1747,7 @@ const PositionsPage = () => {
     if (displayMode === 'percentage') params.percentage = true
     const exportSearch = (activeSearch || searchQuery).trim()
     if (dateFilter) {
-      const now = Math.floor(Date.now() / 1000)
+      const now = serverNowEpoch()
       params.dateFrom = now - dateFilter * 24 * 60 * 60
       params.dateTo = now
     }
@@ -1842,7 +1827,7 @@ const PositionsPage = () => {
 
       const effectiveCols = getEffectiveVisibleColumns()
       const columnDefs = [
-        { key: 'time',             label: 'Time',        get: p => p.timeUpdateStr || p.timeCreateStr || formatTime(p.timeUpdate || p.timeCreate) },
+        { key: 'time',             label: 'Time',        get: p => formatTime(p.timeUpdate || p.timeCreate || p.timeUpdateStr || p.timeCreateStr) },
         { key: 'login',            label: 'Login',       get: p => p.login },
         { key: 'name',             label: 'Name',        get: p => p.name },
         { key: 'position',         label: 'Position',    get: p => p.position },
@@ -2267,7 +2252,7 @@ const PositionsPage = () => {
                           (() => {
                             const timestamp = Number(customFilterValue1)
                             if (isNaN(timestamp)) return customFilterValue1
-                            const date = new Date(timestamp * 1000)
+                            const date = fromServerEpoch(timestamp)
                             return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`
                           })()
                           : customFilterValue1
@@ -2275,7 +2260,7 @@ const PositionsPage = () => {
                         onChange={(e) => {
                           if (columnKey === 'timeUpdate') {
                             const dateValue = e.target.value
-                            setCustomFilterValue1(dateValue ? String(Math.floor(new Date(dateValue).getTime() / 1000)) : '')
+                            setCustomFilterValue1(dateValue ? String(toServerEpoch(new Date(dateValue))) : '')
                           } else {
                             setCustomFilterValue1(e.target.value)
                           }
@@ -2304,7 +2289,7 @@ const PositionsPage = () => {
                             (() => {
                               const timestamp = Number(customFilterValue2)
                               if (isNaN(timestamp)) return customFilterValue2
-                              const date = new Date(timestamp * 1000)
+                              const date = fromServerEpoch(timestamp)
                               return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`
                             })()
                             : customFilterValue2
@@ -2312,7 +2297,7 @@ const PositionsPage = () => {
                           onChange={(e) => {
                             if (columnKey === 'timeUpdate') {
                               const dateValue = e.target.value
-                              setCustomFilterValue2(dateValue ? String(Math.floor(new Date(dateValue).getTime() / 1000)) : '')
+                              setCustomFilterValue2(dateValue ? String(toServerEpoch(new Date(dateValue))) : '')
                             } else {
                               setCustomFilterValue2(e.target.value)
                             }
@@ -4112,7 +4097,7 @@ const PositionsPage = () => {
                       return (
                         <tr key={p.position} className={`${rowClass} transition-all duration-300 divide-x divide-gray-200`}>
                           {effectiveCols.time && applyPin(
-                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{p.timeUpdateStr || p.timeCreateStr || formatTime(p.timeUpdate || p.timeCreate)}</td>,
+                            <td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200 last:border-r-0">{formatTime(p.timeUpdate || p.timeCreate || p.timeUpdateStr || p.timeCreateStr)}</td>,
                             'time', false, pinnedOffsetsMap
                           )}
                           {ordered.map(k => <Fragment key={k}>{applyPin(cellByKey(k), k, false, pinnedOffsetsMap)}</Fragment>)}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
+import { formatTime as apiFormatTime, serverNowDate } from '../utils/dateFormatter'
 
 const formatNumber = (value, digits = 2) => {
   const number = Number(value)
@@ -9,13 +10,10 @@ const formatNumber = (value, digits = 2) => {
   return number.toLocaleString('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
-const formatTime = (value) => {
-  if (!value) return '-'
-  return String(value).replace(' ', ' · ')
-}
+const formatTime = (value) => apiFormatTime(value, '-')
 
 const getDefaultDates = () => {
-  const today = new Date()
+  const today = serverNowDate()
   const from = new Date(today)
   from.setDate(today.getDate() - 7)
   const toDate = (date) => {

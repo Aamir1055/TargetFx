@@ -14,6 +14,7 @@ import { useGroups } from '../contexts/GroupContext'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
+import { formatTime as apiFormatTime, serverNowEpoch } from '../utils/dateFormatter'
 
 const formatNum = (n, decimals = 2) => {
   const v = Number(n || 0)
@@ -32,19 +33,7 @@ const formatCompactIndian = (v) => {
   return sign + abs.toFixed(2)
 }
 
-const formatTime = (timestamp) => {
-  if (!timestamp) return '-'
-  const n = Number(timestamp)
-  const ms = n < 10000000000 ? n * 1000 : n
-  const dt = new Date(ms)
-  const d = String(dt.getUTCDate()).padStart(2, '0')
-  const mo = String(dt.getUTCMonth() + 1).padStart(2, '0')
-  const y = dt.getUTCFullYear()
-  const h = String(dt.getUTCHours()).padStart(2, '0')
-  const mi = String(dt.getUTCMinutes()).padStart(2, '0')
-  const s = String(dt.getUTCSeconds()).padStart(2, '0')
-  return `${d}/${mo}/${y} ${h}:${mi}:${s}`
-}
+const formatTime = (timestamp) => apiFormatTime(timestamp, '-')
 
 export default function LiveDealingModule() {
   const navigate = useNavigate()
@@ -219,20 +208,19 @@ export default function LiveDealingModule() {
 
       let from, to
       if (timeFilter === '24h') {
-        const now = Math.floor(Date.now() / 1000)
+        const now = serverNowEpoch()
         from = now - (24 * 60 * 60)
         to = now
       } else if (timeFilter === '7d') {
-        const now = Math.floor(Date.now() / 1000)
+        const now = serverNowEpoch()
         from = now - (7 * 24 * 60 * 60)
         to = now
       } else if (timeFilter === 'custom' && appliedFromDate && appliedToDate) {
-        const fromDate = new Date(appliedFromDate)
-        const toDate = new Date(appliedToDate)
-        from = Math.floor(fromDate.getTime() / 1000)
-        to = Math.floor(toDate.getTime() / 1000)
+        // yyyy-mm-dd parses as UTC midnight = server-day start; include the whole "to" day
+        from = Math.floor(new Date(appliedFromDate).getTime() / 1000)
+        to = Math.floor(new Date(appliedToDate).getTime() / 1000) + 86399
       } else {
-        const now = Math.floor(Date.now() / 1000)
+        const now = serverNowEpoch()
         from = now - (24 * 60 * 60)
         to = now
       }
@@ -515,7 +503,7 @@ export default function LiveDealingModule() {
           
           switch(col.key) {
             case 'time':
-              value = deal.rawData?.time ? new Date(deal.rawData.time * 1000).toLocaleString() : '-'
+              value = formatTime(deal.rawData?.time)
               break
             case 'login':
               value = deal.login || '-'
@@ -597,7 +585,7 @@ export default function LiveDealingModule() {
     
     switch (key) {
       case 'time':
-        value = deal.timestampStr || deal.rawData?.timeStr || formatTime(deal.timestamp)
+        value = formatTime(deal.timestamp || deal.timestampStr || deal.rawData?.timeStr)
         break
       case 'login':
         value = deal.login || '-'

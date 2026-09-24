@@ -8,6 +8,7 @@ import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import PageSizeSelect from '../components/PageSizeSelect'
 import ExchangeBreakdownModal from '../components/ExchangeBreakdownModal'
+import { formatDate } from '../utils/dateFormatter'
 
 const fmtMoney = (n) => {
   const num = Number(n)
@@ -623,7 +624,7 @@ const ReportsExchangePage = () => {
                       {!weeks.length && <option>No weeks available</option>}
                       {weeks.map(w => (
                         <option key={w.id} value={String(w.id)}>
-                          {w.name} ({w.start_date} → {w.end_date})
+                          {w.name} ({formatDate(w.start_date, '')} → {formatDate(w.end_date, '')})
                         </option>
                       ))}
                     </select>

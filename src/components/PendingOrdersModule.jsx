@@ -11,6 +11,7 @@ import LoginGroupModal from './LoginGroupModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
 import { useGroups } from '../contexts/GroupContext'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
+import { formatTime as apiFormatTime } from '../utils/dateFormatter'
 
 const formatNum = (n, decimals = 2) => {
   const v = Number(n || 0)
@@ -37,22 +38,7 @@ const formatCompactIndian = (v) => {
   return sign + abs.toFixed(2)
 }
 
-const formatTime = (ts) => {
-  if (!ts) return '-'
-  try {
-    const n = Number(ts)
-    const ms = n < 10000000000 ? n * 1000 : n
-    const d = new Date(ms)
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    return `${day}/${month}/${year} ${hours}:${minutes}`
-  } catch {
-    return '-'
-  }
-}
+const formatTime = (ts) => apiFormatTime(ts, '-')
 
 export default function PendingOrdersModule() {
   const navigate = useNavigate()
@@ -544,7 +530,7 @@ export default function PendingOrdersModule() {
         value = formatNum(order.priceTP ?? order.tp ?? 0, getOrderPriceDigits(order))
         break
       case 'timeSetup':
-        value = order.timeSetupStr || order.timeUpdateStr || order.timeCreateStr || formatTime(order.timeSetup || order.timeUpdate || order.timeCreate)
+        value = formatTime(order.timeSetup || order.timeUpdate || order.timeCreate || order.timeSetupStr || order.timeUpdateStr || order.timeCreateStr)
         break
       case 'state':
         value = order.state || '-'

@@ -10,6 +10,7 @@ import ClientDetailsMobileModal from './ClientDetailsMobileModal'
 import { useGroups } from '../contexts/GroupContext'
 import { useData } from '../contexts/DataContext'
 import { brokerAPI } from '../services/api'
+import { formatTime } from '../utils/dateFormatter'
 
 const formatNum = (n) => {
   const v = Number(n || 0)
@@ -910,17 +911,7 @@ export default function Client2Module() {
     // Format dates and timestamps (auto-detect seconds vs milliseconds)
     if (key === 'registration' || key === 'lastAccess' || key === 'accountLastUpdate' || key === 'userLastUpdate') {
       if (!value) return '-'
-      const timestamp = parseInt(value)
-      if (isNaN(timestamp)) return value
-      const ms = timestamp < 10000000000 ? timestamp * 1000 : timestamp
-      const date = new Date(ms)
-      const day = String(date.getDate()).padStart(2, '0')
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const year = date.getFullYear()
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
-      const seconds = String(date.getSeconds()).padStart(2, '0')
-      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+      return formatTime(value, '-')
     }
     
     // If showPercent is true and this column supports percentage

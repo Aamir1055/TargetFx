@@ -2,26 +2,11 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import api, { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { exportRowsToExcel } from '../utils/exportExcel'
+import { formatTime as apiFormatTime, serverNowDate, serverNowEpoch, toServerEpoch, toYmd } from '../utils/dateFormatter'
 
-const formatDate = (timestamp) => {
-  if (!timestamp) return '-'
-  const n = Number(timestamp)
-  const ms = n < 10000000000 ? n * 1000 : n
-  const date = new Date(ms)
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const year = date.getFullYear()
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
-}
+const formatDate = (timestamp) => apiFormatTime(timestamp, '-')
 
-const formatDealTime = (deal) => {
-  const fromTimestamp = formatDate(deal?.time)
-  if (fromTimestamp !== '-') return fromTimestamp
-  return deal?.timeStr || '-'
-}
+const formatDealTime = (deal) => formatDate(deal?.time || deal?.timeStr)
 
 const formatDateToDisplay = (dateStr) => {
   if (!dateStr) return ''
@@ -526,7 +511,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     setTrendLoading(true)
     try {
       let from, to
-      const now = new Date()
+      const now = serverNowDate()
       if (range === '7d') {
         // This week: Monday 00:00 to Sunday 23:59:59
         const day = now.getDay()
@@ -537,14 +522,14 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         const sunday = new Date(monday)
         sunday.setDate(monday.getDate() + 6)
         sunday.setHours(23, 59, 59, 999)
-        from = Math.floor(monday.getTime() / 1000)
-        to   = Math.floor(sunday.getTime() / 1000)
+        from = toServerEpoch(monday)
+        to   = toServerEpoch(sunday)
       } else {
         // This month: 1st 00:00 to last day 23:59:59
         const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
         const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-        from = Math.floor(start.getTime() / 1000)
-        to   = Math.floor(end.getTime() / 1000)
+        from = toServerEpoch(start)
+        to   = toServerEpoch(end)
       }
       const resp = await brokerAPI.getClientPnlOverview(client.login, from, to)
       const daysArr = resp?.data?.days ?? resp?.days ?? []
@@ -841,8 +826,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       })
 
       // Set default date range to Today
-      const today = new Date()
-      const todayStr = today.toISOString().split('T')[0]
+      const today = serverNowDate()
+      const todayStr = toYmd(today)
       setFromDate(formatDateToDisplay(todayStr))
       setToDate(formatDateToDisplay(todayStr))
       
@@ -851,8 +836,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       startOfDay.setHours(0, 0, 0, 0)
       const endOfDay = new Date(today)
       endOfDay.setHours(23, 59, 59, 999)
-      const fromTs = Math.floor(startOfDay.getTime() / 1000)
-      const toTs = Math.floor(endOfDay.getTime() / 1000)
+      const fromTs = toServerEpoch(startOfDay)
+      const toTs = toServerEpoch(endOfDay)
       setCurrentDateFilter({ from: fromTs, to: toTs })
       setHasAppliedFilter(true)
       // Deals are fetched lazily when user switches to the Deals tab
@@ -921,7 +906,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     if (!filterType) return
     setQuickFilter(filterType)
     setCurrentPage(1) // Reset to page 1
-    const now = new Date()
+    const now = serverNowDate()
     let fromDateObj, toDateObj
 
     switch(filterType) {
@@ -955,13 +940,13 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     }
 
     // Update date inputs (format as dd/mm/yyyy for display)
-    const fromDateStr = fromDateObj.toISOString().split('T')[0]
-    const toDateStr = toDateObj.toISOString().split('T')[0]
+    const fromDateStr = toYmd(fromDateObj)
+    const toDateStr = toYmd(toDateObj)
     setFromDate(formatDateToDisplay(fromDateStr))
     setToDate(formatDateToDisplay(toDateStr))
 
     // Fetch deals with rolling-window timestamps, same as desktop presets
-    await fetchDealsWithDateFilter(Math.floor(fromDateObj.getTime() / 1000), Math.floor(toDateObj.getTime() / 1000))
+    await fetchDealsWithDateFilter(toServerEpoch(fromDateObj), toServerEpoch(toDateObj))
   }
 
   const handleApplyDateFilter = async () => {
@@ -969,8 +954,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
 
     setCurrentPage(1) // Reset to page 1
 
-    const fromDateObj = fromDate ? new Date(formatDateToValue(fromDate)) : null
-    const toDateObj = toDate ? new Date(formatDateToValue(toDate)) : null
+    const fromDateObj = fromDate ? new Date(formatDateToValue(fromDate) + 'T00:00:00') : null
+    const toDateObj = toDate ? new Date(formatDateToValue(toDate) + 'T00:00:00') : null
 
     if (fromDateObj) {
       fromDateObj.setHours(0, 0, 0, 0)
@@ -979,8 +964,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       toDateObj.setHours(23, 59, 59, 999)
     }
 
-    const fromTimestamp = fromDateObj ? Math.floor(fromDateObj.getTime() / 1000) : 0
-    const toTimestamp = toDateObj ? Math.floor(toDateObj.getTime() / 1000) : Math.floor(Date.now() / 1000)
+    const fromTimestamp = fromDateObj ? toServerEpoch(fromDateObj) : 0
+    const toTimestamp = toDateObj ? toServerEpoch(toDateObj) : serverNowEpoch()
 
     await fetchDealsWithDateFilter(fromTimestamp, toTimestamp, 1)
   }

@@ -14,6 +14,7 @@ import AutoPercentageModal from './AutoPercentageModal'
 import { useGroups } from '../contexts/GroupContext'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
 import { getPercentageType } from '../utils/percentageType'
+import { formatDate } from '../utils/dateFormatter'
 
 const formatNum = (n, decimals = 2) => {
   const v = Number(n || 0)
@@ -454,7 +455,7 @@ export default function ClientPercentageModule() {
         value = item.comment || '-'
         break
       case 'updatedAt':
-        value = item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-GB') : '-'
+        value = item.updated_at ? formatDate(item.updated_at) : '-'
         break
       case 'actions':
         return (
@@ -609,7 +610,7 @@ export default function ClientPercentageModule() {
         case 'percentage': return escape(item.percentage ?? 0)
         case 'type': return escape(getPercentageType(item))
         case 'comment': return escape(item.comment || '')
-        case 'updatedAt': return escape(item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-GB') : '')
+        case 'updatedAt': return escape(item.updated_at ? formatDate(item.updated_at) : '')
         default: return escape(item[col.key] ?? '')
       }
     }).join(',')).join('\n')
@@ -699,7 +700,7 @@ export default function ClientPercentageModule() {
               value = item.comment || '-'
               break
             case 'updatedAt':
-              value = item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-GB') : '-'
+              value = item.updated_at ? formatDate(item.updated_at) : '-'
               break
             case 'actions':
               value = 'N/A'

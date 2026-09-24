@@ -14,6 +14,7 @@ import api, { brokerAPI } from '../services/api'
 import { useGroups } from '../contexts/GroupContext'
 import { useIB } from '../contexts/IBContext'
 import { useAuth } from '../contexts/AuthContext'
+import { formatTime } from '../utils/dateFormatter'
 
 // Gate verbose logs behind env flag to keep console clean in production
 const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
@@ -157,7 +158,7 @@ const Client2Page = () => {
   // Synced globally via the Sidebar (localStorage key: 'globalDisplayMode')
   const [displayMode, setDisplayMode] = useState(() => {
     try {
-      const saved = localStorage.getItem('globalDisplayMode') || localStorage.getItem('client2DisplayMode')
+      const saved = localStorage.getItem('globalDisplayMode')
       return saved === 'full' ? 'full' : 'compact'
     } catch { return 'compact' }
   })
@@ -3599,14 +3600,7 @@ const Client2Page = () => {
               if (col.type === 'timestamp') {
                 const ts = parseInt(value)
                 if (!isNaN(ts) && ts > 0) {
-                  const d = new Date(ts)
-                  const day = String(d.getDate()).padStart(2, '0')
-                  const month = String(d.getMonth() + 1).padStart(2, '0')
-                  const year = d.getFullYear()
-                  const hours = String(d.getHours()).padStart(2, '0')
-                  const mins = String(d.getMinutes()).padStart(2, '0')
-                  const secs = String(d.getSeconds()).padStart(2, '0')
-                  return `${day}/${month}/${year} ${hours}:${mins}:${secs}`
+                  return formatTime(ts)
                 }
                 return ''
               }
@@ -3721,17 +3715,7 @@ const Client2Page = () => {
     // Format dates and timestamps (auto-detect seconds vs milliseconds)
     if (key === 'registration' || key === 'lastAccess' || key === 'userLastUpdate' || key === 'accountLastUpdate') {
       if (!value) return '-'
-      const timestamp = parseInt(value)
-      if (isNaN(timestamp)) return value
-      const ms = timestamp < 10000000000 ? timestamp * 1000 : timestamp
-      const date = new Date(ms)
-      const day = String(date.getDate()).padStart(2, '0')
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const year = date.getFullYear()
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
-      const seconds = String(date.getSeconds()).padStart(2, '0')
-      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+      return formatTime(value, '-')
     }
 
     return value

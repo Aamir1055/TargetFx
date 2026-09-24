@@ -1,16 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { brokerAPI } from '../services/api'
+import { formatTime as apiFormatTime } from '../utils/dateFormatter'
 
 const emptyForm = { login_start: '', login_end: '', percentage: '', comment: '' }
 
-const formatDate = (v) => {
-  if (!v) return '-'
-  try {
-    const d = new Date(v)
-    if (Number.isNaN(d.getTime())) return String(v)
-    return d.toLocaleString()
-  } catch { return String(v) }
-}
+const formatDate = (v) => apiFormatTime(v, '-')
 
 const AutoPercentageModal = ({ isOpen, onClose, onChanged }) => {
   const [ranges, setRanges] = useState([])

@@ -8,6 +8,7 @@ import ClientDetailsMobileModal from '../ClientDetailsMobileModal'
 import { useData } from '../../contexts/DataContext'
 import { useGroups } from '../../contexts/GroupContext'
 import { brokerAPI } from '../../services/api'
+import { formatTime } from '../../utils/dateFormatter'
 
 const formatNum = (n) => {
   const v = Number(n || 0)
@@ -313,12 +314,12 @@ export default function ClientDashboardDesignC() {
       'Free Margin (USD)': formatNum(client.freeMargin || 0),
       'Margin Level (%)': formatNum(client.marginLevel || 0),
       Group: client.group || '',
-      'Last Update': client.lastUpdate || '',
+      'Last Update': formatTime(client.lastUpdate, ''),
       Server: client.server || '',
       Currency: client.currency || '',
       Leverage: client.leverage || '',
-      'Registration Time': client.regTime || '',
-      'Last Access': client.lastAccess || ''
+      'Registration Time': formatTime(client.regTime || client.registration, ''),
+      'Last Access': formatTime(client.lastAccess, '')
     }))
     
     // Create CSV content
@@ -464,15 +465,15 @@ export default function ClientDashboardDesignC() {
       soEquity: formatNum(c.soEquity || c.so_equity || 0),
       soLevel: formatNum(c.soLevel || c.so_level || 0),
       soMargin: formatNum(c.soMargin || c.so_margin || 0),
-      soTime: c.soTime || c.so_time || '-',
+      soTime: formatTime(c.soTime || c.so_time, '-'),
       status: c.status || '-',
       mqid: c.mqid || '-',
       language: c.language || '-',
-      registration: c.registration || c.regTime || '-',
-      lastAccess: c.lastAccess || c.last_access || '-',
-      lastUpdate: c.lastUpdate || c.last_update || '-',
-      accountLastUpdate: c.accountLastUpdate || c.account_last_update || '-',
-      userLastUpdate: c.userLastUpdate || c.user_last_update || '-',
+      registration: formatTime(c.registration || c.regTime, '-'),
+      lastAccess: formatTime(c.lastAccess || c.last_access, '-'),
+      lastUpdate: formatTime(c.lastUpdate || c.last_update, '-'),
+      accountLastUpdate: formatTime(c.accountLastUpdate || c.account_last_update, '-'),
+      userLastUpdate: formatTime(c.userLastUpdate || c.user_last_update, '-'),
       rights: c.rights || '-',
       rightsMask: c.rightsMask || c.rights_mask || '-',
       dailyDeposit: formatNum(c.dailyDeposit || c.daily_deposit || 0),

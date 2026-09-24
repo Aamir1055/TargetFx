@@ -15,6 +15,7 @@ import AutoPercentageModal from '../components/AutoPercentageModal'
 import ColumnChooserList from '../components/ColumnChooserList'
 import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
 import { getPercentageType, getPercentageTypeBadgeClass } from '../utils/percentageType'
+import { formatDate } from '../utils/dateFormatter'
 
 const ClientPercentagePage = () => {
   // Detect mobile device
@@ -408,7 +409,7 @@ const ClientPercentagePage = () => {
         case 'percentage': return escape(item.percentage ?? 0)
         case 'type': return escape(getPercentageType(item))
         case 'comment': return escape(item.comment || '')
-        case 'updatedAt': return escape(item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-GB') : '')
+        case 'updatedAt': return escape(item.updated_at ? formatDate(item.updated_at) : '')
         default: return escape(item[col.key] ?? '')
       }
     }).join(',')).join('\n')
@@ -1458,7 +1459,7 @@ const ClientPercentagePage = () => {
                           ); break
                           case 'updatedAt': cell = (
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>
-                              {client.updated_at ? new Date(client.updated_at).toLocaleDateString('en-GB') : '-'}
+                              {client.updated_at ? formatDate(client.updated_at) : '-'}
                             </td>
                           ); break
                           case 'actions': cell = canSetPercentage ? (

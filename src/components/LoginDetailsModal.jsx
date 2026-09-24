@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { brokerAPI } from '../services/api'
-import { formatTime } from '../utils/dateFormatter'
+import { formatTime, serverNowEpoch, toServerEpoch } from '../utils/dateFormatter'
 
 const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   const [activeTab, setActiveTab] = useState('positions')
@@ -150,7 +150,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       } else if (columnKey === 'symbol') {
         value = pos.symbol
       } else if (columnKey === 'time') {
-        value = pos.timeCreateStr || formatDate(pos.timeCreate)
+        value = formatDate(pos.timeCreate || pos.timeCreateStr)
       }
       if (value) values.add(value)
     })
@@ -238,7 +238,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       const [day, month, year] = dateString.split('/')
       return new Date(year, month - 1, day)
     } else if (dateString.includes('-')) {
-      return new Date(dateString)
+      return new Date(dateString + 'T00:00:00')
     }
     return null
   }
@@ -266,8 +266,8 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
     }
 
     // Convert to Unix timestamp (seconds)
-    const fromTimestamp = fromDateObj ? Math.floor(fromDateObj.getTime() / 1000) : 0
-    const toTimestamp = toDateObj ? Math.floor(toDateObj.getTime() / 1000) : Math.floor(Date.now() / 1000)
+    const fromTimestamp = fromDateObj ? toServerEpoch(fromDateObj) : 0
+    const toTimestamp = toDateObj ? toServerEpoch(toDateObj) : serverNowEpoch()
 
     // Fetch deals from API with selected date range
     await fetchDeals(fromTimestamp, toTimestamp)
@@ -323,19 +323,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
     return `$${parseFloat(value || 0).toFixed(2)}`
   }
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-'
-    const n = Number(timestamp)
-    const ms = n < 10000000000 ? n * 1000 : n
-    const date = new Date(ms)
-    const day = String(date.getDate()).padStart(2, '0')
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const year = date.getFullYear()
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const seconds = String(date.getSeconds()).padStart(2, '0')
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
-  }
+  const formatDate = (timestamp) => formatTime(timestamp, '-')
 
   const getActionLabel = (action) => {
     return action === 0 ? 'Buy' : 'Sell'
@@ -416,7 +404,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       const type = getActionLabel(pos.action)
       const positionNum = String(pos.position || '')
       const volume = String(pos.volume || '')
-      const time = pos.timeCreateStr || formatDate(pos.timeCreate)
+      const time = formatDate(pos.timeCreate || pos.timeCreateStr)
       
       // Check each field and add to suggestions if matches
       if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
@@ -517,7 +505,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
           } else if (columnKey === 'symbol') {
             value = pos.symbol
           } else if (columnKey === 'time') {
-            value = pos.timeCreateStr || formatDate(pos.timeCreate)
+            value = formatDate(pos.timeCreate || pos.timeCreateStr)
           }
           return selectedValues.includes(value)
         })
@@ -974,7 +962,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                       {displayedPositions.map((position) => (
                         <tr key={position.position} className="hover:bg-blue-50 transition-colors">
                           <td className="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">
-                            {position.timeCreateStr || formatDate(position.timeCreate)}
+                            {formatDate(position.timeCreate || position.timeCreateStr)}
                           </td>
                           <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
                             #{position.position}

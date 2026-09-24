@@ -12,6 +12,7 @@ import GroupModal from '../components/GroupModal'
 import PendingOrdersModule from '../components/PendingOrdersModule'
 import ColumnChooserList from '../components/ColumnChooserList'
 import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
+import { formatTime as apiFormatTime, fromServerEpoch, toServerEpoch } from '../utils/dateFormatter'
 
 const PendingOrdersPage = () => {
   // Detect mobile device
@@ -602,23 +603,7 @@ const PendingOrdersPage = () => {
     return iconMap[cardTitle] || `${baseUrl}desktop-icons/Clients.svg`
   }
 
-  const formatTime = (ts) => {
-    if (!ts) return '-'
-    try {
-      const n = Number(ts)
-      const ms = n < 10000000000 ? n * 1000 : n
-      const d = new Date(ms)
-      const day = String(d.getDate()).padStart(2, '0')
-      const month = String(d.getMonth() + 1).padStart(2, '0')
-      const year = d.getFullYear()
-      const hours = String(d.getHours()).padStart(2, '0')
-      const minutes = String(d.getMinutes()).padStart(2, '0')
-      const seconds = String(d.getSeconds()).padStart(2, '0')
-      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
-    } catch {
-      return '-'
-    }
-  }
+  const formatTime = (ts) => apiFormatTime(ts, '-')
 
   // Generate dynamic pagination options based on data count (no 'All' option)
   const generatePageSizeOptions = () => {
@@ -905,7 +890,7 @@ const PendingOrdersPage = () => {
                           (() => {
                             const timestamp = Number(customFilterValue1)
                             if (isNaN(timestamp)) return customFilterValue1
-                            const date = new Date(timestamp * 1000)
+                            const date = fromServerEpoch(timestamp)
                             return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`
                           })()
                           : customFilterValue1
@@ -914,7 +899,7 @@ const PendingOrdersPage = () => {
                           setCustomFilterColumn(columnKey)
                           if (columnKey === 'timeSetup') {
                             const dateValue = e.target.value
-                            setCustomFilterValue1(dateValue ? String(Math.floor(new Date(dateValue).getTime() / 1000)) : '')
+                            setCustomFilterValue1(dateValue ? String(toServerEpoch(new Date(dateValue))) : '')
                           } else {
                             setCustomFilterValue1(e.target.value)
                           }
@@ -942,7 +927,7 @@ const PendingOrdersPage = () => {
                             (() => {
                               const timestamp = Number(customFilterValue2)
                               if (isNaN(timestamp)) return customFilterValue2
-                              const date = new Date(timestamp * 1000)
+                              const date = fromServerEpoch(timestamp)
                               return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`
                             })()
                             : customFilterValue2
@@ -951,7 +936,7 @@ const PendingOrdersPage = () => {
                             setCustomFilterColumn(columnKey)
                             if (columnKey === 'timeSetup') {
                               const dateValue = e.target.value
-                              setCustomFilterValue2(dateValue ? String(Math.floor(new Date(dateValue).getTime() / 1000)) : '')
+                              setCustomFilterValue2(dateValue ? String(toServerEpoch(new Date(dateValue))) : '')
                             } else {
                               setCustomFilterValue2(e.target.value)
                             }
@@ -1508,7 +1493,7 @@ const PendingOrdersPage = () => {
                             // Cell content logic
                             let cellContent = null;
                             if (colKey === 'time') {
-                              cellContent = o.timeSetupStr || o.timeUpdateStr || o.timeCreateStr || formatTime(o.timeSetup || o.timeUpdate || o.timeCreate || o.updated_at);
+                              cellContent = formatTime(o.timeSetup || o.timeUpdate || o.timeCreate || o.timeSetupStr || o.timeUpdateStr || o.timeCreateStr || o.updated_at);
                             } else if (colKey === 'login') {
                               cellContent = (
                                 <span

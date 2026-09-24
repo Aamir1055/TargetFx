@@ -14,6 +14,7 @@ import GroupModal from '../components/GroupModal'
 import LiveDealingModule from '../components/LiveDealingModule'
 import ColumnChooserList from '../components/ColumnChooserList'
 import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
+import { formatTime as apiFormatTime, fromServerEpoch, serverNowEpoch, toServerEpoch } from '../utils/dateFormatter'
 
 const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
 
@@ -691,11 +692,11 @@ const LiveDealingPage = () => {
 
       // Calculate time range based on filter, recalculated on every call
       if (timeFilter === '24h') {
-        const now = Math.floor(Date.now() / 1000)
+        const now = serverNowEpoch()
         from = now - (24 * 60 * 60)
         to = now
       } else if (timeFilter === '7d') {
-        const now = Math.floor(Date.now() / 1000)
+        const now = serverNowEpoch()
         from = now - (7 * 24 * 60 * 60)
         to = now
       } else if (timeFilter === 'custom' && appliedFromDate && appliedToDate) {
@@ -707,7 +708,7 @@ const LiveDealingPage = () => {
         from = Math.floor(fromDate.getTime() / 1000)
         to = Math.floor(toDate.getTime() / 1000) + 86399
       } else {
-        const now = Math.floor(Date.now() / 1000)
+        const now = serverNowEpoch()
         from = now - (24 * 60 * 60)
         to = now
       }
@@ -773,7 +774,7 @@ const LiveDealingPage = () => {
           if (timeCustomFilter.value2 != null) to = Number(timeCustomFilter.value2)
         } else if (timeCustomFilter.type === 'greaterThanOrEqual' || timeCustomFilter.type === 'greater_than_or_equal') {
           from = Number(timeCustomFilter.value1)
-          to = Math.floor(Date.now() / 1000)
+          to = serverNowEpoch()
         } else if (timeCustomFilter.type === 'lessThanOrEqual' || timeCustomFilter.type === 'less_than_or_equal') {
           from = 0
           to = Number(timeCustomFilter.value1)
@@ -1125,19 +1126,7 @@ const LiveDealingPage = () => {
     return actionMap[action] || action || 'Unknown'
   }
 
-  const formatTime = (timestamp) => {
-    if (!timestamp) return '-'
-    const n = Number(timestamp)
-    const ms = n < 10000000000 ? n * 1000 : n
-    const dt = new Date(ms)
-    const d = String(dt.getUTCDate()).padStart(2, '0')
-    const mo = String(dt.getUTCMonth() + 1).padStart(2, '0')
-    const y = dt.getUTCFullYear()
-    const h = String(dt.getUTCHours()).padStart(2, '0')
-    const mi = String(dt.getUTCMinutes()).padStart(2, '0')
-    const s = String(dt.getUTCSeconds()).padStart(2, '0')
-    return `${d}/${mo}/${y} ${h}:${mi}:${s}`
-  }
+  const formatTime = (timestamp) => apiFormatTime(timestamp, '-')
 
   // Format number with Indian comma separator (1,00,000)
   const formatIndianNumber = (num, decimals = 2) => {
@@ -1618,7 +1607,7 @@ const LiveDealingPage = () => {
                           ? (() => {
                               const ts = Number(customFilterValue1)
                               if (isNaN(ts)) return ''
-                              const d = new Date(ts * 1000)
+                              const d = fromServerEpoch(ts)
                               return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
                             })()
                           : ''
@@ -1627,7 +1616,7 @@ const LiveDealingPage = () => {
                           setCustomFilterColumn('time')
                           setCustomFilterType('between')
                           const v = e.target.value
-                          setCustomFilterValue1(v ? String(Math.floor(new Date(v + 'T00:00:00').getTime() / 1000)) : '')
+                          setCustomFilterValue1(v ? String(toServerEpoch(new Date(v + 'T00:00:00'))) : '')
                         }}
                         onClick={(e) => e.stopPropagation()}
                         className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
@@ -1641,7 +1630,7 @@ const LiveDealingPage = () => {
                           ? (() => {
                               const ts = Number(customFilterValue2)
                               if (isNaN(ts)) return ''
-                              const d = new Date(ts * 1000)
+                              const d = fromServerEpoch(ts)
                               return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
                             })()
                           : ''
@@ -1650,7 +1639,7 @@ const LiveDealingPage = () => {
                           setCustomFilterColumn('time')
                           setCustomFilterType('between')
                           const v = e.target.value
-                          setCustomFilterValue2(v ? String(Math.floor(new Date(v + 'T23:59:59').getTime() / 1000)) : '')
+                          setCustomFilterValue2(v ? String(toServerEpoch(new Date(v + 'T23:59:59'))) : '')
                         }}
                         onClick={(e) => e.stopPropagation()}
                         className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
@@ -2294,7 +2283,7 @@ const LiveDealingPage = () => {
                         } : { borderRight: '1px solid #e5e7eb' }
                         switch (col.key) {
                           case 'time':
-                            return <td key="time" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{deal.timeStr || deal.rawData?.timeStr || formatTime(deal.time)}</td>
+                            return <td key="time" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700" style={cellStyle}>{formatTime(deal.time || deal.timeStr || deal.rawData?.timeStr)}</td>
                           case 'deal':
                             return <td key="deal" className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-900" style={cellStyle}>{deal.rawData?.deal || deal.id}</td>
                           case 'login':
