@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import api, { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { exportRowsToExcel } from '../utils/exportExcel'
-import { formatTime as apiFormatTime, serverNowDate, serverNowEpoch, toServerEpoch, toYmd } from '../utils/dateFormatter'
+import { formatDate as formatDayOnly, formatTime as apiFormatTime, serverNowDate, serverNowEpoch, toServerEpoch, toYmd } from '../utils/dateFormatter'
 
 const formatDate = (timestamp) => apiFormatTime(timestamp, '-')
 
@@ -787,8 +787,11 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         const raw = await brokerAPI.getClientOverview(client.login)
         const data = raw?.data ?? raw
         overviewAccount = data?.account ?? data?.client ?? data?.info ?? {}
-        if (overviewAccount && Object.keys(overviewAccount).length > 0) {
-          setClientData(prev => ({ ...prev, ...overviewAccount }))
+        // Last trading date comes back on data itself, not inside account (same as desktop)
+        const lastTrade = {}
+        ;['lastTradingDate', 'last_trading_date'].forEach(k => { if (data?.[k] != null) lastTrade[k] = data[k] })
+        if ((overviewAccount && Object.keys(overviewAccount).length > 0) || Object.keys(lastTrade).length > 0) {
+          setClientData(prev => ({ ...prev, ...overviewAccount, ...lastTrade }))
         }
         // Use overview positions if available (more accurate than cache)
         const overviewPositions = data?.positions ?? data?.open_positions ?? data?.data?.positions ?? null
@@ -1472,6 +1475,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const name      = clientData.name     ?? client.name     ?? 'Unknown'
     const login     = clientData.login    ?? client.login    ?? ''
     const server    = clientData.server   ?? client.server   ?? ''
+    const lastTradeTs = clientData.lastTradingDate ?? clientData.last_trading_date ?? client.lastTradingDate ?? client.last_trading_date
+    const lastTrade = Number(lastTradeTs) > 0 || (lastTradeTs && isNaN(Number(lastTradeTs))) ? formatDayOnly(lastTradeTs, '–') : '–'
 
     // Deal stats
     const ds = dealStats || {}
@@ -1663,6 +1668,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               { label: 'Equity', value: fmt(equity), color: equity >= 0 ? 'text-green-600' : 'text-red-600' },
               { label: 'Margin Level', value: marginLvl ? fmtPct(marginLvl) : '–', color: marginLvl >= 100 ? 'text-green-600' : 'text-red-600' },
               { label: 'Total Commission', value: fmt(commission) },
+              { label: 'Last Trade', value: lastTrade },
             ].map(({ label, value, color }) => (
               <div key={label}>
                 <p className="text-[9px] text-gray-400 leading-tight">{label}</p>
