@@ -187,7 +187,8 @@ export default function Client2Module() {
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now())
   const [isLoading, setIsLoading] = useState(true)
   // Visible columns state (mirrors desktop's 34-column list)
-  const [visibleColumns, setVisibleColumns] = useState({
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const defaults = {
     login: true,
     name: false,
     equity: true,
@@ -221,7 +222,19 @@ export default function Client2Module() {
     storage: false,
     tradingEnabled: false,
     accountEnabled: false
+    }
+    // Restore the user's saved column selection (merged over defaults so newly added columns still appear)
+    try {
+      const saved = JSON.parse(localStorage.getItem('client2MobileVisibleColumns'))
+      if (saved && typeof saved === 'object') return { ...defaults, ...saved }
+    } catch {}
+    return defaults
   })
+
+  // Persist column selection so it survives page refresh / re-login
+  useEffect(() => {
+    try { localStorage.setItem('client2MobileVisibleColumns', JSON.stringify(visibleColumns)) } catch {}
+  }, [visibleColumns])
 
   // Fetch clients data via API
   const fetchClients = useCallback(async (overridePercent = null, isInitialLoad = false) => {

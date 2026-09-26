@@ -828,20 +828,14 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         winRate: 0
       })
 
-      // Set default date range to Today
-      const today = serverNowDate()
-      const todayStr = toYmd(today)
-      setFromDate(formatDateToDisplay(todayStr))
-      setToDate(formatDateToDisplay(todayStr))
-      
-      // Pre-set today's date range so Deals tab loads it on first switch (without fetching now)
-      const startOfDay = new Date(today)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(today)
-      endOfDay.setHours(23, 59, 59, 999)
-      const fromTs = toServerEpoch(startOfDay)
-      const toTs = toServerEpoch(endOfDay)
-      setCurrentDateFilter({ from: fromTs, to: toTs })
+      // Default to the "Today" quick filter: rolling last 24 hours, same as desktop
+      const now = serverNowDate()
+      const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      setFromDate(formatDateToDisplay(toYmd(dayAgo)))
+      setToDate(formatDateToDisplay(toYmd(now)))
+
+      // Pre-set the range so Deals tab loads it on first switch (without fetching now)
+      setCurrentDateFilter({ from: toServerEpoch(dayAgo), to: toServerEpoch(now) })
       setHasAppliedFilter(true)
       // Deals are fetched lazily when user switches to the Deals tab
       

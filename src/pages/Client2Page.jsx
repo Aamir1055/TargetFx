@@ -3910,8 +3910,8 @@ const Client2Page = () => {
       'P&L': `/desktop-icons/P&L.svg`,
       'PNL': `/desktop-icons/P&L.svg`,
       // Percentage variants
-      'AVAILABLE REBATE %': `/desktop-icons/AVAILABLE Commission%.svg`,
-      'TOTAL REBATE %': `/desktop-icons/TOTAL COMMISION%.svg`,
+      'AVAILABLE REBATE %': `/desktop-icons/AVAILABLE Commission.svg`,
+      'TOTAL REBATE %': `/desktop-icons/TOTAL COMMISION.svg`,
       'NET LIFETIME PNL %': `/desktop-icons/LIFETIME PNL.svg`,
       'BOOK PNL %': `/desktop-icons/P&L.svg`,
       'BOOK P&L %': `/desktop-icons/P&L.svg`,

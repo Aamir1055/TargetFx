@@ -52,6 +52,7 @@ const PositionsPage = () => {
   const [serverTotalNetPositions, setServerTotalNetPositions] = useState(0)
   const [hasFetchedNetPositions, setHasFetchedNetPositions] = useState(false)
   const [serverNetTotals, setServerNetTotals] = useState({ profit: 0, storage: 0, volume: 0 })
+  const [serverNetCardTotals, setServerNetCardTotals] = useState({ totalPositions: 0, floatingCombined: 0, floatingINR: 0, floatingUSD: 0 })
 
   // --- Client NET positions fetched via REST polling (1s) when Client NET tab is active ---
   const [polledClientNetPositions, setPolledClientNetPositions] = useState([])
@@ -916,6 +917,20 @@ const PositionsPage = () => {
               totalCommission: v.totalCommission || 0
             }))
           }))
+          // Face cards come straight from the NET response totals
+          const t = totals || {}
+          const root = response?.data || response || {}
+          const num = (...vals) => {
+            const v = vals.find(x => x !== undefined && x !== null && x !== '')
+            const n = Number(v)
+            return Number.isFinite(n) ? n : 0
+          }
+          setServerNetCardTotals({
+            totalPositions: num(root.total, total),
+            floatingCombined: num(t.floatingCombined, root.floatingCombined),
+            floatingINR: num(t.floatingINR, root.floatingINR),
+            floatingUSD: num(t.floatingUSD, root.floatingUSD)
+          })
           setPolledNetPositions(mapped)
           setServerTotalNetPositions(total)
           setHasFetchedNetPositions(true)
@@ -1545,7 +1560,7 @@ const PositionsPage = () => {
 
   // Memoized summary statistics - use server-provided totals across ALL positions
   const summaryStats = useMemo(() => {
-    const totalPositions = serverTotalPositions
+    const totalPositions = showNetPositions ? serverNetCardTotals.totalPositions : serverTotalPositions
     // Invert profit to show broker perspective (client loss = broker gain)
     const totalFloatingProfit = -(serverTotals.profit || 0)
     const totalFloatingProfitPercentage = -((rawClients || []).reduce((sum, c) => sum + (c.profit_percentage || 0), 0))
@@ -1553,9 +1568,10 @@ const PositionsPage = () => {
     const uniqueSymbols = new Set(ibFilteredPositions.map(p => p.symbol)).size
     const totalVolume = Number(serverTotals.volume || 0)
     // Floating values per currency bucket (broker perspective: invert sign)
-    const floatingCombined = Number(serverTotals.floatingCombined ?? 0) || 0
-    const floatingINR = Number(serverTotals.floatingINR ?? 0) || 0
-    const floatingUSD = Number(serverTotals.floatingUSD ?? 0) || 0
+    const floatSrc = showNetPositions ? serverNetCardTotals : serverTotals
+    const floatingCombined = Number(floatSrc.floatingCombined ?? 0) || 0
+    const floatingINR = Number(floatSrc.floatingINR ?? 0) || 0
+    const floatingUSD = Number(floatSrc.floatingUSD ?? 0) || 0
 
     return {
       totalPositions,
@@ -1568,7 +1584,7 @@ const PositionsPage = () => {
       floatingINR,
       floatingUSD
     }
-  }, [ibFilteredPositions, serverTotalPositions, serverTotals, rawClients])
+  }, [ibFilteredPositions, serverTotalPositions, serverTotals, rawClients, showNetPositions, serverNetCardTotals])
   
   // Handle column header click for sorting
   const handleSort = (columnKey) => {
@@ -2472,7 +2488,7 @@ const PositionsPage = () => {
   }
 
   // Only show local loading inside cards/tables; keep the page chrome interactive
-  const isInitialPositionsLoading = !hasFetchedPositions
+  const isInitialPositionsLoading = showNetPositions ? !hasFetchedNetPositions : !hasFetchedPositions
   const isInitialNetLoading = !hasFetchedNetPositions && showNetPositions
   const isInitialClientNetLoading = !hasFetchedClientNetPositions && showClientNet
 
