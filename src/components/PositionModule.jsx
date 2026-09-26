@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue, startTransition } from 'react'
+import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -14,6 +15,10 @@ import { applyCumulativeFilters, applySearchFilter, applySorting } from '../util
 import { normalizePositions } from '../utils/currencyNormalization'
 import { formatTime as apiFormatTime, serverNowEpoch } from '../utils/dateFormatter'
 import { brokerAPI } from '../services/api'
+import LoadingSpinner from './LoadingSpinner'
+import ExchangeNetPositions from './ExchangeNetPositions'
+import NetTypeChip from './NetTypeChip'
+import { exportStyledExcel, styledColumnsFromHeaders, sumColumns } from '../utils/exportStyledExcel'
 
 const formatNum = (n) => {
   const v = Number(n || 0)
@@ -84,6 +89,9 @@ export default function PositionModule() {
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
   const [showClientNet, setShowClientNet] = useState(true)
+  // Exchange view: NET positions segregated by exchange (mutually exclusive with NET Position)
+  const [showExchangeView, setShowExchangeView] = useState(false)
+  const exchangeViewRef = useRef(null)
   const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)
   const [displayMode, setDisplayMode] = useState('value') // 'value' or 'percentage'
   const [isExporting, setIsExporting] = useState(false)
@@ -390,7 +398,7 @@ export default function PositionModule() {
 
   // Poll server every 2s for regular positions (mirrors PositionsPage.jsx desktop behaviour)
   useEffect(() => {
-    if (showClientNet) return
+    if (showClientNet || showExchangeView) return
 
     let timer = null
     let isCancelled = false
@@ -470,7 +478,7 @@ export default function PositionModule() {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, debouncedSearch, displayMode, dateFilter, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
+  }, [showClientNet, showExchangeView, currentPage, itemsPerPage, sortColumn, sortDirection, debouncedSearch, displayMode, dateFilter, activeGroupFilters, getActiveGroupFilter, getGroupLogins])
 
   const normalizeNetTypeLabel = (action) => {
     if (action === 'BUY') return 'Buy'
@@ -727,7 +735,11 @@ export default function PositionModule() {
 
   // Generate grid template columns for the table
   const gridTemplateColumns = useMemo(() => {
-    return activeColumns.map(col => col.width || '1fr').join(' ')
+    // Widths scaled up 20% for the 12px table text
+    return activeColumns.map(col => {
+      const px = /^(\d+)px$/.exec(col.width || '')
+      return px ? `${Math.round(Number(px[1]) * 1.2)}px` : (col.width || '1fr')
+    }).join(' ')
   }, [activeColumns])
 
   // Compact/full numeric format helpers
@@ -772,7 +784,7 @@ export default function PositionModule() {
         const isBuy = rawAction === 0 || rawAction === '0' || rawAction === 'BUY' || rawAction === 'Buy'
         return (
           <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>
-            <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
               isBuy 
                 ? 'bg-green-100 text-green-700' 
                 : 'bg-red-100 text-red-700'
@@ -846,7 +858,7 @@ export default function PositionModule() {
         )
       case 'updated':
         const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.timeUpdateStr || pos.timeCreateStr, '-')
-        return <div className={`h-[38px] flex items-center justify-start px-2 text-[10px] ${stickyClass}`} style={stickyStyle}>{formattedTime}</div>
+        return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formattedTime}</div>
       case 'firstName':
       case 'middleName':
       case 'lastName':
@@ -963,6 +975,10 @@ export default function PositionModule() {
 
   const handleMobileExport = async () => {
     if (isExporting) return
+    if (showExchangeView) {
+      exchangeViewRef.current?.exportData()
+      return
+    }
     setIsExporting(true)
     const EXPORT_LIMIT = 1000
     const CONCURRENCY = 5
@@ -1040,7 +1056,15 @@ export default function PositionModule() {
           { key: 'loginCount',     label: 'Logins',                                     accessor: r => r.loginCount },
           { key: 'totalPositions', label: 'Positions',                                  accessor: r => r.totalPositions },
         ]
-        downloadFile(`net_positions_${Date.now()}.csv`, toCSV(allRows, headers))
+        const netColumns = styledColumnsFromHeaders(headers.filter(column => clientNetVisibleColumns[column.key]))
+        exportStyledExcel({
+          showTitle: false,
+          title: 'NET Position',
+          columns: netColumns,
+          sections: [{ rows: allRows, totals: { label: 'TOTAL', values: sumColumns(allRows, netColumns, ['netVolume', 'totalProfit', 'totalStorage', 'totalCommission', 'totalPositions']) } }],
+          sheetName: 'NET Position',
+          fileName: `net_positions_${new Date().toISOString().slice(0, 10)}.xlsx`
+        })
 
       } else {
         // ── Regular positions export (mirrors desktop handleExportPositions) ──
@@ -1086,26 +1110,31 @@ export default function PositionModule() {
         // Client-side safety net for group filter
         allPositions = filterByActiveGroup(allPositions, 'login', 'positions')
 
-        const pct = displayMode === 'percentage'
-        const headers = [
-          { key: 'login',        label: 'Login',                                    accessor: r => r.login },
-          { key: 'name',         label: 'Name',                                     accessor: r => r.name },
-          { key: 'position',     label: 'Position',                                 accessor: r => r.position },
-          { key: 'symbol',       label: 'Symbol',                                   accessor: r => r.symbol },
-          { key: 'action',       label: 'Action',                                   accessor: r => r.action },
-          { key: 'volume',       label: pct ? 'Volume %' : 'Volume',               accessor: r => r.volume },
-          { key: 'priceOpen',    label: 'Open Price',                               accessor: r => r.priceOpen },
-          { key: 'priceCurrent', label: 'Current Price',                            accessor: r => r.priceCurrent },
-          { key: 'sl',           label: 'S/L',                                      accessor: r => r.priceSL },
-          { key: 'tp',           label: 'T/P',                                      accessor: r => r.priceTP },
-          { key: 'profit',       label: pct ? 'Profit %' : 'Profit',               accessor: r => r.profit },
-          { key: 'storage',      label: pct ? 'Swap %' : 'Swap',                   accessor: r => r.storage },
-          { key: 'commission',   label: 'Commission',                               accessor: r => r.commission },
-          { key: 'reason',       label: 'Reason',                                   accessor: r => r.reason },
-          { key: 'comment',      label: 'Comment',                                  accessor: r => r.comment },
-          { key: 'updated',      label: 'Updated',                                  accessor: r => formatTime(r.timeUpdate || r.timeCreate || r.timeUpdateStr || r.timeCreateStr) },
-        ]
-        downloadFile(`positions_${Date.now()}.csv`, toCSV(allPositions, headers))
+        const exportValue = (row, key) => {
+          if (key === 'updated') return formatTime(row.timeUpdate || row.timeCreate || row.timeUpdateStr || row.timeCreateStr)
+          if (key === 'action' || key === 'netType') return row.action ?? row.type
+          if (key === 'netVolume') return row.volume ?? 0
+          if (key === 'sl') return row.sl ?? row.priceSL ?? 0
+          if (key === 'tp') return row.tp ?? row.priceTP ?? 0
+          if (['profit', 'totalProfit', 'storage', 'commission'].includes(key)) {
+            const value = row[key === 'totalProfit' ? 'profit' : key] ?? 0
+            return /[cC]$/.test(String(row.symbol || '')) ? value / 100 : value
+          }
+          return row[key]
+        }
+        const posColumns = styledColumnsFromHeaders(activeColumns.map(column => ({
+          key: column.key,
+          label: column.label,
+          accessor: row => exportValue(row, column.key)
+        })))
+        exportStyledExcel({
+          showTitle: false,
+          title: 'Positions',
+          columns: posColumns,
+          sections: [{ rows: allPositions, totals: { label: 'TOTAL', values: sumColumns(allPositions, posColumns, ['volume', 'volumePercentage', 'netVolume', 'profit', 'profitPercentage', 'totalProfit', 'storage', 'storagePercentage', 'commission']) } }],
+          sheetName: 'Positions',
+          fileName: `positions_${new Date().toISOString().slice(0, 10)}.xlsx`
+        })
       }
     } catch (e) {
       console.error('Mobile export failed:', e)
@@ -1247,14 +1276,15 @@ export default function PositionModule() {
                 ))}
                 <div>
                   <button type="button" onClick={() => setMobileReportsOpen(value => !value)} className="flex items-center gap-3 px-4 h-11 w-full text-left text-[13px] text-[#404040]">
-                    <span className="w-5 h-5 flex items-center justify-center"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/Bills.svg`} alt="Reports" style={{filter:'brightness(0)'}} className="w-5 h-5"/></span>
+                    <span className="w-5 h-5 flex items-center justify-center"><ReportsIcon className="w-5 h-5 text-black" /></span>
                     <span className="flex-1">Reports</span>
                     <svg className={`w-4 h-4 transition-transform ${mobileReportsOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                   {mobileReportsOpen && (
                     <div className="flex flex-col pb-1">
-                      <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Brokerage Data</button>
-                      <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}>Historical Positions</button>
+                      <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
+                      <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
+                      <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
                     </div>
                   )}
                 </div>
@@ -1326,6 +1356,7 @@ export default function PositionModule() {
                     }
                     return next
                   })
+                  if (!showClientNet) setShowExchangeView(false)
                 })
               }}
               style={{ minWidth: '110px', width: '110px', flexShrink: 0 }}
@@ -1335,6 +1366,23 @@ export default function PositionModule() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M10 14h7M13 18h4" stroke={showClientNet ? "#ffffff" : "#666666"} />
               </svg>
               <span className={`${showClientNet ? 'text-white' : 'text-[#666666]'} text-[10px] font-medium font-outfit`}>NET Position</span>
+            </button>
+            <button
+              onClick={() => {
+                startTransition(() => {
+                  const next = !showExchangeView
+                  setShowExchangeView(next)
+                  if (next) setShowClientNet(false)
+                })
+              }}
+              style={{ flexShrink: 0 }}
+              className={`h-8 px-3 rounded-[12px] ${showExchangeView ? 'bg-blue-600 border-blue-600' : 'bg-white border-[#E5E7EB]'} border shadow-sm flex items-center justify-center gap-1.5 hover:opacity-90 transition-all`}
+              title="Exchange-wise NET Position"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M5 21V10m4 11V10m6 11V10m4 11V10M12 3l9 5H3l9-5z" stroke={showExchangeView ? '#ffffff' : '#666666'} />
+              </svg>
+              <span className={`${showExchangeView ? 'text-white' : 'text-[#666666]'} text-[10px] font-medium font-outfit`}>Exchange</span>
             </button>
             {/* Percentage toggle icon button */}
             <button
@@ -1376,7 +1424,7 @@ export default function PositionModule() {
 
 
         {/* Face Cards Carousel - matching desktop: Total Positions, Floating Combined, Floating INR, Floating USD */}
-        {isMobileView && !showClientNet && (() => {
+        {isMobileView && !showClientNet && !showExchangeView && (() => {
           const cardStyle = {
             boxSizing: 'border-box', minWidth: '125px', width: '125px', height: '60px',
             background: '#FFFFFF', border: '1px solid #F2F2F7',
@@ -1444,7 +1492,7 @@ export default function PositionModule() {
         })()}
 
         {/* Search and navigation */}
-        {!showClientNet && (
+        {!showClientNet && !showExchangeView && (
         <div className="mx-1 sm:mx-4 mb-1 px-3 py-3 sm:p-4">
           <div className="flex items-center gap-1 sm:gap-2">
             <div className="flex-1 min-w-0 h-7 sm:h-10 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md px-2 sm:px-3 flex items-center gap-1.5">
@@ -1510,9 +1558,9 @@ export default function PositionModule() {
         )}
 
         {/* Table - full width, remove outer padding */}
-        {!showClientNet && (
-        <div>
-          <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden">
+        {!showClientNet && !showExchangeView && (
+        <div className="pb-6">
+          <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden rounded-b-lg">
             {/* Single scroll container with sticky header */}
             <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
               WebkitOverflowScrolling: 'touch',
@@ -1524,7 +1572,7 @@ export default function PositionModule() {
                 <div className="relative" style={{ minWidth: 'max-content' }}>
                   {/* Table Header - Sticky */}
                   <div 
-                    className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit shadow-[0_2px_4px_rgba(0,0,0,0.1)] sticky top-0 z-20"
+                    className="grid bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wide shadow-[0_2px_4px_rgba(0,0,0,0.1)] sticky top-0 z-20"
                     style={{
                       gap: '0px', 
                       gridGap: '0px', 
@@ -1578,7 +1626,7 @@ export default function PositionModule() {
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                       <div 
                         key={`skeleton-row-${i}`}
-                        className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1]"
+                        className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1]"
                         style={{
                           gap: '0px', 
                           gridGap: '0px', 
@@ -1614,7 +1662,7 @@ export default function PositionModule() {
                   mobileRegularDisplayedPositions.map((pos, idx) => (
                     <div 
                       key={idx} 
-                      className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors"
+                      className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors"
                       style={{
                         gap: '0px', 
                         gridGap: '0px', 
@@ -1636,6 +1684,23 @@ export default function PositionModule() {
             </div>
           </div>
         </div>
+        )}
+
+        {/* Export loading overlay (same dialog as Bills export) */}
+        {isExporting && <LoadingSpinner message={showClientNet ? 'Exporting NET positions…' : 'Exporting positions…'} subtitle="Please wait" />}
+
+        {/* Exchange View - NET positions segregated by exchange */}
+        {showExchangeView && isMobileView && (
+          <ExchangeNetPositions
+            ref={exchangeViewRef}
+            variant="mobile"
+            displayMode={displayMode}
+            masterLabel={getActiveGroupFilter('positions') || 'ALL'}
+            loginFilter={(() => {
+              const activeGroupName = getActiveGroupFilter('positions')
+              return activeGroupName ? getGroupLogins(activeGroupName).map(Number).filter(n => !Number.isNaN(n)) : null
+            })()}
+          />
         )}
 
         {/* Client NET View */}
@@ -1708,8 +1773,8 @@ export default function PositionModule() {
             </div>
 
             {/* Client NET Table - FIXED GRID ALIGNMENT */}
-            <div className="pt-0 flex-1 min-h-0 flex flex-col">
-              <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden flex-1 min-h-0 flex flex-col">
+            <div className="pt-0 pb-6 flex-1 min-h-0 flex flex-col">
+              <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden flex-1 min-h-0 flex flex-col rounded-b-lg">
                 {/* Table - single scroll container */}
                 <div className="overflow-x-auto overflow-y-auto scrollbar-hide flex-1 min-h-0" style={{
                   paddingRight: '8px',
@@ -1718,7 +1783,7 @@ export default function PositionModule() {
                 }}>
                   {/* Header - Sticky */}
                   <div
-                    className="grid bg-blue-500 text-white text-[10px] font-semibold h-[28px] sticky top-0 z-30"
+                    className="grid bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wide h-[30px] sticky top-0 z-30"
                     style={{
                       minWidth: 'max-content',
                       gridTemplateColumns: [
@@ -1893,7 +1958,7 @@ export default function PositionModule() {
                   {(isServerNetLoading || isClientNetPageChanging) && filteredClientNetPositions.length === 0 ? (
                     <>
                       {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={`client-net-skeleton-${i}`} className="grid text-[10px] text-[#4B4B4B] bg-white border-b border-[#E1E1E1]" style={{
+                        <div key={`client-net-skeleton-${i}`} className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1]" style={{
                           minWidth: 'max-content',
                           gridTemplateColumns: [
                             clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
@@ -1925,7 +1990,7 @@ export default function PositionModule() {
                     <div className="text-center py-8 text-[#6B7280] text-sm">No NET positions found</div>
                   ) : (
                     clientNetPaginatedPositions.map((pos, idx) => (
-                      <div key={idx} className="grid text-[10px] text-[#4B4B4B] hover:bg-[#F8FAFC]" style={{
+                      <div key={idx} className="grid text-[12px] text-[#374151] tabular-nums hover:bg-[#F8FAFC]" style={{
                         minWidth: 'max-content',
                         gridTemplateColumns: [
                           clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
@@ -1948,19 +2013,17 @@ export default function PositionModule() {
                             {pos.symbol || '-'}
                           </div>
                         )}
-                        {clientNetVisibleColumns.netType && <div className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
-                          pos.netType === 'Buy' ? 'text-green-600' : 'text-red-600'
-                        }`}>{pos.netType}</div>}
-                        {clientNetVisibleColumns.netVolume && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.netVolume) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.netVolume)}</div>}
-                        {clientNetVisibleColumns.avgPrice && <div title={fmtMoneyFull(pos.avgPrice)} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoneyFull(pos.avgPrice)}</div>}
-                        {clientNetVisibleColumns.currentPrice && <div title={fmtMoneyFull(pos.currentPrice)} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoneyFull(pos.currentPrice)}</div>}
+                        {clientNetVisibleColumns.netType && <div className="flex items-center justify-start px-1 h-[40px] bg-white border-b border-[#E1E1E1]"><NetTypeChip type={pos.netType} compact /></div>}
+                        {clientNetVisibleColumns.netVolume && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.netVolume) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#374151] border-b border-[#E1E1E1]">{fmtMoney(pos.netVolume)}</div>}
+                        {clientNetVisibleColumns.avgPrice && <div title={fmtMoneyFull(pos.avgPrice)} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#374151] border-b border-[#E1E1E1]">{fmtMoneyFull(pos.avgPrice)}</div>}
+                        {clientNetVisibleColumns.currentPrice && <div title={fmtMoneyFull(pos.currentPrice)} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#374151] border-b border-[#E1E1E1]">{fmtMoneyFull(pos.currentPrice)}</div>}
                         {clientNetVisibleColumns.totalProfit && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalProfit) : undefined} className={`flex items-center justify-start px-1 h-[40px] font-semibold bg-white border-b border-[#E1E1E1] ${
                           pos.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}>{fmtMoney(pos.totalProfit)}</div>}
-                        {clientNetVisibleColumns.totalStorage && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalStorage || 0) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.totalStorage || 0)}</div>}
-                        {clientNetVisibleColumns.totalCommission && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalCommission || 0) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{fmtMoney(pos.totalCommission || 0)}</div>}
-                        {clientNetVisibleColumns.loginCount && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{Number(pos.loginCount || 0)}</div>}
-                        {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#4B4B4B] border-b border-[#E1E1E1]">{pos.totalPositions}</div>}
+                        {clientNetVisibleColumns.totalStorage && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalStorage || 0) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#374151] border-b border-[#E1E1E1]">{fmtMoney(pos.totalStorage || 0)}</div>}
+                        {clientNetVisibleColumns.totalCommission && <div title={numericMode === 'compact' ? fmtMoneyFull(pos.totalCommission || 0) : undefined} className="flex items-center justify-start px-1 h-[40px] bg-white text-[#374151] border-b border-[#E1E1E1]">{fmtMoney(pos.totalCommission || 0)}</div>}
+                        {clientNetVisibleColumns.loginCount && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#374151] border-b border-[#E1E1E1]">{Number(pos.loginCount || 0)}</div>}
+                        {clientNetVisibleColumns.totalPositions && <div className="flex items-center justify-start px-1 h-[40px] bg-white text-[#374151] border-b border-[#E1E1E1]">{pos.totalPositions}</div>}
                       </div>
                     ))
                   )}

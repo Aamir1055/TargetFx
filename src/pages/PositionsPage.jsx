@@ -7,6 +7,9 @@ import Sidebar from '../components/Sidebar'
 import PageSizeSelect from '../components/PageSizeSelect'
 import WebSocketIndicator from '../components/WebSocketIndicator'
 import LoadingSpinner from '../components/LoadingSpinner'
+import ExchangeNetPositions from '../components/ExchangeNetPositions'
+import NetTypeChip from '../components/NetTypeChip'
+import { exportStyledExcel, styledColumnsFromHeaders, sumColumns } from '../utils/exportStyledExcel'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
@@ -371,6 +374,10 @@ const PositionsPage = () => {
   
   // NET positions toggle and grouping
   const [showNetPositions, setShowNetPositions] = useState(true)
+  // Exchange view: NET positions segregated by exchange (mutually exclusive with NET Position)
+  const [showExchangeView, setShowExchangeView] = useState(false)
+  const [hasFetchedExchange, setHasFetchedExchange] = useState(false)
+  const exchangeViewRef = useRef(null)
   const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)
   const [expandedNetKeys, setExpandedNetKeys] = useState(new Set())
   
@@ -724,7 +731,7 @@ const PositionsPage = () => {
   }, [netCurrentPage])
 
     useEffect(() => {
-    if (!isAuthenticated || isMobile || showNetPositions || selectedLogin) {
+    if (!isAuthenticated || isMobile || showNetPositions || showExchangeView || selectedLogin) {
       return
     }
 
@@ -844,7 +851,7 @@ const PositionsPage = () => {
         flashTimeouts.current.clear()
       } catch {}
     }
-  }, [isAuthenticated, isMobile, showNetPositions, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin])
+  }, [isAuthenticated, isMobile, showNetPositions, showExchangeView, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin])
 
   // REST polling for NET positions (netPosition: true) when NET tab is active
   useEffect(() => {
@@ -1560,7 +1567,7 @@ const PositionsPage = () => {
 
   // Memoized summary statistics - use server-provided totals across ALL positions
   const summaryStats = useMemo(() => {
-    const totalPositions = showNetPositions ? serverNetCardTotals.totalPositions : serverTotalPositions
+    const totalPositions = (showNetPositions || showExchangeView) ? serverNetCardTotals.totalPositions : serverTotalPositions
     // Invert profit to show broker perspective (client loss = broker gain)
     const totalFloatingProfit = -(serverTotals.profit || 0)
     const totalFloatingProfitPercentage = -((rawClients || []).reduce((sum, c) => sum + (c.profit_percentage || 0), 0))
@@ -1568,7 +1575,7 @@ const PositionsPage = () => {
     const uniqueSymbols = new Set(ibFilteredPositions.map(p => p.symbol)).size
     const totalVolume = Number(serverTotals.volume || 0)
     // Floating values per currency bucket (broker perspective: invert sign)
-    const floatSrc = showNetPositions ? serverNetCardTotals : serverTotals
+    const floatSrc = (showNetPositions || showExchangeView) ? serverNetCardTotals : serverTotals
     const floatingCombined = Number(floatSrc.floatingCombined ?? 0) || 0
     const floatingINR = Number(floatSrc.floatingINR ?? 0) || 0
     const floatingUSD = Number(floatSrc.floatingUSD ?? 0) || 0
@@ -1584,7 +1591,7 @@ const PositionsPage = () => {
       floatingINR,
       floatingUSD
     }
-  }, [ibFilteredPositions, serverTotalPositions, serverTotals, rawClients, showNetPositions, serverNetCardTotals])
+  }, [ibFilteredPositions, serverTotalPositions, serverTotals, rawClients, showNetPositions, showExchangeView, serverNetCardTotals])
   
   // Handle column header click for sorting
   const handleSort = (columnKey) => {
@@ -1870,8 +1877,15 @@ const PositionsPage = () => {
       const headers = columnDefs
         .filter(col => effectiveCols[col.key])
         .map(col => ({ key: col.key, label: col.label, accessor: col.get }))
-      const csv = toCSV(allPositions, headers)
-      downloadFile(`positions_${Date.now()}.csv`, csv)
+      const columns = styledColumnsFromHeaders(headers)
+      exportStyledExcel({
+        showTitle: false,
+        title: 'Positions',
+        columns,
+        sections: [{ rows: allPositions, totals: { label: 'TOTAL', values: sumColumns(allPositions, columns, ['volume', 'volumePercentage', 'netVolume', 'profit', 'profitPercentage', 'totalProfit', 'storage', 'storagePercentage', 'commission']) } }],
+        sheetName: 'Positions',
+        fileName: `positions_${new Date().toISOString().slice(0, 10)}.xlsx`
+      })
     } catch (e) {
       console.error('Export failed:', e)
       alert('Export failed. Please try again.')
@@ -1948,6 +1962,7 @@ const PositionsPage = () => {
         { key: 'symbol',         label: 'Symbol',                                   accessor: r => r.symbol },
         { key: 'netType',        label: 'NET Type',                                 accessor: r => r.netType },
         { key: 'netVolume',      label: pct ? 'NET Volume %'    : 'NET Volume',     accessor: r => r.netVolume },
+        { key: 'avgPrice',       label: 'Avg. Price',                               accessor: r => r.avgPrice },
         { key: 'currentPrice',   label: 'Current Price',                            accessor: r => r.currentPrice },
         { key: 'totalProfit',    label: pct ? 'Total Profit %'  : 'Total Profit',   accessor: r => r.totalProfit },
         { key: 'totalStorage',   label: pct ? 'Swap %' : 'Swap',                    accessor: r => r.totalStorage },
@@ -1955,8 +1970,15 @@ const PositionsPage = () => {
         { key: 'totalPositions', label: 'Positions',                                accessor: r => r.totalPositions },
       ]
       const headers = allNetHeaders.filter(h => netVisibleColumns[h.key])
-      const csv = toCSV(allRows, headers)
-      downloadFile(`net_positions_${Date.now()}.csv`, csv)
+      const columns = styledColumnsFromHeaders(headers)
+      exportStyledExcel({
+        showTitle: false,
+        title: 'NET Position',
+        columns,
+        sections: [{ rows: allRows, totals: { label: 'TOTAL', values: sumColumns(allRows, columns, ['netVolume', 'totalProfit', 'totalStorage', 'totalCommission', 'totalPositions']) } }],
+        sheetName: 'NET Position',
+        fileName: `net_positions_${new Date().toISOString().slice(0, 10)}.xlsx`
+      })
     } catch (e) {
       console.error('NET Export failed:', e)
       alert('Export failed. Please try again.')
@@ -2005,7 +2027,7 @@ const PositionsPage = () => {
         )
       case 'netType':
         return (
-          <span className={`px-2 py-0.5 text-xs font-medium rounded ${netPos.netType === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{netPos.netType}</span>
+          <NetTypeChip type={netPos.netType} />
         )
       case 'netVolume':
         return formatNumber(netPos.netVolume, 2)
@@ -2488,7 +2510,7 @@ const PositionsPage = () => {
   }
 
   // Only show local loading inside cards/tables; keep the page chrome interactive
-  const isInitialPositionsLoading = showNetPositions ? !hasFetchedNetPositions : !hasFetchedPositions
+  const isInitialPositionsLoading = showExchangeView ? !hasFetchedExchange : showNetPositions ? !hasFetchedNetPositions : !hasFetchedPositions
   const isInitialNetLoading = !hasFetchedNetPositions && showNetPositions
   const isInitialClientNetLoading = !hasFetchedClientNetPositions && showClientNet
 
@@ -2541,7 +2563,7 @@ const PositionsPage = () => {
               
               {/* NET Position Toggle */}
               <button
-                onClick={() => { setShowNetPositions((v)=>!v) }}
+                onClick={() => { const next = !showNetPositions; setShowNetPositions(next); if (next) setShowExchangeView(false) }}
                 className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
                   showNetPositions 
                     ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' 
@@ -2553,6 +2575,27 @@ const PositionsPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-5m0 5l-5-5M7 4h10a2 2 0 012 2v6H5V6a2 2 0 012-2zm0 0V2m0 2v2" />
                 </svg>
                 NET Position
+              </button>
+
+              {/* Exchange Toggle - NET positions segregated by exchange */}
+              <button
+                onClick={() => {
+                  const next = !showExchangeView
+                  setShowExchangeView(next)
+                  setHasFetchedExchange(false)
+                  if (next) setShowNetPositions(false)
+                }}
+                className={`h-8 px-2.5 rounded-md border shadow-sm transition-colors inline-flex items-center gap-1.5 text-xs font-medium ${
+                  showExchangeView
+                    ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                    : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
+                }`}
+                title="Toggle Exchange-wise NET Position View"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M5 21V10m4 11V10m6 11V10m4 11V10M12 3l9 5H3l9-5z" />
+                </svg>
+                Exchange
               </button>
 
 
@@ -2574,7 +2617,7 @@ const PositionsPage = () => {
 
               {/* Export CSV */}
               <button
-                onClick={showNetPositions ? handleExportNetPositions : handleExportPositions}
+                onClick={showExchangeView ? () => exchangeViewRef.current?.exportData() : showNetPositions ? handleExportNetPositions : handleExportPositions}
                 disabled={isExporting}
                 className="h-8 w-8 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 title={isExporting ? 'Exporting...' : showNetPositions ? 'Export all NET positions to CSV' : 'Export all positions to CSV'}
@@ -2763,8 +2806,28 @@ const PositionsPage = () => {
             </div>
           </div>
 
-          {/* NET Position View */}
-          {showNetPositions ? (
+          {/* Exchange View - NET positions segregated by exchange */}
+          {showExchangeView ? (
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <ExchangeNetPositions
+                ref={exchangeViewRef}
+                variant="desktop"
+                displayMode={displayMode}
+                masterLabel={getActiveGroupFilter('positions') || 'ALL'}
+                loginFilter={(() => {
+                  const activeGroupName = getActiveGroupFilter('positions')
+                  return activeGroupName ? getGroupLogins(activeGroupName).map(Number).filter(n => !Number.isNaN(n)) : null
+                })()}
+                onTotals={(totals, count) => setServerNetCardTotals({
+                  totalPositions: Number(count) || 0,
+                  floatingCombined: Number(totals?.floatingCombined ?? 0) || 0,
+                  floatingINR: Number(totals?.floatingINR ?? 0) || 0,
+                  floatingUSD: Number(totals?.floatingUSD ?? 0) || 0
+                })}
+                onLoaded={() => setHasFetchedExchange(true)}
+              />
+            </div>
+          ) : showNetPositions ? (
             <div className="space-y-4 flex flex-col flex-1 overflow-hidden">
 
               {/* NET Position Table */}
@@ -3179,7 +3242,7 @@ const PositionsPage = () => {
                             )}
                             {netVisibleColumns.netType && (
                               <td className="px-2 py-1.5 text-sm whitespace-nowrap">
-                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${netPos.netType === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{netPos.netType}</span>
+                                <NetTypeChip type={netPos.netType} />
                               </td>
                             )}
                             {netVisibleColumns.netVolume && (
@@ -3235,7 +3298,7 @@ const PositionsPage = () => {
                                     <div key={i} className="border border-gray-200 rounded p-2 bg-white">
                                       <div className="flex items-center justify-between">
                                         <div className="font-semibold text-gray-900">{v.exactSymbol}</div>
-                                        <span className={`px-2 py-0.5 text-[11px] font-medium rounded ${v.netType === 'Buy' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{v.netType}</span>
+                                        <NetTypeChip type={v.netType} />
                                       </div>
                                       <div className="mt-1 text-[12px] text-gray-600 flex gap-4">
                                         <div>NET Vol: <span className="font-semibold text-gray-900">{formatNumber(v.netVolume, 2)}</span></div>
@@ -3697,7 +3760,7 @@ const PositionsPage = () => {
                                   {groupByBaseSymbol ? (row.symbol || '').split(/[.\-]/)[0] : row.symbol}
                                 </td>)}
                                 {clientNetVisibleColumns.netType && (<td className="px-2 py-1.5 text-sm whitespace-nowrap">
-                                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${row.netType === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{row.netType}</span>
+                                  <NetTypeChip type={row.netType} />
                                 </td>)}
                                 {clientNetVisibleColumns.netVolume && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums" title={numericMode === 'compact' ? fmtMoneyFull(row.netVolume, 2) : undefined}>{fmtMoney(row.netVolume, 2)}</td>)}
                                 {clientNetVisibleColumns.avgPrice && (<td className="px-2 py-1.5 text-sm text-gray-900 whitespace-nowrap tabular-nums">{formatNumber(row.avgPrice, 2)}</td>)}

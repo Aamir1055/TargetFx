@@ -412,6 +412,20 @@ export const brokerAPI = {
     return response.data
   },
 
+  // Net positions per symbol, segregated by exchange (ordered by 'exchange_sort_order').
+  // Body accepts the same fields as /positions/search plus optional `exchange: ['MCX', ...]`.
+  // Response: data.exchanges[] { exchange, sortRank, positions[], totals }, data.totals, data.count
+  getNetPositionsByExchange: async (body = {}, options = {}) => {
+    const response = await api.post('/api/broker/positions/net/by-exchange', body, options)
+    return response.data
+  },
+
+  // Distinct exchanges present on open positions (for the exchange filter)
+  getPositionExchanges: async () => {
+    const response = await api.get('/api/broker/positions/exchanges')
+    return response.data
+  },
+
   // Get all position symbols
   getPositionSymbols: async () => {
     const response = await api.get('/api/broker/positions/symbols')

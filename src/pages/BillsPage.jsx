@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment, cloneElement } from 'react'
+import { ReportsIcon, ReportSubIcon } from '../components/ReportIcons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -1830,12 +1831,7 @@ const BillsPage = () => {
                           style={{ touchAction: 'manipulation' }}
                         >
                           <span className="w-5 h-5 flex items-center justify-center">
-                            <img
-                              src={`${import.meta.env.BASE_URL || '/'}sidebar-icons/Bills.svg`}
-                              alt="Reports"
-                              style={{ filter: 'brightness(0)' }}
-                              className="w-5 h-5"
-                            />
+                            <ReportsIcon className="w-5 h-5 text-black" />
                           </span>
                           <span className="flex-1">Reports</span>
                           <svg className={`w-4 h-4 transition-transform ${mobileReportsOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1852,9 +1848,10 @@ const BillsPage = () => {
                                 e.stopPropagation()
                                 handleMobileNavSelect('/reports/exchange')
                               }}
-                              className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
+                              <ReportSubIcon path="/reports/exchange" />
                               Brokerage Data
                             </button>
                             <button
@@ -1865,10 +1862,25 @@ const BillsPage = () => {
                                 e.stopPropagation()
                                 handleMobileNavSelect('/reports/historical-positions')
                               }}
-                              className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
+                              <ReportSubIcon path="/reports/historical-positions" />
                               Historical Positions
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMobileNavSelect('/reports/deals')}
+                              onTouchEnd={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleMobileNavSelect('/reports/deals')
+                              }}
+                              className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              style={{ touchAction: 'manipulation' }}
+                            >
+                              <ReportSubIcon path="/reports/deals" />
+                              Deals
                             </button>
                           </div>
                         )}

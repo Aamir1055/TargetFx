@@ -467,7 +467,7 @@ const ReportsExchangePage = () => {
       })
       worksheetData.push(groupedHeader, subHeader)
       exportClients.forEach(client => {
-        const cells = [client.Login ?? client.login, client.Name ?? client.name ?? '', Number(client.AgentCommission ?? client.agentCommission ?? 0)]
+        const cells = [String(client.Login ?? client.login ?? ''), client.Name ?? client.name ?? '', Number(client.AgentCommission ?? client.agentCommission ?? 0)]
         exportColumns.forEach(name => {
           const exchange = (client.Exchanges || []).find(item => (item.Exchange || 'UNKNOWN') === name)
           cells.push(Number(exchange?.Lots || 0), Number(exchange?.Volume || 0), Number(exchange?.Commission || 0))
@@ -489,26 +489,26 @@ const ReportsExchangePage = () => {
       const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
       const lastColumn = totalColumns - 1
       const headerBorder = {
-        top: { style: 'thin', color: { rgb: '000000' } },
-        bottom: { style: 'thin', color: { rgb: '000000' } },
-        left: { style: 'thin', color: { rgb: '000000' } },
-        right: { style: 'thin', color: { rgb: '000000' } }
+        top: { style: 'thin', color: { rgb: 'C9D1E0' } },
+        bottom: { style: 'thin', color: { rgb: 'C9D1E0' } },
+        left: { style: 'thin', color: { rgb: 'C9D1E0' } },
+        right: { style: 'thin', color: { rgb: 'C9D1E0' } }
       }
       const dataBorder = {
-        top: { style: 'thin', color: { rgb: 'B7B7B7' } },
-        bottom: { style: 'thin', color: { rgb: 'B7B7B7' } },
-        left: { style: 'thin', color: { rgb: 'B7B7B7' } },
-        right: { style: 'thin', color: { rgb: 'B7B7B7' } }
+        top: { style: 'thin', color: { rgb: 'C9D1E0' } },
+        bottom: { style: 'thin', color: { rgb: 'C9D1E0' } },
+        left: { style: 'thin', color: { rgb: 'C9D1E0' } },
+        right: { style: 'thin', color: { rgb: 'C9D1E0' } }
       }
       const darkHeaderStyle = {
-        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 14 },
-        fill: { patternType: 'solid', fgColor: { rgb: '006B9A' } },
+        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+        fill: { patternType: 'solid', fgColor: { rgb: '1F3864' } },
         alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
         border: headerBorder
       }
       const subHeaderStyle = {
-        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 12 },
-        fill: { patternType: 'solid', fgColor: { rgb: '006B9A' } },
+        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+        fill: { patternType: 'solid', fgColor: { rgb: '1F3864' } },
         alignment: { horizontal: 'center', vertical: 'center' },
         border: headerBorder
       }
@@ -526,26 +526,38 @@ const ReportsExchangePage = () => {
       for (let row = 3; row < worksheetData.length; row += 1) {
         for (let column = 0; column <= lastColumn; column += 1) {
           const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })]
-          cell.s = row === worksheetData.length - 1 ? totalRowStyle : {
-            alignment: { horizontal: column === 1 ? 'left' : 'right', vertical: 'center' },
+          const alignment = { horizontal: column < 2 ? 'left' : 'right', vertical: 'center' }
+          cell.s = row === worksheetData.length - 1 ? { ...totalRowStyle, alignment } : {
+            font: { sz: 10, color: { rgb: '1F2937' } },
+            fill: { patternType: 'solid', fgColor: { rgb: row % 2 === 0 ? 'F5F7FA' : 'FFFFFF' } },
+            alignment,
             border: dataBorder
           }
+          if (column >= 2 && cell.t === 'n') cell.z = '#,##0.00;[Red]-#,##0.00'
+
         }
       }
       worksheet['!merges'] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: lastColumn } },
-        ...Array.from({ length: fixedColumnCount }, (_, column) => ({ s: { r: 1, c: column }, e: { r: 2, c: column } })),
+        { s: { r: 1, c: 0 }, e: { r: 1, c: fixedColumnCount - 1 } },
         ...exportColumns.map((_, index) => {
           const startColumn = fixedColumnCount + index * 3
           return { s: { r: 1, c: startColumn }, e: { r: 1, c: startColumn + 2 } }
         })
       ]
-      worksheet['!cols'] = [
-        { wch: 14 },
-        { wch: 28 },
-        { wch: 20 },
-        ...exportColumns.flatMap(() => [{ wch: 14 }, { wch: 16 }, { wch: 14 }])
-      ]
+      worksheet.A2.v = 'Client Details'
+      worksheet.B2.v = ''
+      worksheet.C2.v = ''
+      worksheet['!autofilter'] = {
+        ref: XLSX.utils.encode_range({ s: { r: 2, c: 0 }, e: { r: worksheetData.length - 2, c: lastColumn } })
+      }
+      worksheet['!cols'] = subHeader.map((label, column) => {
+        const lengths = worksheetData.slice(3).map(row => column >= 2
+          ? fmtMoney(row[column]).length
+          : String(row[column] ?? '').length)
+        const width = lengths.reduce((max, length) => Math.max(max, length + 3), label.length + 4)
+        return { wch: Math.min(Math.max(width, column === 1 ? 28 : 14), 45) }
+      })
       worksheet['!rows'] = [
         { hpt: 28 },
         { hpt: 24 },

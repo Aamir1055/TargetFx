@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useGroups } from '../contexts/GroupContext'
 import { useIB } from '../contexts/IBContext'
 import { useState, useEffect } from 'react'
+import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 
 const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly = false, desktopOnly = false }) => {
   const navigate = useNavigate()
@@ -71,10 +72,10 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
     {
       name: 'Reports',
       icon: 'reports',
-      img: 'Bills.svg',
       children: [
         { name: 'Brokerage Data', path: '/reports/exchange' },
-        { name: 'Historical Positions', path: '/reports/historical-positions' }
+        { name: 'Historical Positions', path: '/reports/historical-positions' },
+        { name: 'Deals', path: '/reports/deals' }
       ]
     },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
@@ -177,12 +178,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                           onClick={() => setReportsOpen(value => !value)}
                           className="flex items-center gap-3 px-4 h-11 w-full text-[13px] text-[#404040]"
                         >
-                          <img
-                            src={`${baseUrl}sidebar-icons/${item.img}`}
-                            alt={item.name}
-                            className="w-5 h-5"
-                            style={{ filter: 'brightness(0)' }}
-                          />
+                          <ReportsIcon className="w-5 h-5 text-black" />
                           <span className="flex-1 text-left">{item.name}</span>
                           <svg className={`w-4 h-4 transition-transform ${reportsExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -193,8 +189,9 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                             key={child.path}
                             type="button"
                             onClick={() => handleNavigate(child.path)}
-                            className={`flex items-center w-full h-10 pl-14 pr-4 text-left text-[13px] ${isActivePath(child.path) ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                            className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${isActivePath(child.path) ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                           >
+                            <ReportSubIcon path={child.path} />
                             {child.name}
                           </button>
                         ))}
@@ -344,12 +341,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                           : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                         }`}
                     >
-                      <img
-                        src={`${baseUrl}sidebar-icons/${item.img}`}
-                        alt={item.name}
-                        className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${anyChildActive ? '' : 'group-hover:scale-110'}`}
-                        style={{ filter: anyChildActive ? 'brightness(0) invert(1)' : 'brightness(0)' }}
-                      />
+                      <ReportsIcon className={`w-5 h-5 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${anyChildActive ? 'text-white' : 'text-black group-hover:scale-110'}`} />
                       {isOpen && <span className="flex-1 tracking-wide">{item.name}</span>}
                       {isOpen && (
                         <svg
@@ -366,12 +358,13 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                           <button
                             key={child.name}
                             onClick={() => handleNavigate(child.path)}
-                            className={`w-full text-left flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                            className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
                               ${isActivePath(child.path)
                                 ? 'bg-blue-50 text-blue-700'
                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                               }`}
                           >
+                            <ReportSubIcon path={child.path} />
                             <span className="flex-1 tracking-wide">{child.name}</span>
                           </button>
                         ))}
