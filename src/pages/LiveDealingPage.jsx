@@ -1,3 +1,5 @@
+import QuickTimeFilter from '../components/QuickTimeFilter'
+import { getPresetRange } from '../utils/dealTimePresets'
 import { useState, useEffect, useRef, useMemo, Fragment, cloneElement } from 'react'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
@@ -90,7 +92,7 @@ const LiveDealingPage = () => {
   
   // Filter states
   const [showFilterMenu, setShowFilterMenu] = useState(false)
-  const [timeFilter, setTimeFilter] = useState('24h') // '24h' (default), '7d', 'custom'
+  const [timeFilter, setTimeFilter] = useState('today')
   const [customFromDate, setCustomFromDate] = useState('')
   const [customToDate, setCustomToDate] = useState('')
   const [appliedFromDate, setAppliedFromDate] = useState('')
@@ -691,7 +693,11 @@ const LiveDealingPage = () => {
       let from, to
 
       // Calculate time range based on filter, recalculated on every call
-      if (timeFilter === '24h') {
+      const presetRange = getPresetRange(timeFilter)
+      if (presetRange) {
+        from = presetRange.from
+        to = presetRange.to
+      } else if (timeFilter === '24h') {
         const now = serverNowEpoch()
         from = now - (24 * 60 * 60)
         to = now
@@ -1260,6 +1266,7 @@ const LiveDealingPage = () => {
     }
     
     // Apply the dates
+    setTimeFilter('custom')
     setAppliedFromDate(customFromDate)
     setAppliedToDate(customToDate)
     setCustomDateError('')
@@ -1881,16 +1888,10 @@ const LiveDealingPage = () => {
                     }}
                   />
                   
-                  {/* Time Filter Button */}
+                  <QuickTimeFilter value={timeFilter} onChange={value => { setTimeFilter(value); setShowFilterMenu(false) }} />
                   <div className="relative" ref={filterButtonRef}>
-                    <button
-                      onClick={() => setShowFilterMenu(!showFilterMenu)}
-                      className="h-8 px-2.5 rounded-md border border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5 text-xs font-medium shadow-sm"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                      </svg>
-                      {timeFilter === '24h' ? '24h' : timeFilter === '7d' ? '7d' : 'Custom'}
+                    <button type="button" onClick={() => setShowFilterMenu(!showFilterMenu)} aria-label="Choose custom dates" aria-expanded={showFilterMenu} className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50 shadow-sm flex items-center justify-center">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></svg>
                     </button>
                     {showFilterMenu && (
                       <div
@@ -1901,44 +1902,6 @@ const LiveDealingPage = () => {
                           <p className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Time Period</p>
                         </div>
                         
-                        {/* Time Filter Options */}
-                        <div className="py-1">
-                          <label className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer transition-colors">
-                            <input
-                              type="radio"
-                              name="timeFilter"
-                              checked={timeFilter === '24h'}
-                              onChange={() => setTimeFilter('24h')}
-                              className="w-3 h-3 text-blue-600 border-gray-300 focus:ring-blue-500 focus:ring-1"
-                            />
-                            <span className="ml-2 text-xs font-medium text-gray-700">Last 24 Hours</span>
-                          </label>
-                          
-                          <label className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer transition-colors">
-                            <input
-                              type="radio"
-                              name="timeFilter"
-                              checked={timeFilter === '7d'}
-                              onChange={() => setTimeFilter('7d')}
-                              className="w-3 h-3 text-blue-600 border-gray-300 focus:ring-blue-500 focus:ring-1"
-                            />
-                            <span className="ml-2 text-xs font-medium text-gray-700">Last 7 Days</span>
-                          </label>
-                          
-                          <label className="flex items-center px-3 py-1.5 hover:bg-blue-50 cursor-pointer transition-colors">
-                            <input
-                              type="radio"
-                              name="timeFilter"
-                              checked={timeFilter === 'custom'}
-                              onChange={() => setTimeFilter('custom')}
-                              className="w-3 h-3 text-blue-600 border-gray-300 focus:ring-blue-500 focus:ring-1"
-                            />
-                            <span className="ml-2 text-xs font-medium text-gray-700">Custom Range</span>
-                          </label>
-                        </div>
-                        
-                        {/* Custom Date Range */}
-                        {timeFilter === 'custom' && (
                           <div className="px-3 py-2 border-t border-gray-100 space-y-2">
                             <div>
                               <label className="text-xs text-gray-600 mb-1 block">From Date</label>
@@ -1970,7 +1933,6 @@ const LiveDealingPage = () => {
                               Apply
                             </button>
                           </div>
-                        )}
                       </div>
                     )}
                   </div>

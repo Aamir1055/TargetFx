@@ -88,9 +88,9 @@ export default function PositionModule() {
   const itemsPerPage = 15
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
-  const [showClientNet, setShowClientNet] = useState(true)
+  const [showClientNet, setShowClientNet] = useState(false)
   // Exchange view: NET positions segregated by exchange (mutually exclusive with NET Position)
-  const [showExchangeView, setShowExchangeView] = useState(false)
+  const [showExchangeView, setShowExchangeView] = useState(true)
   const exchangeViewRef = useRef(null)
   const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)
   const [displayMode, setDisplayMode] = useState('value') // 'value' or 'percentage'
@@ -1169,7 +1169,7 @@ export default function PositionModule() {
   return (
     <div className="h-screen flex flex-col bg-[#F8F8F8] overflow-hidden" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 bg-white border-b border-[#ECECEC]">
+      <div className="flex shrink-0 items-center justify-between px-4 py-4 bg-white border-b border-[#ECECEC]">
         <button 
           onClick={() => setIsSidebarOpen(true)}
           className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center"
@@ -1316,7 +1316,7 @@ export default function PositionModule() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Action buttons row */}
         <div className="pt-5 pb-4 px-4">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
@@ -1559,15 +1559,15 @@ export default function PositionModule() {
 
         {/* Table - full width, remove outer padding */}
         {!showClientNet && !showExchangeView && (
-        <div className="pb-6">
-          <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden rounded-b-lg">
+        <div className="flex-1 min-h-0 flex flex-col" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
+          <div className="flex-1 min-h-0 flex flex-col bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden">
             {/* Single scroll container with sticky header */}
-            <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
+            <div className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-auto scrollbar-hide" style={{
               WebkitOverflowScrolling: 'touch',
               scrollbarWidth: 'none',
               paddingRight: '8px',
               paddingBottom: '8px',
-              maxHeight: 'calc(100vh - 280px)'
+              overscrollBehavior: 'contain'
             }}>
                 <div className="relative" style={{ minWidth: 'max-content' }}>
                   {/* Table Header - Sticky */}
@@ -1706,7 +1706,7 @@ export default function PositionModule() {
         {/* Client NET View */}
 
         {showClientNet && isMobileView && (
-          <div className="bg-[#F5F7FA] flex flex-col h-full">
+          <div className="bg-[#F5F7FA] flex flex-col flex-1 min-h-0">
             {/* Face Cards Carousel removed from NET Position mobile view per request */}
 
             {/* Controls with Search - SYMMETRICAL with regular Positions tab */}
@@ -1773,8 +1773,8 @@ export default function PositionModule() {
             </div>
 
             {/* Client NET Table - FIXED GRID ALIGNMENT */}
-            <div className="pt-0 pb-6 flex-1 min-h-0 flex flex-col">
-              <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden flex-1 min-h-0 flex flex-col rounded-b-lg">
+            <div className="flex-1 min-h-0 flex flex-col" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
+              <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden flex-1 min-h-0 flex flex-col">
                 {/* Table - single scroll container */}
                 <div className="overflow-x-auto overflow-y-auto scrollbar-hide flex-1 min-h-0" style={{
                   paddingRight: '8px',

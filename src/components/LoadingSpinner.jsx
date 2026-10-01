@@ -12,6 +12,7 @@ const LoadingSpinner = ({
   subtitle = 'Please wait while we fetch your data',
   overlay = true,
   progress = null,
+  onCancel,
 }) => {
   const isDeterminate = typeof progress === 'number'
   const pct = isDeterminate ? Math.max(0, Math.min(100, progress)) : null
@@ -41,6 +42,11 @@ const LoadingSpinner = ({
       </div>
       {isDeterminate && (
         <div className="mt-2 text-right text-[10px] font-medium text-slate-500">{pct}%</div>
+      )}
+      {onCancel && (
+        <div className="mt-4 flex justify-end">
+          <button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Cancel</button>
+        </div>
       )}
     </div>
   )

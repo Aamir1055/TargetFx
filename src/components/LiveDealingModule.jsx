@@ -1,3 +1,5 @@
+import QuickTimeFilter from './QuickTimeFilter'
+import { getPresetRange, QUICK_FILTERS } from '../utils/dealTimePresets'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
@@ -70,7 +72,7 @@ export default function LiveDealingModule() {
   const [deals, setDeals] = useState([])
   const [newDealIds, setNewDealIds] = useState(new Set()) // Track new deals for blinking
   const [connectionState, setConnectionState] = useState('disconnected')
-  const [timeFilter, setTimeFilter] = useState('24h') // '24h', '7d', 'custom'
+  const [timeFilter, setTimeFilter] = useState('today')
   const [moduleFilter, setModuleFilter] = useState('both') // 'deal', 'money', 'both'
   const [customFromDate, setCustomFromDate] = useState('')
   const [loading, setLoading] = useState(true)
@@ -108,7 +110,7 @@ export default function LiveDealingModule() {
     setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
     setActiveGroupFilter('livedealing', null)
     setSearchInput('')
-    setTimeFilter('24h')
+    setTimeFilter('today')
     setModuleFilter('both')
     setCustomFromDate('')
     setCustomToDate('')
@@ -208,7 +210,11 @@ export default function LiveDealingModule() {
       }
 
       let from, to
-      if (timeFilter === '24h') {
+      const presetRange = getPresetRange(timeFilter)
+      if (presetRange) {
+        from = presetRange.from
+        to = presetRange.to
+      } else if (timeFilter === '24h') {
         const now = serverNowEpoch()
         from = now - (24 * 60 * 60)
         to = now
@@ -457,7 +463,8 @@ export default function LiveDealingModule() {
 
   // Face cards data - use useMemo to avoid infinite loop
   const cards = useMemo(() => {
-    const timeLabel = timeFilter === '24h' ? 'DEALS (24H)' : timeFilter === '7d' ? 'DEALS (7D)' : 'DEALS (CUSTOM)'
+    const presetLabel = QUICK_FILTERS.find(option => option.value === timeFilter)?.label
+    const timeLabel = presetLabel ? `DEALS (${presetLabel.toUpperCase()})` : timeFilter === '24h' ? 'DEALS (24H)' : timeFilter === '7d' ? 'DEALS (7D)' : 'DEALS (CUSTOM)'
     return [
       { label: timeLabel, value: String(summaryStats.totalDeals) },
       { label: 'UNIQUE LOGINS', value: String(summaryStats.uniqueLogins) },
@@ -898,11 +905,15 @@ export default function LiveDealingModule() {
         {/* Action Buttons + View All */}
         <div className="pt-3 pb-2">
           <div className="flex items-center justify-between mb-3 px-2">
-            <div className="flex gap-[8px]">
+            <div className="flex flex-wrap gap-[8px]">
+              <QuickTimeFilter value={timeFilter} onChange={setTimeFilter} />
+              <button type="button" onClick={() => setIsTimeFilterOpen(true)} aria-label="Choose custom dates" className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#374151] shadow-sm flex items-center justify-center">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></svg>
+              </button>
               <button 
                 onClick={() => setIsCustomizeOpen(true)} 
                 className={`h-8 px-3 rounded-[12px] border shadow-sm flex items-center justify-center gap-2 transition-all relative ${
-                  (timeFilter !== '24h' || moduleFilter !== 'both' || getActiveGroupFilter('livedealing'))
+                  (timeFilter !== 'today' || moduleFilter !== 'both' || getActiveGroupFilter('livedealing'))
                     ? 'bg-blue-50 border-blue-200' 
                     : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
                 }`}
@@ -913,7 +924,7 @@ export default function LiveDealingModule() {
                 <span className="text-[#4B4B4B] text-[10px] font-medium font-outfit">Filter</span>
                 {(() => {
                   const filterCount = [
-                    timeFilter !== '24h',
+                    timeFilter !== 'today',
                     moduleFilter !== 'both',
                     getActiveGroupFilter('livedealing')
                   ].filter(Boolean).length;
@@ -1253,7 +1264,7 @@ export default function LiveDealingModule() {
         onReset={() => {
           setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
           setActiveGroupFilter('livedealing', null)
-          setTimeFilter('24h')
+          setTimeFilter('today')
           setModuleFilter('both')
           setHasPendingGroupChanges(false)
           setHasPendingTimeChanges(false)

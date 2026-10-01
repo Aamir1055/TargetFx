@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import QuickTimeFilter from '../components/QuickTimeFilter'
+import { getPresetRange } from '../utils/dealTimePresets'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -8,7 +10,7 @@ import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
 import PageSizeSelect from '../components/PageSizeSelect'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ColumnChooserList from '../components/ColumnChooserList'
-import { formatTime as apiFormatTime, serverNowDate, serverNowEpoch, serverEpochFromParts, fromServerEpoch } from '../utils/dateFormatter'
+import { formatTime as apiFormatTime, serverNowDate, serverEpochFromParts, fromServerEpoch } from '../utils/dateFormatter'
 import DateInputDMY from '../components/DateInputDMY'
 import { exportStyledExcel, actionColor } from '../utils/exportStyledExcel'
 
@@ -41,30 +43,6 @@ const ymdToEpoch = (value, endOfDay = false) => {
     : serverEpochFromParts(year, month - 1, day, 0, 0, 0)
 }
 
-// Same presets (and ranges) as the Deals tab in the login details modal
-const QUICK_FILTERS = [
-  { value: 'today', label: 'Today' },
-  { value: 'lastweek', label: 'Last Week' },
-  { value: 'lastmonth', label: 'Last Month' },
-  { value: 'last3months', label: 'Last 3 Months' },
-  { value: 'last6months', label: 'Last 6 Months' },
-  { value: 'allhistory', label: 'All History' }
-]
-// All ranges are in server (MT5) time: they start at 00:00:00 of the first day and run until now.
-// "Today" is the current server calendar day; "Last Week" is today plus the 6 days before it, etc.
-const PRESET_DAYS = { today: 1, lastweek: 7, lastmonth: 30, last3months: 90, last6months: 180 }
-const getPresetRange = (preset) => {
-  const to = serverNowEpoch()
-  const today = serverNowDate()
-  const startOfDay = (date) => serverEpochFromParts(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0)
-  if (PRESET_DAYS[preset]) {
-    const first = new Date(today)
-    first.setDate(today.getDate() - (PRESET_DAYS[preset] - 1))
-    return { from: startOfDay(first), to }
-  }
-  if (preset === 'allhistory') return { from: serverEpochFromParts(today.getFullYear() - 2, 0, 1, 0, 0, 0), to }
-  return null
-}
 
 const DEAL_ACTIONS = {
   0: 'Buy', 1: 'Sell', 2: 'Balance', 3: 'Credit', 4: 'Charge', 5: 'Correction', 6: 'Bonus',
@@ -117,6 +95,14 @@ const VISIBLE_COLUMNS_STORAGE_KEY = 'dealsReportVisibleColumns'
 const formatPrice =(value) => formatNumber(value, value !== 0 && Math.abs(value) < 10 ? 5 : 2)
 
 const DealsReportPage = () => {
+  const exportControllerRef = useRef(null)
+  useEffect(() => () => exportControllerRef.current?.abort(), [])
+  const cancelExport = () => {
+    exportControllerRef.current?.abort()
+    exportControllerRef.current = null
+    setExportProgress(null)
+  }
+  const [moduleFilter, setModuleFilter] = useState('both')
   const [selectedClient, setSelectedClient] = useState(null)
   const { isAuthenticated } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -289,6 +275,13 @@ const DealsReportPage = () => {
     const body = { sortBy: sortBy === 'time' ? 'deal_time' : sortBy, sortOrder }
     if (/^\d+$/.test(search)) body.filters = [{ field: 'login', operator: 'equal', value: Number(search) }]
     else if (search) body.search = search
+    const filters = body.filters || []
+    if (moduleFilter === 'deal') filters.push({ field: 'action', operator: 'in', value: ['BUY', 'SELL'] })
+    if (moduleFilter === 'money') {
+      filters.push({ field: 'action', operator: 'not_equal', value: 'BUY' })
+      filters.push({ field: 'action', operator: 'not_equal', value: 'SELL' })
+    }
+    if (filters.length) body.filters = filters
     return body
   }
 
@@ -319,7 +312,7 @@ const DealsReportPage = () => {
     load()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, search, isAuthenticated, page, effectivePageSize, sortBy, sortOrder, reloadKey])
+  }, [range, search, moduleFilter, isAuthenticated, page, effectivePageSize, sortBy, sortOrder, reloadKey])
 
   const totalPages = Math.max(1, Math.ceil(total / effectivePageSize))
 
@@ -362,24 +355,28 @@ const DealsReportPage = () => {
 
   // Export every deal in the current range/search, fetched in chunks of 500
   const handleExport = async () => {
-    if (exporting) return
+    if (exportControllerRef.current) return
+    const controller = new AbortController()
+    exportControllerRef.current = controller
     setExportProgress({ done: 0, total })
     try {
       const extra = buildExtraBody()
       const getPayload = (res) => res?.data ?? res ?? {}
-      const first = getPayload(await brokerAPI.getAllDeals(range.from, range.to, EXPORT_CHUNK, 1, extra))
+      const first = getPayload(await brokerAPI.getAllDeals(range.from, range.to, EXPORT_CHUNK, 1, extra, { signal: controller.signal }))
+      if (controller.signal.aborted) return
       let rows = first?.deals || first?.items || []
       const exportTotal = Number(first?.total ?? first?.totalCount ?? rows.length) || rows.length
       const pages = Math.ceil(exportTotal / EXPORT_CHUNK)
       setExportProgress({ done: rows.length, total: exportTotal })
       for (let p = 2; p <= pages; p++) {
-        const payload = getPayload(await brokerAPI.getAllDeals(range.from, range.to, EXPORT_CHUNK, p, extra))
+        const payload = getPayload(await brokerAPI.getAllDeals(range.from, range.to, EXPORT_CHUNK, p, extra, { signal: controller.signal }))
+        if (controller.signal.aborted) return
         const chunk = payload?.deals || payload?.items || []
         if (!chunk.length) break
         rows = rows.concat(chunk)
         setExportProgress({ done: rows.length, total: exportTotal })
       }
-      if (!rows.length) return
+      if (controller.signal.aborted || !rows.length) return
       const stamp = toYmd(serverNowDate())
       // Excel columns follow the visible table columns; Time is split into Date + Time
       const SIGNED = new Set(['profit', 'commission', 'storage'])
@@ -408,9 +405,13 @@ const DealsReportPage = () => {
         fileName: `deals_${preset}_${stamp}.xlsx`
       })
     } catch (exportError) {
+      if (controller.signal.aborted) return
       setError(exportError?.response?.data?.message || exportError?.message || 'Failed to export deals')
     } finally {
-      setExportProgress(null)
+      if (exportControllerRef.current === controller) {
+        exportControllerRef.current = null
+        setExportProgress(null)
+      }
     }
   }
 
@@ -439,18 +440,6 @@ const DealsReportPage = () => {
     return value
   }
 
-  const quickFilterSelect = (extraClass = '') => (
-    <select
-      value={QUICK_FILTERS.some(f => f.value === preset) ? preset : ''}
-      onChange={(event) => handlePreset(event.target.value)}
-      className={`h-8 rounded-md border border-[#E5E7EB] bg-white px-2 text-xs font-medium text-[#374151] shadow-sm transition-colors hover:bg-gray-50 focus:outline-none cursor-pointer ${extraClass}`}
-      aria-label="Quick filters"
-    >
-      <option value="" disabled>{preset === 'custom' ? 'Custom' : 'Quick Filters'}</option>
-      {QUICK_FILTERS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-    </select>
-  )
-
   const iconButton = 'h-8 w-8 shrink-0 rounded-md border border-[#E5E7EB] bg-white text-[#374151] shadow-sm flex items-center justify-center transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50'
 
   // Clear custom dates and go back to the default quick filter (Today)
@@ -462,34 +451,81 @@ const DealsReportPage = () => {
     handlePreset('today')
   }
 
-  const datePickerPopover = datePickerOpen && (
-    <div data-deals-datepicker="" className={`${isMobile ? 'fixed inset-x-3 top-28 z-[100] max-h-[calc(100dvh-124px)] overflow-y-auto' : 'absolute right-0 top-10 z-50 w-80'} rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xl`} role="dialog" aria-label="Custom date range">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-bold text-slate-800">Custom date range</h3>
-        <button type="button" onClick={() => setDatePickerOpen(false)} aria-label="Close date picker" className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100">
+  const mobileDatePicker = (
+    <div data-deals-datepicker="" role="dialog" aria-label="Custom date range" onKeyDown={event => { if (event.key === 'Escape') setDatePickerOpen(false) }} className="fixed left-1/2 top-28 z-[100] w-[280px] max-w-[calc(100vw-24px)] -translate-x-1/2 max-h-[calc(100dvh-124px)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 text-left shadow-lg">
+      <h3 className="text-sm font-semibold text-slate-800">Custom date range</h3>
+      <p className="mt-1 text-[11px] text-slate-500">Filter brokerage data for the selected period.</p>
+      <div className="mt-4 space-y-4">
+        <label className="block text-xs font-medium text-slate-600">
+          From
+          <input type="date" aria-label="From date" value={customFrom} max={customTo || toYmd(serverNowDate())} onChange={event => setCustomFrom(event.target.value)} className="mt-1.5 block h-10 w-full min-w-0 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
+          To
+          <input type="date" aria-label="To date" value={customTo} min={customFrom || undefined} max={toYmd(serverNowDate())} onChange={event => setCustomTo(event.target.value)} className="mt-1.5 block h-10 w-full min-w-0 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+        </label>
+      </div>
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <button type="button" onClick={() => { setCustomFrom(''); setCustomTo('') }} disabled={!customFrom && !customTo} className="h-9 rounded-md px-2 text-xs font-medium text-slate-500 hover:bg-slate-50 disabled:text-slate-300">Clear</button>
+        <button type="button" onClick={applyCustomDates} disabled={!customFrom || !customTo || customFrom > customTo || customTo > toYmd(serverNowDate())} className="h-9 rounded-md bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Apply dates</button>
+      </div>
+    </div>
+  )
+
+  const datePickerPopover = datePickerOpen && (isMobile ? mobileDatePicker : (
+    <div data-deals-datepicker="" className={`${isMobile ? 'fixed inset-x-3 top-28 z-[100] max-h-[calc(100dvh-124px)] overflow-y-auto' : 'absolute right-0 top-10 z-50 w-[360px]'} overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-[0_12px_40px_rgba(15,23,42,0.16)]`} role="dialog" aria-label="Date range" onKeyDown={event => { if (event.key === 'Escape') setDatePickerOpen(false) }}>
+      <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M16 3v4M8 3v4M3 11h18" /></svg>
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-slate-900">Date range</h3>
+          <p className="mt-0.5 text-xs text-slate-500">Choose the period for your deals</p>
+        </div>
+        <button type="button" onClick={() => setDatePickerOpen(false)} aria-label="Close date picker" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-blue-600">
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
       </div>
-      <p className="mt-1 text-xs text-slate-500">Show deals made in the selected period.</p>
-      <div className="mt-3 grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
-        <label className="text-xs font-semibold text-slate-600">From<DateInputDMY className="mt-1" value={customFrom} max={customTo || undefined} onChange={setCustomFrom} ariaLabel="From date" /></label>
-        <label className="text-xs font-semibold text-slate-600">To<DateInputDMY className="mt-1" value={customTo} min={customFrom || undefined} max={toYmd(serverNowDate())} onChange={setCustomTo} ariaLabel="To date" /></label>
+      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-4 p-4">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-600">From date</p>
+          <DateInputDMY className="mt-2 [&>input[type=text]]:h-11 [&>input[type=text]]:font-medium [&>button]:h-10 [&>button]:w-8 [&>button]:right-0.5" value={customFrom} max={customTo || undefined} onChange={setCustomFrom} ariaLabel="From date" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-600">To date</p>
+          <DateInputDMY className="mt-2 [&>input[type=text]]:h-11 [&>input[type=text]]:font-medium [&>button]:h-10 [&>button]:w-8 [&>button]:right-0.5" value={customTo} min={customFrom || undefined} max={toYmd(serverNowDate())} onChange={setCustomTo} ariaLabel="To date" />
+        </div>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2"><button type="button" onClick={clearCustomDates} className="h-8 rounded-md border border-[#E5E7EB] bg-white px-4 text-xs font-semibold text-[#374151] shadow-sm hover:bg-gray-50">Clear</button><button type="button" onClick={applyCustomDates} className="h-8 rounded-md bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-blue-700">Apply dates</button></div>
+      <div className="flex items-center gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-3">
+        <button type="button" onClick={clearCustomDates} className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 focus-visible:outline-blue-600">Reset to today</button>
+        <button type="button" onClick={applyCustomDates} className="h-11 flex-1 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-blue-600">Apply dates</button>
+      </div>
+    </div>
+  ))
+
+  const moduleFilterButtons = (
+    <div className="flex shrink-0 items-center h-8 bg-[#F3F4F6] rounded-md p-0.5 shadow-inner" role="group" aria-label="Transaction type">
+      {['deal', 'money', 'both'].map(value => (
+        <button key={value} type="button" aria-pressed={moduleFilter === value} onClick={() => { setModuleFilter(value); setPage(1) }} className={`h-full px-2 md:px-3 text-xs font-semibold rounded transition-colors ${moduleFilter === value ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}>
+          {value === 'deal' ? 'Deal' : value === 'money' ? 'Money' : 'Both'}
+        </button>
+      ))}
     </div>
   )
 
   const actionButtons = (
     <>
+      <QuickTimeFilter value={preset} onChange={value => { handlePreset(value); setDatePickerOpen(false) }} />
       <div className="relative" data-deals-datepicker="">
-        <button type="button" onClick={() => setDatePickerOpen(value => !value)} className={iconButton} aria-expanded={datePickerOpen} aria-haspopup="dialog" title="Custom date range">
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="4.5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M8 2.5v4M16 2.5v4M3 9h18" /></svg>
+        <button type="button" onClick={() => { if (isMobile && !datePickerOpen && preset !== 'custom') { setCustomFrom(''); setCustomTo('') } setDatePickerOpen(value => !value) }} className={iconButton} aria-expanded={datePickerOpen} aria-haspopup="dialog" aria-label="Choose custom dates">
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></svg>
         </button>
         {!isMobile && datePickerPopover}
       </div>
       <button type="button" onClick={handleExport} disabled={exporting || loading || !total} className={iconButton} aria-label="Export deals" title={exporting ? `Exporting ${exportProgress.done} / ${exportProgress.total}...` : 'Export all deals in this range to Excel'}>
         <svg className={`h-4 w-4 ${exporting ? 'animate-pulse text-blue-600' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>
       </button>
+      {isMobile && moduleFilterButtons}
       <button type="button" onClick={refreshDeals} disabled={loading} className={iconButton} aria-label="Refresh deals" title="Refresh deals">
         <svg className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
       </button>
@@ -499,6 +535,7 @@ const DealsReportPage = () => {
   // Full-screen export dialog (same as Bills export), shown in both mobile and desktop views
   const exportingNote = exporting && (
     <LoadingSpinner
+      onCancel={cancelExport}
       message="Exporting all deals…"
       subtitle={exportProgress.total ? `${exportProgress.done.toLocaleString('en-IN')} / ${exportProgress.total.toLocaleString('en-IN')} deals · Please wait` : 'Please wait'}
       progress={exportProgress.total ? Math.round((exportProgress.done / exportProgress.total) * 100) : null}
@@ -510,7 +547,7 @@ const DealsReportPage = () => {
     : (
       <div className="flex min-h-[200px] flex-col items-center justify-center px-5 text-center">
         <p className="text-sm font-semibold text-slate-700">No deals found</p>
-        <p className="mt-1 text-xs text-slate-500">{search ? 'Try a different search.' : 'Try a wider date range from Quick Filters.'}</p>
+        <p className="mt-1 text-xs text-slate-500">{search ? 'Try a different search.' : 'Try a wider date range from Time Period.'}</p>
       </div>
     )
 
@@ -542,8 +579,7 @@ const DealsReportPage = () => {
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {/* Toolbar */}
             <div className="pt-3 pb-2 px-2">
-              <div className="flex items-center gap-2">
-                {quickFilterSelect('h-8 rounded-[12px] text-[11px]')}
+              <div className="flex w-full items-center gap-[4px] [&>select]:w-24 [&>select]:h-7 [&>select]:px-1 [&>select]:text-[10px] [&>button]:h-7 [&>button]:w-7 [&>div>button]:h-7 [&>div>button]:w-7 [&>div[role=group]]:h-7 [&>div[role=group]>button]:w-auto [&>div[role=group]>button]:px-1.5 [&>div[role=group]>button]:text-[10px]">
                 {actionButtons}
               </div>
               {exportingNote}
@@ -632,7 +668,7 @@ const DealsReportPage = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {quickFilterSelect()}
+                {moduleFilterButtons}
                 {actionButtons}
               </div>
             </div>

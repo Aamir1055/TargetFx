@@ -373,9 +373,9 @@ const PositionsPage = () => {
   const prevNetPageRef = useRef(1)
   
   // NET positions toggle and grouping
-  const [showNetPositions, setShowNetPositions] = useState(true)
+  const [showNetPositions, setShowNetPositions] = useState(false)
   // Exchange view: NET positions segregated by exchange (mutually exclusive with NET Position)
-  const [showExchangeView, setShowExchangeView] = useState(false)
+  const [showExchangeView, setShowExchangeView] = useState(true)
   const [hasFetchedExchange, setHasFetchedExchange] = useState(false)
   const exchangeViewRef = useRef(null)
   const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)

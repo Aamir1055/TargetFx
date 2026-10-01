@@ -68,7 +68,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
   const percentage = displayMode === 'percentage'
 
   const [availableExchanges, setAvailableExchanges] = useState([])
-  const [selectedExchanges, setSelectedExchanges] = useState([])
+  const [selectedExchanges, setSelectedExchanges] = useState(null)
   const [exchangeMenuOpen, setExchangeMenuOpen] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -112,7 +112,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
     const body = { sortBy, sortOrder }
     if (search) body.search = search
     if (percentage) body.percentage = true
-    if (selectedExchanges.length) body.exchange = selectedExchanges
+    if (selectedExchanges?.length) body.exchange = selectedExchanges
     if (loginFilter) body.filters = [{ field: 'login', operator: 'in', value: loginFilter.length ? loginFilter : [-1] }]
     return body
   }
@@ -134,6 +134,14 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
 
   // Poll while mounted (same live behaviour as the NET Position tab)
   useEffect(() => {
+    if (selectedExchanges?.length === 0) {
+      setGroups([])
+      setError('')
+      setHasFetched(true)
+      onTotals?.({}, 0)
+      onLoaded?.()
+      return undefined
+    }
     let timer = null
     let cancelled = false
     const poll = async () => {
@@ -180,17 +188,17 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
     return next
   })
 
-  // An empty selection means "all exchanges" (no filter sent) - shown as every box ticked
-  const isExchangeChecked = (exchange) => !selectedExchanges.length || selectedExchanges.includes(exchange)
+  // null selects all exchanges; an empty array explicitly selects none.
+  const isExchangeChecked = (exchange) => selectedExchanges === null || selectedExchanges.includes(exchange)
+  const allExchangesSelected = availableExchanges.every(isExchangeChecked)
+  const anyExchangeSelected = availableExchanges.some(isExchangeChecked)
   const toggleExchange = (exchange) => setSelectedExchanges(prev => {
-    const current = prev.length ? prev : availableExchanges
-    const next = current.includes(exchange) ? current.filter(e => e !== exchange) : [...current, exchange]
-    if (!next.length) return prev // keep at least one exchange selected
-    return next.length === availableExchanges.length ? [] : next
+    const current = prev === null ? availableExchanges : prev
+    return current.includes(exchange) ? current.filter(e => e !== exchange) : [...current, exchange]
   })
 
   const exportData = async () => {
-    if (exporting) return
+    if (exporting || selectedExchanges?.length === 0) return
     setExporting(true)
     try {
       const parsed = parseResponse(await brokerAPI.getNetPositionsByExchange(buildBody()))
@@ -239,18 +247,24 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
         type="button"
         onClick={() => setExchangeMenuOpen(v => !v)}
         className={`${isMobile ? 'h-[28px] px-2 text-[10px] rounded-[10px]' : 'h-10 px-3 text-xs rounded-lg'} bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1.5 font-medium text-[#374151] hover:bg-gray-50 whitespace-nowrap`}
+        aria-label="Filter exchanges"
+        title="Filter exchanges"
         aria-expanded={exchangeMenuOpen}
       >
         <svg className={isMobile ? 'w-3 h-3' : 'w-3.5 h-3.5'} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-        {selectedExchanges.length ? `${selectedExchanges.length} Exchange${selectedExchanges.length > 1 ? 's' : ''}` : 'All Exchanges'}
+        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[10px] font-semibold leading-none text-white">
+          {selectedExchanges === null ? availableExchanges.length : selectedExchanges.length}
+        </span>
+        <span>Exchange</span>
       </button>
       {exchangeMenuOpen && (
-        <div className={`absolute ${isMobile ? 'right-0' : 'left-0'} top-full mt-1 w-52 bg-white rounded-lg shadow-lg border border-[#E5E7EB] z-50 py-1 max-h-72 overflow-y-auto`}>
+        <div className={`absolute ${isMobile ? 'right-0' : 'left-0'} top-full mt-1 w-64 bg-white rounded-lg shadow-lg border border-[#E5E7EB] z-50 py-1 max-h-72 overflow-y-auto`}>
           <div className="px-3 py-1.5 flex items-center justify-between border-b border-[#F3F4F6]">
             <span className="text-[11px] font-semibold uppercase text-[#6B7280]">Exchanges</span>
-            {selectedExchanges.length > 0 && (
-              <button type="button" onClick={() => setSelectedExchanges([])} className="text-[11px] font-medium text-blue-600">Select all</button>
-            )}
+            <div className="flex items-center gap-2">
+              {!allExchangesSelected && <button type="button" onClick={() => setSelectedExchanges(null)} className="text-[11px] font-medium text-blue-600">Select all</button>}
+              {anyExchangeSelected && <button type="button" onClick={() => setSelectedExchanges([])} className="text-[11px] font-medium text-blue-600">Deselect all</button>}
+            </div>
           </div>
           {availableExchanges.length === 0 ? (
             <p className="px-3 py-2 text-xs text-[#9CA3AF]">No exchanges found</p>
@@ -269,7 +283,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
     <div className="py-10 text-center">
       {error
         ? <p className="text-sm text-red-600">{error}</p>
-        : <p className="text-sm text-gray-500">{search ? 'No symbols match your search' : 'No exchange positions available'}</p>}
+        : <p className="text-sm text-gray-500">{selectedExchanges?.length === 0 ? 'Select an exchange to view positions' : search ? 'No symbols match your search' : 'No exchange positions available'}</p>}
     </div>
   )
 
