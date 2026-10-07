@@ -92,6 +92,10 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
   }, [])
 
   useEffect(() => {
+    if (!searchInput.trim()) {
+      setSearch('')
+      return undefined
+    }
     if (!isMobile) return undefined
     const timer = setTimeout(() => setSearch(searchInput.trim()), 400)
     return () => clearTimeout(timer)

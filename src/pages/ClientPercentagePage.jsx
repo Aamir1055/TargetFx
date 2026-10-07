@@ -1148,7 +1148,14 @@ const ClientPercentagePage = () => {
                       <input
                         type="text"
                         value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
+                        onChange={(e) => {
+                        const value = e.target.value
+                        setSearchInput(value)
+                        if (!value.trim()) {
+                          setSearchQuery('')
+                          setCurrentPage(1)
+                        }
+                      }}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         placeholder="Search by Login and Type"
                         className="w-full h-10 pl-10 pr-20 text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"

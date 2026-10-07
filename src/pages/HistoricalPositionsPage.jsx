@@ -125,6 +125,7 @@ const HistoricalPositionsPage = () => {
   const [error, setError] = useState('')
   const [selectedSymbol, setSelectedSymbol] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchResetVersion, setSearchResetVersion] = useState(0)
   const [appliedFilters, setAppliedFilters] = useState({ from: defaults.from, to: defaults.to, threshold: 5, percentage: true })
 
   // Close the custom date picker when clicking/tapping outside of it (desktop + mobile)
@@ -173,7 +174,7 @@ const HistoricalPositionsPage = () => {
     }
     load()
     return () => { cancelled = true }
-  }, [appliedFilters, isAuthenticated, page, pageSize])
+  }, [appliedFilters, isAuthenticated, page, pageSize, searchResetVersion])
 
   const total = Number(pagination?.total ?? report.length) || report.length
   const totalPages = Math.max(1, Number(pagination?.total_pages ?? pagination?.totalPages ?? Math.ceil(total / pageSize)) || 1)
@@ -287,7 +288,14 @@ const HistoricalPositionsPage = () => {
           <div className="mb-3 flex items-center gap-1.5">
             <div className="flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-[10px] border border-[#ECECEC] bg-white px-2.5 shadow-[0_0_12px_rgba(75,75,75,0.05)] sm:h-10 sm:max-w-md sm:px-3">
               <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="shrink-0" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="#4B4B4B" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              <input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search by symbol" aria-label="Search symbols" className="min-w-0 flex-1 border-0 bg-transparent font-outfit text-[12px] text-[#4B4B4B] outline-none placeholder:text-[#999999] sm:text-sm" />
+              <input type="search" value={searchTerm} onChange={(event) => {
+                const value = event.target.value
+                setSearchTerm(value)
+                if (!value.trim()) {
+                  setPage(1)
+                  setSearchResetVersion(version => version + 1)
+                }
+              }} placeholder="Search by symbol" aria-label="Search symbols" className="min-w-0 flex-1 border-0 bg-transparent font-outfit text-[12px] text-[#4B4B4B] outline-none placeholder:text-[#999999] sm:text-sm" />
             </div>
             <button type="button" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[#ECECEC] bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] transition-colors sm:h-10 sm:w-10 ${page <= 1 ? 'cursor-not-allowed opacity-40' : 'hover:bg-gray-50'}`} aria-label="Previous page">
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 14L8 10L12 6" stroke="#4B4B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>

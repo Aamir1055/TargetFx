@@ -1264,7 +1264,14 @@ const PendingOrdersPage = () => {
                     <input
                       type="text"
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setSearchQuery(value)
+                        if (!value.trim()) {
+                          setActiveSearch('')
+                          setCurrentPage(1)
+                        }
+                      }}
                       onKeyDown={handleSearchKeyDown}
                       placeholder="Search"
                       className={`w-full h-10 pl-10 ${searchQuery ? 'pr-20' : 'pr-10'} text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}

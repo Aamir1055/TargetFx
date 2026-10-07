@@ -119,7 +119,7 @@ const PositionsPage = () => {
   const [netSortDirection, setNetSortDirection] = useState('asc')
   // Search for NET view
   const [netSearchQuery, setNetSearchQuery] = useState('')
-  const [netActiveSearch, setNetActiveSearch] = useState('') // only sent to API on Enter or search icon click
+  const [netActiveSearch, setNetActiveSearch] = useState('') // applied on Enter/search click, or reset when the input is cleared
   const netSearchRef = useRef(null)
   const netCardFilterRef = useRef(null)
   // Card filter for NET summary cards
@@ -156,7 +156,7 @@ const PositionsPage = () => {
   const [clientNetSortDirection, setClientNetSortDirection] = useState('asc')
   // Client NET search
   const [clientNetSearchQuery, setClientNetSearchQuery] = useState('')
-  const [clientNetActiveSearch, setClientNetActiveSearch] = useState('') // only sent to API on Enter or search icon click
+  const [clientNetActiveSearch, setClientNetActiveSearch] = useState('') // applied on Enter/search click, or reset when the input is cleared
   const clientNetSearchRef = useRef(null)
   const clientNetCardFilterRef = useRef(null)
   // Client NET pagination
@@ -362,7 +362,7 @@ const PositionsPage = () => {
   
   // Search state for ALL positions view
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeSearch, setActiveSearch] = useState('') // only sent to API on Enter or search icon click
+  const [activeSearch, setActiveSearch] = useState('') // applied on Enter/search click, or reset when the input is cleared
   
   // Pagination states for ALL positions view
   const [currentPage, setCurrentPage] = useState(1)
@@ -2845,7 +2845,14 @@ const PositionsPage = () => {
                         <input
                           type="text"
                           value={netSearchQuery}
-                          onChange={(e) => setNetSearchQuery(e.target.value)}
+                          onChange={(e) => {
+                        const value = e.target.value
+                        setNetSearchQuery(value)
+                        if (!value.trim()) {
+                          setNetActiveSearch('')
+                          setNetCurrentPage(1)
+                        }
+                      }}
                           onKeyDown={handleNetSearchKeyDown}
                           placeholder="Search symbol or NET type"
                           className={`pl-9 ${netSearchQuery ? 'pr-16' : 'pr-9'} py-1.5 text-xs border border-indigo-200 rounded-lg bg-white text-gray-700 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-85 shadow-sm transition-all`}
@@ -3400,7 +3407,14 @@ const PositionsPage = () => {
                       <input
                         type="text"
                         value={clientNetSearchQuery}
-                        onChange={(e) => setClientNetSearchQuery(e.target.value)}
+                        onChange={(e) => {
+                        const value = e.target.value
+                        setClientNetSearchQuery(value)
+                        if (!value.trim()) {
+                          setClientNetActiveSearch('')
+                          setClientNetCurrentPage(1)
+                        }
+                      }}
                         onKeyDown={handleClientNetSearchKeyDown}
                         placeholder="Search login, symbol or NET"
                         className={`pl-9 ${clientNetSearchQuery ? 'pr-16' : 'pr-9'} py-1.5 text-xs border border-indigo-200 rounded-lg bg-white text-gray-700 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-56 shadow-sm transition-all`}
@@ -3800,7 +3814,14 @@ const PositionsPage = () => {
                     <input
                       type="text"
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setSearchQuery(value)
+                        if (!value.trim()) {
+                          setActiveSearch('')
+                          setCurrentPage(1)
+                        }
+                      }}
                       onKeyDown={handleSearchKeyDown}
                       placeholder="Search"
                       className={`w-full h-10 pl-10 ${searchQuery ? 'pr-20' : 'pr-10'} text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}

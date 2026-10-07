@@ -2004,6 +2004,7 @@ const LiveDealingPage = () => {
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value)
+                        if (!e.target.value.trim()) setDebouncedSearchQuery('')
                         setCurrentPage(1)
                       }}
                       onKeyDown={handleSearchKeyDown}

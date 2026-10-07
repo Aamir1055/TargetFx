@@ -827,7 +827,14 @@ const ReportsExchangePage = () => {
                   <input
                     type="text"
                     value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
+                    onChange={(event) => {
+                        const value = event.target.value
+                        setSearchInput(value)
+                        if (!value.trim()) {
+                          setSearch('')
+                          setCurrentPage(1)
+                        }
+                      }}
                     placeholder="Search"
                     aria-label="Search by Login or Name"
                     className="h-8 w-full rounded-md border border-[#E5E7EB] bg-[#F9FAFB] pl-7 pr-12 text-[11px] text-[#1F2937] placeholder:text-[#9CA3AF] transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 sm:h-10 sm:pl-3 sm:pr-16 sm:text-sm"

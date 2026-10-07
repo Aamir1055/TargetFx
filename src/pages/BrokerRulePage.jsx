@@ -219,6 +219,7 @@ const BrokerRulePage = () => {
                   onChange={(e) => {
                     setSearchTerm(e.target.value)
                     setCurrentPage(1)
+                    if (!e.target.value.trim()) fetchAvailableRules()
                   }}
                   placeholder="Search login, code, name..."
                   className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
@@ -236,6 +237,7 @@ const BrokerRulePage = () => {
                     onClick={() => {
                       setSearchTerm('')
                       setCurrentPage(1)
+                      fetchAvailableRules()
                     }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
