@@ -5,6 +5,9 @@ import { createPortal } from 'react-dom'
 import { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
+import GroupSelector from '../components/GroupSelector'
+import GroupModal from '../components/GroupModal'
+import { useGroups } from '../contexts/GroupContext'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
 import PageSizeSelect from '../components/PageSizeSelect'
@@ -95,6 +98,13 @@ const VISIBLE_COLUMNS_STORAGE_KEY = 'dealsReportVisibleColumns'
 const formatPrice =(value) => formatNumber(value, value !== 0 && Math.abs(value) < 10 ? 5 : 2)
 
 const DealsReportPage = () => {
+  const { groups, getActiveGroupFilter, getGroupLogins } = useGroups()
+  const activeGroupName = getActiveGroupFilter('deals-report')
+  const activeGroup = groups.find(group => group.name === activeGroupName) || null
+  const groupKey = JSON.stringify(activeGroup)
+  const previousGroupKey = useRef(groupKey)
+  const [showGroupModal, setShowGroupModal] = useState(false)
+  const [editingGroup, setEditingGroup] = useState(null)
   const exportControllerRef = useRef(null)
   useEffect(() => () => exportControllerRef.current?.abort(), [])
   const cancelExport = () => {
@@ -273,9 +283,15 @@ const DealsReportPage = () => {
   // so a numeric query is sent as a login filter instead. The time column sorts as `deal_time`.
   const buildExtraBody = () => {
     const body = { sortBy: sortBy === 'time' ? 'deal_time' : sortBy, sortOrder }
-    if (/^\d+$/.test(search)) body.filters = [{ field: 'login', operator: 'equal', value: Number(search) }]
-    else if (search) body.search = search
-    const filters = body.filters || []
+    const filters = []
+    let logins = activeGroup ? [...new Set(getGroupLogins(activeGroup.name).map(Number).filter(Number.isFinite))] : null
+    if (/^\d+$/.test(search)) {
+      const login = Number(search)
+      logins = logins === null ? [login] : logins.filter(value => value === login)
+    } else if (search) body.search = search
+    if (logins !== null) filters.push(logins.length === 1
+      ? { field: 'login', operator: 'equal', value: logins[0] }
+      : { field: 'login', operator: 'in', value: logins })
     if (moduleFilter === 'deal') filters.push({ field: 'action', operator: 'in', value: ['BUY', 'SELL'] })
     if (moduleFilter === 'money') {
       filters.push({ field: 'action', operator: 'not_equal', value: 'BUY' })
@@ -287,6 +303,13 @@ const DealsReportPage = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return undefined
+    if (previousGroupKey.current !== groupKey) {
+      previousGroupKey.current = groupKey
+      if (page !== 1) {
+        setPage(1)
+        return undefined
+      }
+    }
     let cancelled = false
     const load = async () => {
       setLoading(true)
@@ -296,7 +319,7 @@ const DealsReportPage = () => {
         if (cancelled) return
         const payload = response?.data ?? response ?? {}
         const rows = payload?.deals || payload?.items || []
-        const apiTotal = payload?.total ?? payload?.totalCount ?? payload?.total_count ?? payload?.pagination?.total
+        const apiTotal = payload?.pagination?.total ?? payload?.total ?? payload?.totalCount ?? payload?.total_count
         setDeals(Array.isArray(rows) ? rows : [])
         setTotal(apiTotal != null ? Number(apiTotal) || 0 : rows.length)
       } catch (requestError) {
@@ -312,7 +335,7 @@ const DealsReportPage = () => {
     load()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, search, moduleFilter, isAuthenticated, page, effectivePageSize, sortBy, sortOrder, reloadKey])
+  }, [range, search, moduleFilter, isAuthenticated, page, effectivePageSize, sortBy, sortOrder, reloadKey, groupKey])
 
   const totalPages = Math.max(1, Math.ceil(total / effectivePageSize))
 
@@ -365,7 +388,7 @@ const DealsReportPage = () => {
       const first = getPayload(await brokerAPI.getAllDeals(range.from, range.to, EXPORT_CHUNK, 1, extra, { signal: controller.signal }))
       if (controller.signal.aborted) return
       let rows = first?.deals || first?.items || []
-      const exportTotal = Number(first?.total ?? first?.totalCount ?? rows.length) || rows.length
+      const exportTotal = Number(first?.pagination?.total ?? first?.total ?? first?.totalCount ?? first?.total_count ?? rows.length) || rows.length
       const pages = Math.ceil(exportTotal / EXPORT_CHUNK)
       setExportProgress({ done: rows.length, total: exportTotal })
       for (let p = 2; p <= pages; p++) {
@@ -513,6 +536,12 @@ const DealsReportPage = () => {
     </div>
   )
 
+  const groupSelector = <GroupSelector
+    moduleName="deals-report"
+    onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }}
+    onEditClick={(group) => { setEditingGroup(group); setShowGroupModal(true) }}
+  />
+
   const actionButtons = (
     <>
       <QuickTimeFilter value={preset} onChange={value => { handlePreset(value); setDatePickerOpen(false) }} />
@@ -579,6 +608,7 @@ const DealsReportPage = () => {
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {/* Toolbar */}
             <div className="pt-3 pb-2 px-2">
+              <div className="mb-2 flex justify-end">{groupSelector}</div>
               <div className="flex w-full items-center gap-[4px] [&>select]:w-24 [&>select]:h-7 [&>select]:px-1 [&>select]:text-[10px] [&>button]:h-7 [&>button]:w-7 [&>div>button]:h-7 [&>div>button]:w-7 [&>div[role=group]]:h-7 [&>div[role=group]>button]:w-auto [&>div[role=group]>button]:px-1.5 [&>div[role=group]>button]:text-[10px]">
                 {actionButtons}
               </div>
@@ -657,7 +687,7 @@ const DealsReportPage = () => {
         {/* ───────── Tablet / desktop (matches Live Dealing) ───────── */}
         <div className="hidden md:flex max-w-full mx-auto w-full flex-col flex-1 overflow-hidden">
           <div className="bg-white rounded-2xl shadow-sm px-6 py-3 mb-6">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <button type="button" onClick={() => setSidebarOpen(true)} className="lg:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F8F8F8] text-slate-900" aria-label="Open menu">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25}><path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -667,7 +697,8 @@ const DealsReportPage = () => {
                   <p className="text-xs text-[#6B7280] mt-0.5">All deals across all accounts</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {groupSelector}
                 {moduleFilterButtons}
                 {actionButtons}
               </div>
@@ -855,6 +886,14 @@ const DealsReportPage = () => {
           </div>
         </div>
       )}
+      <GroupModal
+        isOpen={showGroupModal}
+        onClose={() => { setShowGroupModal(false); setEditingGroup(null) }}
+        availableItems={deals}
+        loginField="login"
+        displayField="name"
+        editGroup={editingGroup}
+      />
     </div>
   )
 }

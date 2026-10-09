@@ -435,18 +435,24 @@ const BillsPage = () => {
   }, [])
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  // Debounce search-as-you-type so the API fires while the user types
+  // Desktop applies search on submit; mobile keeps search-as-you-type.
+  // Clearing either input removes the applied search immediately.
   useEffect(() => {
-    const t = setTimeout(() => {
-      setSearch(prev => {
-        const next = searchInput.trim()
-        if (prev === next) return prev
+    const next = searchInput.trim()
+    if (!next) {
+      if (search) {
+        setSearch('')
         setPage(1)
-        return next
-      })
+      }
+      return undefined
+    }
+    if (!isMobile || next === search) return undefined
+    const timer = setTimeout(() => {
+      setSearch(next)
+      setPage(1)
     }, 350)
-    return () => clearTimeout(t)
-  }, [searchInput])
+    return () => clearTimeout(timer)
+  }, [searchInput, search, isMobile])
   const [sortBy, setSortBy] = useState('login')
   const [sortOrder, setSortOrder] = useState('asc')
   const [hideZeroNet, setHideZeroNet] = useState(true)

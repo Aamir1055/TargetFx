@@ -125,6 +125,7 @@ const HistoricalPositionsPage = () => {
   const [error, setError] = useState('')
   const [selectedSymbol, setSelectedSymbol] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
   const [searchResetVersion, setSearchResetVersion] = useState(0)
   const [appliedFilters, setAppliedFilters] = useState({ from: defaults.from, to: defaults.to, threshold: 5, percentage: true })
 
@@ -180,7 +181,7 @@ const HistoricalPositionsPage = () => {
   const totalPages = Math.max(1, Number(pagination?.total_pages ?? pagination?.totalPages ?? Math.ceil(total / pageSize)) || 1)
   const filteredReport = report.filter((row) => {
     const symbol = String(row.Symbol ?? row.symbol ?? '').toLowerCase()
-    return symbol.includes(searchTerm.trim().toLowerCase())
+    return symbol.includes(appliedSearch.toLowerCase())
   })
 
   const applyFilters = (event) => {
@@ -285,18 +286,34 @@ const HistoricalPositionsPage = () => {
               <button type="button" onClick={() => setAppliedFilters(value => ({ ...value }))} disabled={loading} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#4B4B4B] shadow-sm hover:bg-gray-50 disabled:opacity-50" aria-label="Refresh report" title="Refresh report"><svg className={`h-2.5 w-2.5 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 11a8.1 8.1 0 0 0-15.5-3M4 5v3h3M4 13a8.1 8.1 0 0 0 15.5 3M20 19v-3h-3" /></svg></button>
           </form>
 
-          <div className="mb-3 flex items-center gap-1.5">
-            <div className="flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-[10px] border border-[#ECECEC] bg-white px-2.5 shadow-[0_0_12px_rgba(75,75,75,0.05)] sm:h-10 sm:max-w-md sm:px-3">
-              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="shrink-0" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="#4B4B4B" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="#4B4B4B" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              <input type="search" value={searchTerm} onChange={(event) => {
+          <div className="mb-3 flex shrink-0 flex-wrap items-center gap-1.5 px-1 py-1">
+            <form onSubmit={(event) => {
+              event.preventDefault()
+              setAppliedSearch(searchTerm.trim())
+              setPage(1)
+              setSearchResetVersion(version => version + 1)
+            }} role="search" className="flex h-[43px] min-h-[43px] min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-[#ECECEC] bg-white pl-2.5 pr-1 shadow-[0_0_12px_rgba(75,75,75,0.05)] focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 sm:max-w-md">
+              <input type="text" value={searchTerm} onChange={(event) => {
                 const value = event.target.value
                 setSearchTerm(value)
                 if (!value.trim()) {
+                  setAppliedSearch('')
                   setPage(1)
                   setSearchResetVersion(version => version + 1)
                 }
               }} placeholder="Search by symbol" aria-label="Search symbols" className="min-w-0 flex-1 border-0 bg-transparent font-outfit text-[12px] text-[#4B4B4B] outline-none placeholder:text-[#999999] sm:text-sm" />
-            </div>
+              {searchTerm && <button type="button" onClick={() => {
+                setSearchTerm('')
+                setAppliedSearch('')
+                setPage(1)
+                setSearchResetVersion(version => version + 1)
+              }} aria-label="Clear search" title="Clear search" className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 hover:text-gray-700">
+                <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="m6 6 12 12M6 18 18 6" /></svg>
+              </button>}
+              <button type="submit" aria-label="Search" title="Search" className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-blue-500 text-white hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </button>
+            </form>
             <button type="button" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[#ECECEC] bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] transition-colors sm:h-10 sm:w-10 ${page <= 1 ? 'cursor-not-allowed opacity-40' : 'hover:bg-gray-50'}`} aria-label="Previous page">
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 14L8 10L12 6" stroke="#4B4B4B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
@@ -310,7 +327,7 @@ const HistoricalPositionsPage = () => {
           </div>
 
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
-            {loading ? <div className="flex-1 overflow-auto"><HistorySkeleton /></div> : error ? <div className="flex flex-1 items-center justify-center px-5 text-center text-sm text-red-600">{error}</div> : !filteredReport.length ? <div className="flex flex-1 flex-col items-center justify-center px-5 text-center"><div className="mb-3 rounded-full bg-slate-100 p-3 text-slate-400"><svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5m0 14h16M8 16v-4m4 4V8m4 8v-6" /></svg></div><p className="text-sm font-semibold text-slate-700">{searchTerm ? 'No matching symbols found' : 'No historical position changes found'}</p><p className="mt-1 text-xs text-slate-500">{searchTerm ? 'Try a different symbol name.' : 'Try a wider date range or a lower threshold.'}</p></div> : (
+            {loading ? <div className="flex-1 overflow-auto"><HistorySkeleton /></div> : error ? <div className="flex flex-1 items-center justify-center px-5 text-center text-sm text-red-600">{error}</div> : !filteredReport.length ? <div className="flex flex-1 flex-col items-center justify-center px-5 text-center"><div className="mb-3 rounded-full bg-slate-100 p-3 text-slate-400"><svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5m0 14h16M8 16v-4m4 4V8m4 8v-6" /></svg></div><p className="text-sm font-semibold text-slate-700">{appliedSearch ? 'No matching symbols found' : 'No historical position changes found'}</p><p className="mt-1 text-xs text-slate-500">{appliedSearch ? 'Try a different symbol name.' : 'Try a wider date range or a lower threshold.'}</p></div> : (
               <div className="min-h-0 flex-1 overflow-auto">
                 <div className="sm:hidden">
                   <div className="grid grid-cols-[minmax(0,1.3fr)_0.8fr_0.8fr_36px] gap-2 bg-[#4285F4] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.06em] text-white">

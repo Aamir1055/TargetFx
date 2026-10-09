@@ -254,6 +254,7 @@ export const GroupProvider = ({ children }) => {
       livedealing: groupName, 'live-dealing': groupName,
       clientpercentage: groupName, 'client-percentage': groupName,
       'ib-commissions': groupName,
+      'deals-report': groupName,
       bills: groupName,
       exchange: groupName, 'reports-exchange': groupName
     }))

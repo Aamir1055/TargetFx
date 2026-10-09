@@ -46,7 +46,11 @@ const LiveDealingPage = () => {
   }, [])
   
   const { positions: cachedPositions, orders: cachedOrders } = useData() // Get positions and orders from DataContext
-  const { filterByActiveGroup, activeGroupFilters } = useGroups()
+  const { groups, activeGroupFilters, getGroupLogins } = useGroups()
+  const activeGroupName = activeGroupFilters.livedealing || null
+  const activeGroup = useMemo(() => groups.find(group => group.name === activeGroupName) || null, [groups, activeGroupName])
+  const activeGroupRef = useRef(null)
+  useEffect(() => { activeGroupRef.current = activeGroup }, [activeGroup])
   const getInitialSidebarOpen = () => {
     try {
       const v = localStorage.getItem('sidebarOpen')
@@ -73,6 +77,8 @@ const LiveDealingPage = () => {
   const isInitialMount = useRef(true)
   const isPageEffectFirstRun = useRef(true)
   const isAuthEffectFirstRun = useRef(true)
+  const dealsRequestRef = useRef(0)
+  const replaceDealsRef = useRef(false)
   const fetchRef = useRef(null) // always holds latest fetchAllDealsOnce
   const currentPageRef = useRef(1) // always holds latest currentPage
   
@@ -552,12 +558,14 @@ const LiveDealingPage = () => {
       return
     }
     if (!hasInitialLoad.current) return
+    dealsRequestRef.current += 1 // Ignore responses for the previous filters.
+    replaceDealsRef.current = true
     if (currentPage !== 1) {
       setCurrentPage(1)
       return
     }
     fetchAllDealsOnce()
-  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter, columnFilters, sortColumn, sortDirection, debouncedSearchQuery])
+  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter, columnFilters, sortColumn, sortDirection, debouncedSearchQuery, activeGroup])
 
   // API call on every page or itemsPerPage change
   useEffect(() => {
@@ -682,6 +690,7 @@ const LiveDealingPage = () => {
 
   // Fetch ALL deals from API ONE TIME on initial load
   const fetchAllDealsOnce = async () => {
+    const requestId = ++dealsRequestRef.current
     try {
       setError('')
       if (deals.length > 0) {
@@ -729,6 +738,14 @@ const LiveDealingPage = () => {
       
       // Build server-side filters: module toggle + column-level filters
       const apiFilters = []
+      if (activeGroup) {
+        // The deals API does not combine two bounds on login reliably.
+        // Expand range groups inclusively and send one membership condition.
+        const logins = [...new Set(getGroupLogins(activeGroup.name).map(Number).filter(Number.isFinite))]
+        apiFilters.push(logins.length === 1
+          ? { field: 'login', operator: 'equal', value: logins[0] }
+          : { field: 'login', operator: 'in', value: logins })
+      }
       if (moduleFilter === 'deal') {
         apiFilters.push({ field: 'action', operator: 'in', value: ['BUY', 'SELL'] })
       } else if (moduleFilter === 'money') {
@@ -796,8 +813,23 @@ const LiveDealingPage = () => {
         sortBy: sortByField,
         sortOrder: sortOrderValue,
       }
-      // Send search query as a top-level search param (API searches across all fields)
-      if (trimmedSearch) {
+      // The API search parameter matches symbol/comment; logins require a field filter.
+      if (/^\d+$/.test(trimmedSearch)) {
+        const login = Number(trimmedSearch)
+        // Merge with the group constraint: the API cannot combine login conditions.
+        const groupFilterIndex = activeGroup ? 0 : -1
+        if (groupFilterIndex >= 0) {
+          const groupFilter = apiFilters[groupFilterIndex]
+          const matchesGroup = groupFilter.operator === 'equal'
+            ? groupFilter.value === login
+            : groupFilter.value.includes(login)
+          apiFilters[groupFilterIndex] = matchesGroup
+            ? { field: 'login', operator: 'equal', value: login }
+            : { field: 'login', operator: 'in', value: [] }
+        } else {
+          apiFilters.push({ field: 'login', operator: 'equal', value: login })
+        }
+      } else if (trimmedSearch) {
         extraBody.search = trimmedSearch
       }
       if (apiFilters.length > 0) extraBody.filters = apiFilters
@@ -805,14 +837,15 @@ const LiveDealingPage = () => {
       // Fetch deals using the user-selected row limit and current page
       const response = await brokerAPI.getAllDeals(from, to, itemsPerPage, currentPage, extraBody)
 
+      if (requestId !== dealsRequestRef.current) return
       const payload = response?.data ?? response
       const dealsData = payload?.deals || payload?.items || []
       const apiTotal =
+        payload?.pagination?.total ??
         payload?.total ??
         payload?.totalCount ??
         payload?.total_count ??
         payload?.count ??
-        payload?.pagination?.total ??
         null
       const rawTotal = apiTotal != null ? Number(apiTotal) : dealsData.length
       console.log('[LiveDealing] 📊 Fetch result:', { dealsCount: dealsData.length, total: rawTotal, page: currentPage })
@@ -835,11 +868,12 @@ const LiveDealingPage = () => {
       // On page 1 with no active filters/search: merge with existing deals (preserves WS deals).
       // Otherwise: replace, since merging would mix in stale rows that don't match the active filters.
       const hasActiveFilters =
+        !!activeGroup ||
         timeFilter === 'custom' ||
         (debouncedSearchQuery && debouncedSearchQuery.trim().length > 0) ||
         moduleFilter !== 'both' ||
         Object.keys(columnFilters || {}).length > 0
-      if (currentPage === 1 && !hasActiveFilters) {
+      if (currentPage === 1 && !hasActiveFilters && !replaceDealsRef.current) {
         setDeals(prevDeals => {
           const apiIds = new Set(transformedDeals.map(d => d.id))
           // Keep any existing deals that aren't in the API result (WS-added or recent)
@@ -852,9 +886,11 @@ const LiveDealingPage = () => {
         setDeals(transformedDeals)
       }
 
+      replaceDealsRef.current = false
       setLoading(false)
       setPageLoading(false)
     } catch (error) {
+      if (requestId !== dealsRequestRef.current) return
       console.error('[LiveDealing] ❌ Error loading deals:', error)
       if (error?.response?.status === 401) setUnauthorized(true)
       setError('Failed to load deals')
@@ -869,6 +905,15 @@ const LiveDealingPage = () => {
     const filters   = columnFiltersRef.current  // latest columnFilters
     const search    = (wsSearchQueryRef.current || '').trim().toLowerCase()
     const rawData   = dealEntry.rawData || {}
+    const group = activeGroupRef.current
+    if (group) {
+      const login = Number(rawData.login ?? dealEntry.login)
+      if (group.range) {
+        if (login < Number(group.range.from) || login > Number(group.range.to) || !Number.isFinite(login)) return false
+      } else if (!(group.loginIds || []).some(value => Number(value) === login)) {
+        return false
+      }
+    }
 
     // ── Module filter (Deal / Money / Both) ──────────────────────────────────
     const activeMod = moduleFilterValueRef.current
@@ -884,7 +929,9 @@ const LiveDealingPage = () => {
       const symbol = String(rawData.symbol || '').toLowerCase()
       const login = String(rawData.login || dealEntry.login || '').toLowerCase()
       const dealId = String(rawData.deal || dealEntry.id || '').toLowerCase()
-      if (!symbol.includes(search) && !login.includes(search) && !dealId.includes(search)) return false
+      if (/^\d+$/.test(search)) {
+        if (Number(login) !== Number(search)) return false
+      } else if (!symbol.includes(search) && !login.includes(search) && !dealId.includes(search)) return false
     }
 
     // ── Column filters ───────────────────────────────────────────────────────
@@ -1396,11 +1443,8 @@ const LiveDealingPage = () => {
 
   // Pagination
   const trimmedDeals = deals.slice(0, 1000) // Trim to max 1000 deals for display
-  // Server now handles search, column filters, module filter, and sorting.
-  // Group filter remains client-side (local-only feature).
-  let ibFilteredDeals = filterByActiveGroup(trimmedDeals, 'login', 'livedealing')
-
-  const sortedDeals = ibFilteredDeals
+  // The API applies group/search/column filters before pagination.
+  const sortedDeals = trimmedDeals
 
   // Server-side pagination capped at 1000 records total
   const totalPages = Math.ceil(totalDealsCount / itemsPerPage) || 1
@@ -2008,7 +2052,7 @@ const LiveDealingPage = () => {
                         setCurrentPage(1)
                       }}
                       onKeyDown={handleSearchKeyDown}
-                      placeholder="Search by symbol"
+                      placeholder="Search by login or symbol"
                       className="w-full h-10 pl-10 pr-24 text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     />
                     {searchQuery && (
