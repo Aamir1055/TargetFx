@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useId } from 'react'
 import { useGroups } from '../contexts/GroupContext'
 
-const GroupSelector = ({ onCreateClick, onEditClick, moduleName }) => {
+const GroupSelector = ({ onCreateClick, onEditClick, moduleName, compact = false }) => {
   const { groups, getActiveGroupFilter, setActiveGroupFilter, deleteGroup } = useGroups()
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef(null)
@@ -62,24 +62,25 @@ const GroupSelector = ({ onCreateClick, onEditClick, moduleName }) => {
           ref={triggerRef}
           aria-expanded={showDropdown}
           aria-controls={dropdownId}
+          aria-label={compact ? `Login groups: ${activeGroupFilter || 'All logins'}` : undefined}
           title={activeGroupFilter ? `Group filter applied: ${activeGroupFilter}` : 'Choose a group filter'}
           onClick={() => {
             setShowDropdown(value => !value)
           }}
-          className={`px-2.5 py-1.5 rounded-md border transition-colors inline-flex items-center gap-1.5 text-xs font-medium shadow-sm h-8 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 ${activeGroupFilter ? 'bg-gray-50 border-gray-300 text-gray-900 hover:bg-gray-100' : 'bg-white border-[#E5E7EB] text-[#374151] hover:bg-gray-50'}`}
+          className={`${compact ? 'px-1 h-7' : 'px-2.5 h-8'} py-1.5 rounded-md border transition-colors inline-flex items-center gap-1.5 text-xs font-medium shadow-sm min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 ${activeGroupFilter ? 'bg-gray-50 border-gray-300 text-gray-900 hover:bg-gray-100' : 'bg-white border-[#E5E7EB] text-[#374151] hover:bg-gray-50'}`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+          <svg className={compact ? 'hidden' : 'w-4 h-4'} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
-          <span className="shrink-0">Groups</span>
-          <span className={`max-w-[140px] truncate rounded px-1.5 py-0.5 text-[11px] ${activeGroupFilter ? 'bg-gray-200 text-gray-900 font-semibold' : 'bg-slate-100 text-slate-600'}`}>
+          {!compact && <span className="shrink-0">Groups</span>}
+          <span className={`${compact ? 'max-w-[64px] text-[10px]' : 'max-w-[140px] text-[11px]'} truncate rounded px-1.5 py-0.5 ${activeGroupFilter ? 'bg-gray-200 text-gray-900 font-semibold' : 'bg-slate-100 text-slate-600'}`}>
             {activeGroupFilter || 'All logins'}
           </span>
           <svg aria-hidden="true" className={`h-3 w-3 shrink-0 transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
           </svg>
         </button>
-        {activeGroupFilter && (
+        {activeGroupFilter && !compact && (
           <button type="button" onClick={() => selectGroup(null)}
             className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-gray-300 bg-white px-2 text-xs font-medium text-gray-900 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
             title="Clear group filter to include all logins"

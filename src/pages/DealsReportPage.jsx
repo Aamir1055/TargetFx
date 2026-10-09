@@ -7,6 +7,9 @@ import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
+import CustomizeViewModal from '../components/CustomizeViewModal'
+import LoginGroupsModal from '../components/LoginGroupsModal'
+import LoginGroupModal from '../components/LoginGroupModal'
 import { useGroups } from '../contexts/GroupContext'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
@@ -98,13 +101,24 @@ const VISIBLE_COLUMNS_STORAGE_KEY = 'dealsReportVisibleColumns'
 const formatPrice =(value) => formatNumber(value, value !== 0 && Math.abs(value) < 10 ? 5 : 2)
 
 const DealsReportPage = () => {
-  const { groups, getActiveGroupFilter, getGroupLogins } = useGroups()
+  const { groups, getActiveGroupFilter, getGroupLogins, setActiveGroupFilter, deleteGroup } = useGroups()
   const activeGroupName = getActiveGroupFilter('deals-report')
   const activeGroup = groups.find(group => group.name === activeGroupName) || null
   const groupKey = JSON.stringify(activeGroup)
   const previousGroupKey = useRef(groupKey)
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
+  const [mobileFilterView, setMobileFilterView] = useState(null)
+  const [pendingGroupName, setPendingGroupName] = useState(null)
+  const openMobileFilters = () => {
+    setPendingGroupName(activeGroupName)
+    setMobileFilterView('customize')
+  }
+  const applyMobileGroup = (name) => {
+    setActiveGroupFilter('deals-report', name)
+    setPage(1)
+    setMobileFilterView(null)
+  }
   const exportControllerRef = useRef(null)
   useEffect(() => () => exportControllerRef.current?.abort(), [])
   const cancelExport = () => {
@@ -608,8 +622,14 @@ const DealsReportPage = () => {
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {/* Toolbar */}
             <div className="pt-3 pb-2 px-2">
-              <div className="mb-2 flex justify-end">{groupSelector}</div>
-              <div className="flex w-full items-center gap-[4px] [&>select]:w-24 [&>select]:h-7 [&>select]:px-1 [&>select]:text-[10px] [&>button]:h-7 [&>button]:w-7 [&>div>button]:h-7 [&>div>button]:w-7 [&>div[role=group]]:h-7 [&>div[role=group]>button]:w-auto [&>div[role=group]>button]:px-1.5 [&>div[role=group]>button]:text-[10px]">
+              <div className="flex w-full flex-nowrap items-center justify-between gap-1 overflow-x-auto py-1 [&>select]:w-[72px] [&>select]:h-7 [&>select]:px-1 [&>select]:text-[10px] [&>button]:h-7 [&>button]:w-7 [&>div]:shrink-0 [&>div[data-deals-datepicker]>button]:h-7 [&>div[data-deals-datepicker]>button]:w-7 [&>div[role=group]]:h-7 [&>div[role=group]>button]:w-auto [&>div[role=group]>button]:px-1 [&>div[role=group]>button]:text-[10px]">
+                <div className="shrink-0">
+                  <button type="button" onClick={openMobileFilters} aria-haspopup="dialog" aria-expanded={mobileFilterView !== null} title={activeGroupName ? `Group filter: ${activeGroupName}` : 'Customize view'} className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-medium shadow-sm ${activeGroupName ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-[#E5E7EB] bg-white text-[#374151]'}`}>
+                    <svg className="h-3 w-3" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 3h14M4 6h10M6 9h6" /></svg>
+                    Filter
+                    {activeGroupName && <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
+                  </button>
+                </div>
                 {actionButtons}
               </div>
               {exportingNote}
@@ -851,6 +871,37 @@ const DealsReportPage = () => {
       ))}
 
       {isMobile && datePickerOpen && createPortal(datePickerPopover, document.body)}
+      {isMobile && (
+        <>
+          <CustomizeViewModal
+            isOpen={mobileFilterView === 'customize'}
+            onClose={() => setMobileFilterView(null)}
+            onGroupsClick={() => setMobileFilterView('groups')}
+            onReset={() => applyMobileGroup(null)}
+            onApply={() => applyMobileGroup(pendingGroupName)}
+            hasPendingChanges={pendingGroupName !== activeGroupName}
+          />
+          <LoginGroupsModal
+            isOpen={mobileFilterView === 'groups'}
+            onClose={() => setMobileFilterView(view => view === 'groups' ? null : view)}
+            onBack={() => setMobileFilterView('customize')}
+            groups={groups.map(group => ({ ...group, loginCount: group.range ? Number(group.range.to) - Number(group.range.from) + 1 : (group.loginIds?.length || 0) }))}
+            activeGroupName={activeGroupName}
+            onSelectGroup={group => applyMobileGroup(group?.name || null)}
+            onPendingChange={(_hasPending, name) => setPendingGroupName(name || null)}
+            onCreateGroup={() => { setEditingGroup(null); setMobileFilterView('edit') }}
+            onEditGroup={group => { setEditingGroup(group); setMobileFilterView('edit') }}
+            onDeleteGroup={group => deleteGroup(group.name)}
+          />
+          <LoginGroupModal
+            isOpen={mobileFilterView === 'edit'}
+            editGroup={editingGroup}
+            onClose={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+            onBack={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+            onSave={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+          />
+        </>
+      )}
 
       {/* Mobile column picker (bottom sheet, same as Live Dealing mobile) */}
       {columnPickerOpen && (

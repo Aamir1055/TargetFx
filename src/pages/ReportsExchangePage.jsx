@@ -6,6 +6,9 @@ import { useGroups } from '../contexts/GroupContext'
 import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
+import CustomizeViewModal from '../components/CustomizeViewModal'
+import LoginGroupsModal from '../components/LoginGroupsModal'
+import LoginGroupModal from '../components/LoginGroupModal'
 import PageSizeSelect from '../components/PageSizeSelect'
 import ExchangeBreakdownModal from '../components/ExchangeBreakdownModal'
 import { formatDate } from '../utils/dateFormatter'
@@ -134,7 +137,7 @@ const ExchangeTableSkeleton = () => (
 
 const ReportsExchangePage = () => {
   const { isAuthenticated } = useAuth()
-  const { groups, getActiveGroupFilter } = useGroups()
+  const { groups, getActiveGroupFilter, setActiveGroupFilter, deleteGroup } = useGroups()
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
@@ -153,6 +156,8 @@ const ReportsExchangePage = () => {
   const [error, setError] = useState('')
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
+  const [mobileFilterView, setMobileFilterView] = useState(null)
+  const [pendingGroupName, setPendingGroupName] = useState(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [customFromDate, setCustomFromDate] = useState('')
   const [customToDate, setCustomToDate] = useState('')
@@ -170,6 +175,16 @@ const ReportsExchangePage = () => {
 
   const activeGroupName = getActiveGroupFilter('exchange')
   const activeGroup = groups.find(group => group.name === activeGroupName) || null
+  const openMobileFilters = () => {
+    setShowDatePicker(false)
+    setPendingGroupName(activeGroupName)
+    setMobileFilterView('customize')
+  }
+  const applyMobileGroup = (name) => {
+    setActiveGroupFilter('exchange', name)
+    setCurrentPage(1)
+    setMobileFilterView(null)
+  }
 
   useEffect(() => {
     if (!showDatePicker) return undefined
@@ -732,7 +747,12 @@ const ReportsExchangePage = () => {
               </div>
             </div>
 
-            <div className="sm:hidden relative flex items-center gap-1.5 px-3 py-2 overflow-visible">
+            <div className="sm:hidden relative flex flex-nowrap items-center justify-between gap-1.5 px-3 py-2 overflow-visible">
+              <button type="button" onClick={openMobileFilters} aria-haspopup="dialog" aria-expanded={mobileFilterView !== null} title={activeGroupName ? `Group filter: ${activeGroupName}` : 'Customize view'} className={`flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] font-medium shadow-sm ${activeGroupName ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-[#E5E7EB] bg-white text-gray-700'}`}>
+                <svg className="h-3 w-3" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 3h14M4 6h10M6 9h6" /></svg>
+                Filter
+                {activeGroupName && <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
+              </button>
               {weeksLoading ? (
                 <div className="h-8 rounded-md bg-gray-200 animate-pulse flex-1 min-w-0" aria-label="Loading weeks" />
               ) : (
@@ -796,16 +816,11 @@ const ReportsExchangePage = () => {
                 )}
               </div>
 
-              <GroupSelector
-                moduleName="exchange"
-                onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }}
-                onEditClick={(group) => { setEditingGroup(group); setShowGroupModal(true) }}
-              />
               <button
                 type="button"
                 onClick={exportExcel}
                 disabled={!clients.length || exporting}
-                className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-gray-700 shadow-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-8 w-8 shrink-0 rounded-md border border-[#E5E7EB] bg-white text-gray-700 shadow-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Export Excel"
                 title="Export Excel"
               >
@@ -1005,6 +1020,35 @@ const ReportsExchangePage = () => {
         </div>
       </main>
 
+      <div className="sm:hidden">
+        <CustomizeViewModal
+          isOpen={mobileFilterView === 'customize'}
+          onClose={() => setMobileFilterView(null)}
+          onGroupsClick={() => setMobileFilterView('groups')}
+          onReset={() => applyMobileGroup(null)}
+          onApply={() => applyMobileGroup(pendingGroupName)}
+          hasPendingChanges={pendingGroupName !== activeGroupName}
+        />
+        <LoginGroupsModal
+          isOpen={mobileFilterView === 'groups'}
+          onClose={() => setMobileFilterView(view => view === 'groups' ? null : view)}
+          onBack={() => setMobileFilterView('customize')}
+          groups={groups.map(group => ({ ...group, loginCount: group.range ? Number(group.range.to) - Number(group.range.from) + 1 : (group.loginIds?.length || 0) }))}
+          activeGroupName={activeGroupName}
+          onSelectGroup={group => applyMobileGroup(group?.name || null)}
+          onPendingChange={(_hasPending, name) => setPendingGroupName(name || null)}
+          onCreateGroup={() => { setEditingGroup(null); setMobileFilterView('edit') }}
+          onEditGroup={group => { setEditingGroup(group); setMobileFilterView('edit') }}
+          onDeleteGroup={group => deleteGroup(group.name)}
+        />
+        <LoginGroupModal
+          isOpen={mobileFilterView === 'edit'}
+          editGroup={editingGroup}
+          onClose={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+          onBack={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+          onSave={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+        />
+      </div>
       <GroupModal
         isOpen={showGroupModal}
         onClose={() => { setShowGroupModal(false); setEditingGroup(null) }}

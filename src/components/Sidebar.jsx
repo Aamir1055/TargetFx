@@ -128,10 +128,10 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
           <aside className="absolute left-0 top-0 h-full w-[300px] bg-white shadow-xl rounded-r-2xl flex flex-col">
             <div className="p-4 flex items-center gap-3 border-b border-[#ECECEC]">
               <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-                <img src={`${baseUrl}Favicon.svg`} alt="Broker Eyes" className="w-6 h-6" />
+                <img src={`${baseUrl}Favicon.svg`} alt="Broker Eye" className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eyes</div>
+                <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eye</div>
                 <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
               </div>
               <button
@@ -272,11 +272,11 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
         <div className="flex flex-col flex-1">
           <div className={`flex items-center ${isOpen ? 'px-4' : 'px-2'} py-4 border-b border-slate-200`}>
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
-              <img src={`${baseUrl}Favicon.svg`} alt="Broker Eyes" className="w-6 h-6" style={{ filter: 'brightness(0) invert(1)' }} />
+              <img src={`${baseUrl}Favicon.svg`} alt="Broker Eye" className="w-6 h-6" style={{ filter: 'brightness(0) invert(1)' }} />
             </div>
             {isOpen && (
               <div className="ml-3">
-                <h1 className="text-lg font-bold text-slate-800 tracking-tight">Broker Eyes</h1>
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight">Broker Eye</h1>
                 <p className="text-xs text-slate-500">Trading Platform</p>
               </div>
             )}

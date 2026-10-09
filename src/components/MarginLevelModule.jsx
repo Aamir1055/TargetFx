@@ -427,7 +427,7 @@ export default function MarginLevelModule() {
                   <span className="text-white text-sm font-semibold">BE</span>
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-[#000000]">Broker Eyes</div>
+                  <div className="text-sm font-semibold text-[#000000]">Broker Eye</div>
                   <div className="text-xs text-[#404040]">Trading Platform</div>
                 </div>
               </div>

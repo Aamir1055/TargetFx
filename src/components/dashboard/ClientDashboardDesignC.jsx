@@ -1076,7 +1076,7 @@ export default function ClientDashboardDesignC() {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1A63BC"/></svg>
               </div>
               <div className="flex-1">
-                <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eyes</div>
+                <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eye</div>
                 <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">

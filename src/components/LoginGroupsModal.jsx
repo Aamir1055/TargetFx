@@ -4,6 +4,7 @@ import { useGroups } from '../contexts/GroupContext';
 const LoginGroupsModal = ({ 
   isOpen, 
   onClose, 
+  onBack,
   groups = [],
   onCreateGroup,
   onEditGroup,
@@ -147,6 +148,10 @@ const LoginGroupsModal = ({
         >
           <button
             onClick={() => {
+              if (onBack) {
+                onBack()
+                return
+              }
               if (typeof window !== 'undefined') {
                 const ev = new CustomEvent('openCustomizeView')
                 window.dispatchEvent(ev)

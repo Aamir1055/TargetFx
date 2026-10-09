@@ -56,8 +56,8 @@ export default defineConfig({
         ]
       },
       manifest: process.env.NODE_ENV === 'production' ? {
-        name: 'Broker Eyes',
-        short_name: 'BrokerEyes',
+        name: 'Broker Eye',
+        short_name: 'BrokerEye',
         description: 'Professional trading platform with advanced authentication',
         theme_color: '#2563eb',
         background_color: '#ffffff',
