@@ -1,4 +1,6 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react'
+import useSearchAsYouType from '../hooks/useSearchAsYouType'
+import { createLatestRequest } from '../utils/latestRequest'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
 import { formatDate as formatDayOnly, formatTime, serverNowDate, toServerEpoch } from '../utils/dateFormatter'
 import { useAuth } from '../contexts/AuthContext'
@@ -412,6 +414,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Search and filter states for deals
   const [dealsSearchQuery, setDealsSearchQuery] = useState('')
+  const dealsRequests = useRef(createLatestRequest())
   const [dealsInputValue, setDealsInputValue] = useState('')
   const [dealsColumnFilters, setDealsColumnFilters] = useState({})
   const [showDealsFilterDropdown, setShowDealsFilterDropdown] = useState(null)
@@ -1007,6 +1010,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }, [allOrdersCache, client.login, debouncedSearchQuery, positionsSortColumn])
 
   // Manual search trigger (on Enter or search icon click)
+  useSearchAsYouType(searchQuery, debouncedSearchQuery, setDebouncedSearchQuery, setPositionsCurrentPage)
+  useSearchAsYouType(dealsInputValue, dealsSearchQuery, setDealsSearchQuery, setDealsCurrentPage)
+
   const triggerPositionsSearch = () => {
     setDebouncedSearchQuery(searchQuery.trim())
     setShowSearchSuggestions(false)
@@ -1273,6 +1279,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       if (stats) setDealStats(stats)
 
       // Extract positions
+      // A delayed overview response must not replace search API results.
+      if (debouncedSearchQueryRef.current?.trim() || positionsSortColumnRef.current) return
       const clientPositions =
         data?.positions ??
         data?.open_positions ??
@@ -1290,6 +1298,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       if (Array.isArray(clientOrders)) setOrders(clientOrders)
     } catch (error) {
       console.error('[ClientPositionsModal] fetchPositions failed:', error)
+      if (debouncedSearchQueryRef.current?.trim() || positionsSortColumnRef.current) return
       setError('Failed to load positions')
       setPositions([])
     } finally {
@@ -1342,6 +1351,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }
 
   const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null, searchOverride = undefined) => {
+    const isCurrent = dealsRequests.current.start()
     try {
       setDealsLoading(true)
       setError('')
@@ -1382,6 +1392,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       if (apiFilters.length > 0) body.filters = apiFilters
 
       const response = await brokerAPI.searchClientDeals(client.login, body)
+      if (!isCurrent()) return
 
       // Response shape: { data: { deals, total, page, limit }, ... } or flat
       const payload = response?.data ?? response
@@ -1398,6 +1409,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       setHasAppliedFilter(true)
       setDealsServerLimitReached(false)
     } catch (error) {
+      if (!isCurrent()) return
       setError('Failed to load deals')
       setDeals([])
       setAllDeals([])
@@ -1405,7 +1417,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       setTotalDealsCount(0)
       setDealsServerLimitReached(false)
     } finally {
-      setDealsLoading(false)
+      if (isCurrent()) setDealsLoading(false)
     }
   }
 
@@ -2323,11 +2335,13 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Fetch deals when page, items per page, sort, or column filters change
   useEffect(() => {
+    const requests = dealsRequests.current
     if (activeTab === 'deals' && hasAppliedFilter && currentDateFilter.from !== 0 && hasAutoLoadedDeals.current) {
       fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
     }
+    return () => requests.invalidate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealsCurrentPage, dealsItemsPerPage, dealsColumnFilters, dealsSortColumn, dealsSortDirection])
+  }, [dealsCurrentPage, dealsItemsPerPage, dealsColumnFilters, dealsSortColumn, dealsSortDirection, dealsSearchQuery, client.login])
 
   // Keep page-size selection valid when total deals count changes
   useEffect(() => {
@@ -4040,9 +4054,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         if (e.key === 'Enter') {
                           setDealsSearchQuery(dealsInputValue)
                           setDealsCurrentPage(1)
-                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
-                          }
                         }
                       }}
                       placeholder="Search by symbol..."
@@ -4054,9 +4065,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           setDealsInputValue('')
                           setDealsSearchQuery('')
                           setDealsCurrentPage(1)
-                          if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                            fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, '')
-                          }
                         }}
                         className="px-1 text-gray-400 hover:text-gray-600 shrink-0"
                       >
@@ -4069,9 +4077,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       onClick={() => {
                         setDealsSearchQuery(dealsInputValue)
                         setDealsCurrentPage(1)
-                        if (hasAppliedFilter && currentDateFilter.from !== 0) {
-                          fetchDeals(currentDateFilter.from, currentDateFilter.to, 1, dealsItemsPerPage, dealsInputValue)
-                        }
                       }}
                       className="mr-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0 rounded-md"
                       title="Search"

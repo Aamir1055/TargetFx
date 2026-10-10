@@ -1,3 +1,5 @@
+import useSearchAsYouType from '../hooks/useSearchAsYouType'
+import { createLatestRequest } from '../utils/latestRequest'
 import { useState, useEffect, useRef, useMemo, Fragment, cloneElement } from 'react'
 import { brokerAPI } from '../services/api'
 import { useGroups } from '../contexts/GroupContext'
@@ -90,6 +92,8 @@ const ClientPercentagePage = () => {
   // Search states
   const [searchQuery, setSearchQuery] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const percentageRequests = useRef(createLatestRequest())
+  useSearchAsYouType(searchInput, searchQuery, setSearchQuery, setCurrentPage)
   const searchRef = useRef(null)
 
   // Column visibility states
@@ -244,32 +248,14 @@ const ClientPercentagePage = () => {
     }
   }, [])
 
+  // One fetch path for the applied search, sorting, and pagination.
   useEffect(() => {
-    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
-    if (!isAuthenticated || unauthorized || hidden) return
-    fetchAllClientPercentages(1)
-  }, [isAuthenticated, unauthorized])
-
-  // Fetch data when search query or sort changes (reset to page 1)
-  useEffect(() => {
-    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
-    if (!isAuthenticated || unauthorized || hidden) return
-    
-    // Debounce search to avoid too many API calls
-    const timeoutId = setTimeout(() => {
-      setCurrentPage(1)
-      fetchAllClientPercentages(1)
-    }, 300)
-    
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery, sortColumn, sortDirection, isAuthenticated, unauthorized])
-
-  // Fetch data when page or page size changes
-  useEffect(() => {
+    const requests = percentageRequests.current
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
     if (!isAuthenticated || unauthorized || hidden) return
     fetchAllClientPercentages(currentPage)
-  }, [currentPage, itemsPerPage, isAuthenticated, unauthorized])
+    return () => requests.invalidate()
+  }, [searchQuery, sortColumn, sortDirection, currentPage, itemsPerPage, isAuthenticated, unauthorized])
 
   useEffect(() => {
     const onRefreshed = () => setUnauthorized(false)
@@ -285,6 +271,7 @@ const ClientPercentagePage = () => {
   // No longer need click outside handler for suggestions
 
   const fetchAllClientPercentages = async (page = 1) => {
+    const isCurrent = percentageRequests.current.start()
     try {
       setLoading(true)
       setError('')
@@ -310,22 +297,25 @@ const ClientPercentagePage = () => {
       }
       
       const response = await brokerAPI.getAllClientPercentages(params)
+      if (!isCurrent()) return
       
-      const clientsData = response.data?.clients || []
+      const payload = response?.data?.data ?? response?.data ?? response ?? {}
+      const clientsData = Array.isArray(payload.clients) ? payload.clients : []
       setClients(clientsData)
       setStats({
-        total: response.data?.total || clientsData.length,
-        total_custom: response.data?.total_custom || 0,
-        total_default: response.data?.total_default || 0,
-        default_percentage: response.data?.default_percentage || 0
+        total: payload.total ?? clientsData.length,
+        total_custom: payload.total_custom ?? 0,
+        total_default: payload.total_default ?? 0,
+        default_percentage: payload.default_percentage ?? 0
       })
       
-      setLoading(false)
     } catch (err) {
+      if (!isCurrent()) return
       console.error('Error fetching client percentages:', err)
       setError('Failed to load client percentages')
       if (err?.response?.status === 401) setUnauthorized(true)
-      setLoading(false)
+    } finally {
+      if (isCurrent()) setLoading(false)
     }
   }
 
@@ -755,7 +745,7 @@ const ClientPercentagePage = () => {
   // Note: Search is now handled by API, not client-side
   // The API endpoint accepts 'login' parameter for searching
 
-  // Handle search - triggered by search icon click or Enter key
+  // Optional immediate search submission; typing also uses the fetch debounce.
   const handleSearch = () => {
     setSearchQuery(searchInput)
     setCurrentPage(1)
@@ -774,6 +764,7 @@ const ClientPercentagePage = () => {
 
   // Sorting
   const handleSort = (column) => {
+    setCurrentPage(1)
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
@@ -820,7 +811,7 @@ const ClientPercentagePage = () => {
     return sortedClients()
   }
 
-  const totalPages = Math.ceil(stats.total / itemsPerPage)
+  const totalPages = Math.max(1, Math.ceil(stats.total / itemsPerPage))
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const displayedClients = paginatedClients()

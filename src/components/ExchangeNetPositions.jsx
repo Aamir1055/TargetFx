@@ -1,3 +1,4 @@
+import { createLatestRequest } from '../utils/latestRequest'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react'
 import { brokerAPI } from '../services/api'
 import { exportStyledExcel, styledColumnsFromHeaders } from '../utils/exportStyledExcel'
@@ -96,10 +97,9 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
       setSearch('')
       return undefined
     }
-    if (!isMobile) return undefined
     const timer = setTimeout(() => setSearch(searchInput.trim()), 400)
     return () => clearTimeout(timer)
-  }, [searchInput, isMobile])
+  }, [searchInput])
 
   useEffect(() => {
     if (!exchangeMenuOpen) return undefined
@@ -148,22 +148,24 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
     }
     let timer = null
     let cancelled = false
+    const requestGate = createLatestRequest()
     const poll = async () => {
+      const isCurrent = requestGate.start()
       try {
         const parsed = parseResponse(await brokerAPI.getNetPositionsByExchange(buildBody()))
-        if (cancelled) return
+        if (cancelled || !isCurrent()) return
         setGroups(parsed.groups)
         setError('')
         setHasFetched(true)
         onTotals?.(parsed.totals, parsed.count)
         onLoaded?.()
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && isCurrent()) {
           setError(err?.response?.data?.message || err?.message || 'Failed to load exchange positions')
           setHasFetched(true)
         }
       }
-      if (!cancelled && document.visibilityState === 'visible') timer = setTimeout(poll, POLL_MS)
+      if ((!cancelled && isCurrent()) && document.visibilityState === 'visible') timer = setTimeout(poll, POLL_MS)
     }
     const onVisibility = () => {
       if (document.visibilityState === 'visible' && !timer) poll()
@@ -240,7 +242,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
     }
   }
 
-  useImperativeHandle(ref, () => ({ exportData, isExporting: exporting }))
+  useImperativeHandle(ref, () => ({ exportData, isExporting: exporting, refresh: () => setSearchVersion(version => version + 1) }))
 
   const visibleGroups = useMemo(() => groups.filter(g => g.positions.length || !search), [groups, search])
   const exportOverlay = exporting && <LoadingSpinner message="Exporting exchange positions…" subtitle="Please wait" />

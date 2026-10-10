@@ -435,7 +435,7 @@ const BillsPage = () => {
   }, [])
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  // Desktop applies search on submit; mobile keeps search-as-you-type.
+  // Apply search as you type on desktop and mobile.
   // Clearing either input removes the applied search immediately.
   useEffect(() => {
     const next = searchInput.trim()
@@ -446,13 +446,13 @@ const BillsPage = () => {
       }
       return undefined
     }
-    if (!isMobile || next === search) return undefined
+    if (next === search) return undefined
     const timer = setTimeout(() => {
       setSearch(next)
       setPage(1)
     }, 350)
     return () => clearTimeout(timer)
-  }, [searchInput, search, isMobile])
+  }, [searchInput, search])
   const [sortBy, setSortBy] = useState('login')
   const [sortOrder, setSortOrder] = useState('asc')
   const [hideZeroNet, setHideZeroNet] = useState(true)

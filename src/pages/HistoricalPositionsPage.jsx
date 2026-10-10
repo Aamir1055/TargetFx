@@ -1,3 +1,4 @@
+import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -175,7 +176,9 @@ const HistoricalPositionsPage = () => {
     }
     load()
     return () => { cancelled = true }
-  }, [appliedFilters, isAuthenticated, page, pageSize, searchResetVersion])
+  }, [appliedFilters, appliedSearch, isAuthenticated, page, pageSize, searchResetVersion])
+
+  useSearchAsYouType(searchTerm, appliedSearch, setAppliedSearch, setPage)
 
   const total = Number(pagination?.total ?? report.length) || report.length
   const totalPages = Math.max(1, Number(pagination?.total_pages ?? pagination?.totalPages ?? Math.ceil(total / pageSize)) || 1)

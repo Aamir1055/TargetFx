@@ -1,3 +1,6 @@
+import { createLatestRequest } from '../utils/latestRequest'
+import PositionsSearchInput from '../components/PositionsSearchInput'
+import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useEffect, useRef, useState, useMemo, useCallback, Fragment, useDeferredValue, cloneElement } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -119,7 +122,7 @@ const PositionsPage = () => {
   const [netSortDirection, setNetSortDirection] = useState('asc')
   // Search for NET view
   const [netSearchQuery, setNetSearchQuery] = useState('')
-  const [netActiveSearch, setNetActiveSearch] = useState('') // applied on Enter/search click, or reset when the input is cleared
+  const [netActiveSearch, setNetActiveSearch] = useState('') // debounced search applied to API requests
   const netSearchRef = useRef(null)
   const netCardFilterRef = useRef(null)
   // Card filter for NET summary cards
@@ -156,7 +159,7 @@ const PositionsPage = () => {
   const [clientNetSortDirection, setClientNetSortDirection] = useState('asc')
   // Client NET search
   const [clientNetSearchQuery, setClientNetSearchQuery] = useState('')
-  const [clientNetActiveSearch, setClientNetActiveSearch] = useState('') // applied on Enter/search click, or reset when the input is cleared
+  const [clientNetActiveSearch, setClientNetActiveSearch] = useState('') // debounced search applied to API requests
   const clientNetSearchRef = useRef(null)
   const clientNetCardFilterRef = useRef(null)
   // Client NET pagination
@@ -362,12 +365,14 @@ const PositionsPage = () => {
   
   // Search state for ALL positions view
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeSearch, setActiveSearch] = useState('') // applied on Enter/search click, or reset when the input is cleared
+  const [activeSearch, setActiveSearch] = useState('') // debounced search applied to API requests
   
   // Pagination states for ALL positions view
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(() => isMobile ? 12 : 100)
   const [isPageLoading, setIsPageLoading] = useState(false)
+  const [refreshVersion, setRefreshVersion] = useState(0)
+  const positionsRequestKeyRef = useRef(null)
   const prevPageRef = useRef(currentPage)
   const [isNetPageLoading, setIsNetPageLoading] = useState(false)
   const prevNetPageRef = useRef(1)
@@ -738,8 +743,10 @@ const PositionsPage = () => {
     let timer = null
     let isCancelled = false
 
+    const requestGate = createLatestRequest()
     const poll = async () => {
-      if (isCancelled) return
+      const isCurrent = requestGate.start()
+      if (isCancelled || !isCurrent()) return
       try {
         const params = {
           page: currentPage,
@@ -805,8 +812,15 @@ const PositionsPage = () => {
           params.filters = apiFilters
         }
 
+        // Show skeletons for a new search/filter/page, while keeping routine
+        // background refreshes from replacing the table every two seconds.
+        const requestKey = JSON.stringify({ ...params, dateFrom: undefined, dateTo: undefined, dateFilter })
+        if (positionsRequestKeyRef.current !== requestKey) {
+          positionsRequestKeyRef.current = requestKey
+          setIsPageLoading(true)
+        }
         const response = await brokerAPI.searchPositions(params)
-        if (isCancelled) return
+        if (isCancelled || !isCurrent()) return
         const data = response?.data?.positions || response?.positions || []
         const total = response?.data?.total || response?.total || 0
         const totals = response?.data?.totals || response?.totals || null
@@ -814,15 +828,19 @@ const PositionsPage = () => {
           setPolledPositions(data)
           setServerTotalPositions(total)
           if (totals) setServerTotals(totals)
-          setIsPageLoading(false)
           setHasFetchedPositions(true)
         }
       } catch (err) {
-        if (!isCancelled) {
+        if (!isCancelled && isCurrent()) {
           console.warn('[Positions] Polling error:', err?.message)
         }
+      } finally {
+        if (!isCancelled && isCurrent()) {
+          setIsPageLoading(false)
+          setIsRefreshing(false)
+        }
       }
-      if (!isCancelled) {
+      if (!isCancelled && isCurrent()) {
         timer = setTimeout(poll, 2000)
       }
     }
@@ -851,7 +869,7 @@ const PositionsPage = () => {
         flashTimeouts.current.clear()
       } catch {}
     }
-  }, [isAuthenticated, isMobile, showNetPositions, showExchangeView, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin])
+  }, [isAuthenticated, isMobile, showNetPositions, showExchangeView, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin, refreshVersion])
 
   // REST polling for NET positions (netPosition: true) when NET tab is active
   useEffect(() => {
@@ -862,8 +880,10 @@ const PositionsPage = () => {
     let timer = null
     let isCancelled = false
 
+    const requestGate = createLatestRequest()
     const poll = async () => {
-      if (isCancelled) return
+      const isCurrent = requestGate.start()
+      if (isCancelled || !isCurrent()) return
       try {
         const params = {
           page: netCurrentPage,
@@ -886,7 +906,7 @@ const PositionsPage = () => {
         if (netApiFilters.length > 0) params.filters = netApiFilters
 
         const response = await brokerAPI.searchPositions(params)
-        if (isCancelled) return
+        if (isCancelled || !isCurrent()) return
         const data = response?.data?.positions || response?.positions || []
         const total = response?.data?.total || response?.total || 0
         const totals = response?.data?.totals || response?.totals || null
@@ -944,9 +964,11 @@ const PositionsPage = () => {
           setIsNetPageLoading(false)
         }
       } catch (err) {
-        if (!isCancelled) console.warn('[NET Positions] Polling error:', err?.message)
+        if (!isCancelled && isCurrent()) console.warn('[NET Positions] Polling error:', err?.message)
+      } finally {
+        if (!isCancelled && isCurrent()) setIsRefreshing(false)
       }
-      if (!isCancelled) {
+      if (!isCancelled && isCurrent()) {
         timer = setTimeout(poll, 2000)
       }
     }
@@ -966,7 +988,7 @@ const PositionsPage = () => {
       if (timer) { clearTimeout(timer); timer = null }
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin])
+  }, [isAuthenticated, isMobile, showNetPositions, netCurrentPage, netItemsPerPage, netSortColumn, netSortDirection, netActiveSearch, groupByBaseSymbol, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin, refreshVersion])
 
   // REST polling for Client NET positions — COMMENTED OUT (replaced by NET Position using showNetPositions)
   /* useEffect(() => {
@@ -1512,18 +1534,15 @@ const PositionsPage = () => {
     })
   }
   
-  const handleSearchKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      setActiveSearch(searchQuery.trim())
-      setCurrentPage(1)
-    }
-  }
 
-  const handleSearchClick = () => {
-    setActiveSearch(searchQuery.trim())
+  useSearchAsYouType(netSearchQuery, netActiveSearch, setNetActiveSearch, setNetCurrentPage)
+  useSearchAsYouType(clientNetSearchQuery, clientNetActiveSearch, setClientNetActiveSearch, setClientNetCurrentPage)
+
+  const applyPositionsSearch = useCallback((value) => {
+    setSearchQuery(value)
+    setActiveSearch(value)
     setCurrentPage(1)
-  }
-
+  }, [])
   // Defer heavy list processing so route changes remain responsive
   const deferredPositions = useDeferredValue(displayPositions)
 
@@ -2626,29 +2645,14 @@ const PositionsPage = () => {
               </button>
               
               <button
-                onClick={async () => {
+                onClick={() => {
                   if (isRefreshing) return
-                  console.log('[Positions] Requesting fresh positions from API...')
-                  setIsRefreshing(true)
-                  try {
-                    const response = await brokerAPI.searchPositions({
-                      page: currentPage,
-                      limit: itemsPerPage,
-                      sortBy: sortColumn || 'timeCreate',
-                      sortOrder: sortDirection || 'desc',
-                      ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
-                      ...(displayMode === 'percentage' ? { percentage: true } : {})
-                    })
-                    const data = response?.data?.positions || response?.positions || []
-                    const total = response?.data?.total || response?.total || 0
-                    if (Array.isArray(data)) {
-                      setPolledPositions(data)
-                      setServerTotalPositions(total)
-                    }
-                  } catch (err) {
-                    console.error('[Positions] Refresh failed:', err)
+                  if (showExchangeView) {
+                    exchangeViewRef.current?.refresh()
+                    return
                   }
-                  setIsRefreshing(false)
+                  setIsRefreshing(true)
+                  setRefreshVersion(version => version + 1)
                 }}
                 disabled={isRefreshing}
                 className={`h-8 w-8 rounded-md border shadow-sm flex items-center justify-center transition-all ${
@@ -3807,54 +3811,8 @@ const PositionsPage = () => {
                 <div className="flex items-center gap-2 flex-1">
                   {/* Search Bar */}
                   <div className="relative flex-1 max-w-md" ref={searchRef}>
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none" fill="none" viewBox="0 0 18 18">
-                      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
-                      <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        setSearchQuery(value)
-                        if (!value.trim()) {
-                          setActiveSearch('')
-                          setCurrentPage(1)
-                        }
-                      }}
-                      onKeyDown={handleSearchKeyDown}
-                      placeholder="Search"
-                      className={`w-full h-10 pl-10 ${searchQuery ? 'pr-20' : 'pr-10'} text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                    />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      {searchQuery && (
-                        <button
-                          onClick={() => {
-                            setSearchQuery('')
-                            setActiveSearch('')
-                            setCurrentPage(1)
-                          }}
-                          className="p-1 text-[#9CA3AF] hover:text-[#4B5563] transition-colors"
-                          title="Clear search"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        onClick={handleSearchClick}
-                        className="p-1 rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors"
-                        title="Search"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 18 18">
-                          <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
-                          <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                        </svg>
-                      </button>
-                    </div>
+                    <PositionsSearchInput value={searchQuery} onSearch={applyPositionsSearch} />
                   </div>
-                  
                   {/* Columns Button (icon only) */}
                   <div className="relative" ref={columnSelectorRef}>
                     <button
@@ -4046,7 +4004,7 @@ const PositionsPage = () => {
                     )}
                   </thead>
 
-                  <tbody className="bg-white">
+                  <tbody className="bg-white" aria-busy={isInitialPositionsLoading || isPageLoading || isExporting}>
                     {(isInitialPositionsLoading || isPageLoading || isExporting) ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1]">

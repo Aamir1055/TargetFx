@@ -1,3 +1,4 @@
+import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import * as XLSX from 'xlsx-js-style'
 import { brokerAPI } from '../services/api'
@@ -106,33 +107,6 @@ const CalendarIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" d="M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
   </svg>
-)
-
-const ExchangeTableSkeleton = () => (
-  <div className="flex-1 overflow-auto" aria-label="Loading brokerage data" aria-busy="true">
-    <table className="min-w-full text-xs">
-      <thead className="bg-slate-100">
-        <tr>
-          {Array.from({ length: 9 }, (_, columnIndex) => (
-            <th key={`skeleton-header-${columnIndex}`} className="px-3 py-3 border-r border-slate-200">
-              <div className={`h-3 bg-slate-200 rounded animate-pulse ${columnIndex < 3 ? 'w-20' : 'w-14'}`} />
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {Array.from({ length: 10 }, (_, rowIndex) => (
-          <tr key={`skeleton-row-${rowIndex}`} className="border-b border-slate-100">
-            {Array.from({ length: 9 }, (_, cellIndex) => (
-              <td key={`skeleton-cell-${rowIndex}-${cellIndex}`} className="px-3 py-3 border-r border-slate-100">
-                <div className={`h-3 bg-slate-100 rounded animate-pulse ${cellIndex === 1 ? 'w-28' : 'w-16'}`} />
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
 )
 
 const ReportsExchangePage = () => {
@@ -257,6 +231,8 @@ const ReportsExchangePage = () => {
     return () => { cancelled = true }
   }, [activeGroup, appliedFromDate, appliedToDate, search, currentPage, isAuthenticated, pageSize, selectedWeekId])
 
+  useSearchAsYouType(searchInput, search, setSearch, setCurrentPage)
+
   const submitSearch = (event) => {
     event?.preventDefault?.()
     setSearch(searchInput.trim())
@@ -327,7 +303,7 @@ const ReportsExchangePage = () => {
   }, [currentPage, totalPages])
 
   // Build the union of exchange columns across all clients (stable order = first-seen)
-  const exchangeColumns = useMemo(() => {
+  const detectedExchangeColumns = useMemo(() => {
     const seen = new Set()
     const cols = []
     const addExchanges = (exchanges) => (exchanges || []).forEach(e => {
@@ -342,7 +318,14 @@ const ReportsExchangePage = () => {
     return cols
   }, [clients, responseTotals])
 
-  const hasExchangeData = clients.length > 0 || exchangeColumns.length > 0
+  // An empty search response has no exchange metadata. Keep the last known
+  // columns so the table does not collapse when no accounts match.
+  const [lastExchangeColumns, setLastExchangeColumns] = useState([])
+  useEffect(() => {
+    if (detectedExchangeColumns.length) setLastExchangeColumns(detectedExchangeColumns)
+  }, [detectedExchangeColumns])
+  const exchangeColumns = detectedExchangeColumns.length ? detectedExchangeColumns : lastExchangeColumns
+  const tableColumnCount = 3 + exchangeColumns.length * 3
 
   // Totals per exchange (Commission, Lots, Volume) + AgentCommission
   const totals = useMemo(() => {
@@ -831,7 +814,7 @@ const ReportsExchangePage = () => {
             </div>
           </div>
 
-          {!loading && !error && selectedWeekId && (
+          {selectedWeekId && (
             <div className="flex items-center gap-2 px-3 py-4 sm:px-4 sm:py-5">
               <form onSubmit={submitSearch} className="min-w-0 flex-1 sm:max-w-md">
                 <div className="relative w-full">
@@ -928,14 +911,6 @@ const ReportsExchangePage = () => {
 
           {/* Content */}
           <div className="bg-white rounded-none shadow-sm min-w-0 min-h-0 flex-1 overflow-hidden flex flex-col">
-            {loading ? (
-              <ExchangeTableSkeleton />
-            ) : error ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-red-600">{error}</div>
-            ) : !hasExchangeData ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-slate-500">No brokerage data</div>
-            ) : (
-              <>
                 <div className="report-table-scroll exchange-table-scrollbar flex-1 min-w-0 min-h-0 overflow-auto isolate">
                   <table className="min-w-full text-xs border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20">
@@ -959,8 +934,22 @@ const ReportsExchangePage = () => {
                       ))}
                     </tr>
                   </thead>
-                  <tbody>
-                    {pagedClients.map((c) => (
+                  <tbody aria-busy={loading}>
+                    {loading ? Array.from({ length: 8 }, (_, row) => (
+                      <tr key={`loading-${row}`}>
+                        {Array.from({ length: tableColumnCount }, (_, column) => (
+                          <td key={column} className="border-b border-r border-[#E1E1E1] px-3 py-3">
+                            <div className="h-3 min-w-12 w-full rounded bg-slate-200 animate-pulse" />
+                          </td>
+                        ))}
+                      </tr>
+                    )) : error || !pagedClients.length ? (
+                      <tr>
+                        <td colSpan={tableColumnCount} className={`px-4 py-12 text-center text-sm ${error ? 'text-red-600' : 'text-slate-500'}`} role="status">
+                          {error || (search ? 'No matching brokerage data' : 'No brokerage data')}
+                        </td>
+                      </tr>
+                    ) : pagedClients.map((c) => (
                       <tr key={c.Login} className="group bg-white hover:bg-[#F8FAFC]">
                         <td
                           className="relative z-10 sticky left-0 bg-white px-3 py-2 font-medium text-[#1A63BC] hover:text-blue-700 hover:underline cursor-pointer border-b border-r border-[#E1E1E1] group-hover:bg-[#F8FAFC]"
@@ -991,7 +980,7 @@ const ReportsExchangePage = () => {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-[#F8FAFC] text-[#4B4B4B] font-semibold">
+                  {!loading && !error && pagedClients.length > 0 && <tfoot className="bg-[#F8FAFC] text-[#4B4B4B] font-semibold">
                     <tr className="sticky bottom-0 z-20 bg-[#F8FAFC]">
                       <td className="relative z-30 sticky bottom-0 left-0 bg-[#F8FAFC] px-3 py-2.5 border-t border-[#E1E1E1]">Totals</td>
                       <td className="sticky bottom-0 z-20 bg-[#F8FAFC] px-3 py-2.5 border-t border-[#E1E1E1] text-[#6B7280]">{totalClients} clients</td>
@@ -1011,11 +1000,9 @@ const ReportsExchangePage = () => {
                         )
                       })}
                     </tr>
-                  </tfoot>
+                  </tfoot>}
                   </table>
                 </div>
-              </>
-            )}
           </div>
         </div>
       </main>

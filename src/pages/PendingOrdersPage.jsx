@@ -1,3 +1,5 @@
+import { createLatestRequest } from '../utils/latestRequest'
+import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useEffect, useRef, useState, useMemo, Fragment, cloneElement } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useGroups } from '../contexts/GroupContext'
@@ -409,9 +411,11 @@ const PendingOrdersPage = () => {
     let timer = null
     let isCancelled = false
 
+    const requestGate = createLatestRequest()
     const poll = async () => {
-      if (isCancelled) return
-      if (selectedLogin) { if (!isCancelled) timer = setTimeout(poll, 2000); return }
+      const isCurrent = requestGate.start()
+      if (isCancelled || !isCurrent()) return
+      if (selectedLogin) { if (!isCancelled && isCurrent()) timer = setTimeout(poll, 2000); return }
       try {
         const params = {
           page: currentPage,
@@ -471,7 +475,7 @@ const PendingOrdersPage = () => {
         }
 
         const response = await brokerAPI.searchOrders(params)
-        if (isCancelled) return
+        if (isCancelled || !isCurrent()) return
         const data = response?.data?.orders || response?.data?.positions || response?.orders || []
         const total = response?.data?.total || response?.total || 0
         const totals = response?.data?.totals || response?.totals || null
@@ -483,11 +487,11 @@ const PendingOrdersPage = () => {
           setHasFetchedOrders(true)
         }
       } catch (err) {
-        if (!isCancelled) {
+        if (!isCancelled && isCurrent()) {
           console.warn('[Orders] Polling error:', err?.message)
         }
       }
-      if (!isCancelled) {
+      if (!isCancelled && isCurrent()) {
         timer = setTimeout(poll, 2000)
       }
     }
@@ -613,6 +617,8 @@ const PendingOrdersPage = () => {
   
   const pageSizeOptions = generatePageSizeOptions()
   
+  useSearchAsYouType(searchQuery, activeSearch, setActiveSearch, setCurrentPage)
+
   const handleSearchClick = () => {
     const trimmed = searchQuery.trim()
     if (trimmed === activeSearch) return

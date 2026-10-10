@@ -1,3 +1,4 @@
+import { createLatestRequest } from '../utils/latestRequest'
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue, startTransition } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
@@ -404,10 +405,12 @@ export default function PositionModule() {
     let isCancelled = false
     let controller = new AbortController()
 
+    const requestGate = createLatestRequest()
     const poll = async () => {
-      if (isCancelled) return
+      const isCurrent = requestGate.start()
+      if (isCancelled || !isCurrent()) return
       // Pause polling while client detail modal is open
-      if (selectedClientRef.current) { if (!isCancelled) timer = setTimeout(poll, 2000); return }
+      if (selectedClientRef.current) { if (!isCancelled && isCurrent()) timer = setTimeout(poll, 2000); return }
       try {
         if (!hasFetchedServerPositionsRef.current) setIsServerPositionsLoading(true)
         const params = {
@@ -434,7 +437,7 @@ export default function PositionModule() {
         }
 
         const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
-        if (isCancelled) return
+        if (isCancelled || !isCurrent()) return
         const data = response?.data?.positions || response?.positions || []
         const total = response?.data?.total || response?.total || 0
         const totals = response?.data?.totals || response?.totals || null
@@ -458,11 +461,11 @@ export default function PositionModule() {
           }
         }
       } catch (err) {
-        if (!isCancelled && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
+        if ((!isCancelled && isCurrent()) && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
           console.warn('[PositionModule] Regular poll error:', err?.message)
         }
       }
-      if (!isCancelled) timer = setTimeout(poll, 2000)
+      if (!isCancelled && isCurrent()) timer = setTimeout(poll, 2000)
     }
 
     const onVisibilityChange = () => {
@@ -515,10 +518,12 @@ export default function PositionModule() {
     let isCancelled = false
     let controller = new AbortController()
 
+    const requestGate = createLatestRequest()
     const poll = async () => {
-      if (isCancelled) return
+      const isCurrent = requestGate.start()
+      if (isCancelled || !isCurrent()) return
       // Pause polling while client detail modal is open
-      if (selectedClientRef.current) { if (!isCancelled) timer = setTimeout(poll, 2000); return }
+      if (selectedClientRef.current) { if (!isCancelled && isCurrent()) timer = setTimeout(poll, 2000); return }
       try {
         if (!hasFetchedServerNetRef.current) setIsServerNetLoading(true)
         const params = {
@@ -542,7 +547,7 @@ export default function PositionModule() {
         }
 
         const response = await brokerAPI.searchPositions(params, { signal: controller.signal })
-        if (isCancelled) return
+        if (isCancelled || !isCurrent()) return
         const data = response?.data?.positions || response?.positions || []
         const total = response?.data?.total || response?.total || 0
         const totals = response?.data?.totals || response?.totals || null
@@ -571,11 +576,11 @@ export default function PositionModule() {
           setIsServerNetLoading(false)
         }
       } catch (err) {
-        if (!isCancelled && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
+        if ((!isCancelled && isCurrent()) && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
           console.warn('[PositionModule] NET poll error:', err?.message)
         }
       }
-      if (!isCancelled) timer = setTimeout(poll, 2000)
+      if (!isCancelled && isCurrent()) timer = setTimeout(poll, 2000)
     }
 
     const onVisibilityChange = () => {

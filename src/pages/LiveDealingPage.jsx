@@ -1,3 +1,4 @@
+import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import QuickTimeFilter from '../components/QuickTimeFilter'
 import { getPresetRange } from '../utils/dealTimePresets'
 import { useState, useEffect, useRef, useMemo, Fragment, cloneElement } from 'react'
@@ -1011,6 +1012,7 @@ const LiveDealingPage = () => {
 
   // Handle DEAL_ADDED events
   const handleDealAddedEvent = (data) => {
+    if (wsSearchQueryRef.current?.trim()) return
     setLoading(false)
 
     // Only show newly added deals when user is on page 1
@@ -1079,6 +1081,7 @@ const LiveDealingPage = () => {
 
   // Handle DEAL_UPDATED events
   const handleDealUpdatedEvent = (data) => {
+    if (wsSearchQueryRef.current?.trim()) return
     try {
       const dealData = data.data || data
       const dealId = dealData.deal || dealData.id
@@ -1407,6 +1410,8 @@ const LiveDealingPage = () => {
     })
   }
   
+  useSearchAsYouType(searchQuery, debouncedSearchQuery, setDebouncedSearchQuery, setCurrentPage)
+
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -2049,7 +2054,6 @@ const LiveDealingPage = () => {
                       onChange={(e) => {
                         setSearchQuery(e.target.value)
                         if (!e.target.value.trim()) setDebouncedSearchQuery('')
-                        setCurrentPage(1)
                       }}
                       onKeyDown={handleSearchKeyDown}
                       placeholder="Search by login or symbol"

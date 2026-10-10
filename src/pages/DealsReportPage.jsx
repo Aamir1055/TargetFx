@@ -272,10 +272,8 @@ const DealsReportPage = () => {
     }
   }, [datePickerOpen])
 
-  // Mobile searches as you type (debounced). Desktop searches on the search button / Enter,
-  // but clearing the box still resets the results right away.
+  // Search as you type on mobile and desktop.
   useEffect(() => {
-    if (!isMobile && searchInput.trim()) return undefined
     const timer = setTimeout(() => {
       const next = searchInput.trim()
       if (next !== search) {
@@ -284,7 +282,7 @@ const DealsReportPage = () => {
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [searchInput, search, isMobile])
+  }, [searchInput, search])
 
   const submitSearch = () => {
     const next = searchInput.trim()

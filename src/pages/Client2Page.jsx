@@ -939,9 +939,8 @@ const Client2Page = () => {
     // Generate unique request ID to track this specific request
     const currentRequestId = ++requestIdRef.current
     
-    // Only cancel if there's already a request in flight to prevent race conditions
-    // Don't cancel user-initiated requests (non-silent) to ensure they always complete
-    if (abortControllerRef.current && isFetchingRef.current && silent) {
+    // A newer query owns the table, including its error and loading state.
+    if (abortControllerRef.current) {
       try { abortControllerRef.current.abort() } catch {}
     }
     // Create new AbortController for this request
@@ -1250,7 +1249,7 @@ const Client2Page = () => {
             chunkPayload.page = pageNum
             // Respect aborts and newer requests: pass signal and bail on staleness
             const resp = await brokerAPI.searchClients(chunkPayload, requestOptions)
-            if (abortControllerRef.current.signal.aborted || currentRequestId !== requestIdRef.current) {
+            if (requestOptions.signal.aborted || currentRequestId !== requestIdRef.current) {
               console.log('[Client2] ⏹️ Abort/replace detected during chunk merge; stopping early')
               return
             }
@@ -1446,6 +1445,7 @@ const Client2Page = () => {
       }
     } catch (err) {
       // Ignore request cancellations caused by in-flight aborts
+      if (currentRequestId !== requestIdRef.current) return
       const isCanceled = err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || /aborted|canceled/i.test(err?.message || '')
       if (isCanceled) {
         try { if (DEBUG_LOGS) console.debug('[Client2] fetchClients canceled (expected on fast refresh)') } catch { }
@@ -1483,15 +1483,17 @@ const Client2Page = () => {
       // Surface error state by ending the initial-load overlay so user sees the message
       setInitialLoad(false)
     } finally {
-      isFetchingRef.current = false
-      if (!silent) {
-        setLoading(false)
-        setProgressActive(false)
+      if (currentRequestId === requestIdRef.current) {
+        isFetchingRef.current = false
+        if (!silent) {
+          setLoading(false)
+          setProgressActive(false)
+        }
+        setIsSorting(false)
       }
       // Always reset sorting state. initialLoad is flipped only after a
       // successful response so the empty-state doesn't flash on stale-request
       // races during initial mount.
-      setIsSorting(false)
     }
   }, [currentPage, itemsPerPage, debouncedSearchQuery, filters, columnFilters, mt5Accounts, accountRangeMin, accountRangeMax, sortBy, sortOrder, percentModeActive, activeGroup, selectedIB, ibMT5Accounts, quickFilters, currencyMode])
 
@@ -1552,15 +1554,19 @@ const Client2Page = () => {
 
   // Debounce search query to prevent API collision
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!searchInput.trim()) {
+      setSearchQuery('')
       setDebouncedSearchQuery('')
+      setCurrentPage(1)
       return undefined
     }
     const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery)
+      setSearchQuery(searchInput.trim())
+      setDebouncedSearchQuery(searchInput.trim())
+      setCurrentPage(1)
     }, 300) // 300ms debounce delay
     return () => clearTimeout(timer)
-  }, [searchQuery])
+  }, [searchInput])
 
   // Fetch rebate totals from API
   const fetchRebateTotals = useCallback(async () => {
@@ -1593,6 +1599,8 @@ const Client2Page = () => {
       refetchTimerRef.current = null
     }, 200)
     return () => {
+      requestIdRef.current++
+      abortControllerRef.current?.abort()
       if (refetchTimerRef.current) {
         clearTimeout(refetchTimerRef.current)
         refetchTimerRef.current = null

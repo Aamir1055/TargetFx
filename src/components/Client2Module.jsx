@@ -363,6 +363,7 @@ export default function Client2Module() {
       // Cards are now computed via useMemo based on filtered clients
     } catch (error) {
       // Ignore request cancellations caused by AbortController
+      if (currentRequestId !== requestIdRef.current) return
       const isCanceled = error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED' || /aborted|canceled/i.test(error?.message || '')
       if (isCanceled) {
         // Do NOT clear isLoading — the replacement request that triggered this abort owns the loading state
@@ -390,7 +391,10 @@ export default function Client2Module() {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       if (!selectedClientRef.current) fetchClients(null, false)
     }, 5000) // Periodic refresh every 5s (skip if in-flight or modal open)
-    return () => clearInterval(interval)
+    return () => {
+      requestIdRef.current++
+      clearInterval(interval)
+    }
   }, [fetchClients])
 
   // Refresh immediately when app/tab becomes visible again.
