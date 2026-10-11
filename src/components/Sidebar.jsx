@@ -75,7 +75,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
       children: [
         { name: 'Brokerage Data', path: '/reports/exchange' },
         { name: 'Historical Positions', path: '/reports/historical-positions' },
-        { name: 'Deals', path: '/reports/deals' }
+        { name: 'Deals', path: '/reports/deals' },
+        { name: 'Summary', path: '/reports/summary' }
       ]
     },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }

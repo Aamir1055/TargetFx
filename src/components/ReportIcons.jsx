@@ -44,10 +44,20 @@ const DealsIcon = ({ className }) => (
   </Svg>
 )
 
+// Summary: a simple list/report sheet
+const SummaryIcon = ({ className }) => (
+  <Svg className={className}>
+    <path d="M6 3h9l4 4v14H6z" />
+    <path d="M15 3v4h4" />
+    <path d="M9 12h7M9 15.5h7M9 8.5h3" />
+  </Svg>
+)
+
 const SUB_ICONS = {
   '/reports/exchange': BrokerageIcon,
   '/reports/historical-positions': HistoryIcon,
-  '/reports/deals': DealsIcon
+  '/reports/deals': DealsIcon,
+  '/reports/summary': SummaryIcon
 }
 
 export const ReportSubIcon = ({ path, className = 'w-4 h-4' }) => {

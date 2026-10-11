@@ -62,6 +62,7 @@ const BillsPage = lazy(() => import('./pages/BillsPage'))
 const ReportsExchangePage = lazy(() => import('./pages/ReportsExchangePage'))
 const HistoricalPositionsPage = lazy(() => import('./pages/HistoricalPositionsPage'))
 const DealsReportPage = lazy(() => import('./pages/DealsReportPage'))
+const SummaryReportPage = lazy(() => import('./pages/SummaryReportPage'))
 const BrokerRulePage = lazy(() => import('./pages/BrokerRulePage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const GraphicalAnalyticsPage = lazy(() => import('./pages/GraphicalAnalyticsPage'))
@@ -222,6 +223,7 @@ const AppContent = () => {
         <Route path="/reports/exchange" element={<ReportsExchangePage />} />
         <Route path="/reports/historical-positions" element={<HistoricalPositionsPage />} />
         <Route path="/reports/deals" element={<DealsReportPage />} />
+        <Route path="/reports/summary" element={<SummaryReportPage />} />
         <Route path="/broker-rules" element={<BrokerRulePage />} />
   <Route path="/analytics" element={<GraphicalAnalyticsPage />} />
           <Route path="/client-dashboard-c" element={<ClientDashboardDesignCPage />} />
@@ -247,6 +249,7 @@ function PreloadRoutes() {
         import('./pages/ReportsExchangePage')
         import('./pages/HistoricalPositionsPage')
         import('./pages/DealsReportPage')
+        import('./pages/SummaryReportPage')
         import('./pages/BrokerRulePage')
         import('./pages/SettingsPage')
         import('./pages/GraphicalAnalyticsPage')
