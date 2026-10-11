@@ -44,6 +44,7 @@ const DealsIcon = ({ className }) => (
   </Svg>
 )
 
+<<<<<<< HEAD
 const CreditIcon = ({ className }) => (
   <Svg className={className}>
     <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -65,6 +66,15 @@ const AgentDetailsIcon = ({ className }) => (
     <rect x="3" y="3" width="18" height="18" rx="2" />
     <circle cx="9" cy="9" r="2.5" />
     <path d="M5.5 17v-1a3.5 3.5 0 0 1 7 0v1M15 8h3M15 12h3M15 16h3" />
+=======
+// Summary: a framed overview chart with a total/underline — reads as "aggregated totals",
+// distinct from the Reports parent icon (plain clipboard) and the other sub-icons.
+const SummaryIcon = ({ className }) => (
+  <Svg className={className}>
+    <rect x="4" y="3.5" width="16" height="16" rx="3" />
+    <path d="M8 13.5v-3M12 13.5V8M16 13.5v-5.2" />
+    <path d="M7.5 17h9" />
+>>>>>>> 304ecac74dc934d12e642faa5638b9755211d70d
   </Svg>
 )
 
@@ -72,9 +82,13 @@ const SUB_ICONS = {
   '/reports/exchange': BrokerageIcon,
   '/reports/historical-positions': HistoryIcon,
   '/reports/deals': DealsIcon,
+<<<<<<< HEAD
   '/reports/credit': CreditIcon,
   '/reports/agent-details': AgentDetailsIcon,
   '/reports/deposit-withdrawal': DepositWithdrawalIcon
+=======
+  '/reports/summary': SummaryIcon
+>>>>>>> 304ecac74dc934d12e642faa5638b9755211d70d
 }
 
 export const ReportSubIcon = ({ path, className = 'w-4 h-4' }) => {

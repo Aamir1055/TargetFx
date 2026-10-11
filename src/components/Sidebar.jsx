@@ -76,9 +76,13 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
         { name: 'Brokerage Data', path: '/reports/exchange' },
         { name: 'Historical Positions', path: '/reports/historical-positions' },
         { name: 'Deals', path: '/reports/deals' },
+<<<<<<< HEAD
         { name: 'Credit', path: '/reports/credit' },
         { name: 'Agent Details', path: '/reports/agent-details' },
         { name: 'Deposit and Withdrawal Report', path: '/reports/deposit-withdrawal' }
+=======
+        { name: 'Summary', path: '/reports/summary' }
+>>>>>>> 304ecac74dc934d12e642faa5638b9755211d70d
       ]
     },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }

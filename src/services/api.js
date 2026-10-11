@@ -902,6 +902,35 @@ export const brokerAPI = {
     const response = await api.post('/api/broker/historical-position', body, options)
     return response.data
   },
+
+  // Reports - Client summary (balances, volume, P&L) for a date range.
+  // Supports four query shapes, all against the same endpoint:
+  //   - all clients:            { from, to, page, limit, sortBy, sortOrder }
+  //   - active only + filtered: { ...above, hideInactive, search, filters: [{ field, operator, value }] }
+  //   - specific accounts:      { from, to, page, limit, mt5Accounts: [login, ...] }
+  //   - login range:            { from, to, page, limit, accountRangeMin, accountRangeMax }
+  getSummaryReport: async (payload = {}, options = {}) => {
+    const body = {
+      from: payload.from,
+      to: payload.to,
+      page: payload.page ?? 1,
+      limit: payload.limit ?? 100,
+      sortBy: payload.sortBy ?? 'login',
+      sortOrder: payload.sortOrder ?? 'asc',
+    }
+    if (payload.hideInactive !== undefined) body.hideInactive = payload.hideInactive
+    if (payload.search) body.search = payload.search
+    if (Array.isArray(payload.filters) && payload.filters.length) body.filters = payload.filters
+    // Note: an explicit empty array is passed through (not dropped) — e.g. a selected login group
+    // narrowed by search to zero matching logins should correctly ask the server for zero results,
+    // not silently fall back to "no account filter at all".
+    if (Array.isArray(payload.mt5Accounts)) body.mt5Accounts = payload.mt5Accounts
+    if (payload.accountRangeMin !== undefined && payload.accountRangeMin !== null && payload.accountRangeMin !== '') body.accountRangeMin = payload.accountRangeMin
+    if (payload.accountRangeMax !== undefined && payload.accountRangeMax !== null && payload.accountRangeMax !== '') body.accountRangeMax = payload.accountRangeMax
+    if (DEBUG_LOGS) console.log('[API] POST /api/broker/reports/summary', body)
+    const response = await api.post('/api/broker/reports/summary', body, options)
+    return response.data
+  },
 }
 
 // Also export these methods on default api for backwards compatibility
