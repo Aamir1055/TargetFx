@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import TwoFactorVerification from '../components/TwoFactorVerification'
 import Group8 from '../assets/Group 8.svg'
 import Group9 from '../assets/Group 9.svg'
@@ -28,7 +28,7 @@ const LoginMobile = () => {
 
     try {
       const initData = window.Telegram?.WebApp?.initData
-      
+
       if (initData && showSelfRegister) {
         // Telegram self-register flow
         const result = await telegramLink(initData, username, password)

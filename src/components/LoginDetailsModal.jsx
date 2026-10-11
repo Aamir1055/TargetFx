@@ -6,18 +6,18 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   const [activeTab, setActiveTab] = useState('positions')
   const [positions, setPositions] = useState([])
   const [deals, setDeals] = useState([])
-  const [clientData, setClientData] = useState(null)
+  const [clientData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dealsLoading, setDealsLoading] = useState(false)
-  const [error, setError] = useState('')
-  
+  const [, setError] = useState('')
+
   // Date filter states for deals only
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [filteredDeals, setFilteredDeals] = useState([])
-  const [allDeals, setAllDeals] = useState([])
+  const [, setAllDeals] = useState([])
   const [hasAppliedFilter, setHasAppliedFilter] = useState(false)
-  
+
   // Money transaction states
   const [operationType, setOperationType] = useState('deposit')
   const [amount, setAmount] = useState('')
@@ -25,7 +25,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   const [operationLoading, setOperationLoading] = useState(false)
   const [operationSuccess, setOperationSuccess] = useState('')
   const [operationError, setOperationError] = useState('')
-  
+
   // Search and filter states for positions
   const [searchQuery, setSearchQuery] = useState('')
   const [columnFilters, setColumnFilters] = useState({})
@@ -33,7 +33,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
   const filterRefs = useRef({})
   const searchRef = useRef(null)
-  
+
   // Search and filter states for deals
   const [dealsSearchQuery, setDealsSearchQuery] = useState('')
   const [dealsColumnFilters, setDealsColumnFilters] = useState({})
@@ -41,15 +41,15 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   const [showDealsSearchSuggestions, setShowDealsSearchSuggestions] = useState(false)
   const dealsFilterRefs = useRef({})
   const dealsSearchRef = useRef(null)
-  
+
   // Pagination states for deals
   const [dealsCurrentPage, setDealsCurrentPage] = useState(1)
   const [dealsItemsPerPage, setDealsItemsPerPage] = useState(50)
-  
+
   // Pagination states for positions
   const [positionsCurrentPage, setPositionsCurrentPage] = useState(1)
   const [positionsItemsPerPage, setPositionsItemsPerPage] = useState(50)
-  
+
   const hasLoadedData = useRef(false)
 
   useEffect(() => {
@@ -81,7 +81,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
         setShowDealsSearchSuggestions(false)
       }
     }
-    
+
     if (showFilterDropdown || showDealsFilterDropdown || showSearchSuggestions || showDealsSearchSuggestions) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -99,14 +99,14 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   const fetchPositions = async () => {
     try {
       setLoading(true)
-      
+
       if (allPositionsCache && allPositionsCache.length >= 0) {
         const loginPositions = allPositionsCache.filter(pos => pos.login === login)
         setPositions(loginPositions)
       } else {
         setPositions([])
       }
-    } catch (error) {
+    } catch {
       setError('Failed to load positions')
     } finally {
       setLoading(false)
@@ -117,7 +117,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
     try {
       setDealsLoading(true)
       setError('')
-      
+
       // Fetch deals from API with specific date range
       const response = await brokerAPI.getClientDeals(login, fromTimestamp, toTimestamp)
       const clientDeals = response.data?.deals || []
@@ -125,7 +125,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       setAllDeals(clientDeals)
       setFilteredDeals(clientDeals)
       setHasAppliedFilter(true)
-    } catch (error) {
+    } catch {
       setError('Failed to load deals')
       setDeals([])
       setAllDeals([])
@@ -164,7 +164,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       const updated = current.includes(value)
         ? current.filter(v => v !== value)
         : [...current, value]
-      
+
       return {
         ...prev,
         [columnKey]: updated.length > 0 ? updated : undefined
@@ -209,7 +209,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       const updated = current.includes(value)
         ? current.filter(v => v !== value)
         : [...current, value]
-      
+
       return {
         ...prev,
         [columnKey]: updated.length > 0 ? updated : undefined
@@ -232,7 +232,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   // Date filter functions for Deals
   const parseDateInput = (dateString) => {
     if (!dateString) return null
-    
+
     // Support both dd/mm/yyyy and yyyy-mm-dd formats
     if (dateString.includes('/')) {
       const [day, month, year] = dateString.split('/')
@@ -306,7 +306,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       setOperationSuccess(response.message || 'Operation completed successfully')
       setAmount('')
       setComment('')
-      
+
       // Refresh data
       setTimeout(async () => {
         await fetchClientData()
@@ -337,7 +337,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
 
   const getDealActionLabel = (action) => {
     const numericAction = typeof action === 'string' ? parseInt(action) : action
-    
+
     const actions = {
       0: 'Buy',
       1: 'Sell',
@@ -359,16 +359,16 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       'deposit': 'Deposit',
       'withdrawal': 'Withdrawal'
     }
-    
+
     const stringAction = typeof action === 'string' ? action.toLowerCase() : null
-    
+
     return actions[numericAction] || actions[stringAction] || actions[action] || `Unknown (${action})`
   }
 
   const getDealActionColor = (action) => {
     const numericAction = typeof action === 'string' ? parseInt(action) : action
     const stringAction = typeof action === 'string' ? action.toLowerCase() : ''
-    
+
     if (numericAction === 0 || stringAction === 'buy') {
       return 'bg-green-100 text-green-800'
     } else if (numericAction === 1 || stringAction === 'sell') {
@@ -393,11 +393,10 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
     if (!searchQuery.trim() || searchQuery.length < 1) {
       return []
     }
-    
+
     const query = searchQuery.toLowerCase().trim()
-    const suggestions = []
     const uniqueValues = new Map() // Use Map to track type and avoid duplicates
-    
+
     // Collect unique matching values from ALL searchable fields
     positions.forEach(pos => {
       const symbol = String(pos.symbol || '')
@@ -405,7 +404,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       const positionNum = String(pos.position || '')
       const volume = String(pos.volume || '')
       const time = formatDate(pos.timeCreate || pos.timeCreateStr)
-      
+
       // Check each field and add to suggestions if matches
       if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
         uniqueValues.set(symbol, { type: 'Symbol', value: symbol, priority: 1 })
@@ -423,7 +422,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
         uniqueValues.set(time, { type: 'Time', value: time, priority: 5 })
       }
     })
-    
+
     // Convert Map to array, sort by priority and limit to 8 items
     return Array.from(uniqueValues.values())
       .sort((a, b) => a.priority - b.priority)
@@ -436,11 +435,10 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
     if (!dealsSearchQuery.trim() || dealsSearchQuery.length < 1) {
       return []
     }
-    
+
     const query = dealsSearchQuery.toLowerCase().trim()
-    const suggestions = []
     const uniqueValues = new Map() // Use Map to track type and avoid duplicates
-    
+
     // Collect unique matching values from ALL searchable fields
     filteredDeals.forEach(deal => {
       const symbol = String(deal.symbol || '')
@@ -449,7 +447,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
       const order = deal.order > 0 ? String(deal.order) : ''
       const position = deal.position > 0 ? String(deal.position) : ''
       const time = formatDate(deal.time)
-      
+
       // Check each field and add to suggestions if matches
       if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
         uniqueValues.set(symbol, { type: 'Symbol', value: symbol, priority: 1 })
@@ -470,7 +468,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
         uniqueValues.set(time, { type: 'Time', value: time, priority: 6 })
       }
     })
-    
+
     // Convert Map to array, sort by priority and limit to 8 items
     return Array.from(uniqueValues.values())
       .sort((a, b) => a.priority - b.priority)
@@ -529,7 +527,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   // Apply search and filters to deals
   const filteredDealsResult = (() => {
     if (!hasAppliedFilter) return []
-    
+
     let filtered = [...filteredDeals]
 
     // Apply search query
@@ -578,8 +576,8 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
   }, [dealsSearchQuery, hasAppliedFilter])
 
   // Calculate totals
-  const totalVolume = positions.reduce((sum, pos) => sum + parseFloat(pos.volume || 0), 0)
-  const totalProfit = positions.reduce((sum, pos) => sum + parseFloat(pos.profit || 0), 0)
+  positions.reduce((sum, pos) => sum + parseFloat(pos.volume || 0), 0);
+  positions.reduce((sum, pos) => sum + parseFloat(pos.profit || 0), 0);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -672,11 +670,11 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  
+
                   <span className="text-xs text-gray-700 font-medium px-1">
                     {positionsCurrentPage}/{positionsTotalPages}
                   </span>
-                  
+
                   <button
                     onClick={() => setPositionsCurrentPage(prev => Math.min(positionsTotalPages, prev + 1))}
                     disabled={positionsCurrentPage === positionsTotalPages}
@@ -753,7 +751,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                           </svg>
                         </button>
                       )}
-                      
+
                       {/* Search Suggestions Dropdown */}
                       {showSearchSuggestions && getPositionSearchSuggestions().length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50 max-h-60 overflow-y-auto">
@@ -782,7 +780,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                       {displayedPositions.length} of {filteredPositions.length} positions
                     </div>
                   </div>
-                  
+
                   {filteredPositions.length === 0 ? (
                     <div className="text-center py-12">
                       <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1084,11 +1082,11 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                           </button>
-                          
+
                           <span className="text-xs text-gray-700 font-medium px-1">
                             {dealsCurrentPage}/{dealsTotalPages}
                           </span>
-                          
+
                           <button
                             onClick={() => setDealsCurrentPage(prev => Math.min(dealsTotalPages, prev + 1))}
                             disabled={dealsCurrentPage === dealsTotalPages}
@@ -1170,7 +1168,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                           </svg>
                         </button>
                       )}
-                      
+
                       {/* Search Suggestions Dropdown */}
                       {showDealsSearchSuggestions && getDealsSearchSuggestions().length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50 max-h-60 overflow-y-auto">
@@ -1199,7 +1197,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
                       {displayedDeals.length} of {filteredDealsResult.length} deals
                     </div>
                   </div>
-                  
+
                   {displayedDeals.length === 0 ? (
                     <div className="text-center py-12">
                       <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1426,7 +1424,7 @@ const LoginDetailsModal = ({ login, onClose, allPositionsCache }) => {
             <div>
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Money Transactions</h3>
-                
+
                 {/* Success Message */}
                 {operationSuccess && (
                   <div className="mb-3 bg-green-50 border-l-4 border-green-500 rounded-r p-2">

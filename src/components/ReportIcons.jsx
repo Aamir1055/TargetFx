@@ -44,10 +44,37 @@ const DealsIcon = ({ className }) => (
   </Svg>
 )
 
+const CreditIcon = ({ className }) => (
+  <Svg className={className}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M3 10h18M7 15h3m6-2v4m-2-2h4" />
+  </Svg>
+)
+
+// Deposit and withdrawal: cash tray with incoming and outgoing funds.
+const DepositWithdrawalIcon = ({ className }) => (
+  <Svg className={className}>
+    <path d="M3 14v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
+    <path d="M3 14h5l2 3h4l2-3h5" />
+    <path d="M8 3v9m-3-3 3 3 3-3M16 12V3m-3 3 3-3 3 3" />
+  </Svg>
+)
+
+const AgentDetailsIcon = ({ className }) => (
+  <Svg className={className}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="9" cy="9" r="2.5" />
+    <path d="M5.5 17v-1a3.5 3.5 0 0 1 7 0v1M15 8h3M15 12h3M15 16h3" />
+  </Svg>
+)
+
 const SUB_ICONS = {
   '/reports/exchange': BrokerageIcon,
   '/reports/historical-positions': HistoryIcon,
-  '/reports/deals': DealsIcon
+  '/reports/deals': DealsIcon,
+  '/reports/credit': CreditIcon,
+  '/reports/agent-details': AgentDetailsIcon,
+  '/reports/deposit-withdrawal': DepositWithdrawalIcon
 }
 
 export const ReportSubIcon = ({ path, className = 'w-4 h-4' }) => {

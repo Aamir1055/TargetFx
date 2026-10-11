@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 
 const TwoFactorVerification = () => {
   const [code, setCode] = useState('')
@@ -29,7 +29,7 @@ const TwoFactorVerification = () => {
     try {
       const result = await verify2FA(code)
       console.log('2FA verification result:', result)
-      
+
       if (!result.success) {
         const errorMsg = result.error || 'Verification failed. Please try again.'
         console.error('2FA verification failed:', errorMsg)
@@ -57,7 +57,7 @@ const TwoFactorVerification = () => {
           <div className="absolute top-10 right-8 sm:top-20 sm:right-32 w-32 h-32 sm:w-64 sm:h-64 bg-indigo-200/20 rounded-full mix-blend-multiply filter blur-xl animate-pulse" style={{ animationDelay: '1s' }} />
           <div className="absolute bottom-16 left-4 sm:bottom-32 sm:left-20 w-32 h-32 sm:w-64 sm:h-64 bg-blue-300/15 rounded-full mix-blend-multiply filter blur-xl animate-pulse" style={{ animationDelay: '2s' }} />
         </div>
-        
+
         {/* Security-themed floating elements - Responsive */}
         <div className="absolute inset-0 overflow-hidden">
           {[...Array(4)].map((_, i) => (
@@ -89,7 +89,7 @@ const TwoFactorVerification = () => {
                   </svg>
                 </div>
                 <div className="absolute -inset-1 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg sm:rounded-xl blur opacity-25 animate-pulse" />
-                
+
                 {/* Security badge - Responsive */}
                 <div className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
                   <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,7 +104,7 @@ const TwoFactorVerification = () => {
             <p className="text-gray-700 text-xs sm:text-sm font-medium px-4 sm:px-0">
               Enter the 6-digit code from your authenticator app
             </p>
-            
+
             {/* Progress dots - Responsive */}
             <div className="flex justify-center space-x-1 sm:space-x-2 mt-3 sm:mt-4">
               <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full" />
@@ -118,7 +118,7 @@ const TwoFactorVerification = () => {
             {/* Glass Effect Background */}
             <div className="absolute inset-0 bg-white/70 backdrop-blur-lg rounded-2xl sm:rounded-3xl shadow-2xl border border-white/50" />
             <div className="absolute inset-0 bg-gradient-to-br from-white/80 to-blue-50/50 rounded-2xl sm:rounded-3xl" />
-            
+
             <div className="relative p-3 sm:p-4">
               <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                 {/* Enhanced Code Input - Responsive */}
@@ -139,7 +139,7 @@ const TwoFactorVerification = () => {
                       required
                     />
                     <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-400/5 to-indigo-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                    
+
                     {/* Progress indicator - Responsive */}
                     <div className="absolute -bottom-1 sm:-bottom-2 left-1/2 transform -translate-x-1/2">
                       <div className="flex space-x-0.5 sm:space-x-1">
@@ -154,7 +154,7 @@ const TwoFactorVerification = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-center mt-3 sm:mt-4">
                     <div className="flex items-center space-x-1 sm:space-x-2 text-xs text-gray-600">
                       <svg className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

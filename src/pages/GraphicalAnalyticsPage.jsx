@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
-import { useAuth } from '../contexts/AuthContext'
-import { useData } from '../contexts/DataContext'
+import { useAuth } from '../contexts/authContextStore'
+import { useData } from '../contexts/dataContextStore'
 import { brokerAPI } from '../services/api'
 
 const GraphicalAnalyticsPage = () => {
@@ -58,7 +58,7 @@ const GraphicalAnalyticsPage = () => {
     const totalEquity = sum('equity')
     const totalCredit = sum('credit')
     const totalProfit = sum('profit')
-    
+
     const dailyPnL = sum('dailyPnL')
     const weeklyPnL = sum('thisWeekPnL')
     const monthlyPnL = sum('thisMonthPnL')
@@ -172,7 +172,7 @@ const GraphicalAnalyticsPage = () => {
     const periods = timePeriod === 'daily' ? 7 : timePeriod === 'weekly' ? 8 : timePeriod === 'monthly' ? 12 : 6
     const data = []
     const currentPnL = getPnLByPeriod()
-    
+
     for (let i = periods - 1; i >= 0; i--) {
       const variance = (Math.random() - 0.5) * 0.3
       const value = currentPnL * (1 - (i * 0.1) + variance)
@@ -207,10 +207,10 @@ const GraphicalAnalyticsPage = () => {
     <div className="min-h-screen flex bg-gray-50">
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
       />
-      
+
       <main className={`flex-1 p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} overflow-x-hidden`}>
         <div className="max-w-[1600px] mx-auto">
           {/* Header */}
@@ -357,27 +357,27 @@ const GraphicalAnalyticsPage = () => {
                   {[0, 1, 2, 3, 4].map(i => (
                     <line key={i} x1="40" y1={40 + i * 35} x2="380" y2={40 + i * 35} stroke="#e5e7eb" strokeWidth="1" />
                   ))}
-                  
+
                   {/* Y-axis */}
                   <line x1="40" y1="20" x2="40" y2="180" stroke="#9ca3af" strokeWidth="2" />
                   {/* X-axis */}
                   <line x1="40" y1="180" x2="380" y2="180" stroke="#9ca3af" strokeWidth="2" />
-                  
+
                   {/* Line chart */}
                   {trendData.length > 1 && (() => {
                     const maxVal = Math.max(...trendData.map(d => Math.abs(d.value)), 1)
                     const minVal = Math.min(...trendData.map(d => d.value), 0)
                     const range = maxVal - minVal || 1
                     const xStep = 340 / (trendData.length - 1)
-                    
+
                     const points = trendData.map((d, i) => {
                       const x = 40 + i * xStep
                       const y = 180 - ((d.value - minVal) / range) * 160
                       return `${x},${y}`
                     }).join(' ')
-                    
+
                     const areaPoints = `40,180 ${points} ${40 + (trendData.length - 1) * xStep},180`
-                    
+
                     return (
                       <>
                         {/* Area fill */}
@@ -402,7 +402,7 @@ const GraphicalAnalyticsPage = () => {
                       </>
                     )
                   })()}
-                  
+
                   {/* Gradient definition */}
                   <defs>
                     <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -440,12 +440,12 @@ const GraphicalAnalyticsPage = () => {
                   {[0, 1, 2, 3, 4].map(i => (
                     <line key={i} x1="60" y1={40 + i * 35} x2="380" y2={40 + i * 35} stroke="#e5e7eb" strokeWidth="1" />
                   ))}
-                  
+
                   {/* Y-axis */}
                   <line x1="60" y1="20" x2="60" y2="180" stroke="#9ca3af" strokeWidth="2" />
                   {/* X-axis */}
                   <line x1="60" y1="180" x2="380" y2="180" stroke="#9ca3af" strokeWidth="2" />
-                  
+
                   {/* Bars */}
                   {balanceDistribution.map((range, i) => {
                     const maxCount = Math.max(...balanceDistribution.map(r => r.count), 1)
@@ -453,7 +453,7 @@ const GraphicalAnalyticsPage = () => {
                     const x = 70 + i * 55
                     const barHeight = (range.count / maxCount) * 140
                     const y = 180 - barHeight
-                    
+
                     return (
                       <g key={i}>
                         {/* Bar */}
@@ -575,7 +575,7 @@ const GraphicalAnalyticsPage = () => {
                   <rect x="20" y="20" width="120" height="25" fill="#10b981" rx="4" />
                   <text x="25" y="37" fill="white" fontSize="11" fontWeight="bold">Deposits</text>
                   <text x="145" y="37" fill="#10b981" fontSize="12" fontWeight="bold">${fmtCompact(getDepositByPeriod())}</text>
-                  
+
                   {/* Withdrawal bar */}
                   <rect x="20" y="55" width="120" height="25" fill="#ef4444" rx="4" />
                   <text x="25" y="72" fill="white" fontSize="11" fontWeight="bold">Withdrawals</text>
@@ -661,7 +661,7 @@ const GraphicalAnalyticsPage = () => {
               ].map((period, idx) => {
                 const maxVal = Math.max(Math.abs(analytics.dailyPnL), Math.abs(analytics.weeklyPnL), Math.abs(analytics.monthlyPnL), Math.abs(analytics.lifetimePnL), 1)
                 const barWidth = (Math.abs(period.value) / maxVal) * 100
-                
+
                 return (
                   <div key={idx}>
                     <div className="flex items-center justify-between mb-2">
@@ -773,7 +773,7 @@ const GraphicalAnalyticsPage = () => {
                 <h4 className="font-bold text-gray-900">Capital Health</h4>
               </div>
               <p className="text-sm text-gray-700 mb-2">
-                Equity ratio at <span className="font-bold text-emerald-600">{((analytics.totalEquity / analytics.totalBalance) * 100).toFixed(1)}%</span>
+                Equity ratio at <span className="font-bold text-emerald-600">{(analytics.totalBalance ? (analytics.totalEquity / analytics.totalBalance) * 100 : 0).toFixed(1)}%</span>
               </p>
               <p className="text-xs text-gray-600">
                 {((analytics.totalEquity / analytics.totalBalance) * 100) > 80 ? '✓ Strong capital position' : '⚠ Monitor leverage'}
@@ -790,7 +790,7 @@ const GraphicalAnalyticsPage = () => {
                 <h4 className="font-bold text-gray-900">Client Activity</h4>
               </div>
               <p className="text-sm text-gray-700 mb-2">
-                <span className="font-bold text-violet-600">{((analytics.activeClients / analytics.totalClients) * 100).toFixed(0)}%</span> active trading rate
+                <span className="font-bold text-violet-600">{(analytics.totalClients ? (analytics.activeClients / analytics.totalClients) * 100 : 0).toFixed(0)}%</span> active trading rate
               </p>
               <p className="text-xs text-gray-600">
                 {analytics.avgPositionsPerClient.toFixed(1)} avg positions per client

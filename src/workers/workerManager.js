@@ -16,10 +16,10 @@ class WorkerManager {
     this.requestId = 0
     this.pendingRequests = new Map()
     this.isInitialized = false
-    
+
     this.init()
   }
-  
+
   /**
    * Initialize worker pool
    */
@@ -48,18 +48,18 @@ class WorkerManager {
       this.isInitialized = false
     }
   }
-  
+
   /**
    * Handle messages from workers
    */
   handleWorkerMessage(worker, event, pool) {
-    const { type, requestId, result, error, taskType } = event.data
-    
+    const { type, requestId, result, error } = event.data
+
     if (type === 'READY') {
       console.log('[WorkerManager] Worker ready')
       return
     }
-    
+
     if (type === 'SUCCESS') {
       const request = this.pendingRequests.get(requestId)
       if (request) {
@@ -73,7 +73,7 @@ class WorkerManager {
         this.pendingRequests.delete(requestId)
       }
     }
-    
+
     // Mark worker as available and process next task
     if (pool === 'stats') {
       if (!this.availableStats.includes(worker)) this.availableStats.push(worker)
@@ -82,7 +82,7 @@ class WorkerManager {
     }
     this.processNextTask()
   }
-  
+
   /**
    * Handle worker errors
    */
@@ -94,7 +94,7 @@ class WorkerManager {
       if (!this.availableFilters.includes(worker)) this.availableFilters.push(worker)
     }
   }
-  
+
   /**
    * Execute task in worker pool
    */
@@ -103,10 +103,10 @@ class WorkerManager {
       console.warn('[WorkerManager] Workers not initialized, falling back to main thread')
       return this.fallbackExecution(type, payload)
     }
-    
+
     return new Promise((resolve, reject) => {
       const requestId = ++this.requestId
-      
+
       const task = {
         requestId,
         type,
@@ -115,17 +115,17 @@ class WorkerManager {
         resolve,
         reject
       }
-      
+
       this.pendingRequests.set(requestId, { resolve, reject })
       this.taskQueue.push(task)
-      
+
       // Sort by priority (higher priority first)
       this.taskQueue.sort((a, b) => b.priority - a.priority)
-      
+
       this.processNextTask()
     })
   }
-  
+
   /**
    * Process next task in queue
    */
@@ -144,13 +144,13 @@ class WorkerManager {
     const worker = pool.shift()
     worker.postMessage({ type: task.type, payload: task.payload, requestId: task.requestId })
   }
-  
+
   /**
    * Fallback execution on main thread if workers fail
    */
   fallbackExecution(type, payload) {
     console.warn('[WorkerManager] Executing on main thread:', type)
-    
+
     // Simple fallback - won't be as performant but prevents errors
     switch (type) {
       case 'CALCULATE_STATS':
@@ -189,7 +189,7 @@ class WorkerManager {
         return null
     }
   }
-  
+
   /**
    * Synchronous stats calculation (fallback)
    */
@@ -210,7 +210,7 @@ class WorkerManager {
       totalDeposit: 0,
       netDW: 0
     }
-    
+
     clients.forEach(c => {
       if (!c) return
       stats.totalBalance += (c.balance || 0)
@@ -227,12 +227,12 @@ class WorkerManager {
   stats.lifetimePnL += (c.lifetimePnL || 0)
       stats.totalDeposit += (c.dailyDeposit || 0)
     })
-    
+
     stats.netDW = stats.dailyDeposit - stats.dailyWithdrawal
-    
+
     return stats
   }
-  
+
   /**
    * Get worker pool status
    */
@@ -246,7 +246,7 @@ class WorkerManager {
       pendingRequests: this.pendingRequests.size
     }
   }
-  
+
   /**
    * Terminate all workers
    */

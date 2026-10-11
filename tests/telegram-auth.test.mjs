@@ -47,7 +47,7 @@ function mount({ initData = 'signed-launch-data', stored = {}, login = async () 
   const module = { exports: {} }
   vm.runInNewContext(code, {
     module, exports: module.exports,
-    require: name => name === 'react' ? react : { authAPI, scheduleTokenRefresh() {}, cancelTokenRefresh() {} },
+    require: name => name === 'react' ? react : name === './authContextStore' ? { __esModule: true, default: { Provider: 'provider' } } : { authAPI, scheduleTokenRefresh() {}, cancelTokenRefresh() {} },
     window, console: { log() {}, error() {}, warn() {} },
     CustomEvent: class {},
     localStorage: {

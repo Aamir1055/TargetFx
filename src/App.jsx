@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AuthProvider } from './contexts/AuthContext'
+import { useAuth } from './contexts/authContextStore'
 import { brokerAPI } from './services/api'
 import { DataProvider } from './contexts/DataContext'
 import { GroupProvider } from './contexts/GroupContext'
@@ -62,6 +63,9 @@ const BillsPage = lazy(() => import('./pages/BillsPage'))
 const ReportsExchangePage = lazy(() => import('./pages/ReportsExchangePage'))
 const HistoricalPositionsPage = lazy(() => import('./pages/HistoricalPositionsPage'))
 const DealsReportPage = lazy(() => import('./pages/DealsReportPage'))
+const AgentDetailsReportPage = lazy(() => import('./pages/AgentDetailsReportPage'))
+const CreditReportPage = lazy(() => import('./pages/CreditReportPage'))
+const DepositWithdrawalReportPage = lazy(() => import('./pages/DepositWithdrawalReportPage'))
 const BrokerRulePage = lazy(() => import('./pages/BrokerRulePage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const GraphicalAnalyticsPage = lazy(() => import('./pages/GraphicalAnalyticsPage'))
@@ -103,7 +107,7 @@ const AppContent = () => {
     const markHiddenTime = () => {
       const now = Date.now()
       lastHiddenAtRef.current = now
-      try { sessionStorage.setItem(STORAGE_KEY, String(now)) } catch {}
+      try { sessionStorage.setItem(STORAGE_KEY, String(now)) } catch { /* Retain the fallback when this operation is unavailable. */ }
     }
 
     const maybeReloadAfterInactivity = () => {
@@ -222,6 +226,9 @@ const AppContent = () => {
         <Route path="/reports/exchange" element={<ReportsExchangePage />} />
         <Route path="/reports/historical-positions" element={<HistoricalPositionsPage />} />
         <Route path="/reports/deals" element={<DealsReportPage />} />
+        <Route path="/reports/agent-details" element={<AgentDetailsReportPage />} />
+        <Route path="/reports/credit" element={<CreditReportPage />} />
+        <Route path="/reports/deposit-withdrawal" element={<DepositWithdrawalReportPage />} />
         <Route path="/broker-rules" element={<BrokerRulePage />} />
   <Route path="/analytics" element={<GraphicalAnalyticsPage />} />
           <Route path="/client-dashboard-c" element={<ClientDashboardDesignCPage />} />
@@ -251,7 +258,7 @@ function PreloadRoutes() {
         import('./pages/SettingsPage')
         import('./pages/GraphicalAnalyticsPage')
         import('./pages/ClientDashboardDesignC')
-      } catch {}
+      } catch { /* Retain the fallback when this operation is unavailable. */ }
     }
     if ('requestIdleCallback' in window) {
       // Prefer idle time so we don't impact interactivity

@@ -5,21 +5,22 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import JSZip from 'jszip'
 import { brokerAPI } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import Sidebar from '../components/Sidebar'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageSizeSelect from '../components/PageSizeSelect'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import ColumnChooserList from '../components/ColumnChooserList'
-import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize'
+import useColumnResize from '../hooks/useColumnResize'
+import { ColumnResizeHandle } from '../components/ColumnResizeHandle'
 import CustomizeViewModal from '../components/CustomizeViewModal'
 import LoginGroupsModal from '../components/LoginGroupsModal'
 import LoginGroupModal from '../components/LoginGroupModal'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
-import { useGroups } from '../contexts/GroupContext'
-import { formatDate, formatTime } from '../utils/dateFormatter'
+import { useGroups } from '../contexts/groupContextStore'
+import { formatDate } from '../utils/dateFormatter'
 
 const fmtMoney = (n) => {
   const num = Number(n)
@@ -244,7 +245,7 @@ const renderBill = (doc, bill) => {
 }
 
 // Build a PDF document for a SINGLE bill (used by per-login downloads)
-const buildBillPdf = (bill, _weekInfo = null) => {
+const buildBillPdf = (bill) => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
   if (!bill) {
     doc.setFontSize(12)
@@ -256,7 +257,7 @@ const buildBillPdf = (bill, _weekInfo = null) => {
 }
 
 // Build a PDF document for one or more bills (single combined PDF)
-const buildBillsPdf = (bills = [], _weekInfo = null) => {
+const buildBillsPdf = (bills = []) => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
   const list = Array.isArray(bills) ? bills : []
   if (list.length === 0) {
@@ -290,51 +291,9 @@ const savePdf = (doc, filename) => {
 }
 
 // Flatten Bills API response into rows: { Login, Name, Symbol, Side, Datetime, Price, Quantity, PnL, Brokerage }
-const flattenBills = (bills = []) => {
-  const rows = []
-  for (const b of bills) {
-    const login = b.Login
-    const name = b.Name
-    const symbols = b.Symbols || []
-    for (const sym of symbols) {
-      // Each symbol object can contain BUY/SELL arrays; symbol name key might be "Symbol" or the symbol itself
-      const symbolName = sym.Symbol || sym.symbol || sym.Name || ''
-      for (const side of ['BUY', 'SELL']) {
-        const entries = sym[side]
-        if (!Array.isArray(entries)) continue
-        for (const e of entries) {
-          rows.push({
-            Login: login,
-            Name: name,
-            Symbol: symbolName,
-            Side: side,
-            Datetime: e.Datetime || '',
-            Price: e.Price ?? '',
-            Quantity: e.Quantity ?? '',
-            PnL: e.PnL ?? '',
-            Brokerage: e.Brokerage ?? '',
-          })
-        }
-      }
-    }
-  }
-  return rows
-}
 
-const downloadCsv = (filename, rows, columns) => {
-  const header = columns.map(c => escapeCsv(c.label || c.key)).join(',')
-  const body = rows.map(r => columns.map(c => escapeCsv(c.key === 'Datetime' ? formatTime(r[c.key], '') : r[c.key])).join(',')).join('\n')
-  const csv = '\ufeff' + header + '\n' + body
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
+
+
 
 const BILL_COLUMNS = [
   { key: 'Login', label: 'Login' },
@@ -381,7 +340,7 @@ const BillsPage = () => {
   const [mobileReportsOpen, setMobileReportsOpen] = useState(() => location.pathname.startsWith('/reports'))
   const closeMobileSidebar = useCallback(() => {
     setSidebarOpen(false)
-    try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {}
+    try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [])
   const handleMobileNavSelect = useCallback((path) => {
     closeMobileSidebar()
@@ -494,15 +453,15 @@ const BillsPage = () => {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) return parsed
       }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return null
   })
   useEffect(() => {
-    try { if (columnOrder) localStorage.setItem('billsPageColumnOrder', JSON.stringify(columnOrder)) } catch {}
+    try { if (columnOrder) localStorage.setItem('billsPageColumnOrder', JSON.stringify(columnOrder)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [columnOrder])
   const resetColumnOrder = () => {
     setColumnOrder(null)
-    try { localStorage.removeItem('billsPageColumnOrder') } catch {}
+    try { localStorage.removeItem('billsPageColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
   // Pinned columns (persisted) — must be declared BEFORE orderedColumns uses it
   const [pinnedColumns, setPinnedColumns] = useState(() => {
@@ -512,7 +471,7 @@ const BillsPage = () => {
     } catch { return [] }
   })
   useEffect(() => {
-    try { localStorage.setItem('billsPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+    try { localStorage.setItem('billsPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -551,7 +510,7 @@ const BillsPage = () => {
       }
     }
     return map
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [orderedColumns, visibleColumns, pinnedColumns])
   const applyPin = (cell, colKey, isHeader) => {
     if (!cell) return cell
@@ -609,7 +568,7 @@ const BillsPage = () => {
           const highest = list.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a))
           setSelectedWeekId(highest.id)
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) setError('Failed to load settlement weeks')
       } finally {
         if (!cancelled) setWeeksLoading(false)
@@ -910,8 +869,8 @@ const BillsPage = () => {
       <div className="hidden lg:block">
         <Sidebar
           isOpen={sidebarOpen}
-          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
+          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ } ; return n })}
         />
       </div>
 
@@ -922,7 +881,7 @@ const BillsPage = () => {
             {/* Mobile-only header (centered title, large rounded hamburger) — matches other modules */}
             <div className="sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
               <button
-                onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
+                onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ } ; return n })}
                 className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center"
                 aria-label="Open menu"
               >
@@ -936,7 +895,7 @@ const BillsPage = () => {
             {/* Desktop title row */}
             <div className="hidden sm:flex items-center gap-3 mb-0">
               <button
-                onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
+                onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ } ; return n })}
                 className="lg:hidden text-gray-700 hover:text-gray-900 p-2.5 rounded-lg hover:bg-gray-100 border border-gray-300 transition-all flex-shrink-0"
                 aria-label="Open menu"
               >
@@ -1666,7 +1625,7 @@ const BillsPage = () => {
                       <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 1} className="px-3 py-8 text-center text-gray-500">No bills found for this week</td>
                     </tr>
                   )}
-                  {!loading && !error && rows.map((r, idx) => {
+                  {!loading && !error && rows.map((r) => {
                     const isChecked = selected.has(r.Login)
                     return (
                       <tr key={r.Login} className={`group bg-white hover:bg-[#F8FAFC] border-b border-[#E1E1E1] sm:border-b-0`}>
@@ -1789,8 +1748,8 @@ const BillsPage = () => {
                     type="button"
                     onClick={() => {
                       setNumericMode('compact')
-                      try { localStorage.setItem('globalDisplayMode', 'compact') } catch {}
-                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'compact' })) } catch {}
+                      try { localStorage.setItem('globalDisplayMode', 'compact') } catch { /* Retain the fallback when this operation is unavailable. */ }
+                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'compact' })) } catch { /* Retain the fallback when this operation is unavailable. */ }
                     }}
                     className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
                   >
@@ -1800,8 +1759,8 @@ const BillsPage = () => {
                     type="button"
                     onClick={() => {
                       setNumericMode('full')
-                      try { localStorage.setItem('globalDisplayMode', 'full') } catch {}
-                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'full' })) } catch {}
+                      try { localStorage.setItem('globalDisplayMode', 'full') } catch { /* Retain the fallback when this operation is unavailable. */ }
+                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'full' })) } catch { /* Retain the fallback when this operation is unavailable. */ }
                     }}
                     className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
                   >
@@ -1887,6 +1846,48 @@ const BillsPage = () => {
                             >
                               <ReportSubIcon path="/reports/deals" />
                               Deals
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMobileNavSelect('/reports/credit')}
+                              onTouchEnd={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleMobileNavSelect('/reports/credit')
+                              }}
+                              className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              style={{ touchAction: 'manipulation' }}
+                            >
+                              <ReportSubIcon path="/reports/credit" />
+                              Credit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMobileNavSelect('/reports/agent-details')}
+                              onTouchEnd={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleMobileNavSelect('/reports/agent-details')
+                              }}
+                              className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              style={{ touchAction: 'manipulation' }}
+                            >
+                              <ReportSubIcon path="/reports/agent-details" />
+                              Agent Details
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMobileNavSelect('/reports/deposit-withdrawal')}
+                              onTouchEnd={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleMobileNavSelect('/reports/deposit-withdrawal')
+                              }}
+                              className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              style={{ touchAction: 'manipulation' }}
+                            >
+                              <ReportSubIcon path="/reports/deposit-withdrawal" />
+                              Deposit and Withdrawal Report
                             </button>
                           </div>
                         )}

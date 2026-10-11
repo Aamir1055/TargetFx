@@ -1,3 +1,4 @@
+import { normalizeAccountTypes, accountTypeApiValue, accountTypeSearchPayload } from '../utils/accountType'
 import axios from 'axios'
 const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
 
@@ -85,7 +86,7 @@ export const cancelTokenRefresh = () => {
 const broadcastTokenRefreshed = (accessToken) => {
   try {
     window.dispatchEvent(new CustomEvent('auth:token_refreshed', { detail: { accessToken } }))
-  } catch {}
+  } catch { /* Retain the fallback when this operation is unavailable. */ }
 }
 
 const doLogout = () => {
@@ -94,7 +95,7 @@ const doLogout = () => {
   localStorage.removeItem('refresh_token')
   localStorage.removeItem('user_data')
   if (typeof window !== 'undefined') {
-    try { window.dispatchEvent(new CustomEvent('auth:logout')) } catch {}
+    try { window.dispatchEvent(new CustomEvent('auth:logout')) } catch { /* Retain the fallback when this operation is unavailable. */ }
     window.location.href = '/login'
   }
 }
@@ -102,7 +103,7 @@ const doLogout = () => {
 const doRefresh = () => {
   const refresh_token = localStorage.getItem('refresh_token')
   if (!refresh_token) return Promise.reject(new Error('No refresh token'))
-  
+
   console.log('[API] 🔄 Initiating token refresh...')
   return rawApi
     .post('/api/auth/broker/refresh', { refresh_token })
@@ -158,6 +159,10 @@ ibApi.interceptors.request.use(
 // Add response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
+    if (response.config?.url?.includes('/clients') || response.config?.url?.includes('/accounts')) {
+      response.data = normalizeAccountTypes(response.data)
+
+    }
     return response
   },
   async (error) => {
@@ -244,9 +249,9 @@ ibApi.interceptors.response.use(
           isRefreshing = true
           refreshPromise = doRefresh()
         }
-        
+
         const token = await refreshPromise
-        
+
         originalRequest.headers = originalRequest.headers || {}
         originalRequest.headers['Authorization'] = `Bearer ${token}`
         return ibApi(originalRequest)
@@ -359,12 +364,25 @@ export const authAPI = {
 
 // Broker API endpoints
 export const brokerAPI = {
+  getAgentDetailsReport: async (body, options = {}) => {
+    const response = await api.post('/api/broker/reports/agent-details', body, options)
+    return response.data
+  },
+  getDepositWithdrawalReport: async (body, options = {}) => {
+    const response = await api.post('/api/broker/reports/deposit-withdrawal', body, options)
+    return response.data
+  },
+  getCreditReport: async (body, options = {}) => {
+    const response = await api.post('/api/broker/reports/credit', body, options)
+    return response.data
+  },
+
   // Get all clients
   getClients: async () => {
     const response = await api.get('/api/broker/clients')
     return response.data
   },
-  
+
   // Get aggregated deal stats for a client (POST as provided by backend)
   getClientDealStats: async (login, from = 0, to = null) => {
     try {
@@ -382,7 +400,7 @@ export const brokerAPI = {
         const q = qs.length ? `?${qs.join('&')}` : ''
         const response = await api.get(`/api/broker/clients/${login}/deals/stats${q}`)
         return response.data
-      } catch (e) {
+      } catch {
         throw err
       }
     }
@@ -397,7 +415,7 @@ export const brokerAPI = {
     const response = await api.get(`/api/broker/clients/${login}/deals/stats${q}`)
     return response.data
   },
-  
+
   // Get all positions
   getPositions: async () => {
     const response = await api.get('/api/broker/positions')
@@ -443,7 +461,7 @@ export const brokerAPI = {
     const response = await api.get('/api/broker/positions/actions')
     return response.data
   },
-  
+
   // Get all pending orders
   getOrders: async () => {
     const response = await api.get('/api/broker/orders')
@@ -473,7 +491,7 @@ export const brokerAPI = {
     const response = await api.get('/api/broker/orders/types')
     return response.data
   },
-  
+
   // Get client deals with pagination support
   getClientDeals: async (login, from, to, limit = 1000, offset = 0) => {
     const endpoints = [
@@ -527,7 +545,7 @@ export const brokerAPI = {
     if (DEBUG_LOGS) console.log('[API] Response data:', response.data)
     return response.data
   },
-  
+
   // Get positions by login
   getPositionsByLogin: async (login) => {
     const response = await api.get(`/api/broker/clients/${login}/positions`)
@@ -547,22 +565,18 @@ export const brokerAPI = {
   },
 
   // Get clients in margin call (margin level page data)
-  getMarginCallClients: async () => {
-    const response = await api.get('/api/broker/clients/margin-call')
+  getMarginCallClients: async (params = {}, options = {}) => {
+    const query = { ...params }
+    if (query.liquidateType) query.liquidateType = String(query.liquidateType).split(',').map(accountTypeApiValue).join(',')
+    const response = await api.get('/api/broker/clients/margin-call', { ...options, params: query })
     return response.data
   },
 
   // Change trading (master) password
-  changeTradingPassword: async (login, currentPassword, newPassword) => {
-    const response = await api.post(`/api/broker/clients/${login}/change-trading-password`, { password: newPassword })
-    return response.data
-  },
+
 
   // Change investor password
-  changeInvestorPassword: async (login, currentPassword, newPassword) => {
-    const response = await api.post(`/api/broker/clients/${login}/change-investor-password`, { password: newPassword })
-    return response.data
-  },
+
 
   // Check password (type: 'trading' | 'investor')
   checkPassword: async (login, password, type = 'trading') => {
@@ -571,22 +585,10 @@ export const brokerAPI = {
   },
 
   // Account & Trading access toggles
-  enableAccount: async (login) => {
-    const response = await api.post(`/api/broker/clients/${login}/enable-account`)
-    return response.data
-  },
-  disableAccount: async (login) => {
-    const response = await api.post(`/api/broker/clients/${login}/disable-account`)
-    return response.data
-  },
-  enableTrading: async (login) => {
-    const response = await api.post(`/api/broker/clients/${login}/enable-trading`)
-    return response.data
-  },
-  disableTrading: async (login) => {
-    const response = await api.post(`/api/broker/clients/${login}/disable-trading`)
-    return response.data
-  },
+
+
+
+
 
   // Saved filters (groups) - GET
   getSavedFilters: async () => {
@@ -605,7 +607,7 @@ export const brokerAPI = {
     const response = await api.get(`/api/broker/clients/${login}/deals?limit=${limit}`)
     return response.data
   },
-  
+
   // Deposit funds
   depositFunds: async (login, amount, comment) => {
     const response = await api.post(`/api/broker/clients/${login}/deposit`, {
@@ -614,7 +616,7 @@ export const brokerAPI = {
     })
     return response.data
   },
-  
+
   // Withdraw funds
   withdrawFunds: async (login, amount, comment) => {
     const response = await api.post(`/api/broker/clients/${login}/withdrawal`, {
@@ -623,7 +625,7 @@ export const brokerAPI = {
     })
     return response.data
   },
-  
+
   // Credit in
   creditIn: async (login, amount, comment) => {
     const response = await api.post(`/api/broker/clients/${login}/credit-in`, {
@@ -632,7 +634,7 @@ export const brokerAPI = {
     })
     return response.data
   },
-  
+
   // Credit out
   creditOut: async (login, amount, comment) => {
     const response = await api.post(`/api/broker/clients/${login}/credit-out`, {
@@ -641,7 +643,7 @@ export const brokerAPI = {
     })
     return response.data
   },
-  
+
   // Get all client percentages
   getAllClientPercentages: async (params = {}) => {
     // Backend expects `limit`; translate `page_size` if callers pass it.
@@ -652,13 +654,13 @@ export const brokerAPI = {
     const response = await api.get('/api/broker/clients/percentages', { params: finalParams })
     return response.data
   },
-  
+
   // Get specific client percentage
   getClientPercentage: async (login) => {
     const response = await api.get(`/api/broker/clients/${login}/percentage`)
     return response.data
   },
-  
+
   // Set client percentage
   setClientPercentage: async (login, percentage, comment) => {
     const response = await api.post(`/api/broker/clients/${login}/percentage`, {
@@ -789,13 +791,13 @@ export const brokerAPI = {
   // Search clients with advanced filtering, pagination, and sorting
   // Accept optional axios config (e.g., { signal, timeout }) for per-request control
   searchClients: async (payload, options = {}) => {
-    const response = await api.post('/api/broker/clients/search', payload, options)
+    const response = await api.post('/api/broker/clients/search', accountTypeSearchPayload(payload), options)
     return response
   },
 
   // Get unique field values for column filters with search
   getClientFields: async (params, options = {}) => {
-    const response = await api.get('/api/broker/clients/fields', { params, ...options })
+    const response = await api.get('/api/broker/clients/fields', { params: accountTypeSearchPayload(params), ...options })
     return response
   },
 

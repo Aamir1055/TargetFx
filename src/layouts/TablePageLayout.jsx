@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import Sidebar from '../components/Sidebar'
 import WebSocketIndicator from '../components/WebSocketIndicator'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -38,7 +38,6 @@ const TablePageLayout = ({
   loading = false,
   connectionState,
   onRefresh,
-  filterOptions,
   renderFilterMenu,
   renderDisplayMenu,
   customFilterFn,
@@ -51,23 +50,23 @@ const TablePageLayout = ({
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [showDisplayMenu, setShowDisplayMenu] = useState(false)
-  
+
   // Search states
   const [searchQuery, setSearchQuery] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [, setShowSuggestions] = useState(false)
   const searchRef = useRef(null)
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(50)
-  
+
   // Sorting states
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
-  
+
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState(defaultVisibleColumns)
-  
+
   // Refs
   const columnSelectorRef = useRef(null)
   const filterMenuRef = useRef(null)
@@ -123,14 +122,14 @@ const TablePageLayout = ({
     sortedData.sort((a, b) => {
       const aVal = a[sortColumn]
       const bVal = b[sortColumn]
-      
+
       if (aVal === null || aVal === undefined) return 1
       if (bVal === null || bVal === undefined) return -1
-      
+
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
       }
-      
+
       const aStr = String(aVal).toLowerCase()
       const bStr = String(bVal).toLowerCase()
       if (sortDirection === 'asc') {
@@ -165,7 +164,7 @@ const TablePageLayout = ({
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
@@ -236,7 +235,7 @@ const TablePageLayout = ({
               <div className="flex items-center gap-2">
               {/* Groups Dropdown */}
               <GroupSelector onCreateClick={() => setShowGroupModal(true)} />
-              
+
               {/* Filter Button */}
               {renderFilterMenu && (
                 <div className="relative" ref={filterMenuRef}>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useGroups } from '../contexts/GroupContext';
+import { useGroups } from '../contexts/groupContextStore';
 
 const LoginGroupsModal = ({ 
   isOpen, 
@@ -55,7 +55,7 @@ const LoginGroupsModal = ({
         setIsSearchFocused(true)
       }
     }
-    const onFocusOut = (e) => {
+    const onFocusOut = () => {
       // Collapse when focus leaves inputs
       setIsSearchFocused(false)
     }

@@ -4,9 +4,9 @@ import { getPresetRange } from '../utils/dealTimePresets'
 import { useState, useEffect, useRef, useMemo, Fragment, cloneElement } from 'react'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
-import { useData } from '../contexts/DataContext'
-import { useGroups } from '../contexts/GroupContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useData } from '../contexts/dataContextStore'
+import { useGroups } from '../contexts/groupContextStore'
+import { useAuth } from '../contexts/authContextStore'
 import Sidebar from '../components/Sidebar'
 import PageSizeSelect from '../components/PageSizeSelect'
 import WebSocketIndicator from '../components/WebSocketIndicator'
@@ -16,7 +16,8 @@ import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import LiveDealingModule from '../components/LiveDealingModule'
 import ColumnChooserList from '../components/ColumnChooserList'
-import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
+import useColumnResize from '../hooks/useColumnResize.jsx'
+import { ColumnResizeHandle } from '../components/ColumnResizeHandle'
 import { formatTime as apiFormatTime, fromServerEpoch, serverNowEpoch, toServerEpoch } from '../utils/dateFormatter'
 
 const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
@@ -45,8 +46,8 @@ const LiveDealingPage = () => {
       window.removeEventListener('storage', onChange)
     }
   }, [])
-  
-  const { positions: cachedPositions, orders: cachedOrders } = useData() // Get positions and orders from DataContext
+
+  useData() // Get positions and orders from DataContext
   const { groups, activeGroupFilters, getGroupLogins } = useGroups()
   const activeGroupName = activeGroupFilters.livedealing || null
   const activeGroup = useMemo(() => groups.find(group => group.name === activeGroupName) || null, [groups, activeGroupName])
@@ -63,14 +64,14 @@ const LiveDealingPage = () => {
   const [selectedLogin, setSelectedLogin] = useState(null) // For login details modal
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
-  
+
   const [deals, setDeals] = useState([])
   const [newDealIds, setNewDealIds] = useState(new Set()) // Track new deals for blinking
-  
+
   const [connectionState, setConnectionState] = useState('disconnected')
   const [loading, setLoading] = useState(true)
   const [pageLoading, setPageLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [, setError] = useState('')
   const { isAuthenticated } = useAuth()
   const [unauthorized, setUnauthorized] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -82,7 +83,7 @@ const LiveDealingPage = () => {
   const replaceDealsRef = useRef(false)
   const fetchRef = useRef(null) // always holds latest fetchAllDealsOnce
   const currentPageRef = useRef(1) // always holds latest currentPage
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(100)
@@ -92,11 +93,11 @@ const LiveDealingPage = () => {
   const [moduleFilter, setModuleFilter] = useState('both') // 'deal' | 'money' | 'both'
   const [showModuleFilter, setShowModuleFilter] = useState(false)
   const moduleFilterRef = useRef(null)
-  
+
   // Sorting states
   const [sortColumn, setSortColumn] = useState('time')
   const [sortDirection, setSortDirection] = useState('desc')
-  
+
   // Filter states
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [timeFilter, setTimeFilter] = useState('today')
@@ -108,10 +109,10 @@ const LiveDealingPage = () => {
   const filterMenuRef = useRef(null)
   const filterButtonRef = useRef(null)
   // Display mode: 'value' | 'percentage' | 'both'
-  const [displayMode, setDisplayMode] = useState('value')
+  const [displayMode] = useState('value')
   const [showDisplayMenu, setShowDisplayMenu] = useState(false)
   const displayMenuRef = useRef(null)
-  
+
   // Search states
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
@@ -131,13 +132,13 @@ const LiveDealingPage = () => {
   const saveWsCache = (list) => {
     try {
       localStorage.setItem(WS_CACHE_KEY, JSON.stringify(list))
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
-  
+
   // Column visibility states
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const columnSelectorRef = useRef(null)
-  
+
   // Load visible columns from localStorage or use defaults
   const getInitialVisibleColumns = () => {
     const defaults = {
@@ -158,7 +159,7 @@ const LiveDealingPage = () => {
       position: false,
       reason: false
     }
-    
+
     const saved = localStorage.getItem('liveDealingPageVisibleColumns')
     if (saved) {
       try {
@@ -171,7 +172,7 @@ const LiveDealingPage = () => {
     }
     return defaults
   }
-  
+
   const [visibleColumns, setVisibleColumns] = useState(getInitialVisibleColumns)
 
   const allColumns = [
@@ -201,17 +202,17 @@ const LiveDealingPage = () => {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) return parsed
       }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return null
   })
   useEffect(() => {
     try {
       if (columnOrder) localStorage.setItem('liveDealingPageColumnOrder', JSON.stringify(columnOrder))
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [columnOrder])
   const resetColumnOrder = () => {
     setColumnOrder(null)
-    try { localStorage.removeItem('liveDealingPageColumnOrder') } catch {}
+    try { localStorage.removeItem('liveDealingPageColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
   const orderedColumns = (() => {
     if (!Array.isArray(columnOrder) || columnOrder.length === 0) return allColumns
@@ -230,7 +231,7 @@ const LiveDealingPage = () => {
     } catch { return [] }
   })
   useEffect(() => {
-    try { localStorage.setItem('liveDealingPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+    try { localStorage.setItem('liveDealingPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -250,7 +251,7 @@ const LiveDealingPage = () => {
       }
     }
     return map
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [orderedColumns, visibleColumns, pinnedColumns])
 
   const applyPin = (cell, colKey, isHeader) => {
@@ -278,9 +279,9 @@ const LiveDealingPage = () => {
   const [columnFilters, setColumnFilters] = useState({})
   const [showFilterDropdown, setShowFilterDropdown] = useState(null)
   const filterRefs = useRef({})
-  const [filterSearchQuery, setFilterSearchQuery] = useState({})
+  const [, setFilterSearchQuery] = useState({})
   const [showNumberFilterDropdown, setShowNumberFilterDropdown] = useState(null)
-  
+
   // Track if component is mounted to prevent updates after unmount
   const isMountedRef = useRef(true)
 
@@ -295,7 +296,7 @@ const LiveDealingPage = () => {
   // Define string columns that should show text filters instead of number filters
   const stringColumns = ['symbol', 'action', 'reason', 'entry', 'name']
   const isStringColumn = (key) => stringColumns.includes(key)
-  
+
   // Custom filter modal states
   const [showCustomFilterModal, setShowCustomFilterModal] = useState(false)
   const [customFilterColumn, setCustomFilterColumn] = useState(null)
@@ -305,79 +306,13 @@ const LiveDealingPage = () => {
   const [customFilterOperator, setCustomFilterOperator] = useState('AND')
 
   // Column filter helper functions
-  const getUniqueColumnValues = (columnKey) => {
-    const values = new Set()
-    deals.forEach(deal => {
-      // Most deal properties are in rawData, except top-level ones like login, time, dealer, etc.
-      let value
-      if (columnKey === 'login' || columnKey === 'time' || columnKey === 'dealer') {
-        value = deal[columnKey]
-      } else if (columnKey === 'deal') {
-        value = deal.rawData?.deal || deal.id
-      } else if (columnKey === 'appliedPercentage') {
-        value = deal.rawData?.applied_percentage ?? deal.rawData?.appliedPercentage
-      } else {
-        // For columns like symbol, action, volume, price, profit, etc., check rawData
-        value = deal.rawData?.[columnKey]
-      }
-      
-      // Format time column to show readable date format in filter
-      if (columnKey === 'time' && value) {
-        value = formatTime(value)
-      }
-      
-      if (value !== null && value !== undefined && value !== '') {
-        values.add(value)
-      }
-    })
-    const sortedValues = Array.from(values).sort((a, b) => {
-      if (typeof a === 'number' && typeof b === 'number') {
-        return a - b
-      }
-      return String(a).localeCompare(String(b))
-    })
-    
-    // Filter by search query if exists
-    const searchQuery = filterSearchQuery[columnKey]?.toLowerCase() || ''
-    if (searchQuery) {
-      return sortedValues.filter(value => 
-        String(value).toLowerCase().includes(searchQuery)
-      )
-    }
-    
-    return sortedValues
-  }
 
-  const toggleColumnFilter = (columnKey, value) => {
-    setColumnFilters(prev => {
-      const currentFilters = prev[columnKey] || []
-      const newFilters = currentFilters.includes(value)
-        ? currentFilters.filter(v => v !== value)
-        : [...currentFilters, value]
-      
-      if (newFilters.length === 0) {
-        const { [columnKey]: _, ...rest } = prev
-        return rest
-      }
-      
-      return { ...prev, [columnKey]: newFilters }
-    })
-  }
 
-  const selectAllFilters = (columnKey) => {
-    const allValues = getUniqueColumnValues(columnKey)
-    setColumnFilters(prev => ({
-      ...prev,
-      [columnKey]: allValues
-    }))
-  }
 
-  const deselectAllFilters = (columnKey) => {
-    setColumnFilters(prev => {
-      const { [columnKey]: _, ...rest } = prev
-      return rest
-    })
-  }
+
+
+
+
 
   const clearColumnFilter = (columnKey) => {
     setColumnFilters(prev => {
@@ -401,19 +336,15 @@ const LiveDealingPage = () => {
   const getActiveFilterCount = (columnKey) => {
     // Check for regular checkbox filters
     const checkboxCount = columnFilters[columnKey]?.length || 0
-    
+
     // Check for custom filter (text or number)
     const customFilterKey = `${columnKey}_custom`
     const hasCustomFilter = columnFilters[customFilterKey] ? 1 : 0
-    
+
     return checkboxCount + hasCustomFilter
   }
 
-  const isAllSelected = (columnKey) => {
-    const allValues = getUniqueColumnValues(columnKey)
-    const selectedValues = columnFilters[columnKey] || []
-    return allValues.length > 0 && selectedValues.length === allValues.length
-  }
+
 
   // Apply custom number filter
   const applyCustomNumberFilter = () => {
@@ -472,63 +403,10 @@ const LiveDealingPage = () => {
   }
 
   // Check if value matches number filter
-  const matchesNumberFilter = (value, filterConfig) => {
-    if (!filterConfig) return true
-    
-    const numValue = parseFloat(value)
-    if (isNaN(numValue)) return false
 
-    const { type, value1, value2 } = filterConfig
-
-    switch (type) {
-      case 'equal':
-        return numValue === value1
-      case 'notEqual':
-        return numValue !== value1
-      case 'lessThan':
-        return numValue < value1
-      case 'lessThanOrEqual':
-        return numValue <= value1
-      case 'greaterThan':
-        return numValue > value1
-      case 'greaterThanOrEqual':
-        return numValue >= value1
-      case 'between':
-        return value2 !== null && numValue >= value1 && numValue <= value2
-      default:
-        return true
-    }
-  }
 
   // Check if value matches text filter
-  const matchesTextFilter = (value, filterConfig) => {
-    if (!filterConfig) return true
-    
-    const strValue = String(value || '')
-    const { type, value1 } = filterConfig
-    const searchValue = String(value1 || '')
 
-    // Convert to lowercase for case-insensitive comparison
-    const strValueLower = strValue.toLowerCase()
-    const searchValueLower = searchValue.toLowerCase()
-
-    switch (type) {
-      case 'equal':
-        return strValueLower === searchValueLower
-      case 'notEqual':
-        return strValueLower !== searchValueLower
-      case 'startsWith':
-        return strValueLower.startsWith(searchValueLower)
-      case 'endsWith':
-        return strValueLower.endsWith(searchValueLower)
-      case 'contains':
-        return strValueLower.includes(searchValueLower)
-      case 'notContains':
-        return !strValueLower.includes(searchValueLower)
-      default:
-        return true
-    }
-  }
 
   // Critical: Set unmounted flag ASAP to unblock route transitions
   useEffect(() => {
@@ -577,7 +455,7 @@ const LiveDealingPage = () => {
     if (!hasInitialLoad.current) return
     fetchAllDealsOnce()
   }, [currentPage, itemsPerPage])
-  
+
   // Close filter menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -592,7 +470,7 @@ const LiveDealingPage = () => {
         setShowDisplayMenu(false)
       }
     }
-    
+
     if (showFilterMenu || showColumnSelector || showDisplayMenu) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -623,10 +501,10 @@ const LiveDealingPage = () => {
     const unsubscribeDealCreated = websocketService.subscribe('DEAL_CREATED', handleDealAddedEvent)
     const unsubscribeNewDeal = websocketService.subscribe('NEW_DEAL', handleDealAddedEvent)
     const unsubscribeDeal = websocketService.subscribe('deal', handleDealAddedEvent)
-    
+
     const unsubscribeDealUpdated = websocketService.subscribe('DEAL_UPDATED', handleDealUpdatedEvent)
     const unsubscribeDealUpdate = websocketService.subscribe('DEAL_UPDATE', handleDealUpdatedEvent)
-    
+
     const unsubscribeDealDeleted = websocketService.subscribe('DEAL_DELETED', handleDealDeleteEvent)
     const unsubscribeDealDelete = websocketService.subscribe('DEAL_DELETE', handleDealDeleteEvent)
 
@@ -699,7 +577,7 @@ const LiveDealingPage = () => {
       } else {
         setLoading(true)
       }
-      
+
       let from, to
 
       // Calculate time range based on filter, recalculated on every call
@@ -736,7 +614,7 @@ const LiveDealingPage = () => {
         fromDate: new Date(from * 1000).toISOString(),
         toDate: new Date(to * 1000).toISOString()
       })
-      
+
       // Build server-side filters: module toggle + column-level filters
       const apiFilters = []
       if (activeGroup) {
@@ -851,7 +729,7 @@ const LiveDealingPage = () => {
       const rawTotal = apiTotal != null ? Number(apiTotal) : dealsData.length
       console.log('[LiveDealing] 📊 Fetch result:', { dealsCount: dealsData.length, total: rawTotal, page: currentPage })
       setTotalDealsCount(rawTotal)
-      
+
       // Transform deals
       const transformedDeals = dealsData.map(deal => ({
         id: deal.deal || deal.id,
@@ -1023,10 +901,10 @@ const LiveDealingPage = () => {
     try {
       const dealData = data.data || data
       const login = data.login || dealData.login
-      
+
       // Use the actual deal timestamp from server, fallback to current time if not available
       const timestamp = dealData.time || dealData.timestamp || Math.floor(Date.now() / 1000)
-      
+
       const dealEntry = {
         id: dealData.deal || Date.now() + Math.random(),
         time: timestamp,
@@ -1047,10 +925,10 @@ const LiveDealingPage = () => {
         if (prevDeals.some(d => d.id === dealEntry.id)) {
           return prevDeals
         }
-        
+
         // Mark this deal as new for highlight effect
         setNewDealIds(prev => new Set(prev).add(dealEntry.id))
-        
+
         // Remove the highlight effect after 6 seconds (matching animation duration)
         setTimeout(() => {
           setNewDealIds(prev => {
@@ -1059,10 +937,10 @@ const LiveDealingPage = () => {
             return updated
           })
         }, 6000)
-        
+
         // Add new deal at the beginning (newest first)
         const newDeals = [dealEntry, ...prevDeals]
-        
+
         // Keep max 1000 deals (increased from 500)
         const trimmed = newDeals.slice(0, 1000)
         // Persist a lightweight cache of WS-added deals to survive page refresh
@@ -1071,7 +949,7 @@ const LiveDealingPage = () => {
           const existing = new Set(cache.map(d => d.id))
           const updatedCache = [dealEntry, ...cache.filter(d => !existing.has(d.id))].slice(0, 200)
           saveWsCache(updatedCache)
-        } catch {}
+        } catch { /* Retain the fallback when this operation is unavailable. */ }
         return trimmed
       })
     } catch (error) {
@@ -1085,21 +963,21 @@ const LiveDealingPage = () => {
     try {
       const dealData = data.data || data
       const dealId = dealData.deal || dealData.id
-      
+
       if (!dealId) {
         return
       }
 
       setDeals(prevDeals => {
         const index = prevDeals.findIndex(d => d.id === dealId)
-        
+
         if (index === -1) {
           return prevDeals
         }
 
         const updatedDeals = [...prevDeals]
         const login = data.login || dealData.login || updatedDeals[index].login
-        
+
         updatedDeals[index] = {
           ...updatedDeals[index],
           time: dealData.time || updatedDeals[index].time,
@@ -1121,7 +999,7 @@ const LiveDealingPage = () => {
   const handleDealDeleteEvent = (data) => {
     try {
       const dealId = data.data?.deal || data.deal || data.data?.id || data.id
-      
+
       if (!dealId) {
         return
       }
@@ -1153,7 +1031,7 @@ const LiveDealingPage = () => {
     if (action && volume && symbol && price) {
       return `for '${dealLogin}' ${action} ${volume} ${symbol} at ${parseFloat(price).toFixed(5)}`
     }
-    
+
     // Fallback
     return `${action || 'Operation'} for '${dealLogin}'${comment ? ` - ${comment}` : ''}`
   }
@@ -1228,13 +1106,7 @@ const LiveDealingPage = () => {
     return formatIndianNumber(num, digits)
   }
   // Price formatter: only compact when |value| >= 1000
-  const fmtPrice = (n, digits = 5) => {
-    if (n === null || n === undefined || n === '') return '-'
-    const num = Number(n)
-    if (Number.isNaN(num)) return '-'
-    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
-    return formatIndianNumber(num, digits)
-  }
+
   const fmtPriceFull = (n, digits = 5) => {
     if (n === null || n === undefined || n === '') return '-'
     const num = Number(n)
@@ -1250,36 +1122,14 @@ const LiveDealingPage = () => {
     return Number.isFinite(n) && n >= 0 ? n : fallback
   }
   // Count formatter: compacts when value >= 1000
-  const fmtCount = (n) => {
-    const num = Number(n) || 0
-    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
-    return formatIndianNumber(num, 0)
-  }
+
 
   // Get card icon path based on card title
-  const getCardIcon = (cardTitle) => {
-    const baseUrl = import.meta.env.BASE_URL || '/'
-    const iconMap = {
-      'DEALS (24H)': `${baseUrl}desktop-icons/P&L.svg`,
-      'DEALS (7D)': `${baseUrl}desktop-icons/P&L.svg`,
-      'FILTERED DEALS': `${baseUrl}desktop-icons/P&L.svg`,
-      'CONNECTION STATUS': `${baseUrl}desktop-icons/Credit.svg`,
-      'UNIQUE LOGINS': `${baseUrl}desktop-icons/Unique Logins.svg`,
-      'SYMBOLS': `${baseUrl}desktop-icons/Equity.svg`,
-    }
-    return iconMap[cardTitle] || `${baseUrl}desktop-icons/Clients.svg`
-  }
 
-  const handleRefresh = () => {
-    console.log('[LiveDealing] 🔄 Refresh: Reloading all deals from API')
-    if (currentPage !== 1) setCurrentPage(1)
-    else fetchAllDealsOnce()
-  }
 
-  const handleClear = () => {
-    console.log('[LiveDealing] 🗑️ Clearing all deals')
-    setDeals([])
-  }
+
+
+
 
   // Sorting
   const handleSort = (column) => {
@@ -1295,17 +1145,17 @@ const LiveDealingPage = () => {
   const handleApplyCustomDates = () => {
     // Clear any previous error
     setCustomDateError('')
-    
+
     // Validate that both dates are filled
     if (!customFromDate || !customToDate) {
       setCustomDateError('Please select both From Date and To Date')
       return
     }
-    
+
     // Validate that From date is not after To date
     const fromDate = parseDateInput(customFromDate)
     const toDate = parseDateInput(customToDate)
-    
+
     if (!fromDate || !toDate) {
       setCustomDateError('Invalid date format')
       return
@@ -1314,7 +1164,7 @@ const LiveDealingPage = () => {
       setCustomDateError('From Date cannot be after To Date')
       return
     }
-    
+
     // Apply the dates
     setTimeFilter('custom')
     setAppliedFromDate(customFromDate)
@@ -1324,92 +1174,11 @@ const LiveDealingPage = () => {
     setShowFilterMenu(false)
   }
 
-  const sortDeals = (dealsToSort) => {
-    if (!sortColumn) return dealsToSort
 
-    return [...dealsToSort].sort((a, b) => {
-      // Check top-level first, then rawData
-      let aVal, bVal
-      
-      if (sortColumn === 'login' || sortColumn === 'time' || sortColumn === 'dealer') {
-        aVal = a[sortColumn]
-        bVal = b[sortColumn]
-      } else if (sortColumn === 'deal') {
-        aVal = a.rawData?.deal || a.id
-        bVal = b.rawData?.deal || b.id
-      } else if (sortColumn === 'appliedPercentage') {
-        aVal = a.rawData?.applied_percentage ?? a.rawData?.appliedPercentage
-        bVal = b.rawData?.applied_percentage ?? b.rawData?.appliedPercentage
-      } else {
-        aVal = a.rawData?.[sortColumn]
-        bVal = b.rawData?.[sortColumn]
-      }
 
-      // Handle time sorting
-      if (sortColumn === 'time') {
-        aVal = parseInt(aVal) || 0
-        bVal = parseInt(bVal) || 0
-        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
-      }
-
-      // Handle numeric values (including profit, commission, storage, etc.)
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
-      }
-      
-      // Try to parse as numbers if they look numeric
-      const aNum = parseFloat(aVal)
-      const bNum = parseFloat(bVal)
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
-      }
-
-      // Handle string values
-      const aStr = String(aVal || '').toLowerCase()
-      const bStr = String(bVal || '').toLowerCase()
-      
-      if (sortDirection === 'asc') {
-        return aStr.localeCompare(bStr)
-      } else {
-        return bStr.localeCompare(aStr)
-      }
-    })
-  }
-  
   // Search and filter deals
-  const searchDeals = (dealsToSearch) => {
-    if (!searchQuery.trim()) {
-      return dealsToSearch
-    }
-    
-    const query = searchQuery.toLowerCase().trim()
-    return dealsToSearch.filter(deal => {
-      // Search across common fields
-      const fields = ['login', 'id', 'dealer', 'action']
-      for (const key of fields) {
-        const val = deal[key]
-        if (val !== null && val !== undefined && String(val).toLowerCase().includes(query)) return true
-      }
-      // Search in rawData
-      if (deal.rawData) {
-        const rawFields = ['symbol', 'deal', 'action', 'comment', 'entry']
-        for (const key of rawFields) {
-          const val = deal.rawData[key]
-          if (val !== null && val !== undefined && String(val).toLowerCase().includes(query)) return true
-        }
-        // Fallback: scan all primitives in rawData
-        for (const v of Object.values(deal.rawData)) {
-          if (v === null || v === undefined) continue
-          const t = typeof v
-          if (t === 'string' || t === 'number' || t === 'boolean') {
-            if (String(v).toLowerCase().includes(query)) return true
-          }
-        }
-      }
-      return false
-    })
-  }
-  
+
+
   useSearchAsYouType(searchQuery, debouncedSearchQuery, setDebouncedSearchQuery, setCurrentPage)
 
   const handleSearchKeyDown = (e) => {
@@ -1436,15 +1205,7 @@ const LiveDealingPage = () => {
       l === 'sl close'
     )
   }
-  const filterByModule = (list) => {
-    if (moduleFilter === 'both') return list
-    return list.filter((d) => {
-      const label = getActionLabel(d?.rawData?.action)
-      if (moduleFilter === 'deal' && isTradeAction(label)) return true
-      if (moduleFilter === 'money' && !isTradeAction(label)) return true
-      return false
-    })
-  }
+
 
   // Pagination
   const trimmedDeals = deals.slice(0, 1000) // Trim to max 1000 deals for display
@@ -1478,11 +1239,11 @@ const LiveDealingPage = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!isMountedRef.current) return
-      
+
       // Check if click is inside any filter-related element
       const isInsideMainFilter = showFilterDropdown && filterRefs.current[showFilterDropdown] && 
                                   filterRefs.current[showFilterDropdown].contains(event.target)
-      
+
       const numberFilterElements = document.querySelectorAll('[data-number-filter]')
       let isInsideNumberFilter = false
       numberFilterElements.forEach(el => {
@@ -1490,7 +1251,7 @@ const LiveDealingPage = () => {
           isInsideNumberFilter = true
         }
       })
-      
+
       // If click is outside both main filter and number filter dropdowns, close them
       if (!isInsideMainFilter && !isInsideNumberFilter) {
         if (showFilterDropdown) {
@@ -1500,7 +1261,7 @@ const LiveDealingPage = () => {
           setShowNumberFilterDropdown(null)
         }
       }
-      
+
       // Close module filter dropdown when clicking outside
       if (showModuleFilter && moduleFilterRef.current && !moduleFilterRef.current.contains(event.target)) {
         setShowModuleFilter(false)
@@ -1515,7 +1276,7 @@ const LiveDealingPage = () => {
   const renderHeaderCell = (columnKey, label, sortKey = null) => {
     const filterCount = getActiveFilterCount(columnKey)
     const actualSortKey = sortKey || columnKey
-    
+
     return (
       <th
         ref={setHeaderRef(columnKey)}
@@ -1530,7 +1291,7 @@ const LiveDealingPage = () => {
             <span className="text-white font-bold">{label}</span>
             {getSortIcon(actualSortKey)}
           </div>
-          
+
           <div className="relative" ref={el => {
             if (!filterRefs.current) filterRefs.current = {}
             filterRefs.current[columnKey] = el
@@ -1833,31 +1594,9 @@ const LiveDealingPage = () => {
     )
   }
 
-  const getPageNumbers = () => {
-    const pages = []
-    const maxVisible = 5
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2))
-    let endPage = Math.min(totalPages, startPage + maxVisible - 1)
-    
-    if (endPage - startPage < maxVisible - 1) {
-      startPage = Math.max(1, endPage - maxVisible + 1)
-    }
-    
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i)
-    }
-    return pages
-  }
 
-  const getAvailableOptions = () => {
-    const options = []
-    const maxOption = Math.ceil(sortedDeals.length / 50) * 50
-    for (let i = 50; i <= Math.max(maxOption, 50); i += 50) {
-      options.push(i)
-      if (options.length >= 10) break
-    }
-    return options
-  }
+
+
 
   const getSortIcon = (column) => {
     if (sortColumn !== column) {
@@ -1885,7 +1624,7 @@ const LiveDealingPage = () => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
     }
-    
+
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -1902,15 +1641,15 @@ const LiveDealingPage = () => {
         isOpen={sidebarOpen}
         onClose={() => {
           setSidebarOpen(false)
-          try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {}
+          try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ }
         }}
         onToggle={() => setSidebarOpen(v => {
           const n = !v
-          try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}
+          try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }
           return n
         })}
       />
-      
+
       <main className={`flex-1 p-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
           {/* Header Section */}
@@ -1936,7 +1675,7 @@ const LiveDealingPage = () => {
                       setShowGroupModal(true)
                     }}
                   />
-                  
+
                   <QuickTimeFilter value={timeFilter} onChange={value => { setTimeFilter(value); setShowFilterMenu(false) }} />
                   <div className="relative" ref={filterButtonRef}>
                     <button type="button" onClick={() => setShowFilterMenu(!showFilterMenu)} aria-label="Choose custom dates" aria-expanded={showFilterMenu} className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50 shadow-sm flex items-center justify-center">
@@ -1950,7 +1689,7 @@ const LiveDealingPage = () => {
                         <div className="px-3 py-1.5 border-b border-gray-200">
                           <p className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Time Period</p>
                         </div>
-                        
+
                           <div className="px-3 py-2 border-t border-gray-100 space-y-2">
                             <div>
                               <label className="text-xs text-gray-600 mb-1 block">From Date</label>
@@ -1985,7 +1724,7 @@ const LiveDealingPage = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Module Filter — segmented Deal / Money / Both */}
                   <div className="flex items-center h-8 bg-[#F3F4F6] rounded-md p-0.5 shadow-inner gap-0">
                     {[
@@ -2366,7 +2105,7 @@ const LiveDealingPage = () => {
           {/* Pagination - Bottom */}
         </div>
       </main>
-      
+
       {/* Create Group Modal */}
       <GroupModal
         isOpen={showGroupModal}

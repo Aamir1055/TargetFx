@@ -1,15 +1,16 @@
+import { parseAccountTypePreferences } from '../utils/accountType'
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import FilterModal from './FilterModal'
 import CustomizeViewModal from './CustomizeViewModal'
 import GroupModal from './GroupModal'
 import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useGroups } from '../contexts/GroupContext'
-import { useData } from '../contexts/DataContext'
+import { useGroups } from '../contexts/groupContextStore'
+import { useData } from '../contexts/dataContextStore'
 import { brokerAPI } from '../services/api'
 import { formatTime } from '../utils/dateFormatter'
 
@@ -35,7 +36,7 @@ export default function Client2Module() {
   const location = useLocation()
   const { logout } = useAuth()
   const { positions: cachedPositions, orders } = useData()
-  const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
+  const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter } = useGroups()
   const [currentPage, setCurrentPage] = useState(1)
   const [currencyMode, setCurrencyMode] = useState(() => { try { return localStorage.getItem('client2CurrencyMode') || 'Combined' } catch { return 'Combined' } })
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false)
@@ -69,7 +70,7 @@ export default function Client2Module() {
   const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
   const [hasPendingGroupChanges, setHasPendingGroupChanges] = useState(false)
   const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
-  const [pendingGroupDraft, setPendingGroupDraft] = useState(null)
+  const [, setPendingGroupDraft] = useState(null)
   const viewAllRef = useRef(null)
   const itemsPerPage = 15
   const [searchInput, setSearchInput] = useState('')
@@ -82,22 +83,22 @@ export default function Client2Module() {
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
   const [dragStartLabel, setDragStartLabel] = useState(null)
-  const [hoverIndex, setHoverIndex] = useState(null)
-  const [touchDragIndex, setTouchDragIndex] = useState(null)
+
+
   const [touchStartX, setTouchStartX] = useState(null)
   const [touchStartY, setTouchStartY] = useState(null)
-  const [isDragging, setIsDragging] = useState(false)
+
   const [touchHoverLabel, setTouchHoverLabel] = useState(null)
   const scrollContainerRef = useRef(null)
-  const [columnSearchQuery, setColumnSearchQuery] = useState('')
+
 
   // Function to swap card order
   const swapOrder = (fromLabel, toLabel) => {
     if (fromLabel === toLabel) return
-    
+
     const fromIndex = cardOrder.findIndex(label => label === fromLabel)
     const toIndex = cardOrder.findIndex(label => label === toLabel)
-    
+
     if (fromIndex !== -1 && toIndex !== -1) {
       const newOrder = [...cardOrder]
       const [moved] = newOrder.splice(fromIndex, 1)
@@ -200,7 +201,7 @@ export default function Client2Module() {
     email: false,
     phone: false,
     group: false,
-    country: false,
+    liquidateType: false,
     city: false,
     address: false,
     status: false,
@@ -226,15 +227,15 @@ export default function Client2Module() {
     }
     // Restore the user's saved column selection (merged over defaults so newly added columns still appear)
     try {
-      const saved = JSON.parse(localStorage.getItem('client2MobileVisibleColumns'))
+      const saved = parseAccountTypePreferences(localStorage.getItem('client2MobileVisibleColumns'))
       if (saved && typeof saved === 'object') return { ...defaults, ...saved }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return defaults
   })
 
   // Persist column selection so it survives page refresh / re-login
   useEffect(() => {
-    try { localStorage.setItem('client2MobileVisibleColumns', JSON.stringify(visibleColumns)) } catch {}
+    try { localStorage.setItem('client2MobileVisibleColumns', JSON.stringify(visibleColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [visibleColumns])
 
   // Fetch clients data via API
@@ -243,7 +244,7 @@ export default function Client2Module() {
     if (!isInitialLoad && isFetchingRef.current) return
     // Generate unique request ID to track this specific request
     const currentRequestId = ++requestIdRef.current
-    
+
     try {
       // Only show loading on initial load, not on periodic refreshes
       if (isInitialLoad) {
@@ -251,7 +252,7 @@ export default function Client2Module() {
       }
       isFetchingRef.current = true
       const usePercent = overridePercent !== null ? overridePercent : showPercent
-      
+
       // Build payload - always use itemsPerPage (12) for mobile pagination
       const payload = {
         page: currentPage,
@@ -310,7 +311,7 @@ export default function Client2Module() {
         payload.sortBy = sortColumn
         payload.sortOrder = sortDirection
       }
-      
+
       // Cancel previous pending request to prevent API collision
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
@@ -323,19 +324,19 @@ export default function Client2Module() {
         brokerAPI.searchClients(payload, { signal: abortControllerRef.current.signal, timeout: 15000 }),
         minTimer
       ])
-      
+
       // Ignore response if it's from an outdated request (stale data)
       // Do NOT clear isLoading here — the newer request owns the loading state
       if (currentRequestId !== requestIdRef.current) {
         console.log('[Client2Module] Ignoring stale response from request', currentRequestId, '(current:', requestIdRef.current, ')')
         return
       }
-      
+
       // Extract data from response.data.data structure
       const responseData = response?.data || {}
       const data = responseData?.data || responseData
       const t = data.totals || {}
-      
+
       // Debug: Log first client to verify percentage fields
       if (data.clients && data.clients.length > 0 && usePercent) {
         console.log('[Client2] First client with percentage mode:', {
@@ -348,18 +349,18 @@ export default function Client2Module() {
           equity_percentage: data.clients[0].equity_percentage
         })
       }
-      
+
       setClients(data.clients || [])
       setTotals(t)
       setTotalClients(data.total || data.totalClients || data.clients?.length || 0)
       // Update total pages from API response if available
-      const apiPages = data.pages ? Number(data.pages) : null
+      data.pages ? Number(data.pages) : null;
       setLastUpdateTime(Date.now())
       if (isInitialLoad) {
         setIsLoading(false)
       }
       isFetchingRef.current = false
-      
+
       // Cards are now computed via useMemo based on filtered clients
     } catch (error) {
       // Ignore request cancellations caused by AbortController
@@ -419,10 +420,10 @@ export default function Client2Module() {
     // Always use API totals since filters are server-side
     const addPercent = (label) => showPercent ? `${label} %` : label
     const t = totals || {}
-    
+
     // Use totalClients for count
     const clientCount = totalClients || 0
-    
+
     // Only show 6 face cards as requested
     return [
       { label: addPercent('P&L'), value: fmtMoney(t.pnl || 0), unit: 'USD', numericValue: t.pnl || 0, isArrow: true },
@@ -441,8 +442,8 @@ export default function Client2Module() {
     let saved = []
     try {
       const raw = localStorage.getItem(CARD_ORDER_KEY)
-      saved = raw ? JSON.parse(raw) : []
-    } catch {}
+      saved = raw ? parseAccountTypePreferences(raw) : []
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
 
     let order = Array.isArray(saved) && saved.length > 0
       ? saved.map(label => labels.find(current => current.replace(' %', '') === label.replace(' %', ''))).filter(Boolean)
@@ -464,7 +465,7 @@ export default function Client2Module() {
     const changed = JSON.stringify(order) !== JSON.stringify(cardOrder)
     if (changed) {
       setCardOrder(order)
-      try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(order)) } catch {}
+      try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(order)) } catch { /* Retain the fallback when this operation is unavailable. */ }
     }
   }, [cards])
 
@@ -558,15 +559,7 @@ export default function Client2Module() {
     return iconMap[cleanLabel] || `${baseUrl}mobile-icons/Clients.svg` // Default icon
   }
 
-  // Calculate totals for table footer
-  const clientStats = {
-    totalBalance: filteredClients.reduce((sum, c) => sum + (Number(c.balance) || 0), 0),
-    totalCredit: filteredClients.reduce((sum, c) => sum + (Number(c.credit) || 0), 0),
-    totalEquity: filteredClients.reduce((sum, c) => sum + (Number(c.equity) || 0), 0),
-    totalProfit: filteredClients.reduce((sum, c) => sum + (Number(c.profit) || 0), 0),
-    totalMargin: filteredClients.reduce((sum, c) => sum + (Number(c.margin) || 0), 0),
-    totalMarginFree: filteredClients.reduce((sum, c) => sum + (Number(c.marginFree) || 0), 0)
-  }
+  // Table totals are calculated where they are displayed.
 
   // Define percentage columns
   const percentageColumns = new Set([
@@ -739,13 +732,13 @@ export default function Client2Module() {
           }
         })
       })
-      
+
       // Create CSV
       let csv = headers.join(',') + '\n'
       rows.forEach(row => {
         csv += row.map(cell => `"${cell}"`).join(',') + '\n'
       })
-      
+
       // Download
       const blob = new Blob([csv], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
@@ -756,7 +749,7 @@ export default function Client2Module() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-      
+
       setIsLoading(false)
       console.log('[Client2Module] Export completed successfully')
     } catch (error) {
@@ -846,13 +839,13 @@ export default function Client2Module() {
           }
         })
       })
-      
+
       // Create CSV
       let csv = headers.join(',') + '\n'
       rows.forEach(row => {
         csv += row.map(cell => `"${cell}"`).join(',') + '\n'
       })
-      
+
       // Download
       const blob = new Blob([csv], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
@@ -863,7 +856,7 @@ export default function Client2Module() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-      
+
       setIsLoading(false)
       console.log('[Client2Module] Export completed successfully')
     } catch (error) {
@@ -885,7 +878,7 @@ export default function Client2Module() {
     { key: 'email', label: 'Email', width: '140px' },
     { key: 'phone', label: 'Phone', width: '100px' },
     { key: 'group', label: 'Group', width: '80px' },
-    { key: 'country', label: 'Country', width: '80px' },
+    { key: 'liquidateType', label: 'Account Type', width: '80px' },
     { key: 'city', label: 'City', width: '80px' },
     { key: 'address', label: 'Address', width: '140px' },
     { key: 'status', label: 'Status', width: '80px' },
@@ -913,7 +906,7 @@ export default function Client2Module() {
   // Helper function to format value based on percentage mode  
   const formatCellValue = (key, value) => {
     if (value === null || value === undefined) return '-'
-    
+
     // Handle processorType boolean field
     if (key === 'processorType') {
       return value === true ? 'Connected' : 'Not Connected'
@@ -931,7 +924,7 @@ export default function Client2Module() {
       if (!value) return '-'
       return formatTime(value, '-')
     }
-    
+
     // If showPercent is true and this column supports percentage
     if (showPercent && percentageColumns.has(key)) {
       // The API returns the percentage value directly, format it as a number
@@ -939,12 +932,12 @@ export default function Client2Module() {
       if (isNaN(num)) return '-'
       return formatNum(num)  // Display the raw percentage value from API
     }
-    
+
     // Otherwise format as number (for numeric columns)
     if (percentageColumns.has(key)) {
       return fmtMoney(value || 0)
     }
-    
+
     return value
   }
 
@@ -1026,8 +1019,8 @@ export default function Client2Module() {
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
                 <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
-                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
-                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
                 </div>
               </div>
               <div className="border-t border-[#ECECEC] mb-2" />
@@ -1072,6 +1065,9 @@ export default function Client2Module() {
                         <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                         <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                         <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
+                        <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
+                        <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                        <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                       </div>
                     )}
                   </div>
@@ -1188,7 +1184,7 @@ export default function Client2Module() {
                         key={opt}
                         onClick={() => {
                           setCurrencyMode(opt)
-                          try { localStorage.setItem('client2CurrencyMode', opt) } catch {}
+                          try { localStorage.setItem('client2CurrencyMode', opt) } catch { /* Retain the fallback when this operation is unavailable. */ }
                           setCurrentPage(1)
                           setShowCurrencyDropdown(false)
                         }}
@@ -1305,7 +1301,7 @@ export default function Client2Module() {
             ref={scrollContainerRef}
             className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-4"
           >
-            {orderedCards.map((card, i) => (
+            {orderedCards.map((card) => (
                 <div 
                   key={`${card.label}-${lastUpdateTime}`}
                   style={{
@@ -1383,7 +1379,7 @@ export default function Client2Module() {
                   className="flex-1 min-w-0 text-[11px] sm:text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit focus:ring-0" 
                 />
               </div>
-              
+
               {/* Column selector button */}
               <div className="relative" ref={columnSelectorButtonRef}>
                 <button 
@@ -1464,7 +1460,7 @@ export default function Client2Module() {
             <div className="relative" style={{ minWidth: 'max-content' }}>
               {/* Header row */}
               <div className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
-                {visibleColumnsList.map((col, idx) => (
+                {visibleColumnsList.map((col) => (
                   <div 
                     key={col.key}
                     onClick={() => handleSort(col.key)}
@@ -1487,7 +1483,7 @@ export default function Client2Module() {
                   </div>
                 ))}
               </div>
-              
+
               {/* Rows */}
               {isLoading ? (
                 // Skeleton loading rows — same shimmer as MarginLevelModule
@@ -1568,10 +1564,10 @@ export default function Client2Module() {
                         rowData[col.key] = client[col.key] || '-';
                       }
                     });
-                    
+
                     return (
                       <div key={client.login || idx} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
-                        {visibleColumnsList.map((col, colIdx) => (
+                        {visibleColumnsList.map((col) => (
                           <div 
                             key={col.key}
                             onClick={() => col.key === 'login' && setSelectedClient(client)}
@@ -1616,7 +1612,7 @@ export default function Client2Module() {
                       </div>
                     );
                   })}
-                  
+
                   {/* Total Row removed for mobile view */}
                 </div>
               )}
@@ -1684,7 +1680,7 @@ export default function Client2Module() {
             if (prev && draft) {
               try {
                 if (JSON.stringify(prev) === JSON.stringify(draft)) return prev
-              } catch (e) {}
+              } catch { /* Retain the fallback when this operation is unavailable. */ }
             }
             return draft || null
           })
@@ -1747,7 +1743,7 @@ export default function Client2Module() {
         displayField="name"
       />
 
-      
+
 
       {/* Login Group Modal (Create/Edit) */}
       <LoginGroupModal
@@ -1819,7 +1815,7 @@ export default function Client2Module() {
                 'Email': 'email',
                 'Phone': 'phone',
                 'Group': 'group',
-                'Country': 'country',
+                'Account Type': 'liquidateType',
                 'City': 'city',
                 'Address': 'address',
                 'Status': 'status',
@@ -1845,7 +1841,7 @@ export default function Client2Module() {
               }).filter(([label]) => 
                 !columnSearch || label.toLowerCase().includes(columnSearch.toLowerCase())
               );
-              
+
               return filteredEntries.length > 0 ? (
                 filteredEntries.map(([label, key]) => (
                   <label 
@@ -1914,7 +1910,7 @@ export default function Client2Module() {
             {orderedCards.map((card, index) => {
               const isBeingDragged = dragStartLabel === card.label
               const isHoveredOver = touchHoverLabel === card.label
-              
+
               return (
               <div
                 key={card.label}
@@ -1980,17 +1976,17 @@ export default function Client2Module() {
                 }}
                 onTouchMove={(e) => {
                   if (touchStartX === null || touchStartY === null) return
-                  
+
                   const touch = e.touches[0]
                   const deltaX = Math.abs(touch.clientX - touchStartX)
                   const deltaY = touch.clientY - touchStartY
                   const absDeltaY = Math.abs(deltaY)
-                  
+
                   // Allow vertical scrolling if moving primarily vertically
                   if (absDeltaY > deltaX && dragStartLabel === null) {
                     return
                   }
-                  
+
                   // Start drag on significant horizontal movement
                   if (deltaX > 8 && absDeltaY < 20 && dragStartLabel === null) {
                     e.preventDefault()
@@ -2000,15 +1996,15 @@ export default function Client2Module() {
                     }
                     return
                   }
-                  
+
                   // Continue drag
                   if (dragStartLabel) {
                     e.preventDefault()
-                    
+
                     // Find element at touch position
                     const element = document.elementFromPoint(touch.clientX, touch.clientY)
                     if (!element) return
-                    
+
                     const targetCard = element.closest('[data-card-label]')
                     if (targetCard) {
                       const targetLabel = targetCard.getAttribute('data-card-label')
@@ -2022,20 +2018,20 @@ export default function Client2Module() {
                     }
                   }
                 }}
-                onTouchEnd={(e) => {
+                onTouchEnd={() => {
                   if (dragStartLabel && touchHoverLabel && dragStartLabel !== touchHoverLabel) {
                     swapOrder(dragStartLabel, touchHoverLabel)
                     if (window.navigator.vibrate) {
                       window.navigator.vibrate([25, 15, 25])
                     }
                   }
-                  
+
                   setDragStartLabel(null)
                   setTouchHoverLabel(null)
                   setTouchStartX(null)
                   setTouchStartY(null)
                 }}
-                onTouchCancel={(e) => {
+                onTouchCancel={() => {
                   setDragStartLabel(null)
                   setTouchHoverLabel(null)
                   setTouchStartX(null)

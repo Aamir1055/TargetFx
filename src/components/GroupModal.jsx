@@ -1,17 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import api from '../services/api'
 
 const GroupModal = ({ 
   isOpen, 
   onClose, 
-  availableItems = [], 
   loginField = 'login',
   displayField = 'login',
-  secondaryField = null,
   editGroup = null // Pass group object to edit
 }) => {
-  const { groups, createGroup, createRangeGroup, updateGroup } = useGroups()
+  const {  createGroup, createRangeGroup, updateGroup } = useGroups()
   const [newGroupName, setNewGroupName] = useState('')
   const [selectedLogins, setSelectedLogins] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -23,7 +21,7 @@ const GroupModal = ({
   const [isEditMode, setIsEditMode] = useState(false)
   const [originalGroupName, setOriginalGroupName] = useState('')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
-  
+
   // API state for My Login tab
   const [apiLogins, setApiLogins] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -41,7 +39,7 @@ const GroupModal = ({
       setIsEditMode(true)
       setOriginalGroupName(editGroup.name)
       setNewGroupName(editGroup.name)
-      
+
       if (editGroup.range) {
         setActiveTab('range')
         setRangeStart(String(editGroup.range.from))
@@ -77,12 +75,12 @@ const GroupModal = ({
       setTotalLogins(0)
     }
   }, [isOpen])
-  
+
   // Fetch logins from API for My Login tab
   useEffect(() => {
     const fetchLogins = async () => {
       if (!isOpen || activeTab !== 'manual') return
-      
+
       setLoading(true)
       try {
         const params = {
@@ -122,7 +120,7 @@ const GroupModal = ({
   // Update selected logins based on range whenever rangeStart or rangeEnd changes
   useEffect(() => {
     if (activeTab !== 'range') return
-    
+
     setRangeError('')
 
     if (!rangeStart.trim() && !rangeEnd.trim()) {
@@ -170,7 +168,7 @@ const GroupModal = ({
 
   const handleCreateOrUpdateGroup = () => {
     setFormError('')
-    
+
     if (!newGroupName.trim()) {
       setFormError('Please enter a group name')
       return
@@ -224,7 +222,7 @@ const GroupModal = ({
         }
 
         success = createRangeGroup(newGroupName, rangeStart, rangeEnd)
-        
+
         if (success) {
           onClose()
         } else {
@@ -237,7 +235,7 @@ const GroupModal = ({
         }
 
         success = createGroup(newGroupName, selectedLogins)
-        
+
         if (success) {
           onClose()
         } else {
@@ -279,7 +277,7 @@ const GroupModal = ({
             {isEditMode ? 'Edit Login Group' : 'Create Login Group'}
           </h3>
         </div>
-        
+
         <div className={`px-4 py-3 overflow-y-auto flex-1 ${isSearchFocused ? 'group-modal-content-focused' : 'group-modal-content-normal'}`}>
           {/* Group Name */}
           <div className="mb-3">
@@ -343,7 +341,7 @@ const GroupModal = ({
                   placeholder="Search by login, name, email..."
                   className="w-full px-2.5 py-1.5 text-sm text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 mb-2"
                 />
-                
+
                 {/* Login List */}
                 <div className="bg-white rounded-md border border-gray-200">
                   <div className="px-2.5 py-1.5 bg-blue-50 border-b border-blue-200 sticky top-0">
@@ -363,7 +361,7 @@ const GroupModal = ({
                         const display = item.name || item[displayField]
                         const email = item.email
                         const isChecked = selectedLogins.includes(login)
-                        
+
                         // Debug logging for first 3 items
                         if (filteredItems.indexOf(item) < 3) {
                           console.log('[GroupModal Desktop Checkbox]', {
@@ -374,7 +372,7 @@ const GroupModal = ({
                             selectedLoginsTypes: selectedLogins.map(l => typeof l)
                           })
                         }
-                        
+
                         return (
                           <label key={login} className="flex items-center px-2.5 py-1.5 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
                             <input
@@ -501,7 +499,7 @@ const GroupModal = ({
             </div>
           )}
         </div>
-        
+
         <div className="px-4 py-2.5 bg-gray-50 rounded-b-lg flex justify-end gap-2">
           <button
             onClick={onClose}

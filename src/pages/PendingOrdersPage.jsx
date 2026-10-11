@@ -1,8 +1,8 @@
 import { createLatestRequest } from '../utils/latestRequest'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useEffect, useRef, useState, useMemo, Fragment, cloneElement } from 'react'
-import { useData } from '../contexts/DataContext'
-import { useGroups } from '../contexts/GroupContext'
+import { useData } from '../contexts/dataContextStore'
+import { useGroups } from '../contexts/groupContextStore'
 import { brokerAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
 import PageSizeSelect from '../components/PageSizeSelect'
@@ -13,7 +13,8 @@ import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import PendingOrdersModule from '../components/PendingOrdersModule'
 import ColumnChooserList from '../components/ColumnChooserList'
-import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
+import useColumnResize from '../hooks/useColumnResize.jsx'
+import { ColumnResizeHandle } from '../components/ColumnResizeHandle'
 import { formatTime as apiFormatTime, fromServerEpoch, toServerEpoch } from '../utils/dateFormatter'
 
 const PendingOrdersPage = () => {
@@ -21,9 +22,9 @@ const PendingOrdersPage = () => {
   const [isMobile, setIsMobile] = useState(false)
 
   // Use cached data from DataContext - MUST be called before conditional return
-  const { orders: cachedOrders, positions: cachedPositions, fetchOrders } = useData()
+  const { orders: cachedOrders, fetchOrders } = useData()
   const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter, getGroupLogins } = useGroups()
-  
+
   // Server-side polled data
   const [polledOrders, setPolledOrders] = useState([])
   const [serverTotalOrders, setServerTotalOrders] = useState(0)
@@ -63,23 +64,23 @@ const PendingOrdersPage = () => {
   const [selectedLogin, setSelectedLogin] = useState(null) // For login details modal
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(100)
-  
+
   // Sorting states
   const [sortColumn, setSortColumn] = useState('timeSetup')
   const [sortDirection, setSortDirection] = useState('desc')
-  
+
   // Search states
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearch, setActiveSearch] = useState('')
   const searchRef = useRef(null)
-  
+
   // Track if component is mounted to prevent updates after unmount
   const isMountedRef = useRef(true)
-  
+
   // Column visibility states
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const columnSelectorRef = useRef(null)
@@ -119,17 +120,17 @@ const PendingOrdersPage = () => {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) return parsed
       }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return null
   })
   useEffect(() => {
     try {
       if (columnOrder) localStorage.setItem('pendingOrdersPageColumnOrder', JSON.stringify(columnOrder))
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [columnOrder])
   const resetColumnOrder = () => {
     setColumnOrder(null)
-    try { localStorage.removeItem('pendingOrdersPageColumnOrder') } catch {}
+    try { localStorage.removeItem('pendingOrdersPageColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
   // Ordered columns (with any new keys appended) for table rendering
   const orderedColumns = (() => {
@@ -149,7 +150,7 @@ const PendingOrdersPage = () => {
     } catch { return [] }
   })
   useEffect(() => {
-    try { localStorage.setItem('pendingOrdersPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+    try { localStorage.setItem('pendingOrdersPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -170,7 +171,7 @@ const PendingOrdersPage = () => {
       }
     }
     return map
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [orderedColumns, visibleColumns, pinnedColumns])
 
   // Apply sticky positioning to a header/body cell element when its column is pinned
@@ -200,10 +201,10 @@ const PendingOrdersPage = () => {
   const [pendingColumnFilters, setPendingColumnFilters] = useState({})
   const [showFilterDropdown, setShowFilterDropdown] = useState(null)
   const filterRefs = useRef({})
-  const numberFilterButtonRefs = useRef({})
+
   const [filterSearchQuery, setFilterSearchQuery] = useState({})
   const [showNumberFilterDropdown, setShowNumberFilterDropdown] = useState(null)
-  
+
   // Custom filter modal states
   const [showCustomFilterModal, setShowCustomFilterModal] = useState(false)
   const [customFilterColumn, setCustomFilterColumn] = useState(null)
@@ -244,12 +245,12 @@ const PendingOrdersPage = () => {
       const newFilters = currentFilters.includes(value)
         ? currentFilters.filter(v => v !== value)
         : [...currentFilters, value]
-      
+
       if (newFilters.length === 0) {
         const { [columnKey]: _, ...rest } = prev
         return rest
       }
-      
+
       return { ...prev, [columnKey]: newFilters }
     })
   }
@@ -285,11 +286,11 @@ const PendingOrdersPage = () => {
   const getActiveFilterCount = (columnKey) => {
     // Check for regular checkbox filters
     const checkboxCount = columnFilters[columnKey]?.length || 0
-    
+
     // Check for number filter
     const numberFilterKey = `${columnKey}_number`
     const hasNumberFilter = columnFilters[numberFilterKey] ? 1 : 0
-    
+
     return checkboxCount + hasNumberFilter
   }
 
@@ -340,33 +341,18 @@ const PendingOrdersPage = () => {
   }
 
   // Transient UI flashes for updated orders
-  const [flashes, setFlashes] = useState({})
-  const flashTimeouts = useRef(new Map())
+  const [flashes, ] = useState({})
 
-  const queueFlash = (id, data = {}) => {
-    if (!id) return
-    const key = String(id)
-    const prev = flashTimeouts.current.get(key)
-    if (prev) clearTimeout(prev)
-    setFlashes((p) => ({ ...p, [key]: { ts: Date.now(), ...data } }))
-    const to = setTimeout(() => {
-      setFlashes((p) => {
-        const n = { ...p }
-        delete n[key]
-        return n
-      })
-      flashTimeouts.current.delete(key)
-    }, 1500)
-    flashTimeouts.current.set(key, to)
-  }
-  
+
+
+
   // Critical: Set unmounted flag ASAP to unblock route transitions
   useEffect(() => {
     return () => {
       isMountedRef.current = false
     }
   }, [])
-  
+
   // Close column selector when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -374,7 +360,7 @@ const PendingOrdersPage = () => {
         setShowColumnSelector(false)
       }
     }
-    
+
     if (showColumnSelector) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -480,6 +466,7 @@ const PendingOrdersPage = () => {
         const total = response?.data?.total || response?.total || 0
         const totals = response?.data?.totals || response?.totals || null
         if (Array.isArray(data)) {
+          setError('')
           setPolledOrders(data)
           setServerTotalOrders(total)
           if (totals) setServerTotals(totals)
@@ -488,6 +475,9 @@ const PendingOrdersPage = () => {
         }
       } catch (err) {
         if (!isCancelled && isCurrent()) {
+          setError('Failed to load pending orders. Retrying automatically...')
+          setIsPageLoading(false)
+          setHasFetchedOrders(true)
           console.warn('[Orders] Polling error:', err?.message)
         }
       }
@@ -572,12 +562,7 @@ const PendingOrdersPage = () => {
   }
 
   // Color mapping for order `type` column
-  const getOrderTypeColor = (type) => {
-    const t = String(type || '').toUpperCase()
-    if (t.startsWith('BUY')) return 'text-green-600'
-    if (t.startsWith('SELL')) return 'text-red-600'
-    return 'text-gray-900'
-  }
+
 
   // Badge styles for type/state with tinted background
   const getTypeBadgeClasses = (type) => {
@@ -614,9 +599,9 @@ const PendingOrdersPage = () => {
     const baseSizes = [25, 50, 100, 200]
     return baseSizes
   }
-  
-  const pageSizeOptions = generatePageSizeOptions()
-  
+
+  generatePageSizeOptions();
+
   useSearchAsYouType(searchQuery, activeSearch, setActiveSearch, setCurrentPage)
 
   const handleSearchClick = () => {
@@ -625,7 +610,7 @@ const PendingOrdersPage = () => {
     setActiveSearch(trimmed)
     setCurrentPage(1)
   }
-  
+
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
       const trimmed = searchQuery.trim()
@@ -634,13 +619,13 @@ const PendingOrdersPage = () => {
       setCurrentPage(1)
     }
   }
-  
+
   // Server data is already sorted/filtered/paginated — apply active group filter client-side
   const displayedOrders = useMemo(
     () => filterByActiveGroup(polledOrders, 'login', 'pendingorders'),
     [polledOrders, filterByActiveGroup, activeGroupFilters]
   )
-  
+
   // Handle column header click for sorting
   const handleSort = (columnKey) => {
     if (sortColumn === columnKey) {
@@ -651,10 +636,10 @@ const PendingOrdersPage = () => {
     }
     setCurrentPage(1)
   }
-  
+
   // Server-side pagination — total pages from API response
   const totalPages = Math.max(1, Math.ceil(serverTotalOrders / itemsPerPage))
-  
+
   // Reset to page 1 when items per page changes
   useEffect(() => {
     setCurrentPage(1)
@@ -672,11 +657,11 @@ const PendingOrdersPage = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!isMountedRef.current) return
-      
+
       // Check if click is inside any filter-related element
       const isInsideMainFilter = showFilterDropdown && filterRefs.current[showFilterDropdown] && 
                                   filterRefs.current[showFilterDropdown].contains(event.target)
-      
+
       const numberFilterElements = document.querySelectorAll('[data-number-filter]')
       let isInsideNumberFilter = false
       numberFilterElements.forEach(el => {
@@ -684,7 +669,7 @@ const PendingOrdersPage = () => {
           isInsideNumberFilter = true
         }
       })
-      
+
       // If click is outside both main filter and number filter dropdowns, close them
       if (!isInsideMainFilter && !isInsideNumberFilter) {
         if (showFilterDropdown) {
@@ -699,13 +684,13 @@ const PendingOrdersPage = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showFilterDropdown, showNumberFilterDropdown])
-  
+
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage)
     // Scroll to top of table
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  
+
   const handleItemsPerPageChange = (value) => {
     setItemsPerPage(value)
     setCurrentPage(1)
@@ -715,7 +700,7 @@ const PendingOrdersPage = () => {
   const renderHeaderCell = (columnKey, label, sortKey = null) => {
     const filterCount = getActiveFilterCount(columnKey)
     const actualSortKey = sortKey || columnKey
-    
+
     return (
       <th
         ref={setHeaderRef(columnKey)}
@@ -748,7 +733,7 @@ const PendingOrdersPage = () => {
               </svg>
             )}
           </div>
-          
+
           <div className="relative" ref={el => {
             if (!filterRefs.current) filterRefs.current = {}
             filterRefs.current[columnKey] = el
@@ -1135,8 +1120,8 @@ const PendingOrdersPage = () => {
     <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-hidden">
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
       />
 
       <main className={`flex-1 p-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
@@ -1164,7 +1149,7 @@ const PendingOrdersPage = () => {
                       setShowGroupModal(true)
                     }}
                   />
-                  
+
               <button
                 onClick={fetchOrders}
                 className="h-8 w-8 rounded-md border border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50 transition-colors inline-flex items-center justify-center shadow-sm"
@@ -1310,7 +1295,7 @@ const PendingOrdersPage = () => {
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Columns Button (icon only) */}
                   <div className="relative">
                     <button
@@ -1461,7 +1446,7 @@ const PendingOrdersPage = () => {
                     )}
                   </thead>
                   <tbody className="bg-white">
-                    {(!hasFetchedOrders || isPageLoading) ? (
+                    {error ? <tr><td colSpan={orderedColumns.filter(col => visibleColumns[col.key]).length} className="p-6 text-center text-red-600" role="alert">{error}</td></tr> : (!hasFetchedOrders || isPageLoading) ? (
                       Array.from({ length: 8 }, (_, i) => (
                         <tr key={`skeleton-${i}`} className="bg-white border-b border-[#E1E1E1] border-l-2 border-l-[#E1E1E1]">
                           {orderedColumns.map((col, colIdx) => {
@@ -1617,7 +1602,7 @@ const PendingOrdersPage = () => {
           {/* Connection status helper removed per request */}
         </div>
       </main>
-      
+
       {/* Group Modal */}
       <GroupModal
         isOpen={showGroupModal}

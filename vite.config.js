@@ -92,14 +92,14 @@ export default defineConfig({
         secure: false,
         ws: false,
         rewrite: (path) => path,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
             console.log('IB Proxy error:', err)
           })
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             console.log('IB Proxying request:', req.method, req.url)
           })
-          proxy.on('proxyRes', (proxyRes, req, res) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
             console.log('IB Proxy response:', proxyRes.statusCode, req.url)
           })
         }
@@ -110,14 +110,14 @@ export default defineConfig({
         secure: false, // Disable SSL verification for development (avoid certificate issues)
         ws: true, // Enable WebSocket proxying
         rewrite: (path) => path,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
             console.log('Proxy error:', err)
           })
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             console.log('Proxying request:', req.method, req.url)
           })
-          proxy.on('proxyRes', (proxyRes, req, res) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
             console.log('Proxy response:', proxyRes.statusCode, req.url)
           })
         }

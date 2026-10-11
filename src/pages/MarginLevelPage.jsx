@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo, Fragment, cloneElement } from 'react'
-import { useGroups } from '../contexts/GroupContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useGroups } from '../contexts/groupContextStore'
+import { useAuth } from '../contexts/authContextStore'
 import { brokerAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
 import PageSizeSelect from '../components/PageSizeSelect'
@@ -10,7 +10,8 @@ import ClientPositionsModal from '../components/ClientPositionsModal'
 
 import MarginLevelModule from '../components/MarginLevelModule'
 import ColumnChooserList from '../components/ColumnChooserList'
-import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
+import useColumnResize from '../hooks/useColumnResize.jsx'
+import { ColumnResizeHandle } from '../components/ColumnResizeHandle'
 
 // Helpers
 const getMarginLevelPercent = (obj) => {
@@ -51,16 +52,23 @@ const MarginLevelPage = () => {
   const { isAuthenticated } = useAuth()
   const [marginCallClients, setMarginCallClients] = useState([])
   const [marginCallLoaded, setMarginCallLoaded] = useState(false)
-  const [marginCallLoading, setMarginCallLoading] = useState(false)
-  const { filterByActiveGroup, activeGroupFilters } = useGroups()
+  const [, setMarginCallLoading] = useState(false)
+  const { filterByActiveGroup } = useGroups()
   // WS connection state is no longer used here — keep a static placeholder so the indicator stays visible
-  const connectionState = 'connected'
+
 
   // Fetch margin-call clients from REST API. Used both for initial load and 2s polling.
+  const [sortColumn, setSortColumn] = useState(null)
+  const [sortDirection, setSortDirection] = useState('asc')
+  const [accountTypeFilter, setAccountTypeFilter] = useState('')
+  const marginRequestRef = useRef(0)
+  const accountTypeControl = <label className="inline-flex items-center gap-2 text-xs text-slate-600">Account Type<select aria-label="Filter by account type" value={accountTypeFilter} onChange={event => { setAccountTypeFilter(event.target.value); setCurrentPage(1) }} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">All types</option><option value="Liquidate">Liquidate</option><option value="Non-Liquidate">DNL</option></select></label>
   const fetchMarginCallClients = async () => {
+    const requestId = ++marginRequestRef.current
     try {
       setMarginCallLoading(true)
-      const res = await brokerAPI.getMarginCallClients()
+      const res = await brokerAPI.getMarginCallClients({ ...(accountTypeFilter ? { liquidateType: accountTypeFilter } : {}), ...(sortColumn ? { sortBy: sortColumn, sortOrder: sortDirection } : {}) })
+      if (requestId !== marginRequestRef.current) return
       const data = res?.data ?? res
       const list = Array.isArray(data)
         ? data
@@ -75,7 +83,7 @@ const MarginLevelPage = () => {
     }
   }
 
-  
+
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
       const v = localStorage.getItem('sidebarOpen')
@@ -84,9 +92,9 @@ const MarginLevelPage = () => {
       return true
     }
   })
-  const [error, setError] = useState('')
+
   const [selectedLogin, setSelectedLogin] = useState(null) // For login details modal
-  const hasInitialLoad = useRef(false)
+
 
   // Mirror selectedLogin into a ref so the polling closure always reads the latest value
   const selectedLoginRef = useRef(null)
@@ -116,28 +124,27 @@ const MarginLevelPage = () => {
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [isAuthenticated, isMobile])
-  
+  }, [isAuthenticated, isMobile, accountTypeFilter, sortColumn, sortDirection])
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(100)
-  
+
   // Sorting states
-  const [sortColumn, setSortColumn] = useState(null)
-  const [sortDirection, setSortDirection] = useState('asc')
-  
+
   // Search states
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, ] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const searchRef = useRef(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  
+
   // Column visibility states
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const columnSelectorRef = useRef(null)
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
     name: true,
+    liquidateType: true,
     equity: true,
     margin: true,
     marginFree: true,
@@ -148,6 +155,7 @@ const MarginLevelPage = () => {
   const allColumns = [
     { key: 'login', label: 'Login', sticky: true },
     { key: 'name', label: 'Name' },
+    { key: 'liquidateType', label: 'Account Type' },
     { key: 'equity', label: 'Equity' },
     { key: 'margin', label: 'Margin' },
     { key: 'marginFree', label: 'Margin Free' },
@@ -163,17 +171,17 @@ const MarginLevelPage = () => {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) return parsed
       }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return null
   })
   useEffect(() => {
     try {
       if (columnOrder) localStorage.setItem('marginLevelPageColumnOrder', JSON.stringify(columnOrder))
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [columnOrder])
   const resetColumnOrder = () => {
     setColumnOrder(null)
-    try { localStorage.removeItem('marginLevelPageColumnOrder') } catch {}
+    try { localStorage.removeItem('marginLevelPageColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
 
   // Pinned (frozen) columns - persisted to localStorage
@@ -184,7 +192,7 @@ const MarginLevelPage = () => {
     } catch { return [] }
   })
   useEffect(() => {
-    try { localStorage.setItem('marginLevelPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+    try { localStorage.setItem('marginLevelPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -240,136 +248,41 @@ const MarginLevelPage = () => {
   }
 
   // Column filter states
-  const [columnFilters, setColumnFilters] = useState({})
+  const [columnFilters, ] = useState({})
   const [showFilterDropdown, setShowFilterDropdown] = useState(null)
   const filterRefs = useRef({})
-  const [filterSearchQuery, setFilterSearchQuery] = useState({})
-  const [showNumberFilterDropdown, setShowNumberFilterDropdown] = useState(null)
-  
+
+
+
   // Custom number filter states
-  const [customFilterColumn, setCustomFilterColumn] = useState(null)
-  const [customFilterType, setCustomFilterType] = useState('equal')
-  const [customFilterValue1, setCustomFilterValue1] = useState('')
-  const [customFilterValue2, setCustomFilterValue2] = useState('')
-  const [customFilterOperator, setCustomFilterOperator] = useState('AND')
+
+
+
+
+
 
   // Column filter helper functions
-  const getUniqueColumnValues = (columnKey) => {
-    const values = new Set()
-    filtered.forEach(account => {
-      const value = account[columnKey]
-      if (value !== null && value !== undefined && value !== '') {
-        values.add(value)
-      }
-    })
-    const sortedValues = Array.from(values).sort((a, b) => {
-      if (typeof a === 'number' && typeof b === 'number') {
-        return a - b
-      }
-      return String(a).localeCompare(String(b))
-    })
-    
-    // Filter by search query if exists
-    const searchQuery = filterSearchQuery[columnKey]?.toLowerCase() || ''
-    if (searchQuery) {
-      return sortedValues.filter(value => 
-        String(value).toLowerCase().includes(searchQuery)
-      )
-    }
-    
-    return sortedValues
-  }
 
-  const toggleColumnFilter = (columnKey, value) => {
-    setColumnFilters(prev => {
-      const currentFilters = prev[columnKey] || []
-      const newFilters = currentFilters.includes(value)
-        ? currentFilters.filter(v => v !== value)
-        : [...currentFilters, value]
-      
-      if (newFilters.length === 0) {
-        const { [columnKey]: _, ...rest } = prev
-        return rest
-      }
-      
-      return { ...prev, [columnKey]: newFilters }
-    })
-  }
 
-  const selectAllFilters = (columnKey) => {
-    const allValues = getUniqueColumnValues(columnKey)
-    setColumnFilters(prev => ({
-      ...prev,
-      [columnKey]: allValues
-    }))
-  }
 
-  const deselectAllFilters = (columnKey) => {
-    setColumnFilters(prev => {
-      const { [columnKey]: _, ...rest } = prev
-      return rest
-    })
-  }
 
-  const clearColumnFilter = (columnKey) => {
-    setColumnFilters(prev => {
-      const numberFilterKey = `${columnKey}_number`
-      const { [columnKey]: _, [numberFilterKey]: __, ...rest } = prev
-      return rest
-    })
-    setFilterSearchQuery(prev => {
-      const { [columnKey]: _, ...rest } = prev
-      return rest
-    })
-    setShowFilterDropdown(null)
-  }
 
-  const getActiveFilterCount = (columnKey) => {
-    const checkboxCount = columnFilters[columnKey]?.length || 0
-    
-    // Check for number filter
-    const numberFilterKey = `${columnKey}_number`
-    const hasNumberFilter = columnFilters[numberFilterKey] ? 1 : 0
-    
-    return checkboxCount + hasNumberFilter
-  }
 
-  const isAllSelected = (columnKey) => {
-    const allValues = getUniqueColumnValues(columnKey)
-    const selectedValues = columnFilters[columnKey] || []
-    return allValues.length > 0 && selectedValues.length === allValues.length
-  }
+
+
+
+
+
+
+
 
   // Apply custom number filter
-  const applyCustomNumberFilter = () => {
-    if (!customFilterColumn || !customFilterValue1) return
 
-    const filterConfig = {
-      type: customFilterType,
-      value1: parseFloat(customFilterValue1),
-      value2: customFilterValue2 ? parseFloat(customFilterValue2) : null,
-      operator: customFilterOperator
-    }
-
-    setColumnFilters(prev => ({
-      ...prev,
-      [`${customFilterColumn}_number`]: filterConfig
-    }))
-
-    // Close dropdown
-    setShowFilterDropdown(null)
-    setShowNumberFilterDropdown(null)
-    
-    // Reset form
-    setCustomFilterValue1('')
-    setCustomFilterValue2('')
-    setCustomFilterType('equal')
-  }
 
   // Check if value matches number filter
   const matchesNumberFilter = (value, filterConfig) => {
     if (!filterConfig) return true
-    
+
     const numValue = parseFloat(value)
     if (isNaN(numValue)) return false
 
@@ -394,7 +307,7 @@ const MarginLevelPage = () => {
         return true
     }
   }
-  
+
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -405,7 +318,7 @@ const MarginLevelPage = () => {
         setShowColumnSelector(false)
       }
     }
-    
+
     if (showSuggestions || showColumnSelector) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -432,50 +345,42 @@ const MarginLevelPage = () => {
     const totalCount = filtered.length
     return baseSizes.filter(size => size <= totalCount)
   }
-  
-  const pageSizeOptions = generatePageSizeOptions()
-  
+
+  generatePageSizeOptions();
+
   // Search function
   const searchAccounts = (accountsToSearch) => {
     if (!searchQuery.trim()) {
       return accountsToSearch
     }
-    
+
     const query = searchQuery.toLowerCase().trim()
     return accountsToSearch.filter(account => {
       const login = String(account.login || '').toLowerCase()
       const name = String(account.name || '').toLowerCase()
       const group = String(account.group || '').toLowerCase()
-      
-      return login.includes(query) || name.includes(query) || group.includes(query)
+
+      return login.includes(query) || name.includes(query) || group.includes(query) || String(account.liquidateType || '').toLowerCase().includes(query)
     })
   }
-  
-  const handleSuggestionClick = (suggestion) => {
-    const value = suggestion.split(': ')[1]
-    setSearchQuery(value)
-    setShowSuggestions(false)
-  }
-  
-  const handleSearchKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      setShowSuggestions(false)
-    }
-  }
-  
+
+
+
+
+
   // Sorting function with type detection
   const sortAccounts = (accountsToSort) => {
-    if (!sortColumn) return accountsToSort
-    
+    if (!sortColumn || sortColumn === 'liquidateType') return accountsToSort
+
     const sorted = [...accountsToSort].sort((a, b) => {
       const aVal = a[sortColumn]
       const bVal = b[sortColumn]
-      
+
       // Handle null/undefined values
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
       if (bVal == null) return -1
-      
+
       // Detect data type and sort accordingly
       // Check if it's a number
       const aNum = Number(aVal)
@@ -483,7 +388,7 @@ const MarginLevelPage = () => {
       if (!isNaN(aNum) && !isNaN(bNum)) {
         return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
       }
-      
+
       // Default to string comparison
       const aStr = String(aVal).toLowerCase()
       const bStr = String(bVal).toLowerCase()
@@ -493,15 +398,15 @@ const MarginLevelPage = () => {
         return bStr.localeCompare(aStr)
       }
     })
-    
+
     return sorted
   }
-  
+
   const searchedAccounts = searchAccounts(filtered)
-  
+
   // Apply group filter
   let ibFilteredAccounts = filterByActiveGroup(searchedAccounts, 'login', 'marginlevel')
-  
+
   // Apply column filters
   Object.entries(columnFilters).forEach(([columnKey, values]) => {
     if (columnKey.endsWith('_number')) {
@@ -519,55 +424,22 @@ const MarginLevelPage = () => {
       })
     }
   })
-  
+
   const sortedAccounts = sortAccounts(ibFilteredAccounts)
-  
+
   // Get search suggestions
-  const getSuggestions = () => {
-    if (!searchQuery.trim() || searchQuery.length < 1) {
-      return []
-    }
-    
-    const query = searchQuery.toLowerCase().trim()
-    const suggestions = new Set()
-    
-    sortedAccounts.forEach(account => {
-      const login = String(account.login || '')
-      const name = String(account.name || '')
-      const group = String(account.group || '')
-      
-      if (login.toLowerCase().includes(query)) {
-        suggestions.add(`Login: ${login}`)
-      }
-      if (name.toLowerCase().includes(query) && name) {
-        suggestions.add(`Name: ${name}`)
-      }
-      if (group.toLowerCase().includes(query) && group) {
-        suggestions.add(`Group: ${group}`)
-      }
-    })
-    
-    return Array.from(suggestions).slice(0, 10)
-  }
-  
+
+
   // Handle column header click for sorting
-  const handleSort = (columnKey) => {
-    if (sortColumn === columnKey) {
-      // Toggle direction if same column
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
-    } else {
-      // New column, default to ascending
-      setSortColumn(columnKey)
-      setSortDirection('asc')
-    }
-  }
-  
+
+
   // Pagination logic
-  const totalPages = Math.ceil(sortedAccounts.length / itemsPerPage)
+  const totalPages = Math.max(1, Math.ceil(sortedAccounts.length / itemsPerPage))
+  useEffect(() => { setCurrentPage(page => Math.min(Math.max(1, page), totalPages)) }, [totalPages])
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const displayedAccounts = sortedAccounts.slice(startIndex, endIndex)
-  
+
   // Reset to page 1 when items per page changes
   useEffect(() => {
     setCurrentPage(1)
@@ -586,13 +458,13 @@ const MarginLevelPage = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showFilterDropdown])
-  
+
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage)
     // Scroll to top of table
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  
+
   const handleItemsPerPageChange = (value) => {
     setItemsPerPage(value)
     setCurrentPage(1)
@@ -628,15 +500,7 @@ const MarginLevelPage = () => {
   }
 
   // Get card icon path based on card title
-  const getCardIcon = (cardTitle) => {
-    const baseUrl = import.meta.env.BASE_URL || '/'
-    const iconMap = {
-      'Below 50%': `${baseUrl}desktop-icons/Below 50%.svg`,
-      'Avg Margin Level': `${baseUrl}desktop-icons/Avg Margin Level.svg`,
-      'Unique Logins': `${baseUrl}desktop-icons/Unique Logins.svg`,
-    }
-    return iconMap[cardTitle] || `${baseUrl}desktop-icons/Clients.svg`
-  }
+
 
   // Show loading only on first load (no data yet) — prevent flickering on re-fetches
   const isDataLoading = !marginCallLoaded && marginCallClients.length === 0
@@ -647,10 +511,11 @@ const MarginLevelPage = () => {
       <th
         ref={(el) => setHeaderRef(columnKey, el)}
         style={getHeaderStyle(columnKey)}
+        aria-sort={sortColumn === columnKey ? sortDirection === 'asc' ? 'ascending' : 'descending' : undefined}
         className="relative px-3 py-2 text-left text-[11px] font-bold text-white uppercase tracking-wider select-none"
       >
         <ColumnResizeHandle onMouseDown={(e) => handleResizeStart(e, columnKey)} />
-        <span>{label}</span>
+        <button type="button" className="inline-flex items-center gap-1 uppercase" onClick={() => { setSortColumn(columnKey); setSortDirection(sortColumn === columnKey && sortDirection === 'asc' ? 'desc' : 'asc'); setCurrentPage(1) }}>{label}{sortColumn === columnKey && <span aria-hidden="true">{sortDirection === 'asc' ? '\u2191' : '\u2193'}</span>}</button>
       </th>
     )
   }
@@ -660,7 +525,7 @@ const MarginLevelPage = () => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
     }
-    
+
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -675,8 +540,8 @@ const MarginLevelPage = () => {
     <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50 overflow-hidden">
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
       />
 
       <main className={`flex-1 p-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
@@ -728,6 +593,7 @@ const MarginLevelPage = () => {
             {/* Search and Controls Bar - Inside table container */}
             <div className="border-b border-[#E5E7EB] p-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  {accountTypeControl}
                   {/* Left: Columns */}
                   <div className="flex items-center gap-2 flex-1">
                     {/* Columns Button (icon only) */}
@@ -829,9 +695,9 @@ const MarginLevelPage = () => {
 
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
+                      disabled={currentPage >= totalPages}
                       className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                        currentPage === totalPages
+                        currentPage >= totalPages
                           ? 'text-[#D1D5DB] bg-[#F9FAFB] cursor-not-allowed'
                           : 'text-[#374151] bg-white border border-[#E5E7EB] hover:bg-gray-50'
                       }`}
@@ -867,6 +733,7 @@ const MarginLevelPage = () => {
                         switch (col.key) {
                           case 'login': cell = renderHeaderCell('login', 'Login'); break
                           case 'name': cell = renderHeaderCell('name', 'Name'); break
+                          case 'liquidateType': cell = renderHeaderCell('liquidateType', 'Account Type'); break
                           case 'equity': cell = renderHeaderCell('equity', 'Equity'); break
                           case 'margin': cell = renderHeaderCell('margin', 'Margin'); break
                           case 'marginFree': cell = renderHeaderCell('marginFree', 'Margin Free'); break
@@ -900,6 +767,7 @@ const MarginLevelPage = () => {
                                   {a.login}
                                 </td>
                               ); break
+                              case 'liquidateType': cell = <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{a.liquidateType || '-'}</td>; break
                               case 'name': cell = (
                                 <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{a.name || '-'}</td>
                               ); break
@@ -948,7 +816,7 @@ const MarginLevelPage = () => {
           </div>
         </div>
       </main>
-      
+
       {/* Client Positions Modal */}
       {selectedLogin && (
         <ClientPositionsModal

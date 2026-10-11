@@ -1,15 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import IBContext from './ibContextStore'
+import React, { useState, useEffect, useCallback } from 'react';
 import { brokerAPI } from '../services/api';
 
-const IBContext = createContext();
 
-export const useIB = () => {
-  const context = useContext(IBContext);
-  if (!context) {
-    throw new Error('useIB must be used within an IBProvider');
-  }
-  return context;
-};
+
+
 
 export const IBProvider = ({ children }) => {
   const [selectedIB, setSelectedIB] = useState(null);
@@ -39,7 +34,7 @@ export const IBProvider = ({ children }) => {
         console.log('[IB] Existing access_token detected on mount → prefetch IB emails')
         fetchIBList()
       }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
 
     return () => {
       window.removeEventListener('auth:login', handleLogin)
@@ -106,7 +101,7 @@ export const IBProvider = ({ children }) => {
       setError(null);
       const response = await brokerAPI.getIBMT5Accounts(email);
       const d = response?.data;
-      
+
       if (d?.status === 'success') {
         const accounts = d?.data?.mt5_accounts || [];
         // Extract just the mt5_id (login numbers) from the accounts
@@ -146,10 +141,10 @@ export const IBProvider = ({ children }) => {
     if (!selectedIB || !ibMT5Accounts || ibMT5Accounts.length === 0) {
       return items;
     }
-    
+
     // Convert MT5 IDs to Set for faster lookup (they're already just numbers)
     const accountSet = new Set(ibMT5Accounts.map(id => Number(id)));
-    
+
     return items.filter(item => {
       const itemLogin = Number(item[loginField]);
       return accountSet.has(itemLogin);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import { useGroups } from '../contexts/GroupContext';
+import { useGroups } from '../contexts/groupContextStore';
 import './LoginGroupModal.css';
 
 const LoginGroupModal = ({ isOpen, onClose, onSave, onBack, editGroup = null }) => {
@@ -15,7 +15,7 @@ const LoginGroupModal = ({ isOpen, onClose, onSave, onBack, editGroup = null }) 
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalLogins, setTotalLogins] = useState(0);
+  const [, setTotalLogins] = useState(0);
   const [loading, setLoading] = useState(false);
   const limit = 50;
 
@@ -90,21 +90,7 @@ const LoginGroupModal = ({ isOpen, onClose, onSave, onBack, editGroup = null }) 
   }, [isOpen, activeTab, fetchLogins]);
 
   // Handle select all on current page
-  const handleSelectAll = () => {
-    const currentPageLogins = logins.map(l => String(l.login));
-    const allCurrentSelected = currentPageLogins.every(login => selectedLogins.includes(login));
-    
-    if (allCurrentSelected) {
-      // Deselect all on current page
-      setSelectedLogins(prev => prev.filter(login => !currentPageLogins.includes(login)));
-    } else {
-      // Select all on current page
-      setSelectedLogins(prev => {
-        const newSet = new Set([...prev, ...currentPageLogins]);
-        return Array.from(newSet);
-      });
-    }
-  };
+
 
   // Handle individual login selection
   const handleLoginSelect = (login) => {
@@ -119,17 +105,10 @@ const LoginGroupModal = ({ isOpen, onClose, onSave, onBack, editGroup = null }) 
   };
 
   // Check if all current page logins are selected
-  const isAllCurrentPageSelected = () => {
-    if (logins.length === 0) return false;
-    return logins.every(l => selectedLogins.includes(String(l.login)));
-  };
+
 
   // Handle search
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    fetchLogins();
-  };
+
 
   // Handle save
   const handleSave = () => {

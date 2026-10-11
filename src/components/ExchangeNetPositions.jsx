@@ -14,8 +14,8 @@ const POLL_MS = 3000
 // Mobile: keep the column header and totals above up to 10 scrolling data rows.
 const MOBILE_ROWS_PER_EXCHANGE = 10
 const MOBILE_TABLE_MAX_HEIGHT = 28 + 34 + MOBILE_ROWS_PER_EXCHANGE * 34 + 1
-// Mobile view fills the screen below the app header + toolbar so the exchange list can scroll
-const MOBILE_VIEW_HEIGHT = 'calc(var(--vh, 1vh) * 100 - 150px)'
+// Reserve room for the mobile header, toolbar, and 68px summary card row.
+const MOBILE_VIEW_HEIGHT = 'calc(var(--vh, 1vh) * 100 - 218px)'
 
 const formatNumber = (value, digits = 2) => {
   const number = Number(value)
@@ -64,7 +64,7 @@ const COLUMNS = [
 
 const profitClass = (value) => (value > 0 ? 'text-green-600' : value < 0 ? 'text-red-600' : 'text-gray-700')
 
-const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'value', loginFilter = null, masterLabel = 'ALL', onTotals, onLoaded }, ref) => {
+const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'value', loginFilter = null, onTotals, onLoaded }, ref) => {
   const isMobile = variant === 'mobile'
   const percentage = displayMode === 'percentage'
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import { authAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
 import QRCodeSetup from '../components/QRCodeSetup'
@@ -50,19 +50,19 @@ const SettingsPage = () => {
       setLoading(true)
       const response = await authAPI.get2FAStatus()
       console.log('2FA Status Response:', response)
-      
+
       // Handle different response structures
       const statusData = response.data?.data || response.data
       console.log('2FA Status Data:', statusData)
-      
+
       // Update localStorage with the current status from API
       localStorage.setItem('2fa_enabled', statusData?.is_enabled ? 'true' : 'false')
-      
+
       setTwoFAStatus(statusData)
     } catch (error) {
       console.error('Failed to fetch 2FA status:', error)
       console.error('Error details:', error.response)
-      
+
       // If 401, user might have 2FA enabled - check localStorage or set default
       const last2FAState = localStorage.getItem('2fa_enabled')
       if (last2FAState === 'true') {
@@ -101,25 +101,25 @@ const SettingsPage = () => {
     try {
       setActionLoading(true)
       setError('')
-      
+
       // Generate backup codes (10 random 8-digit codes)
       const generatedBackupCodes = Array.from({ length: 10 }, () => 
         Math.floor(10000000 + Math.random() * 90000000).toString()
       )
-      
-      const response = await authAPI.enable2FA(verificationCode, generatedBackupCodes)
+
+      await authAPI.enable2FA(verificationCode, generatedBackupCodes);
       setSuccess('2FA has been successfully enabled!')
       setShowSetup(false)
       setVerificationCode('')
       setSetupData(null)
-      
+
       // Show the generated backup codes
       setBackupCodes(generatedBackupCodes)
       setShowBackupCodes(true)
-      
+
       // Save 2FA state to localStorage
       localStorage.setItem('2fa_enabled', 'true')
-      
+
       // Update 2FA status immediately
       setTwoFAStatus({ is_enabled: true })
     } catch (error) {
@@ -141,10 +141,10 @@ const SettingsPage = () => {
       setError('')
       await authAPI.disable2FA(password)
       setSuccess('2FA has been disabled successfully')
-      
+
       // Save 2FA state to localStorage
       localStorage.setItem('2fa_enabled', 'false')
-      
+
       // Update 2FA status immediately
       setTwoFAStatus({ is_enabled: false })
     } catch (error) {
@@ -186,8 +186,8 @@ const SettingsPage = () => {
         {!isMobile && (
           <Sidebar
             isOpen={sidebarOpen}
-            onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-            onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+            onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+            onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
           />
         )}
         <main className={`flex-1 p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
@@ -197,7 +197,7 @@ const SettingsPage = () => {
               <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-2"></div>
               <div className="h-4 w-64 bg-gray-100 rounded animate-pulse"></div>
             </div>
-            
+
             {/* Account Info Skeleton */}
             <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-4 mb-4">
               <div className="h-5 w-40 bg-gray-200 rounded animate-pulse mb-3"></div>
@@ -210,7 +210,7 @@ const SettingsPage = () => {
                 ))}
               </div>
             </div>
-            
+
             {/* 2FA Section Skeleton */}
             <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-4">
               <div className="h-5 w-56 bg-gray-200 rounded animate-pulse mb-3"></div>
@@ -407,29 +407,18 @@ const SettingsPage = () => {
       {!isMobile && (
         <Sidebar
           isOpen={sidebarOpen}
-          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
         />
       )}
-      
+
       {/* Main Content */}
       <main className={`flex-1 p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
         <div className="max-w-4xl mx-auto">
           {/* Header Section */}
           <div className="mb-5">
             {/* Hide sidebar toggle on mobile for settings page */}
-            {false && (
-              <div className="flex items-center justify-end mb-3">
-                <button
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="lg:hidden text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-white"
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-              </div>
-            )}
+            {null}
             <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage your account security</p>
           </div>

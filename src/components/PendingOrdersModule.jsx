@@ -2,8 +2,8 @@ import { createLatestRequest } from '../utils/latestRequest'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
-import { useData } from '../contexts/DataContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useData } from '../contexts/dataContextStore'
+import { useAuth } from '../contexts/authContextStore'
 import { brokerAPI } from '../services/api'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
@@ -11,7 +11,7 @@ import GroupModal from './GroupModal'
 import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
 import { formatTime as apiFormatTime } from '../utils/dateFormatter'
 
@@ -50,7 +50,7 @@ export default function PendingOrdersModule() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [mobileReportsOpen, setMobileReportsOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
-  const [activeCardIndex, setActiveCardIndex] = useState(0)
+
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -148,12 +148,7 @@ export default function PendingOrdersModule() {
     return n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
   }
 
-  const fmtPrice = (v, decimals = 5) => {
-    const n = Number(v)
-    if (!isFinite(n)) return '0.00'
-    if (numericMode === 'compact') return formatCompactIndian(n)
-    return n.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-  }
+
 
   // Listen for global request to open Customize View from child modals
   useEffect(() => {
@@ -299,7 +294,7 @@ export default function PendingOrdersModule() {
     const totalVolume = ibFilteredOrders.reduce((sum, o) => sum + (o.volumeCurrent || o.volume || 0), 0)
     const volumeCurrent = ibFilteredOrders.reduce((sum, o) => sum + (o.volumeCurrent || o.volume || 0), 0)
     const volumeInitial = ibFilteredOrders.reduce((sum, o) => sum + (o.volumeInitial || o.volumeCurrent || o.volume || 0), 0)
-    
+
     return {
       totalOrders,
       uniqueLogins,
@@ -333,13 +328,13 @@ export default function PendingOrdersModule() {
         'priceTP': 'priceTP',
         'timeSetup': 'timeSetup'
       }
-      
+
       const sortKey = columnKeyMapping[sortColumn] || sortColumn
-      
+
       filtered.sort((a, b) => {
         // Get values with fallbacks for certain fields
         let aVal, bVal
-        
+
         if (sortColumn === 'volume') {
           aVal = a.volumeCurrent || a.volume
           bVal = b.volumeCurrent || b.volume
@@ -362,17 +357,17 @@ export default function PendingOrdersModule() {
           aVal = a[sortKey]
           bVal = b[sortKey]
         }
-        
+
         if (aVal == null && bVal == null) return 0
         if (aVal == null) return 1
         if (bVal == null) return -1
-        
+
         const aNum = Number(aVal)
         const bNum = Number(bVal)
         if (!isNaN(aNum) && !isNaN(bNum)) {
           return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
         }
-        
+
         const aStr = String(aVal).toLowerCase()
         const bStr = String(bVal).toLowerCase()
         if (sortDirection === 'asc') {
@@ -420,7 +415,7 @@ export default function PendingOrdersModule() {
     }
     return iconMap[label] || `${baseUrl}mobile-icons/Clients.svg`
   }
-  
+
   // Update cards when summary stats change
   useEffect(() => {
     // Prefer server totals (API) when available, fall back to client-side sums
@@ -435,7 +430,7 @@ export default function PendingOrdersModule() {
       { label: 'VOLUME CURRENT', value: fmtMoney(volumeCurrent) },
       { label: 'VOLUME INITIAL', value: fmtMoney(volumeInitial) }
     ]
-    
+
     // Only update if cards length is different (initial load) or keep existing order
     if (cards.length === 0) {
       setCards(newCards)
@@ -470,7 +465,7 @@ export default function PendingOrdersModule() {
 
   const renderCellValue = (order, key, isSticky = false) => {
     let value = '-'
-    
+
     switch (key) {
       case 'login':
         value = order.login || '-'
@@ -497,7 +492,8 @@ export default function PendingOrdersModule() {
         value = order.symbol || '-'
         break
       case 'type':
-        value = order.type || '-'
+        {
+value = order.type || '-'
         const isBuy = value.toUpperCase().includes('BUY')
         const isSell = value.toUpperCase().includes('SELL')
         return (
@@ -518,6 +514,7 @@ export default function PendingOrdersModule() {
             </span>
           </div>
         )
+}
       case 'volume':
         value = fmtMoney(order.volumeCurrent || order.volume || 0)
         break
@@ -573,7 +570,7 @@ export default function PendingOrdersModule() {
             <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
           </svg>
         </button>
-        
+
         <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Pending Orders</h1>
         {/* Hide profile avatar on mobile widths */}
         <div className="hidden md:flex w-12 h-12 rounded-full bg-blue-600 items-center justify-center ml-auto">
@@ -610,8 +607,8 @@ export default function PendingOrdersModule() {
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
                 <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
-                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
-                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
                 </div>
               </div>
               <div className="border-t border-[#ECECEC] mb-2" />
@@ -662,6 +659,9 @@ export default function PendingOrdersModule() {
                       <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                       <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                       <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
+                      <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
+                      <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                      <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                     </div>
                   )}
                 </div>
@@ -1174,4 +1174,3 @@ export default function PendingOrdersModule() {
     </div>
   )
 }
-

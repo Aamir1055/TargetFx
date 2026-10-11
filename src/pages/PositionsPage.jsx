@@ -2,9 +2,9 @@ import { createLatestRequest } from '../utils/latestRequest'
 import PositionsSearchInput from '../components/PositionsSearchInput'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useEffect, useRef, useState, useMemo, useCallback, Fragment, useDeferredValue, cloneElement } from 'react'
-import { useData } from '../contexts/DataContext'
-import { useAuth } from '../contexts/AuthContext'
-import { useGroups } from '../contexts/GroupContext'
+import { useData } from '../contexts/dataContextStore'
+import { useAuth } from '../contexts/authContextStore'
+import { useGroups } from '../contexts/groupContextStore'
 import { brokerAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
 import PageSizeSelect from '../components/PageSizeSelect'
@@ -21,7 +21,8 @@ import DateFilterModal from '../components/DateFilterModal'
 import ColumnChooserList from '../components/ColumnChooserList'
 import { normalizePositions } from '../utils/currencyNormalization'
 import { formatTime as apiFormatTime, fromServerEpoch, serverNowEpoch, toServerEpoch } from '../utils/dateFormatter'
-import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
+import useColumnResize from '../hooks/useColumnResize.jsx'
+import { ColumnResizeHandle } from '../components/ColumnResizeHandle'
 
 const PositionsPage = () => {
   // Mobile detection - initialize with actual window width to prevent flash
@@ -42,13 +43,16 @@ const PositionsPage = () => {
   }, [])
 
   // Use cached data from DataContext (orders, clients etc.)
-  const { orders: cachedOrders, loading, connectionState, rawClients } = useData()
+  const {   rawClients } = useData()
   const { isAuthenticated } = useAuth()
   const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups } = useGroups()
 
   // --- Positions are fetched via REST polling (1s) when this page is active ---
   const [polledPositions, setPolledPositions] = useState([])
   const [serverTotalPositions, setServerTotalPositions] = useState(0)
+  const [positionsError, setPositionsError] = useState('')
+  const [netError, setNetError] = useState('')
+  const [clientNetError] = useState('')
   const [hasFetchedPositions, setHasFetchedPositions] = useState(false)
   // Server-provided totals across ALL positions (not just current page)
   const [serverTotals, setServerTotals] = useState({ profit: 0, storage: 0, volume: 0, uniqueLogins: 0 })
@@ -57,15 +61,15 @@ const PositionsPage = () => {
   const [polledNetPositions, setPolledNetPositions] = useState([])
   const [serverTotalNetPositions, setServerTotalNetPositions] = useState(0)
   const [hasFetchedNetPositions, setHasFetchedNetPositions] = useState(false)
-  const [serverNetTotals, setServerNetTotals] = useState({ profit: 0, storage: 0, volume: 0 })
+  const [, setServerNetTotals] = useState({ profit: 0, storage: 0, volume: 0 })
   const [serverNetCardTotals, setServerNetCardTotals] = useState({ totalPositions: 0, floatingCombined: 0, floatingINR: 0, floatingUSD: 0 })
 
   // --- Client NET positions fetched via REST polling (1s) when Client NET tab is active ---
-  const [polledClientNetPositions, setPolledClientNetPositions] = useState([])
-  const [serverTotalClientNetPositions, setServerTotalClientNetPositions] = useState(0)
-  const [hasFetchedClientNetPositions, setHasFetchedClientNetPositions] = useState(false)
-  const [serverClientNetTotals, setServerClientNetTotals] = useState({ profit: 0, storage: 0, volume: 0 })
-  
+  const [polledClientNetPositions] = useState([])
+  const [serverTotalClientNetPositions] = useState(0)
+  const [hasFetchedClientNetPositions] = useState(false)
+  const [serverClientNetTotals] = useState({ profit: 0, storage: 0, volume: 0 })
+
   // Build client currency map from rawClients for USC detection
   const clientCurrencyMap = useMemo(() => {
     if (!rawClients || rawClients.length === 0) return {}
@@ -77,23 +81,23 @@ const PositionsPage = () => {
     })
     return map
   }, [rawClients])
-  
+
   // Apply USD normalization to all positions automatically with USC handling
   const displayPositions = useMemo(() => {
     if (!polledPositions || polledPositions.length === 0) return polledPositions
     return normalizePositions(polledPositions, clientCurrencyMap)
   }, [polledPositions, clientCurrencyMap])
-  
+
   // Track if component is mounted to prevent updates after unmount
   const isMountedRef = useRef(true)
-  
+
   // Critical: Set unmounted flag ASAP to unblock route transitions
   useEffect(() => {
     return () => {
       isMountedRef.current = false
     }
   }, [])
-  
+
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
       const v = localStorage.getItem('sidebarOpen')
@@ -127,11 +131,7 @@ const PositionsPage = () => {
   const netCardFilterRef = useRef(null)
   // Card filter for NET summary cards
   const [netCardFilterOpen, setNetCardFilterOpen] = useState(false)
-  const [netCardsVisible, setNetCardsVisible] = useState({
-    netSymbols: true,
-    totalNetVolume: true,
-    totalNetPL: true
-  })
+
   // NET positions column selector ref
   const netColumnSelectorRef = useRef(null)
   // Client NET controls and visibility
@@ -164,7 +164,7 @@ const PositionsPage = () => {
   const clientNetCardFilterRef = useRef(null)
   // Client NET pagination
   const [clientNetCurrentPage, setClientNetCurrentPage] = useState(1)
-  const [clientNetItemsPerPage, setClientNetItemsPerPage] = useState(() => {
+  const [clientNetItemsPerPage, ] = useState(() => {
     try {
       const saved = localStorage.getItem('client_net_items_per_page')
       if (saved) return saved === 'All' ? 'All' : parseInt(saved)
@@ -173,7 +173,7 @@ const PositionsPage = () => {
       return 50
     }
   })
-  
+
   // Column visibility states
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const columnSelectorRef = useRef(null)
@@ -247,17 +247,17 @@ const PositionsPage = () => {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) return parsed
       }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return null
   })
   useEffect(() => {
     try {
       if (columnOrder) localStorage.setItem('positionsPageColumnOrder', JSON.stringify(columnOrder))
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [columnOrder])
   const resetColumnOrder = () => {
     setColumnOrder(null)
-    try { localStorage.removeItem('positionsPageColumnOrder') } catch {}
+    try { localStorage.removeItem('positionsPageColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
 
   // Pinned (frozen) columns - persisted to localStorage
@@ -268,7 +268,7 @@ const PositionsPage = () => {
     } catch { return [] }
   })
   useEffect(() => {
-    try { localStorage.setItem('positionsPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+    try { localStorage.setItem('positionsPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -294,14 +294,9 @@ const PositionsPage = () => {
     })
   }
 
-  // Map base metric keys to their percentage field names from API
-  const percentageFieldMap = {
-    volume: 'volume_percentage',
-    profit: 'profit_percentage',
-    storage: 'storage_percentage'
-  }
 
-  const isMetricColumn = (key) => Object.prototype.hasOwnProperty.call(percentageFieldMap, key)
+
+
 
   const toggleColumn = (columnKey) => {
     setVisibleColumns(prev => ({
@@ -309,18 +304,13 @@ const PositionsPage = () => {
       [columnKey]: !prev[columnKey]
     }))
   }
-  
-  const formatPercent = (value) => {
-    if (value === null || value === undefined || value === '') return '-'
-    const num = Number(value)
-    if (isNaN(num)) return '-'
-    return num.toFixed(2)
-  }
+
+
 
   // Get effective visible columns based on display mode
   const getEffectiveVisibleColumns = () => {
     const effective = { ...visibleColumns }
-    
+
     if (displayMode === 'value') {
       // Without Percentage: Hide all percentage columns
       effective.volumePercentage = false
@@ -335,7 +325,7 @@ const PositionsPage = () => {
       effective.profit = false
       effective.storage = false
     }
-    
+
     return effective
   }
 
@@ -348,25 +338,25 @@ const PositionsPage = () => {
   const [pendingColumnFilters, setPendingColumnFilters] = useState({})
   const [showFilterDropdown, setShowFilterDropdown] = useState(null)
   const filterRefs = useRef({})
-  const numberFilterButtonRefs = useRef({})
+
   const [filterSearchQuery, setFilterSearchQuery] = useState({})
   const [showNumberFilterDropdown, setShowNumberFilterDropdown] = useState(null)
-  
+
   // Date filter states
-  const [dateFilter, setDateFilter] = useState(null) // null, 3, 5, or 7 for days
+  const [dateFilter] = useState(null) // null, 3, 5, or 7 for days
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false)
   const dateFilterRef = useRef(null)
-  const [hasPendingDateChanges, setHasPendingDateChanges] = useState(false)
-  const [pendingDateDraft, setPendingDateDraft] = useState(null)
-  
+
+
+
   // Sorting states for ALL positions view
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
-  
+
   // Search state for ALL positions view
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearch, setActiveSearch] = useState('') // debounced search applied to API requests
-  
+
   // Pagination states for ALL positions view
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(() => isMobile ? 12 : 100)
@@ -376,7 +366,7 @@ const PositionsPage = () => {
   const prevPageRef = useRef(currentPage)
   const [isNetPageLoading, setIsNetPageLoading] = useState(false)
   const prevNetPageRef = useRef(1)
-  
+
   // NET positions toggle and grouping
   const [showNetPositions, setShowNetPositions] = useState(false)
   // Exchange view: NET positions segregated by exchange (mutually exclusive with NET Position)
@@ -385,35 +375,35 @@ const PositionsPage = () => {
   const exchangeViewRef = useRef(null)
   const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)
   const [expandedNetKeys, setExpandedNetKeys] = useState(new Set())
-  
+
   // NET positions pagination
   const [netCurrentPage, setNetCurrentPage] = useState(1)
-  const [netItemsPerPage, setNetItemsPerPage] = useState(50)
-  
+  const [netItemsPerPage, ] = useState(50)
+
   // Client NET toggle
-  const [showClientNet, setShowClientNet] = useState(false)
-  
+  const [showClientNet] = useState(false)
+
   // Group modal states
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
-  
+
   // Client positions modal state
   const [selectedLogin, setSelectedLogin] = useState(null)
-  
+
   // Search ref for ALL positions view
   const searchRef = useRef(null)
-  
+
   // Flash timeouts for row highlighting
   const flashTimeouts = useRef(new Map())
-  const [flashes, setFlashes] = useState({})
-  
+  const [, setFlashes] = useState({})
+
   // Custom filter modal states
-  const [showCustomFilterModal, setShowCustomFilterModal] = useState(false)
+  const [, setShowCustomFilterModal] = useState(false)
   const [customFilterColumn, setCustomFilterColumn] = useState(null)
   const [customFilterType, setCustomFilterType] = useState('equal')
   const [customFilterValue1, setCustomFilterValue1] = useState('')
   const [customFilterValue2, setCustomFilterValue2] = useState('')
-  const [customFilterOperator, setCustomFilterOperator] = useState('AND')
+  const [customFilterOperator] = useState('AND')
 
   // Column filter helper functions
   const getUniqueColumnValues = (columnKey) => {
@@ -448,10 +438,10 @@ const PositionsPage = () => {
     const values = new Set()
     const isTimeColumn = columnKey === 'timeUpdate'
     const originalTimestamps = new Map() // Store original timestamps for sorting
-    
+
     polledPositions.forEach(position => {
       let value = position[columnKey]
-      
+
       // Format timeUpdate (epoch) to dd/mm/yyyy hh:mm:ss for display in filter
       if (isTimeColumn && value) {
         const formatted = formatTime(value)
@@ -461,27 +451,27 @@ const PositionsPage = () => {
           value = formatted
         }
       }
-      
+
       if (value !== null && value !== undefined && value !== '' && value !== '-') {
         values.add(value)
       }
     })
-    
+
     const sortedValues = Array.from(values).sort((a, b) => {
       // For time column, sort by original timestamp (chronological order)
       if (isTimeColumn && originalTimestamps.has(a) && originalTimestamps.has(b)) {
         return originalTimestamps.get(b) - originalTimestamps.get(a) // Newest first
       }
-      
+
       // For numeric values
       if (typeof a === 'number' && typeof b === 'number') {
         return a - b
       }
-      
+
       // For string values
       return String(a).localeCompare(String(b))
     })
-    
+
     // Filter by search query if exists
     const searchQuery = filterSearchQuery[columnKey]?.toLowerCase() || ''
     if (searchQuery) {
@@ -489,7 +479,7 @@ const PositionsPage = () => {
         String(value).toLowerCase().includes(searchQuery)
       )
     }
-    
+
     return sortedValues
   }
 
@@ -499,12 +489,12 @@ const PositionsPage = () => {
       const newFilters = currentFilters.includes(value)
         ? currentFilters.filter(v => v !== value)
         : [...currentFilters, value]
-      
+
       if (newFilters.length === 0) {
         const { [columnKey]: _, ...rest } = prev
         return rest
       }
-      
+
       return { ...prev, [columnKey]: newFilters }
     })
   }
@@ -560,11 +550,11 @@ const PositionsPage = () => {
   const getActiveFilterCount = (columnKey) => {
     // Check for regular checkbox filters
     const checkboxCount = columnFilters[columnKey]?.length || 0
-    
+
     // Check for number filter
     const numberFilterKey = `${columnKey}_number`
     const hasNumberFilter = columnFilters[numberFilterKey] ? 1 : 0
-    
+
     return checkboxCount + hasNumberFilter
   }
 
@@ -580,7 +570,7 @@ const PositionsPage = () => {
 
     const isTextFilter = ['startsWith', 'endsWith', 'contains', 'doesNotContain'].includes(customFilterType)
     const isStringCol = isStringColumn(customFilterColumn)
-    
+
     const filterConfig = {
       type: customFilterType,
       value1: (isTextFilter || isStringCol) ? customFilterValue1 : parseFloat(customFilterValue1),
@@ -608,60 +598,14 @@ const PositionsPage = () => {
   }, [positionsActiveGroupName])
 
   // Check if value matches number or text filter
-  const matchesNumberFilter = (value, filterConfig) => {
-    if (!filterConfig) return true
-    
-    const { type, value1, value2 } = filterConfig
 
-    // Handle text filters
-    if (['startsWith', 'endsWith', 'contains', 'doesNotContain'].includes(type)) {
-      const strValue = String(value || '').toLowerCase()
-      const searchValue = String(value1 || '').toLowerCase()
-      
-      switch (type) {
-        case 'startsWith':
-          return strValue.startsWith(searchValue)
-        case 'endsWith':
-          return strValue.endsWith(searchValue)
-        case 'contains':
-          return strValue.includes(searchValue)
-        case 'doesNotContain':
-          return !strValue.includes(searchValue)
-        default:
-          return true
-      }
-    }
-
-    // Handle number filters
-    const numValue = parseFloat(value)
-    if (isNaN(numValue)) return false
-
-    switch (type) {
-      case 'equal':
-        return numValue === value1
-      case 'notEqual':
-        return numValue !== value1
-      case 'lessThan':
-        return numValue < value1
-      case 'lessThanOrEqual':
-        return numValue <= value1
-      case 'greaterThan':
-        return numValue > value1
-      case 'greaterThanOrEqual':
-        return numValue >= value1
-      case 'between':
-        return value2 !== null && numValue >= value1 && numValue <= value2
-      default:
-        return true
-    }
-  }
 
   // Helper to queue a transient highlight for a given position id
   const queueFlash = (id, data = {}) => {
     if (!id) return
     const key = String(id)
 
-    
+
     // Clear previous timeout if any
     const prevTo = flashTimeouts.current.get(key)
     if (prevTo) clearTimeout(prevTo)
@@ -684,7 +628,7 @@ const PositionsPage = () => {
     }, 1500)
     flashTimeouts.current.set(key, to)
   }
-  const hasInitialLoad = useRef(false)
+
   const prevPositionsRef = useRef([])
 
   // Server-provided symbol list for column filter
@@ -825,6 +769,7 @@ const PositionsPage = () => {
         const total = response?.data?.total || response?.total || 0
         const totals = response?.data?.totals || response?.totals || null
         if (Array.isArray(data)) {
+          setPositionsError('')
           setPolledPositions(data)
           setServerTotalPositions(total)
           if (totals) setServerTotals(totals)
@@ -832,6 +777,8 @@ const PositionsPage = () => {
         }
       } catch (err) {
         if (!isCancelled && isCurrent()) {
+          setPositionsError('Failed to load positions. Retrying automatically...')
+          setHasFetchedPositions(true)
           console.warn('[Positions] Polling error:', err?.message)
         }
       } finally {
@@ -862,12 +809,12 @@ const PositionsPage = () => {
       document.removeEventListener('visibilitychange', onVisibilityChange)
       // Mark component as unmounted to prevent state updates
       isMountedRef.current = false
-      
+
       // Clear any pending flash timeouts
       try {
         flashTimeouts.current.forEach((to) => clearTimeout(to))
         flashTimeouts.current.clear()
-      } catch {}
+      } catch { /* Retain the fallback when this operation is unavailable. */ }
     }
   }, [isAuthenticated, isMobile, showNetPositions, showExchangeView, showClientNet, currentPage, itemsPerPage, sortColumn, sortDirection, activeSearch, dateFilter, columnFilters, displayMode, activeGroupFilters, getActiveGroupFilter, getGroupLogins, groups, selectedLogin, refreshVersion])
 
@@ -958,13 +905,19 @@ const PositionsPage = () => {
             floatingINR: num(t.floatingINR, root.floatingINR),
             floatingUSD: num(t.floatingUSD, root.floatingUSD)
           })
+          setNetError('')
           setPolledNetPositions(mapped)
           setServerTotalNetPositions(total)
           setHasFetchedNetPositions(true)
           setIsNetPageLoading(false)
         }
       } catch (err) {
-        if (!isCancelled && isCurrent()) console.warn('[NET Positions] Polling error:', err?.message)
+        if (!isCancelled && isCurrent()) {
+          setNetError('Failed to load net positions. Retrying automatically...')
+          setHasFetchedNetPositions(true)
+          setIsNetPageLoading(false)
+          console.warn('[NET Positions] Polling error:', err?.message)
+        }
       } finally {
         if (!isCancelled && isCurrent()) setIsRefreshing(false)
       }
@@ -1041,12 +994,17 @@ const PositionsPage = () => {
               totalProfit: v.totalProfit || 0
             }))
           }))
+          setClientNetError('')
           setPolledClientNetPositions(mapped)
           setServerTotalClientNetPositions(total)
           setHasFetchedClientNetPositions(true)
         }
       } catch (err) {
-        if (!isCancelled) console.warn('[Client NET Positions] Polling error:', err?.message)
+        if (!isCancelled) {
+          setClientNetError('Failed to load client net positions. Retrying automatically...')
+          setHasFetchedClientNetPositions(true)
+          console.warn('[Client NET Positions] Polling error:', err?.message)
+        }
       }
       if (!isCancelled) {
         timer = setTimeout(poll, 2000)
@@ -1072,7 +1030,7 @@ const PositionsPage = () => {
 
   // Track position changes for flash indicators (polling updates)
   useEffect(() => { if (!isAuthenticated) return;
-    
+
     if (polledPositions.length === 0) {
       prevPositionsRef.current = polledPositions
       return
@@ -1113,7 +1071,7 @@ const PositionsPage = () => {
 
     prevPositionsRef.current = polledPositions
   }, [polledPositions, isRefreshing])
-  
+
   // Close suggestions when clicking outside
   useEffect(() => { if (!isAuthenticated) return;
     const handleClickOutside = (event) => {
@@ -1173,20 +1131,7 @@ const PositionsPage = () => {
   }
 
   // Indian numbering format (12,34,567.89)
-  const formatIndianNumber = (n, digits = 2) => {
-    const num = Number(n)
-    if (Number.isNaN(num)) return '-'
-    try {
-      return num.toLocaleString('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
-    } catch {
-      // Fallback if locale unsupported
-      const [intPart, decPart = ''] = Math.abs(num).toFixed(digits).split('.')
-      const lastThree = intPart.slice(-3)
-      const otherNumbers = intPart.slice(0, -3)
-      const formatted = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + (otherNumbers ? ',' : '') + lastThree
-      return decPart ? `${formatted}.${decPart}` : formatted
-    }
-  }
+
 
   // Indian compact formatter: 2.57Cr, 12.50L, 25.50K
   const formatCompactIndian = (n) => {
@@ -1217,12 +1162,7 @@ const PositionsPage = () => {
 
   // Price formatter: compacts values >= 1000 using K/L/Cr in compact mode,
   // otherwise shows the full 5-decimal price.
-  const fmtPrice = (n, digits = 5) => {
-    const num = Number(n)
-    if (Number.isNaN(num)) return '-'
-    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
-    return formatNumber(num, digits)
-  }
+
   const fmtPriceFull = (n, digits = 5) => {
     const num = Number(n)
     if (Number.isNaN(num)) return '-'
@@ -1293,247 +1233,25 @@ const PositionsPage = () => {
 
   // Calculate NET positions for all clients with reversed type display
   // Robust to multiple action encodings: 0/1, 'Buy'/'Sell', 'BUY'/'SELL', 'buy'/'sell'
-  const calculateGlobalNetPositions = (positions) => {
-    if (!positions || positions.length === 0) return []
 
-    const symbolMap = new Map()
-    const getBaseSymbol = (s) => {
-      if (!s || typeof s !== 'string') return s
-      // Split on first dot or hyphen to collapse variants like XAUUSD.f, XAUUSD-z, etc.
-      const parts = s.split(/[\.\-]/)
-      return parts[0] || s
-    }
-
-    positions.forEach(pos => {
-      const symbol = pos.symbol
-      if (!symbol) return
-      const key = groupByBaseSymbol ? getBaseSymbol(symbol) : symbol
-
-      if (!symbolMap.has(key)) {
-        symbolMap.set(key, {
-          key, // grouping key (base or exact)
-          buyPositions: [],
-          sellPositions: [],
-          logins: new Set(),
-          variantMap: new Map() // exactSymbol -> { buyPositions:[], sellPositions:[] }
-        })
-      }
-
-      const group = symbolMap.get(key)
-      group.logins.add(pos.login)
-
-      // If symbol ends with 'c' or 'C' (cent symbols), scale monetary fields by 1/100
-      const isCent = /[cC]$/.test(symbol)
-      const adj = isCent
-        ? {
-            ...pos,
-            profit: (pos.profit || 0) / 100,
-            storage: (pos.storage || 0) / 100,
-            commission: (pos.commission || 0) / 100
-          }
-        : pos
-
-      // Normalize action to handle various formats from API/WS
-      const rawAction = adj.action
-      let actionNorm = null
-      if (rawAction === 0 || rawAction === '0') actionNorm = 'buy'
-      else if (rawAction === 1 || rawAction === '1') actionNorm = 'sell'
-      else if (typeof rawAction === 'string') actionNorm = rawAction.toLowerCase()
-
-      if (actionNorm === 'buy') {
-        group.buyPositions.push(adj)
-      } else if (actionNorm === 'sell') {
-        group.sellPositions.push(adj)
-      } else {
-        // Fallback: try to infer from sign conventions if available
-        // If action cannot be determined, skip adding to buy/sell buckets
-      }
-
-      // Track exact symbol variants when grouping by base
-      if (groupByBaseSymbol) {
-        const exact = symbol
-        if (!group.variantMap.has(exact)) {
-          group.variantMap.set(exact, { buyPositions: [], sellPositions: [] })
-        }
-        const v = group.variantMap.get(exact)
-        if (actionNorm === 'buy') v.buyPositions.push(adj)
-        else if (actionNorm === 'sell') v.sellPositions.push(adj)
-      }
-    })
-
-    const netPositionsData = []
-
-    symbolMap.forEach(group => {
-      const buyVolume = group.buyPositions.reduce((sum, p) => sum + (p.volume || 0), 0)
-      const sellVolume = group.sellPositions.reduce((sum, p) => sum + (p.volume || 0), 0)
-      const netVolume = buyVolume - sellVolume
-
-      if (netVolume === 0) return
-
-  let totalWeightedPrice = 0
-  let totalVolume = 0
-  let totalProfit = 0
-  let totalStorage = 0
-  let totalCommission = 0
-
-      if (netVolume > 0) {
-        // Net Buy - use buy positions for average
-        group.buyPositions.forEach(p => {
-          const vol = p.volume || 0
-          const price = p.priceOpen || 0
-          totalWeightedPrice += price * vol
-          totalVolume += vol
-          totalProfit += p.profit || 0
-          totalStorage += p.storage || 0
-          totalCommission += p.commission || 0
-        })
-      } else {
-        // Net Sell - use sell positions for average
-        group.sellPositions.forEach(p => {
-          const vol = p.volume || 0
-          const price = p.priceOpen || 0
-          totalWeightedPrice += price * vol
-          totalVolume += vol
-          totalProfit += p.profit || 0
-          totalStorage += p.storage || 0
-          totalCommission += p.commission || 0
-        })
-      }
-
-      const avgPrice = totalVolume > 0 ? totalWeightedPrice / totalVolume : 0
-      
-      // Reversed type: if net is Buy, show Sell (what action to take to close)
-      const netType = netVolume > 0 ? 'Sell' : 'Buy'
-      const loginCount = group.logins.size
-      const totalPositions = group.buyPositions.length + group.sellPositions.length
-
-      // Build variant breakdown when grouping by base symbol
-      let variantCount = 1
-      let variants = []
-      if (groupByBaseSymbol) {
-        variantCount = group.variantMap.size
-        variants = Array.from(group.variantMap.entries()).map(([exact, data]) => {
-          const vBuyVol = data.buyPositions.reduce((s, p) => s + (p.volume || 0), 0)
-          const vSellVol = data.sellPositions.reduce((s, p) => s + (p.volume || 0), 0)
-          const vNet = vBuyVol - vSellVol
-          if (vNet === 0) return null
-          let tw = 0, tv = 0, tp = 0, ts = 0, tc = 0
-          const use = vNet > 0 ? data.buyPositions : data.sellPositions
-          use.forEach(p => { const vol = p.volume || 0; const price = p.priceOpen || 0; tw += price * vol; tv += vol; tp += p.profit || 0; ts += p.storage || 0; tc += p.commission || 0 })
-          const vAvg = tv > 0 ? tw / tv : 0
-          return {
-            exactSymbol: exact,
-            netType: vNet > 0 ? 'Sell' : 'Buy',
-            netVolume: Math.abs(vNet),
-            avgPrice: /[cC]$/.test(exact) ? vAvg / 100 : vAvg,
-            totalProfit: /[cC]$/.test(exact) ? tp / 100 : tp,
-            totalStorage: ts,
-            totalCommission: tc
-          }
-        }).filter(Boolean)
-      }
-
-      netPositionsData.push({
-        symbol: group.key,
-        netType,
-        netVolume: Math.abs(netVolume),
-        avgPrice: /[cC]$/.test(group.key) ? avgPrice / 100 : avgPrice,
-        totalProfit: /[cC]$/.test(group.key) ? totalProfit / 100 : totalProfit,
-        totalStorage,
-        totalCommission,
-        loginCount,
-        totalPositions,
-        variantCount,
-        variants
-      })
-    })
-
-    return netPositionsData.sort((a, b) => b.netVolume - a.netVolume)
-  }
 
   // Generate pagination options; ensure common sizes always present for stable UI
   const generatePageSizeOptions = () => {
     const base = [25, 50, 100, 200, 500]
     return base
   }
-  
-  const pageSizeOptions = generatePageSizeOptions()
-  
+
+  generatePageSizeOptions();
+
   // Generate NET Position page size options based on data count
-  const generateNetPageSizeOptions = () => {
-    const base = [25, 50, 100, 200]
-    const totalCount = serverTotalNetPositions
-    
-    // Only include options that are less than or equal to total count
-    const validOptions = base.filter(size => size < totalCount)
-    
-    // If total count is greater than 0 and not already in the list, add it
-    if (totalCount > 0 && !base.includes(totalCount)) {
-      validOptions.push(totalCount)
-    } else if (totalCount > 0 && totalCount <= 200) {
-      // If total is a base number, include it
-      if (!validOptions.includes(totalCount)) {
-        validOptions.push(totalCount)
-      }
-    }
-    
-    return validOptions.length > 0 ? validOptions.sort((a, b) => a - b) : [25]
-  }
-  
+
+
   // Generate Client NET page size options based on data count
-  const generateClientNetPageSizeOptions = () => {
-    const base = [25, 50, 100, 200]
-    const totalCount = serverTotalClientNetPositions
-    
-    // Only include options that are less than or equal to total count
-    const validOptions = base.filter(size => size < totalCount)
-    
-    // If total count is greater than 0 and not already in the list, add it
-    if (totalCount > 0 && !base.includes(totalCount)) {
-      validOptions.push(totalCount)
-    } else if (totalCount > 0 && totalCount <= 200) {
-      // If total is a base number, include it
-      if (!validOptions.includes(totalCount)) {
-        validOptions.push(totalCount)
-      }
-    }
-    
-    return validOptions.length > 0 ? validOptions.sort((a, b) => a - b) : [25]
-  }
-  
+
+
   // Search function
-  const searchPositions = (positionsToSearch) => {
-    if (!searchQuery.trim()) {
-      return positionsToSearch
-    }
-    
-    const query = searchQuery.toLowerCase().trim()
-    return positionsToSearch.filter(position => {
-      // Search through all primitive fields
-      for (const key in position) {
-        if (position.hasOwnProperty(key)) {
-          const value = position[key]
-          
-          // Handle action field specially (0=Buy, 1=Sell)
-          if (key === 'action') {
-            let actionText = ''
-            if (value === 0 || value === '0') actionText = 'buy'
-            else if (value === 1 || value === '1') actionText = 'sell'
-            else actionText = String(value || '').toLowerCase()
-            
-            if (actionText.includes(query)) return true
-          }
-          // Check primitive values (string, number)
-          else if (value !== null && value !== undefined) {
-            const strValue = String(value).toLowerCase()
-            if (strValue.includes(query)) return true
-          }
-        }
-      }
-      return false
-    })
-  }
-  
+
+
 
   useSearchAsYouType(netSearchQuery, netActiveSearch, setNetActiveSearch, setNetCurrentPage)
   useSearchAsYouType(clientNetSearchQuery, clientNetActiveSearch, setClientNetActiveSearch, setClientNetCurrentPage)
@@ -1552,13 +1270,13 @@ const PositionsPage = () => {
     if (!isAuthenticated) {
       return { sortedPositions: [], ibFilteredPositions: [] }
     }
-    
+
     // Server already did search + sort + pagination — start from the page of data we got
     let ibFiltered = [...deferredPositions]
-    
+
     // Apply group filter
     ibFiltered = filterByActiveGroup(ibFiltered, 'login', 'positions')
-    
+
     // Apply column filters (checkbox filters only — condition filters handled by API)
     Object.entries(columnFilters).forEach(([columnKey, values]) => {
       if (columnKey.endsWith('_number')) {
@@ -1580,7 +1298,7 @@ const PositionsPage = () => {
         })
       }
     })
-    
+
     return { sortedPositions: ibFiltered, ibFilteredPositions: ibFiltered }
   }, [deferredPositions, columnFilters, isAuthenticated, filterByActiveGroup, activeGroupFilters])
 
@@ -1611,7 +1329,7 @@ const PositionsPage = () => {
       floatingUSD
     }
   }, [ibFilteredPositions, serverTotalPositions, serverTotals, rawClients, showNetPositions, showExchangeView, serverNetCardTotals])
-  
+
   // Handle column header click for sorting
   const handleSort = (columnKey) => {
     if (sortColumn === columnKey) {
@@ -1623,11 +1341,11 @@ const PositionsPage = () => {
       setSortDirection('asc')
     }
   }
-  
+
   // Pagination — server handles page/limit, we use serverTotalPositions for total pages
   const totalPages = Math.ceil(serverTotalPositions / itemsPerPage)
   const displayedPositions = sortedPositions // server already paginated
-  
+
   // Reset to page 1 when items per page changes
   useEffect(() => { if (!isAuthenticated) return;
     setCurrentPage(1)
@@ -1637,7 +1355,7 @@ const PositionsPage = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!isMountedRef.current) return
-      
+
       // Check if clicking outside main filter dropdown
       if (showFilterDropdown && filterRefs.current[showFilterDropdown]) {
         if (!filterRefs.current[showFilterDropdown].contains(event.target)) {
@@ -1645,7 +1363,7 @@ const PositionsPage = () => {
           setShowNumberFilterDropdown(null)
         }
       }
-      
+
       // Check if clicking outside number filter dropdown (when it's open independently)
       if (showNumberFilterDropdown && !showFilterDropdown) {
         const numberFilterElements = document.querySelectorAll('[data-number-filter]')
@@ -1664,7 +1382,7 @@ const PositionsPage = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showFilterDropdown, showNumberFilterDropdown])
-  
+
   // NET positions data — fetched from server via polling (netPosition: true)
   const netPositionsData = polledNetPositions
 
@@ -1699,12 +1417,7 @@ const PositionsPage = () => {
   const netDisplayedPositions = netFilteredPositions // server already paginated
   useEffect(() => { if (!isAuthenticated) return; setNetCurrentPage(1) }, [netItemsPerPage])
   const handleNetPageChange = (p) => { setNetCurrentPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const handleNetItemsPerPageChange = (v) => {
-    const next = v === 'All' ? 'All' : parseInt(v)
-    setNetItemsPerPage(next)
-    try { localStorage.setItem('net_items_per_page', String(next)) } catch {}
-    setNetCurrentPage(1)
-  }
+
 
   // Calculate Client NET positions (group first by login then by symbol)
   // Client NET positions data — fetched from server via polling (clientNet: true)
@@ -1741,12 +1454,7 @@ const PositionsPage = () => {
   const clientNetDisplayedPositions = clientNetFilteredPositions // server already paginated
   useEffect(() => { if (!isAuthenticated) return; setClientNetCurrentPage(1) }, [clientNetItemsPerPage])
   const handleClientNetPageChange = (p) => { setClientNetCurrentPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const handleClientNetItemsPerPageChange = (v) => {
-    const next = v === 'All' ? 'All' : parseInt(v)
-    setClientNetItemsPerPage(next)
-    try { localStorage.setItem('client_net_items_per_page', String(next)) } catch {}
-    setClientNetCurrentPage(1)
-  }
+
 
   // CSV helpers and export handlers
   const toCSV = (rows, headers) => {
@@ -2007,9 +1715,7 @@ const PositionsPage = () => {
   }
 
   // NET table dynamic columns: order, labels, and cell renderers
-  const netColumnOrder = [
-    'symbol','netType','netVolume','avgPrice','currentPrice','totalProfit','totalStorage','loginCount','totalPositions'
-  ]
+
   const netColumnLabels = {
     symbol: 'Symbol',
     netType: 'NET Type',
@@ -2021,62 +1727,7 @@ const PositionsPage = () => {
     loginCount: 'Logins',
     totalPositions: 'Positions',
   }
-  const renderNetCell = (key, netPos) => {
-    switch (key) {
-      case 'symbol':
-        return (
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-sm font-medium text-gray-900">{netPos.symbol}</span>
-            {groupByBaseSymbol && netPos.variantCount > 1 && (
-              <>
-                <span className="text-[11px] text-gray-500">(+{netPos.variantCount - 1} variants)</span>
-                <button
-                  className="text-xs text-blue-600 hover:underline"
-                  onClick={() => {
-                    const next = new Set(expandedNetKeys)
-                    if (next.has(netPos.symbol)) next.delete(netPos.symbol); else next.add(netPos.symbol)
-                    setExpandedNetKeys(next)
-                  }}
-                >
-                  {expandedNetKeys.has(netPos.symbol) ? 'Hide variants' : 'Show variants'}
-                </button>
-              </>
-            )}
-          </div>
-        )
-      case 'netType':
-        return (
-          <NetTypeChip type={netPos.netType} />
-        )
-      case 'netVolume':
-        return formatNumber(netPos.netVolume, 2)
-      case 'avgPrice':
-        return formatNumber(netPos.avgPrice, 2)
-      case 'currentPrice':
-        return formatNumber(netPos.currentPrice, 2)
-      case 'totalProfit':
-      case 'profit': {
-        const val = key === 'profit' ? netPos.totalProfit : netPos.totalProfit
-        return (
-          <span className={`px-2 py-0.5 text-xs font-medium rounded ${val >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{formatNumber(val, 2)}</span>
-        )
-      }
-      case 'totalStorage':
-      case 'storage':
-        return formatNumber(netPos.totalStorage ?? '-', 2)
-      case 'totalCommission':
-      case 'commission':
-        return formatNumber(netPos.totalCommission ?? '-', 2)
-      case 'loginCount':
-        return netPos.loginCount
-      case 'totalPositions':
-        return netPos.totalPositions
-      case 'variantCount':
-        return netPos.variantCount
-      default:
-        return String(netPos[key] ?? '-')
-    }
-  }
+
 
   const handleExportClientNetPositions = () => {
     const headers = [
@@ -2090,17 +1741,17 @@ const PositionsPage = () => {
     const csv = toCSV(clientNetPositionsData, headers)
     downloadFile(`client_net_${Date.now()}.csv`, csv)
   }
-  
+
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage)
     // Scroll to top of table
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  
+
   const handleItemsPerPageChange = (value) => {
     const numValue = parseInt(value)
     setItemsPerPage(numValue)
-    try { localStorage.setItem('positions_items_per_page', String(numValue)) } catch {}
+    try { localStorage.setItem('positions_items_per_page', String(numValue)) } catch { /* Retain the fallback when this operation is unavailable. */ }
     setCurrentPage(1)
   }
 
@@ -2108,7 +1759,7 @@ const PositionsPage = () => {
   const renderHeaderCell = (columnKey, label, sortKey = null) => {
     const filterCount = getActiveFilterCount(columnKey)
     const actualSortKey = sortKey || columnKey
-    
+
     return (
       <th
         ref={setHeaderRef(columnKey)}
@@ -2141,7 +1792,7 @@ const PositionsPage = () => {
               </svg>
             )}
           </div>
-          
+
           <div className="relative" ref={el => {
             if (!filterRefs.current) filterRefs.current = {}
             filterRefs.current[columnKey] = el
@@ -2549,12 +2200,13 @@ const PositionsPage = () => {
       )}
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
       />
 
       <main className={`flex-1 p-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden bg-[#F8FAFC]`}>
         <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
+          {(showClientNet ? clientNetError : showNetPositions ? netError : !showExchangeView && positionsError) && <div role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-600">{showClientNet ? clientNetError : showNetPositions ? netError : positionsError}</div>}
           {/* Header Section */}
           <div className="bg-white rounded-2xl shadow-sm px-6 py-3 mb-6">
             {/* Title + Actions */}
@@ -2579,7 +2231,7 @@ const PositionsPage = () => {
                   setShowGroupModal(true)
                 }}
               />
-              
+
               {/* NET Position Toggle */}
               <button
                 onClick={() => { const next = !showNetPositions; setShowNetPositions(next); if (next) setShowExchangeView(false) }}
@@ -2643,7 +2295,7 @@ const PositionsPage = () => {
               >
                 <svg className="w-4 h-4 text-[#374151]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
               </button>
-              
+
               <button
                 onClick={() => {
                   if (isRefreshing) return
@@ -2699,7 +2351,7 @@ const PositionsPage = () => {
                 </div>
               )}
             </div>
-            
+
             {/* Floating Combined - shown in 'value' mode */}
             {displayMode === 'value' && (
               <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -2728,7 +2380,7 @@ const PositionsPage = () => {
                 )}
               </div>
             )}
-            
+
             {/* Total Floating Combined - shown in 'percentage' mode */}
             {displayMode === 'percentage' && (
               <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
@@ -2757,7 +2409,7 @@ const PositionsPage = () => {
                 )}
               </div>
             )}
-            
+
             <div className="bg-white rounded-xl shadow-sm border border-[#F2F2F7] p-2 hover:md:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-1.5 min-h-[20px]">
                 <span className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider leading-tight flex-1 break-words">Floating INR{displayMode === 'percentage' ? ' %' : ''}</span>
@@ -2822,8 +2474,8 @@ const PositionsPage = () => {
                   const activeGroupName = getActiveGroupFilter('positions')
                   return activeGroupName ? getGroupLogins(activeGroupName).map(Number).filter(n => !Number.isNaN(n)) : null
                 })()}
-                onTotals={(totals, count) => setServerNetCardTotals({
-                  totalPositions: Number(count) || 0,
+                onTotals={(totals) => setServerNetCardTotals({
+                  totalPositions: Number(totals?.positionCount) || 0,
                   floatingCombined: Number(totals?.floatingCombined ?? 0) || 0,
                   floatingINR: Number(totals?.floatingINR ?? 0) || 0,
                   floatingUSD: Number(totals?.floatingUSD ?? 0) || 0
@@ -2883,12 +2535,12 @@ const PositionsPage = () => {
                           </button>
                         </div>
                       </div>
-                      
+
                       {/* Export - icon only */}
                       {/* <button onClick={handleExportNetPositions} className="p-2 rounded-lg border border-green-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all text-gray-700 shadow-sm" title="Export NET positions to CSV">
                         <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
                       </button> */}
-                      
+
                       {/* Columns selector - icon only */}
                       <div className="relative" ref={netColumnSelectorRef}>
                         <button onClick={()=>setNetShowColumnSelector(v=>!v)} className="p-2 rounded-lg border border-purple-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all text-gray-700 shadow-sm" title="Show/Hide NET columns">
@@ -3445,7 +3097,7 @@ const PositionsPage = () => {
                         </button>
                       </div>
                     </div>
-                    
+
                     {/* Card Filter next to search */}
                     <div className="relative" ref={clientNetCardFilterRef}>
                       <button onClick={()=>setClientNetCardFilterOpen(v=>!v)} className="px-2 py-1.5 text-xs rounded-lg border border-blue-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center gap-1.5 text-gray-700 font-medium shadow-sm" title="Toggle summary cards">
@@ -3468,12 +3120,12 @@ const PositionsPage = () => {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Export CSV button */}
                     <button onClick={handleExportClientNetPositions} className="p-2 rounded-lg border border-green-200 bg-white hover:bg-green-50 hover:border-green-300 transition-all text-gray-700 shadow-sm" title="Export Client NET to CSV">
                       <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-3-3m3 3l3-3M4 20h16"/></svg>
                     </button>
-                    
+
                     {/* Groups button */}
                     <button
                       onClick={() => setGroupByBaseSymbol(v => !v)}
@@ -3483,7 +3135,7 @@ const PositionsPage = () => {
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M7 10h10M10 14h7M13 18h4"/></svg>
                       Groups base Symbols
                     </button>
-                    
+
                     {/* Columns selector */}
                     <div className="relative" ref={clientNetColumnSelectorRef}>
                       <button onClick={()=>setClientNetShowColumnSelector(v=>!v)} className="p-2 rounded-lg border border-purple-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition-all text-gray-700 shadow-sm" title="Show/Hide Client NET columns">
@@ -3757,7 +3409,7 @@ const PositionsPage = () => {
                               )}
                             </tr>
                           ))
-                        ) : clientNetDisplayedPositions.map((row, idx) => {
+                        ) : clientNetDisplayedPositions.map((row) => {
                           const key = `${row.login}|${row.symbol}`
                           return (
                             <Fragment key={key}>
@@ -3775,7 +3427,7 @@ const PositionsPage = () => {
                                   </td>
                                 )}
                                 {clientNetVisibleColumns.symbol && (<td className="px-2 py-1.5 text-sm font-medium text-gray-900 whitespace-nowrap">
-                                  {groupByBaseSymbol ? (row.symbol || '').split(/[.\-]/)[0] : row.symbol}
+                                  {groupByBaseSymbol ? (row.symbol || '').split(/[.-]/)[0] : row.symbol}
                                 </td>)}
                                 {clientNetVisibleColumns.netType && (<td className="px-2 py-1.5 text-sm whitespace-nowrap">
                                   <NetTypeChip type={row.netType} />
@@ -3801,7 +3453,7 @@ const PositionsPage = () => {
               </div>
             </div>
           ) : <>
-          
+
           {/* Positions Table */}
           <div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden flex flex-col flex-1 min-h-0 mb-4">
             {/* Search and Controls Bar - Inside table container */}
@@ -4175,7 +3827,7 @@ const PositionsPage = () => {
           }
         </div>
       </main>
-      
+
       {/* Group Modal */}
       <GroupModal
         isOpen={showGroupModal}

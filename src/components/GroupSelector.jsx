@@ -1,9 +1,21 @@
 import { useState, useEffect, useRef, useId } from 'react'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 
-const GroupSelector = ({ onCreateClick, onEditClick, moduleName, compact = false }) => {
-  const { groups, getActiveGroupFilter, setActiveGroupFilter, deleteGroup } = useGroups()
+const GroupSelector = ({ onCreateClick, onEditClick, moduleName, compact = false, refreshOnOpen = false }) => {
+  const { groups, getActiveGroupFilter, setActiveGroupFilter, deleteGroup, refreshGroups } = useGroups()
   const [showDropdown, setShowDropdown] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState('')
+  useEffect(() => {
+    if (!showDropdown || !refreshOnOpen) return
+    let cancelled = false
+    setRefreshing(true)
+    setRefreshError('')
+    refreshGroups({ throwOnError: true })
+      .catch(() => { if (!cancelled) setRefreshError('Could not refresh saved groups. Close and reopen to retry.') })
+      .finally(() => { if (!cancelled) setRefreshing(false) })
+    return () => { cancelled = true }
+  }, [showDropdown, refreshOnOpen, refreshGroups])
   const dropdownRef = useRef(null)
   const triggerRef = useRef(null)
   const dropdownId = useId()
@@ -120,9 +132,11 @@ const GroupSelector = ({ onCreateClick, onEditClick, moduleName, compact = false
             <span><span className="block font-semibold">All logins</span><span className="mt-0.5 block text-[11px] text-slate-500">Clear group filter</span></span>
             {!activeGroupFilter && <span className="font-semibold">&#10003; Selected</span>}
           </button>
+          {refreshing && <p role="status" className="px-3 py-2 text-xs text-slate-500">Refreshing saved groups...</p>}
+          {refreshError && <p role="alert" className="px-3 py-2 text-xs text-red-600">{refreshError}</p>}
           {groups.length === 0 ? (
             <div className="px-3 py-4 text-center text-xs text-slate-500">
-              No groups created yet
+              {refreshing ? 'Loading groups...' : refreshError ? 'Saved groups unavailable' : 'No groups created yet'}
             </div>
           ) : (
             <div className="py-1 max-h-80 overflow-y-auto">

@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useIB } from '../contexts/IBContext'
+import { useIB } from '../contexts/ibContextStore'
 
 const IBSelector = () => {
-  const { selectedIB, ibList, ibMT5Accounts, isLoading, selectIB, clearIBSelection, refreshIBList } = useIB()
+  const { selectedIB, ibList, ibMT5Accounts, isLoading, selectIB, clearIBSelection } = useIB()
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef(null)
@@ -72,7 +72,7 @@ const IBSelector = () => {
           </span>
         )}
       </button>
-      
+
       {showDropdown && (
         <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-[100] w-80">
           <div className="px-3 py-2 border-b border-slate-100">
@@ -88,7 +88,7 @@ const IBSelector = () => {
               autoFocus
             />
           </div>
-          
+
           {isLoading ? (
             <div className="px-3 py-4 text-center text-xs text-slate-500">
               Loading IB data...
@@ -113,11 +113,11 @@ const IBSelector = () => {
                   </span>
                 </button>
               )}
-              
+
               {filteredIBList.map((ib) => {
                 const isSelected = selectedIB?.email === ib.email
                 const percentage = parseFloat(ib.percentage || 0)
-                
+
                 return (
                   <button
                     key={ib.id}

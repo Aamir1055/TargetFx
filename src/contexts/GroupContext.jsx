@@ -1,15 +1,10 @@
-﻿import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import GroupContext from './groupContextStore'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { brokerAPI } from '../services/api'
 
-const GroupContext = createContext()
 
-export const useGroups = () => {
-  const context = useContext(GroupContext)
-  if (!context) {
-    throw new Error('useGroups must be used within a GroupProvider')
-  }
-  return context
-}
+
+
 
 // Helper: serialize groups list to the API format
 const toApiFilters = (groups) =>
@@ -75,22 +70,27 @@ export const GroupProvider = ({ children }) => {
     groupsRef.current = groups
   }, [groups])
 
-  const refreshGroups = useCallback(async () => {
+  const refreshGroups = useCallback(async (options = {}) => {
     // If user just created/edited/deleted a group, briefly trust local state
     // to avoid a GET response overwriting pending fresh changes.
     if (Date.now() - lastLocalMutationAtRef.current < 1500) {
       return groupsRef.current
     }
     try {
+      const mutationAtStart = lastLocalMutationAtRef.current
       const res = await brokerAPI.getSavedFilters()
+      if (lastLocalMutationAtRef.current !== mutationAtStart) return groupsRef.current
       const raw = extractFiltersArray(res)
       const loaded = fromApiFilters(raw)
+      skipNextDebouncedSyncRef.current = true
+      groupsRef.current = loaded
       setGroups(loaded)
       console.log('[Groups] Refreshed from API:', loaded.length, 'groups')
       return loaded
     } catch (err) {
       console.warn('[Groups] Refresh failed:', err?.message)
-      return []
+      if (options.throwOnError) throw err
+      return groupsRef.current
     }
   }, [])
 
@@ -255,8 +255,12 @@ export const GroupProvider = ({ children }) => {
       clientpercentage: groupName, 'client-percentage': groupName,
       'ib-commissions': groupName,
       'deals-report': groupName,
+      'credit-report': groupName,
+      'agent-details-report': groupName,
+      'deposit-withdrawal-report': groupName,
       bills: groupName,
-      exchange: groupName, 'reports-exchange': groupName
+      exchange: groupName, 'reports-exchange': groupName,
+      [moduleName]: groupName
     }))
   }
 
@@ -323,5 +327,3 @@ export const GroupProvider = ({ children }) => {
     </GroupContext.Provider>
   )
 }
-
-export default GroupContext

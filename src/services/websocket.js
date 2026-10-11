@@ -50,13 +50,13 @@ class WebSocketService {
         if (this.ws) {
           // Close existing connection; onclose will NOT auto-reconnect because
           // we use code 1000 (clean close). We reconnect explicitly below.
-          try { this.ws.close(1000, 'Token refreshed') } catch {}
+          try { this.ws.close(1000, 'Token refreshed') } catch { /* Retain the fallback when this operation is unavailable. */ }
           this.ws = null
         }
         this.stopHeartbeat()
         this.connect()
       })
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
 
   // Get WebSocket URL with token
@@ -124,27 +124,27 @@ class WebSocketService {
           }
 
           const data = JSON.parse(event.data)
-          
+
           // Store last valid message
           this.lastMessage = data
           this.messageCount++
-          
+
           // Reset heartbeat on any message
           this.missedHeartbeats = 0
-          
+
           // Handle heartbeat/ping messages
           if (data.type === 'ping' || data.type === 'pong') {
             dlog('[WebSocket] Heartbeat received')
             return
           }
-          
+
           // Support both 'type' and 'event' fields
           const messageType = data.type || data.event
-          
+
           if (!messageType) {
             console.warn('[WebSocket] Message received without type or event field:', data)
           }
-          
+
           dlog(`[WebSocket] Message received - Type: ${messageType}`, data)
 
           // Notify listeners subscribed to this message type
@@ -184,7 +184,7 @@ class WebSocketService {
         dwarn(`[WebSocket] Connection closed - Code: ${event.code}, Reason: ${event.reason || 'Unknown'}, Clean: ${event.wasClean}`)
         this.stopHeartbeat()
         this.ws = null // Clean up the WebSocket object
-        
+
         // Only reconnect if not a clean close or user-initiated disconnect
         if (this.reconnectAttempts < this.maxReconnectAttempts && (!event.wasClean || event.code !== 1000)) {
           this.setConnectionState('disconnected')
@@ -215,7 +215,7 @@ class WebSocketService {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
-    
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('[WebSocket] Max reconnection attempts reached')
       this.setConnectionState('failed')
@@ -223,13 +223,13 @@ class WebSocketService {
     }
 
     this.reconnectAttempts++
-    
+
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
     const delay = Math.min(
       this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
       this.maxReconnectDelay
     )
-    
+
     dlog(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
     this.setConnectionState('connecting')
 
@@ -261,18 +261,18 @@ class WebSocketService {
   // Disconnect WebSocket
   disconnect() {
     dlog('[WebSocket] Disconnecting...')
-    
+
     // Clear timers
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
-    
+
     this.stopHeartbeat()
-    
+
     // Reset reconnect attempts
     this.reconnectAttempts = this.maxReconnectAttempts
-    
+
     if (this.ws) {
       this.ws.close(1000, 'User initiated disconnect')
       this.ws = null
@@ -320,7 +320,7 @@ class WebSocketService {
     }
 
     this.stateListeners.push(callback)
-    
+
     // Immediately notify of current state
     try {
       callback(this.connectionState)
@@ -383,15 +383,15 @@ class WebSocketService {
       return false
     }
   }
-  
+
   // Start heartbeat mechanism
   startHeartbeat() {
     this.stopHeartbeat()
-    
+
     // Don't send pings - backend doesn't support them and returns "Unknown command" error
     // Instead, just monitor for incoming messages
   dlog('[WebSocket] Heartbeat monitoring started (receive-only mode)')
-    
+
     // Monitor connection health by checking for any messages
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -404,7 +404,7 @@ class WebSocketService {
       }
     }, 30000)
   }
-  
+
   // Stop heartbeat mechanism
   stopHeartbeat() {
     if (this.heartbeatInterval) {
@@ -417,12 +417,12 @@ class WebSocketService {
     }
     this.missedHeartbeats = 0
   }
-  
+
   // Check if connected
   isConnected() {
     return this.ws && this.ws.readyState === WebSocket.OPEN
   }
-  
+
   // Reset reconnection attempts (useful after successful reconnect or manual retry)
   resetReconnectAttempts() {
     this.reconnectAttempts = 0

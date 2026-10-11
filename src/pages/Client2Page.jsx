@@ -1,3 +1,4 @@
+import { parseAccountTypePreferences } from '../utils/accountType'
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import * as XLSX from 'xlsx'
@@ -6,14 +7,14 @@ import PageSizeSelect from '../components/PageSizeSelect'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import Client2Module from '../components/Client2Module'
-import { useData } from '../contexts/DataContext'
+import { useData } from '../contexts/dataContextStore'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import ColumnChooserList from '../components/ColumnChooserList'
-import api, { brokerAPI } from '../services/api'
-import { useGroups } from '../contexts/GroupContext'
-import { useIB } from '../contexts/IBContext'
-import { useAuth } from '../contexts/AuthContext'
+import  { brokerAPI } from '../services/api'
+import { useGroups } from '../contexts/groupContextStore'
+import { useIB } from '../contexts/ibContextStore'
+import { useAuth } from '../contexts/authContextStore'
 import { formatTime } from '../utils/dateFormatter'
 
 // Gate verbose logs behind env flag to keep console clean in production
@@ -21,8 +22,8 @@ const DEBUG_LOGS = import.meta?.env?.VITE_DEBUG_LOGS === 'true'
 
 const Client2Page = () => {
   // Get positions and orders from DataContext for ClientPositionsModal
-  const { positions: cachedPositions, orders: cachedOrders } = useData()
-  
+  useData();
+
   // Mobile detection (initialize from window to avoid first-render desktop effects)
   const [isMobile, setIsMobile] = useState(() => {
     try { return typeof window !== 'undefined' ? window.innerWidth <= 768 : false } catch { return false }
@@ -65,21 +66,21 @@ const Client2Page = () => {
       return 200
     }
   }
-  const [columnValuesBatchSize, setColumnValuesBatchSize] = useState(getInitialColumnValuesBatchSize)
+  const [columnValuesBatchSize] = useState(getInitialColumnValuesBatchSize)
 
   useEffect(() => {
-    try { localStorage.setItem('client2ColumnValuesBatchSize', String(columnValuesBatchSize)) } catch { }
+    try { localStorage.setItem('client2ColumnValuesBatchSize', String(columnValuesBatchSize)) } catch { /* Retain the fallback when this operation is unavailable. */  }
   }, [columnValuesBatchSize])
-  
+
   // Group context
-  const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter, setActiveGroupFilter, groups } = useGroups()
+  const { filterByActiveGroup, getActiveGroupFilter, setActiveGroupFilter, groups } = useGroups()
 
   // Get active group for this module
   const activeGroupName = getActiveGroupFilter('client2')
   const activeGroup = groups.find(g => g.name === activeGroupName)
 
   // IB context
-  const { filterByActiveIB, selectedIB, ibMT5Accounts, refreshIBList, clearIBSelection } = useIB()
+  const { selectedIB, ibMT5Accounts, clearIBSelection } = useIB()
   // Auth context
   const { isAuthenticated } = useAuth()
   // Suspend auto-refresh when unauthorized
@@ -89,7 +90,7 @@ const Client2Page = () => {
     try {
       const v = localStorage.getItem('sidebarOpen')
       if (v === null) return true // open by default
-      return JSON.parse(v)
+      return parseAccountTypePreferences(v)
     } catch {
       return true
     }
@@ -102,7 +103,7 @@ const Client2Page = () => {
   const [clients, setClients] = useState([])
   const [totalClients, setTotalClients] = useState(0)
   const [totals, setTotals] = useState({})
-  const [rebateTotals, setRebateTotals] = useState({})
+  const [, setRebateTotals] = useState({})
   const [totalsPercent, setTotalsPercent] = useState({}) // Percent totals (server response when percentage:true)
 
   // Pagination state
@@ -117,7 +118,7 @@ const Client2Page = () => {
     try { return localStorage.getItem('client2CurrencyMode') || 'Combined' } catch { return 'Combined' }
   })
   useEffect(() => {
-    try { localStorage.setItem('client2CurrencyMode', currencyMode) } catch {}
+    try { localStorage.setItem('client2CurrencyMode', currencyMode) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [currencyMode])
 
   // Search and filter state
@@ -134,7 +135,7 @@ const Client2Page = () => {
   const [sortOrder, setSortOrder] = useState('asc')
   const [animationKey, setAnimationKey] = useState(0)
   const [initialLoad, setInitialLoad] = useState(true)
-  const [progressActive, setProgressActive] = useState(false)
+  const [, setProgressActive] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
 
@@ -147,13 +148,13 @@ const Client2Page = () => {
   const [showGroupModal, setShowGroupModal] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
-  const [columnSearchQuery, setColumnSearchQuery] = useState('')
+
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [showCardFilterMenu, setShowCardFilterMenu] = useState(false)
   const [cardFilterSearchQuery, setCardFilterSearchQuery] = useState('')
   // Card filter mode: show only percentage cards or only non-percentage cards
   const [cardFilterPercentMode, setCardFilterPercentMode] = useState(false) // Do not persist; always start disabled
-  const [showFaceCards, setShowFaceCards] = useState(true)
+  const [showFaceCards] = useState(true)
   // Display mode for monetary fields: 'compact' (e.g. 2.57Cr) or 'full' (e.g. 2,57,14,191.16)
   // Synced globally via the Sidebar (localStorage key: 'globalDisplayMode')
   const [displayMode, setDisplayMode] = useState(() => {
@@ -179,9 +180,9 @@ const Client2Page = () => {
   const [isSorting, setIsSorting] = useState(false)
   const [columnFilters, setColumnFilters] = useState({})
   const [showFilterDropdown, setShowFilterDropdown] = useState(null)
-  const [filterSearchQuery, setFilterSearchQuery] = useState({})
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const searchRef = useRef(null)
+  const [, setFilterSearchQuery] = useState({})
+  const [, setShowSuggestions] = useState(false)
+
   const [numericFilterTemp, setNumericFilterTemp] = useState({}) // Temporary storage for numeric filters being edited
   const [textFilterTemp, setTextFilterTemp] = useState({}) // Temporary storage for text filters being edited
   const [columnSortOrder, setColumnSortOrder] = useState({}) // Track sort order per column: 'asc', 'desc', or null
@@ -189,11 +190,11 @@ const Client2Page = () => {
   const [columnValues, setColumnValues] = useState({}) // Store unique values for each column
   const [columnValuesLoading, setColumnValuesLoading] = useState({}) // Track first-load state for column values
   const [columnValuesLoadingMore, setColumnValuesLoadingMore] = useState({}) // Track incremental load state
-  const [columnValuesPage, setColumnValuesPage] = useState({}) // Track current page per column
+   // Track current page per column
   const [columnValuesHasMore, setColumnValuesHasMore] = useState({}) // Track hasMore per column
   const [columnValuesCurrentPage, setColumnValuesCurrentPage] = useState({}) // Track current page number per column
   const [columnValuesTotalPages, setColumnValuesTotalPages] = useState({}) // Track total pages per column
-  const [columnValuesUnsupported, setColumnValuesUnsupported] = useState({}) // Fields not supported by /clients/fields API
+  const [columnValuesUnsupported] = useState({}) // Fields not supported by /clients/fields API
   const [selectedColumnValues, setSelectedColumnValues] = useState({}) // Track selected values for checkbox filters
   const [columnValueSearch, setColumnValueSearch] = useState({}) // Search query for column value filters
   const [columnValueSearchDebounce, setColumnValueSearchDebounce] = useState({}) // Debounced search queries
@@ -204,9 +205,9 @@ const Client2Page = () => {
     hasPnl: false,
     accountEnabled: false
   }) // Do not persist quick filters
-  
+
   // Networking guards for polling
-  const fetchAbortRef = useRef(null)
+
   const isFetchingRef = useRef(false)
   const requestIdRef = useRef(0)
   // Pause polling during active user filter changes to avoid race
@@ -217,9 +218,9 @@ const Client2Page = () => {
   const [draggedCardKey, setDraggedCardKey] = useState(null)
   const [dragOverCardKey, setDragOverCardKey] = useState(null)
   // Trend tracking for face card values (desktop)
-  const lastValuesRef = useRef({})
-  const lastTrendRef = useRef({})
-  const lastChangeRef = useRef({})
+
+
+
   const STABLE_THRESHOLD_MS = 5000
 
   // Define default face card order for Client2 — only 6 allowed cards
@@ -231,7 +232,7 @@ const Client2Page = () => {
     try {
       const saved = localStorage.getItem('client2FaceCardOrder')
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed = parseAccountTypePreferences(saved)
         // Validate that it's an array and reconcile with current defaults
         if (Array.isArray(parsed)) {
           const defaults = [...defaultClient2FaceCardOrder]
@@ -264,7 +265,7 @@ const Client2Page = () => {
     const saved = localStorage.getItem('client2ColumnOrder')
     if (saved) {
       try {
-        const parsed = JSON.parse(saved)
+        const parsed = parseAccountTypePreferences(saved)
         if (!Array.isArray(parsed)) return null
         if (localStorage.getItem('client2LoginPnlColumnOrder') !== '1') {
           const leading = ['login', 'pnl', 'profit', 'equity']
@@ -310,14 +311,14 @@ const Client2Page = () => {
   }, [showColumnSelector])
 
   const [columnOrder, setColumnOrder] = useState(getInitialColumnOrder)
-  const [draggedColumn, setDraggedColumn] = useState(null)
-  const [dragOverColumn, setDragOverColumn] = useState(null)
+
+
 
   // Column resizing state
   const [columnWidths, setColumnWidths] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('client2ColumnWidths')) || {}
-    } catch (e) {
+      return parseAccountTypePreferences(localStorage.getItem('client2ColumnWidths')) || {}
+    } catch {
       return {}
     }
   })
@@ -325,14 +326,14 @@ const Client2Page = () => {
   // Pinned (frozen) columns - persisted to localStorage
   const [pinnedColumns, setPinnedColumns] = useState(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('client2PinnedColumns'))
+      const saved = parseAccountTypePreferences(localStorage.getItem('client2PinnedColumns'))
       return Array.isArray(saved) ? saved : ['login']
-    } catch (e) {
+    } catch {
       return ['login']
     }
   })
   useEffect(() => {
-    try { localStorage.setItem('client2PinnedColumns', JSON.stringify(pinnedColumns)) } catch (e) {}
+    try { localStorage.setItem('client2PinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) => {
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -388,15 +389,15 @@ const Client2Page = () => {
   const headerRefs = useRef({})
   const resizeStartX = useRef(0)
   const resizeStartWidth = useRef(0)
-  const resizeRightStartWidth = useRef(0)
+
   const resizeRAF = useRef(null)
-  const resizeRightNeighborKey = useRef(null)
+
   const measureCanvasRef = useRef(null)
   const tableRef = useRef(null)
   const hScrollRef = useRef(null)
   const stickyScrollRef = useRef(null)
-  const faceCardsRef = useRef(null)
-  const tableContainerRef = useRef(null)
+
+
   const [resizingColumn, setResizingColumn] = useState(null)
   // Scroll gating for column value dropdowns
   const columnScrollUserActionRef = useRef({}) // { [columnKey]: boolean }
@@ -410,7 +411,7 @@ const Client2Page = () => {
     const saved = localStorage.getItem('client2CardVisibility')
     if (saved) {
       try {
-        return JSON.parse(saved)
+        return parseAccountTypePreferences(saved)
       } catch (e) {
         console.error('Failed to parse saved card visibility:', e)
       }
@@ -562,7 +563,7 @@ const Client2Page = () => {
 
   const [cardVisibility, setCardVisibility] = useState(getInitialCardVisibility)
   // Global percentage view disabled; use per-field % cards instead
-  const showPercentage = false
+
 
   // Percentage mode now ONLY controlled by explicit toggle (cardFilterPercentMode)
   // Face card visibility no longer auto-triggers percentage API calls to avoid unintended requests.
@@ -583,10 +584,10 @@ const Client2Page = () => {
     const saved = localStorage.getItem('client2PageVisibleColumns')
     if (saved) {
       try {
-        const parsed = JSON.parse(saved)
+        const parsed = parseAccountTypePreferences(saved)
         // Check if saved columns have the required new columns (accountType, processorType, lifetimePnL, pnl)
         // If they're missing, use new defaults instead
-        if (!parsed.hasOwnProperty('accountType') || !parsed.hasOwnProperty('processorType') || !parsed.hasOwnProperty('lifetimePnL') || !parsed.hasOwnProperty('pnl')) {
+        if (!Object.hasOwn(parsed, 'accountType') || !Object.hasOwn(parsed, 'processorType') || !Object.hasOwn(parsed, 'lifetimePnL') || !Object.hasOwn(parsed, 'pnl')) {
           console.log('[Client2] Saved columns missing new fields, resetting to defaults')
           localStorage.removeItem('client2PageVisibleColumns')
           return getDefaultColumns()
@@ -594,7 +595,7 @@ const Client2Page = () => {
         // Merge in any new keys that were added after the last save (default to false)
         const defaults = getDefaultColumns()
         let merged = { ...parsed }
-        Object.keys(defaults).forEach(k => { if (!merged.hasOwnProperty(k)) merged[k] = defaults[k] })
+        Object.keys(defaults).forEach(k => { if (!Object.hasOwn(merged, k)) merged[k] = defaults[k] })
         if (localStorage.getItem('client2NameHiddenDefault') !== '1') {
           merged.name = false
           localStorage.setItem('client2PageVisibleColumns', JSON.stringify(merged))
@@ -623,7 +624,7 @@ const Client2Page = () => {
       profit: true,
       currency: false,
       leverage: false,
-      country: false,
+      liquidateType: false,
       phone: false,
       city: false,
       address: false,
@@ -663,13 +664,7 @@ const Client2Page = () => {
   }, [showFilterDropdown])
 
   // Calculate dynamic table height based on available space and changing UI above the table
-  const visibleCardCount = useMemo(() => {
-    try {
-      return (faceCardOrder || []).filter(k => (cardVisibility?.[k] !== false)).length
-    } catch {
-      return 0
-    }
-  }, [faceCardOrder, cardVisibility])
+
 
 
 
@@ -685,7 +680,7 @@ const Client2Page = () => {
     { key: 'email', label: 'Email', type: 'text' },
     { key: 'phone', label: 'Phone', type: 'text' },
     { key: 'group', label: 'Group', type: 'text' },
-    { key: 'country', label: 'Country', type: 'text' },
+    { key: 'liquidateType', label: 'Account Type', type: 'text' },
     { key: 'city', label: 'City', type: 'text' },
     { key: 'address', label: 'Address', type: 'text' },
     { key: 'status', label: 'Status', type: 'text' },
@@ -836,7 +831,7 @@ const Client2Page = () => {
     if (key === 'address' || key === 'comment') return 280
 
     // Country, city, state, company
-    if (key === 'country' || key === 'city' || key === 'state' || key === 'company') return 150
+    if (key === 'liquidateType' || key === 'city' || key === 'state' || key === 'company') return 150
 
     // Group
     if (key === 'group') return 170
@@ -922,7 +917,7 @@ const Client2Page = () => {
   useEffect(() => {
     try {
       localStorage.setItem('client2ColumnWidths', JSON.stringify(columnWidths))
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [columnWidths])
@@ -938,10 +933,10 @@ const Client2Page = () => {
   const fetchClients = useCallback(async (silent = false) => {
     // Generate unique request ID to track this specific request
     const currentRequestId = ++requestIdRef.current
-    
+
     // A newer query owns the table, including its error and loading state.
     if (abortControllerRef.current) {
-      try { abortControllerRef.current.abort() } catch {}
+      try { abortControllerRef.current.abort() } catch { /* Retain the fallback when this operation is unavailable. */ }
     }
     // Create new AbortController for this request
     abortControllerRef.current = new AbortController()
@@ -1019,7 +1014,7 @@ const Client2Page = () => {
           name: 'name',
           email: 'email',
           phone: 'phone',
-          country: 'country',
+          liquidateType: 'liquidateType',
           currency: 'currency',
           lifetimePnL: 'lifetimePnL',
           thisMonthPnL: 'thisMonthPnL',
@@ -1105,7 +1100,7 @@ const Client2Page = () => {
               // When there's a search active, only consider visible (filtered) values
               const allValues = columnValues[columnKey] || []
               const searchQ = (columnValueSearch[columnKey] || '').toLowerCase()
-              const visibleValues = searchQ ? allValues.filter(v => String(v).toLowerCase().includes(searchQ)) : allValues
+              searchQ ? allValues.filter(v => String(v).toLowerCase().includes(searchQ)) : allValues;
 
               // Transform processorType friendly labels back to numeric values for API (1 or 0)
               let apiValues = selectedValues
@@ -1153,8 +1148,8 @@ const Client2Page = () => {
       }
 
       // Check if we have any quick filters active
-      const hasQuickFilters = quickFilters?.hasFloating || quickFilters?.hasCredit || quickFilters?.noDeposit || quickFilters?.hasPnl || quickFilters?.accountEnabled
-      
+      quickFilters?.hasFloating || quickFilters?.hasCredit || quickFilters?.noDeposit || quickFilters?.hasPnl || quickFilters?.accountEnabled;
+
       // Check if IB filter is active
       const hasIBFilter = selectedIB && Array.isArray(ibMT5Accounts) && ibMT5Accounts.length > 0
 
@@ -1399,13 +1394,13 @@ const Client2Page = () => {
       if (shouldFetchPercentage) {
         // Fetch only percentage data
         const percentResponse = await brokerAPI.searchClients({ ...payload, percentage: true }, requestOptions)
-        
+
         // Ignore response if it's from an outdated request (stale data)
         if (currentRequestId !== requestIdRef.current) {
           console.log('[Client2] Ignoring stale percentage response from request', currentRequestId, '(current:', requestIdRef.current, ')')
           return
         }
-        
+
         const percentData = extractData(percentResponse)
         const percentClients = (percentData?.clients || []).filter(c => c != null && c.login != null)
         const percentTotals = percentData?.totals || {}
@@ -1422,13 +1417,13 @@ const Client2Page = () => {
       } else {
         // Fetch only normal data
         const normalResponse = await brokerAPI.searchClients(payload, requestOptions)
-        
+
         // Ignore response if it's from an outdated request (stale data)
         if (currentRequestId !== requestIdRef.current) {
           console.log('[Client2] Ignoring stale normal response from request', currentRequestId, '(current:', requestIdRef.current, ')')
           return
         }
-        
+
         const normalData = extractData(normalResponse)
         const normalClients = (normalData?.clients || []).filter(c => c != null && c.login != null)
         const normalTotals = normalData?.totals || {}
@@ -1448,7 +1443,7 @@ const Client2Page = () => {
       if (currentRequestId !== requestIdRef.current) return
       const isCanceled = err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || /aborted|canceled/i.test(err?.message || '')
       if (isCanceled) {
-        try { if (DEBUG_LOGS) console.debug('[Client2] fetchClients canceled (expected on fast refresh)') } catch { }
+        try { if (DEBUG_LOGS) console.debug('[Client2] fetchClients canceled (expected on fast refresh)') } catch { /* Retain the fallback when this operation is unavailable. */  }
         return
       }
       console.error('[Client2] Error fetching clients:', err)
@@ -1522,11 +1517,11 @@ const Client2Page = () => {
     fetchClients(false)
   }, [percentModeActive, fetchClients, isMobile, isAuthenticated, unauthorized])
 
-  // Client-side filtering for search across common text fields (including country)
+  // Client-side filtering for search across common text fields (including liquidateType)
   const sortedClients = useMemo(() => {
     // If loading, return empty array to prevent showing stale data
     if (loading) return []
-    
+
     if (!Array.isArray(clients)) return []
     // Return clients as-is since search is already handled by the API
     // The searchQuery is sent to the API in fetchClients, so no need for client-side filtering
@@ -1534,9 +1529,9 @@ const Client2Page = () => {
   }, [clients, loading])
 
   // Compute percentage totals by summing percentage columns from client data
-  const computedPercentageTotals = useMemo(() => {
+  useMemo(() => {
     const dataSource = sortedClients
-    
+
     if (!Array.isArray(dataSource) || dataSource.length === 0) {
       return {
         dailyDeposit: 0,
@@ -1544,13 +1539,13 @@ const Client2Page = () => {
         lifetimePnL: 0
       }
     }
-    
+
     return {
       dailyDeposit: dataSource.reduce((sum, client) => sum + (parseFloat(client.dailyDeposit_percentage) || 0), 0),
       dailyWithdrawal: dataSource.reduce((sum, client) => sum + (parseFloat(client.dailyWithdrawal_percentage) || 0), 0),
       lifetimePnL: dataSource.reduce((sum, client) => sum + (parseFloat(client.lifetimePnL_percentage) || 0), 0)
     }
-  }, [sortedClients])
+  }, [sortedClients]);
 
   // Debounce search query to prevent API collision
   useEffect(() => {
@@ -1658,41 +1653,9 @@ const Client2Page = () => {
   }
 
   // Get search suggestions based on current input
-  const getSuggestions = () => {
-    if (!searchInput || searchInput.length < 2) return []
-    
-    const query = searchInput.toLowerCase()
-    const suggestions = new Set()
-    
-    // Get suggestions from current clients data
-    clients.forEach(client => {
-      // Check login
-      if (client.login && String(client.login).toLowerCase().includes(query)) {
-        suggestions.add(String(client.login))
-      }
-      // Check name
-      if (client.name && client.name.toLowerCase().includes(query)) {
-        suggestions.add(client.name)
-      }
-      // Check group
-      if (client.group && client.group.toLowerCase().includes(query)) {
-        suggestions.add(client.group)
-      }
-      // Check email
-      if (client.email && client.email.toLowerCase().includes(query)) {
-        suggestions.add(client.email)
-      }
-    })
-    
-    return Array.from(suggestions).slice(0, 5)
-  }
 
-  const handleSuggestionClick = (suggestion) => {
-    setSearchInput(suggestion)
-    setSearchQuery(suggestion)
-    setCurrentPage(1)
-    setShowSuggestions(false)
-  }
+
+
 
   // Handle sort
   const handleSort = (columnKey) => {
@@ -1829,168 +1792,30 @@ const Client2Page = () => {
   }
 
   // Column drag and drop handlers for reordering
-  const handleColumnDragStart = (e, columnKey) => {
-    setDraggedColumn(columnKey)
-    e.dataTransfer.effectAllowed = 'move'
 
-    // Create custom drag image showing the full column header
-    const headerElement = headerRefs.current[columnKey]
-    if (headerElement) {
-      // Clone the header element for drag preview
-      const clone = headerElement.cloneNode(true)
-      clone.style.position = 'absolute'
-      clone.style.top = '-9999px'
-      clone.style.width = `${headerElement.offsetWidth}px`
-      clone.style.backgroundColor = '#2563eb'
-      clone.style.padding = '12px 16px'
-      clone.style.borderRadius = '6px'
-      clone.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-      document.body.appendChild(clone)
-      e.dataTransfer.setDragImage(clone, headerElement.offsetWidth / 2, 20)
-      setTimeout(() => document.body.removeChild(clone), 0)
-    }
-  }
 
-  const handleColumnDragOver = (e, columnKey) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (columnKey !== draggedColumn) {
-      setDragOverColumn(columnKey)
-    }
-  }
 
-  const handleColumnDragLeave = () => {
-    setDragOverColumn(null)
-  }
 
-  const handleColumnDrop = (e, targetColumnKey) => {
-    e.preventDefault()
-    e.stopPropagation()
 
-    if (!draggedColumn || draggedColumn === targetColumnKey) {
-      setDraggedColumn(null)
-      setDragOverColumn(null)
-      return
-    }
 
-    // Get current order from visibleColumnsList
-    const currentOrder = visibleColumnsList.map(col => col.key)
-    const draggedIndex = currentOrder.indexOf(draggedColumn)
-    const targetIndex = currentOrder.indexOf(targetColumnKey)
 
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedColumn(null)
-      setDragOverColumn(null)
-      return
-    }
 
-    // Create new order array
-    const newOrder = [...currentOrder]
-    const [removed] = newOrder.splice(draggedIndex, 1)
-    newOrder.splice(targetIndex, 0, removed)
 
-    setColumnOrder(newOrder)
-    setDraggedColumn(null)
-    setDragOverColumn(null)
-  }
-
-  const handleColumnDragEnd = () => {
-    setDraggedColumn(null)
-    setDragOverColumn(null)
-  }
 
   // Column filter functions
-  const getUniqueColumnValues = useMemo(() => {
-    // Create a cache object for all columns
-    const cache = {}
 
-    return (columnKey) => {
-      // Return cached result if search query hasn't changed
-      const cacheKey = `${columnKey}_${filterSearchQuery[columnKey] || ''}`
-      if (cache[cacheKey]) {
-        return cache[cacheKey]
-      }
 
-      const values = new Set()
-      if (!Array.isArray(clients)) return []
 
-      clients.forEach(client => {
-        if (!client) return // Guard: skip null/undefined clients
-        const value = client[columnKey]
-        if (value !== null && value !== undefined && value !== '') {
-          values.add(value)
-        }
-      })
 
-      const sortedValues = Array.from(values).sort((a, b) => {
-        if (typeof a === 'number' && typeof b === 'number') {
-          return a - b
-        }
-        return String(a).localeCompare(String(b))
-      })
 
-      // Filter by search query if exists
-      const searchQuery = filterSearchQuery[columnKey]?.toLowerCase() || ''
-      const result = searchQuery
-        ? sortedValues.filter(value =>
-          String(value).toLowerCase().includes(searchQuery)
-        )
-        : sortedValues
 
-      // Cache the result
-      cache[cacheKey] = result
-      return result
-    }
-  }, [clients, filterSearchQuery])
 
-  const toggleColumnFilter = (columnKey, value) => {
-    // Invalidate any in-flight requests from previous filter state
-    requestIdRef.current++
-    pausePollingUntilRef.current = Date.now() + 1200
-    
-    setColumnFilters(prev => {
-      const currentFilters = prev[columnKey] || []
-      const newFilters = currentFilters.includes(value)
-        ? currentFilters.filter(v => v !== value)
-        : [...currentFilters, value]
-
-      if (newFilters.length === 0) {
-        const { [columnKey]: _, ...rest } = prev
-        return rest
-      }
-
-      return { ...prev, [columnKey]: newFilters }
-    })
-  }
-
-  const selectAllFilters = (columnKey) => {
-    // Invalidate any in-flight requests from previous filter state
-    requestIdRef.current++
-    pausePollingUntilRef.current = Date.now() + 1200
-    
-    const allValues = getUniqueColumnValues(columnKey)
-    setColumnFilters(prev => ({
-      ...prev,
-      [columnKey]: allValues
-    }))
-  }
-
-  const deselectAllFilters = (columnKey) => {
-    // Invalidate any in-flight requests from previous filter state
-    requestIdRef.current++
-    pausePollingUntilRef.current = Date.now() + 1200
-    
-    setColumnFilters(prev => {
-      const { [columnKey]: _, ...rest } = prev
-      return rest
-    })
-  }
 
   const clearColumnFilter = (columnKey) => {
     // Invalidate any in-flight requests from previous filter state
     requestIdRef.current++
     pausePollingUntilRef.current = Date.now() + 1200
-    
+
     setColumnFilters(prev => {
       const numberFilterKey = `${columnKey}_number`
       const textFilterKey = `${columnKey}_text`
@@ -2033,11 +1858,7 @@ const Client2Page = () => {
     return checkboxCount + hasNumberFilter + hasTextFilter + hasCheckboxFilter
   }
 
-  const isAllSelected = (columnKey) => {
-    const allValues = getUniqueColumnValues(columnKey)
-    const selectedValues = columnFilters[columnKey] || []
-    return allValues.length > 0 && selectedValues.length === allValues.length
-  }
+
 
   const applyNumberFilter = (columnKey) => {
     const temp = numericFilterTemp[columnKey]
@@ -2150,154 +1971,10 @@ const Client2Page = () => {
   }
 
   // Build payload for fetching column values using current table filters (server-side), excluding the current column's header filter
-  const buildColumnValuesPayload = (columnKey, page = 1, limit = columnValuesBatchSize) => {
-    const payload = {
-      page: Number(page) || 1,
-      limit: Number(limit) || columnValuesBatchSize
-    }
-    if (searchQuery && searchQuery.trim()) payload.search = searchQuery.trim()
 
-    // Collect filters like in fetchClients, but skip filters for the same columnKey to avoid self-filtering
-    const combinedFilters = []
-    let multiOrField = null
-    let multiOrValues = []
-    let multiOrConflict = false
-    const textFilteredFields = new Set()
-    const numberFilteredFields = new Set()
-
-    // Table-level filters
-    if (filters && filters.length > 0) {
-      const _boolFields2 = new Set(['tradingEnabled', 'accountEnabled'])
-      combinedFilters.push(...filters.map(f => {
-        if (_boolFields2.has(f.field) && typeof f.value === 'string') {
-          const mapped = f.value === 'Enabled' ? 'true' : f.value === 'Disabled' ? 'false' : f.value
-          return { ...f, value: mapped }
-        }
-        return f
-      }))
-    }
-
-    const columnKeyToAPIField = (colKey) => {
-      const fieldMap = {
-        lifetimePnL: 'lifetimePnL',
-        thisMonthPnL: 'thisMonthPnL',
-        thisWeekPnL: 'thisWeekPnL',
-        dailyPnL: 'dailyPnL',
-        marginLevel: 'marginLevel',
-        marginFree: 'marginFree',
-        lastAccess: 'lastAccess',
-        zipCode: 'zipCode',
-        middleName: 'middleName',
-        lastName: 'lastName',
-        processorType: 'processorType',
-        accountType: 'accountType'
-      }
-      return fieldMap[colKey] || colKey
-    }
-
-    // Header filters except the current column
-    if (columnFilters && Object.keys(columnFilters).length > 0) {
-      Object.entries(columnFilters).forEach(([key, cfg]) => {
-        if (key.startsWith(columnKey + '_')) return // skip same column
-        if (key.endsWith('_text') && cfg) {
-          const uiKey = key.replace('_text', '')
-          const field = columnKeyToAPIField(uiKey)
-          const opMap = { equal: 'equal', notEqual: 'not_equal', contains: 'contains', doesNotContain: 'not_contains', startsWith: 'starts_with', endsWith: 'ends_with' }
-          const op = opMap[cfg.operator] || cfg.operator
-          const val = cfg.value
-          if (val != null && String(val).length > 0) {
-            let outVal = String(val).trim()
-            if (field === 'tradingEnabled' || field === 'accountEnabled') {
-              const lower = outVal.toLowerCase()
-              if (lower === 'enabled' || lower === 'true') outVal = 'true'
-              else if (lower === 'disabled' || lower === 'false') outVal = 'false'
-            }
-            combinedFilters.push({ field, operator: op, value: outVal })
-            textFilteredFields.add(uiKey)
-          }
-          return
-        }
-        if (key.endsWith('_number') && cfg) {
-          const uiKey = key.replace('_number', '')
-          if (uiKey === columnKey) return
-          const field = columnKeyToAPIField(uiKey)
-          const op = cfg.operator
-          const v1 = cfg.value1
-          const v2 = cfg.value2
-          const num1 = v1 !== '' && v1 != null ? Number(v1) : null
-          const num2 = v2 !== '' && v2 != null ? Number(v2) : null
-          if (op === 'between') {
-            if (num1 != null && Number.isFinite(num1)) combinedFilters.push({ field, operator: 'greater_than_equal', value: String(num1) })
-            if (num2 != null && Number.isFinite(num2)) combinedFilters.push({ field, operator: 'less_than_equal', value: String(num2) })
-          } else if (op && num1 != null && Number.isFinite(num1)) {
-            combinedFilters.push({ field, operator: op, value: String(num1) })
-          }
-          numberFilteredFields.add(uiKey)
-          return
-        }
-      })
-      Object.entries(columnFilters).forEach(([key, cfg]) => {
-        if (key.endsWith('_checkbox') && cfg && Array.isArray(cfg.values) && cfg.values.length > 0) {
-          const uiKey = key.replace('_checkbox', '')
-          if (uiKey === columnKey) return
-          const field = columnKeyToAPIField(uiKey)
-          if (textFilteredFields.has(uiKey) || numberFilteredFields.has(uiKey)) return
-          const rawValues = cfg.values.map(v => String(v).trim()).filter(v => v.length > 0)
-          if (rawValues.length === 0) return
-          if (rawValues.length === 1) {
-            combinedFilters.push({ field, operator: 'equal', value: rawValues[0] })
-          } else {
-            // Provide array for backend; treat multi-value as OR by storing values list
-            if (multiOrField && multiOrField !== field) multiOrConflict = true
-            else { multiOrField = field; multiOrValues = rawValues }
-          }
-        }
-      })
-    }
-    if (combinedFilters.length > 0) payload.filters = combinedFilters
-
-    // Merge account filters/group/IB
-    let mt5AccountsFilter = []
-    if (Array.isArray(mt5Accounts) && mt5Accounts.length > 0) mt5AccountsFilter = [...new Set(mt5Accounts.map(Number))]
-    if (accountRangeMin && accountRangeMin.trim()) payload.accountRangeMin = parseInt(accountRangeMin.trim())
-    if (accountRangeMax && accountRangeMax.trim()) payload.accountRangeMax = parseInt(accountRangeMax.trim())
-    if (activeGroup) {
-      if (activeGroup.range) {
-        payload.accountRangeMin = activeGroup.range.from
-        payload.accountRangeMax = activeGroup.range.to
-      } else if (activeGroup.loginIds && activeGroup.loginIds.length > 0) {
-        const groupAccounts = activeGroup.loginIds.map(id => Number(id))
-        if (mt5AccountsFilter.length > 0) {
-          const set = new Set(groupAccounts)
-          mt5AccountsFilter = mt5AccountsFilter.filter(a => set.has(a))
-        } else {
-          mt5AccountsFilter = [...new Set(groupAccounts)]
-        }
-      }
-    }
-    if (selectedIB && Array.isArray(ibMT5Accounts) && ibMT5Accounts.length > 0) {
-      const ibAccounts = ibMT5Accounts.map(Number)
-      if (mt5AccountsFilter.length > 0) {
-        const set = new Set(ibAccounts)
-        mt5AccountsFilter = mt5AccountsFilter.filter(a => set.has(a))
-      } else {
-        mt5AccountsFilter = [...new Set(ibAccounts)]
-      }
-    }
-    if (mt5AccountsFilter.length > 0) {
-      payload.mt5Accounts = mt5AccountsFilter.map(a => String(a))
-    } else {
-      const manualGroupApplied = !!(activeGroup && activeGroup.loginIds && activeGroup.loginIds.length > 0)
-      const hasIBFilter = selectedIB && Array.isArray(ibMT5Accounts) && ibMT5Accounts.length > 0
-      if (hasIBFilter || manualGroupApplied) {
-        payload.mt5Accounts = ['0']
-      }
-    }
-    return { payload, multiOrField, multiOrValues, multiOrConflict }
-  }
 
   // Fetch column values with search filter (server-side search using dedicated endpoint)
-  const fetchColumnValuesWithSearch = async (columnKey, searchQuery = '', forceRefresh = false) => {
+  const fetchColumnValuesWithSearch = async (columnKey, searchQuery = '') => {
     setProgressActive(true)
     // Allow API calls for a broader set of text columns to ensure filtering works across more fields
     const allowedColumns = [
@@ -2308,7 +1985,7 @@ const Client2Page = () => {
       // Account metadata
       'group', 'accountType', 'status', 'currency', 'leverage', 'comment',
       // Location
-      'country', 'city', 'state', 'address', 'zipCode', 'company',
+      'liquidateType', 'city', 'state', 'address', 'zipCode', 'company',
       // Leads & processing
       'leadSource', 'leadCampaign', 'processorType'
     ]
@@ -2418,7 +2095,7 @@ const Client2Page = () => {
       // Account metadata
       'group', 'accountType', 'status', 'currency', 'leverage', 'comment',
       // Location
-      'country', 'city', 'state', 'address', 'zipCode', 'company',
+      'liquidateType', 'city', 'state', 'address', 'zipCode', 'company',
       // Leads & processing
       'leadSource', 'leadCampaign', 'processorType'
     ]
@@ -2490,7 +2167,7 @@ const Client2Page = () => {
       const setVals = new Set()
       clients.forEach(client => {
         let v = client?.[columnKey]
-        
+
         // Transform processorType values to friendly labels
         if (columnKey === 'processorType' && v !== null && v !== undefined && v !== '') {
           if (typeof v === 'boolean') {
@@ -2504,7 +2181,7 @@ const Client2Page = () => {
             }
           }
         }
-        
+
         if (v !== null && v !== undefined && v !== '') setVals.add(v)
       })
 
@@ -2642,18 +2319,7 @@ const Client2Page = () => {
   }
 
   // Toggle select all for column
-  const toggleSelectAllColumnValues = (columnKey) => {
-    const allValues = columnValues[columnKey] || []
-    const currentSelected = selectedColumnValues[columnKey] || []
 
-    if (currentSelected.length === allValues.length) {
-      // Deselect all
-      setSelectedColumnValues(prev => ({ ...prev, [columnKey]: [] }))
-    } else {
-      // Select all
-      setSelectedColumnValues(prev => ({ ...prev, [columnKey]: [...allValues] }))
-    }
-  }
 
   // Toggle select only currently visible (filtered) values for the column
   const toggleSelectVisibleColumnValues = (columnKey) => {
@@ -2828,7 +2494,7 @@ const Client2Page = () => {
     // Invalidate any in-flight requests from previous filter state
     requestIdRef.current++
     pausePollingUntilRef.current = Date.now() + 1200
-    
+
     // Basic list filters
     setFilters([])
     setSearchQuery('')
@@ -2861,8 +2527,8 @@ const Client2Page = () => {
     setShowCardFilterMenu(false)
 
     // Context filters: IB and Group
-    try { clearIBSelection() } catch {}
-    try { setActiveGroupFilter('client2', null) } catch {}
+    try { clearIBSelection() } catch { /* Retain the fallback when this operation is unavailable. */ }
+    try { setActiveGroupFilter('client2', null) } catch { /* Retain the fallback when this operation is unavailable. */ }
 
     // Reset pagination
     setCurrentPage(1)
@@ -2902,50 +2568,7 @@ const Client2Page = () => {
   }
 
   // Export to CSV
-  const handleExportToCSV = () => {
-    if (!clients || clients.length === 0) {
-      alert('No data to export')
-      return
-    }
 
-    // Get headers
-    const headers = visibleColumnsList.map(col => col.label).join(',')
-
-    // Get rows - filter out null/undefined clients
-    const rows = (clients || []).filter(client => client != null).map(client => {
-      return visibleColumnsList.map(col => {
-        let value = client[col.key]
-
-        // Format value
-        if (value === null || value === undefined || value === '') {
-          return ''
-        }
-
-        // Escape quotes and commas
-        if (typeof value === 'string') {
-          value = value.replace(/"/g, '""')
-          if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-            value = `"${value}"`
-          }
-        }
-
-        return value
-      }).join(',')
-    }).join('\n')
-
-    const csvContent = headers + '\n' + rows
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `client2_export_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
 
   // Manual refresh handler
   const handleManualRefresh = async () => {
@@ -2971,199 +2594,25 @@ const Client2Page = () => {
         setFaceCardOrder(merged)
         localStorage.setItem('client2FaceCardOrder', JSON.stringify(merged))
       }
-    } catch { }
+    } catch { /* Retain the fallback when this operation is unavailable. */  }
   }, [faceCardOrder])
 
   // Drag and drop handlers for face cards
-  const handleCardDragStart = (e, cardKey) => {
-    setDraggedCardKey(cardKey)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/html', e.target)
-  }
 
-  const handleCardDragOver = (e, cardKey) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (draggedCardKey && draggedCardKey !== cardKey) {
-      setDragOverCardKey(cardKey)
-    }
-  }
 
-  const handleCardDrop = (e, targetCardKey) => {
-    e.preventDefault()
-    if (!draggedCardKey || draggedCardKey === targetCardKey) {
-      setDraggedCardKey(null)
-      setDragOverCardKey(null)
-      return
-    }
 
-    const newOrder = [...faceCardOrder]
-    const draggedIndex = newOrder.indexOf(draggedCardKey)
-    const targetIndex = newOrder.indexOf(targetCardKey)
 
-    if (draggedIndex !== -1 && targetIndex !== -1) {
-      // Remove dragged item
-      newOrder.splice(draggedIndex, 1)
-      // Insert at new position
-      newOrder.splice(targetIndex, 0, draggedCardKey)
-      
-      setFaceCardOrder(newOrder)
-      localStorage.setItem('client2FaceCardOrder', JSON.stringify(newOrder))
-    }
 
-    setDraggedCardKey(null)
-    setDragOverCardKey(null)
-  }
 
-  const handleCardDragEnd = () => {
-    setDraggedCardKey(null)
-    setDragOverCardKey(null)
-  }
 
-  const resetClient2FaceCardOrder = () => {
-    setFaceCardOrder(defaultClient2FaceCardOrder)
-    localStorage.setItem('client2FaceCardOrder', JSON.stringify(defaultClient2FaceCardOrder))
-  }
+
+
 
   // Get comprehensive card configuration for dynamic rendering - matches all 57 cards
-  const getClient2CardConfig = useCallback((cardKey, totals) => {
-    const configs = {
-      // COUNT
-      totalClients: { label: 'Total Clients', color: 'blue', format: 'integer', getValue: () => totalClients || 0 },
-      // A
-      assets: { label: 'Assets', color: 'blue', getValue: () => totals?.assets || 0 },
 
-      // B
-      balance: { label: 'Balance', color: 'indigo', getValue: () => totals?.balance || 0 },
-      blockedCommission: { label: 'Blocked Commission', color: 'gray', getValue: () => totals?.blockedCommission || 0 },
-      blockedProfit: { label: 'Blocked Profit', color: 'orange', getValue: () => totals?.blockedProfit || 0, colorCheck: true },
-
-      // C
-      commission: { label: 'Commission', color: 'amber', getValue: () => totals?.commission || 0 },
-      credit: { label: 'Credit', color: 'emerald', getValue: () => totals?.credit || 0 },
-
-      // D - Daily
-      dailyBonusIn: { label: 'Daily Bonus In', color: 'teal', getValue: () => totals?.dailyBonusIn || 0 },
-      dailyBonusOut: { label: 'Daily Bonus Out', color: 'red', getValue: () => totals?.dailyBonusOut || 0 },
-      dailyCreditIn: { label: 'Daily Credit In', color: 'emerald', getValue: () => totals?.dailyCreditIn || 0 },
-      dailyCreditOut: { label: 'Daily Credit Out', color: 'red', getValue: () => totals?.dailyCreditOut || 0 },
-      dailyDeposit: { label: 'Daily Deposit', color: 'green', getValue: () => totals?.dailyDeposit || 0 },
-      dailyDepositPercent: { label: 'Daily Deposit %', color: 'emerald', getValue: () => computedPercentageTotals?.dailyDeposit || 0 },
-      dailyPnL: { label: 'Daily P&L', color: 'cyan', getValue: () => totals?.dailyPnL || 0, colorCheck: true },
-      dailySOCompensationIn: { label: 'Daily SO Compensation In', color: 'purple', getValue: () => totals?.dailySOCompensationIn || 0 },
-      dailySOCompensationOut: { label: 'Daily SO Compensation Out', color: 'orange', getValue: () => totals?.dailySOCompensationOut || 0 },
-      dailyWithdrawal: { label: 'Daily Withdrawal', color: 'red', getValue: () => totals?.dailyWithdrawal || 0 },
-      dailyWithdrawalPercent: { label: 'Daily Withdrawal %', color: 'rose', getValue: () => computedPercentageTotals?.dailyWithdrawal || 0 },
-      // Computed: Daily Net D/W = Daily Deposit - Daily Withdrawal
-      dailyNetDW: { label: 'Daily Net D/W', color: 'blue', getValue: () => (totals?.dailyDeposit || 0) - (totals?.dailyWithdrawal || 0), colorCheck: true },
-      // Computed: NET Daily Bonus = Daily Bonus In - Daily Bonus Out
-      netDailyBonus: { label: 'NET Daily Bonus', color: 'blue', getValue: () => (totals?.dailyBonusIn || 0) - (totals?.dailyBonusOut || 0), colorCheck: true },
-
-      // E
-      equity: { label: 'Equity', color: 'purple', getValue: () => totals?.equity || 0 },
-
-      // F
-      floating: { label: 'Floating P/L', color: 'cyan', getValue: () => totals?.floating || 0, colorCheck: true },
-
-      // L
-      liabilities: { label: 'Liabilities', color: 'red', getValue: () => totals?.liabilities || 0 },
-
-      // L - Lifetime
-      lifetimeBonusIn: { label: 'Lifetime Bonus In', color: 'teal', getValue: () => totals?.lifetimeBonusIn || 0 },
-      lifetimeBonusOut: { label: 'Lifetime Bonus Out', color: 'red', getValue: () => totals?.lifetimeBonusOut || 0 },
-      lifetimeCreditIn: { label: 'Lifetime Credit In', color: 'emerald', getValue: () => totals?.lifetimeCreditIn || 0 },
-      lifetimeCreditOut: { label: 'Lifetime Credit Out', color: 'red', getValue: () => totals?.lifetimeCreditOut || 0 },
-      lifetimeDeposit: { label: 'Lifetime Deposit', color: 'green', getValue: () => totals?.lifetimeDeposit || 0 },
-      lifetimePnL: { label: 'Lifetime P&L', color: 'indigo', getValue: () => totals?.lifetimePnL || 0, colorCheck: true },
-      lifetimePnLPercent: { label: 'Lifetime PnL %', color: 'violet', getValue: () => computedPercentageTotals?.lifetimePnL || 0, colorCheck: true },
-      lifetimeSOCompensationIn: { label: 'Lifetime SO Compensation In', color: 'purple', getValue: () => totals?.lifetimeSOCompensationIn || 0 },
-      lifetimeSOCompensationOut: { label: 'Lifetime SO Compensation Out', color: 'orange', getValue: () => totals?.lifetimeSOCompensationOut || 0 },
-      lifetimeWithdrawal: { label: 'Lifetime Withdrawal', color: 'red', getValue: () => totals?.lifetimeWithdrawal || 0 },
-      // Lifetime Commission/Correction/Swap
-      lifetimeCommission: { label: 'Lifetime Commission', color: 'amber', getValue: () => totals?.lifetimeCommission || 0 },
-      lifetimeCorrection: { label: 'Lifetime Correction', color: 'rose', getValue: () => totals?.lifetimeCorrection || 0 },
-      lifetimeSwap: { label: 'Lifetime Swap', color: 'cyan', getValue: () => totals?.lifetimeSwap || 0 },
-
-      // M
-      margin: { label: 'Margin', color: 'yellow', getValue: () => totals?.margin || 0 },
-      marginFree: { label: 'Margin Free', color: 'lime', getValue: () => totals?.marginFree || 0 },
-      marginInitial: { label: 'Margin Initial', color: 'sky', getValue: () => totals?.marginInitial || 0 },
-      marginLevel: { label: 'Margin Level', color: 'pink', getValue: () => totals?.marginLevel || 0 },
-      marginMaintenance: { label: 'Margin Maintenance', color: 'violet', getValue: () => totals?.marginMaintenance || 0 },
-
-      // P
-      pnl: { label: 'P&L', color: 'cyan', getValue: () => totals?.pnl || 0, colorCheck: true },
-      previousEquity: { label: 'Previous Equity', color: 'slate', getValue: () => totals?.previousEquity || 0 },
-      profit: { label: 'Profit', color: 'green', getValue: () => totals?.profit || 0, colorCheck: true },
-
-      // S
-      soEquity: { label: 'SO Equity', color: 'fuchsia', getValue: () => totals?.soEquity || 0 },
-      soLevel: { label: 'SO Level', color: 'rose', getValue: () => totals?.soLevel || 0 },
-      soMargin: { label: 'SO Margin', color: 'amber', getValue: () => totals?.soMargin || 0 },
-      storage: { label: 'Swap', color: 'gray', getValue: () => totals?.storage || 0 },
-
-      // T - This Month
-      thisMonthBonusIn: { label: 'This Month Bonus In', color: 'teal', getValue: () => totals?.thisMonthBonusIn || 0 },
-      thisMonthBonusOut: { label: 'This Month Bonus Out', color: 'red', getValue: () => totals?.thisMonthBonusOut || 0 },
-      thisMonthCreditIn: { label: 'This Month Credit In', color: 'emerald', getValue: () => totals?.thisMonthCreditIn || 0 },
-      thisMonthCreditOut: { label: 'This Month Credit Out', color: 'red', getValue: () => totals?.thisMonthCreditOut || 0 },
-      thisMonthDeposit: { label: 'This Month Deposit', color: 'green', getValue: () => totals?.thisMonthDeposit || 0 },
-      thisMonthPnL: { label: 'This Month P&L', color: 'blue', getValue: () => totals?.thisMonthPnL || 0, colorCheck: true },
-      thisMonthSOCompensationIn: { label: 'This Month SO Compensation In', color: 'purple', getValue: () => totals?.thisMonthSOCompensationIn || 0 },
-      thisMonthSOCompensationOut: { label: 'This Month SO Compensation Out', color: 'orange', getValue: () => totals?.thisMonthSOCompensationOut || 0 },
-      thisMonthWithdrawal: { label: 'This Month Withdrawal', color: 'red', getValue: () => totals?.thisMonthWithdrawal || 0 },
-      // This Month Commission/Correction/Swap
-      thisMonthCommission: { label: 'This Month Commission', color: 'amber', getValue: () => totals?.thisMonthCommission || 0 },
-      thisMonthCorrection: { label: 'This Month Correction', color: 'rose', getValue: () => totals?.thisMonthCorrection || 0 },
-      thisMonthSwap: { label: 'This Month Swap', color: 'cyan', getValue: () => totals?.thisMonthSwap || 0 },
-
-      // T - This Week
-      thisWeekBonusIn: { label: 'This Week Bonus In', color: 'teal', getValue: () => totals?.thisWeekBonusIn || 0 },
-      thisWeekBonusOut: { label: 'This Week Bonus Out', color: 'red', getValue: () => totals?.thisWeekBonusOut || 0 },
-      thisWeekCreditIn: { label: 'This Week Credit In', color: 'emerald', getValue: () => totals?.thisWeekCreditIn || 0 },
-      thisWeekCreditOut: { label: 'This Week Credit Out', color: 'red', getValue: () => totals?.thisWeekCreditOut || 0 },
-      thisWeekDeposit: { label: 'This Week Deposit', color: 'green', getValue: () => totals?.thisWeekDeposit || 0 },
-      thisWeekPnL: { label: 'This Week P&L', color: 'indigo', getValue: () => totals?.thisWeekPnL || 0, colorCheck: true },
-      thisWeekSOCompensationIn: { label: 'This Week SO Compensation In', color: 'purple', getValue: () => totals?.thisWeekSOCompensationIn || 0 },
-      thisWeekSOCompensationOut: { label: 'This Week SO Compensation Out', color: 'orange', getValue: () => totals?.thisWeekSOCompensationOut || 0 },
-      thisWeekWithdrawal: { label: 'This Week Withdrawal', color: 'red', getValue: () => totals?.thisWeekWithdrawal || 0 },
-      // This Week Commission/Correction/Swap
-      thisWeekCommission: { label: 'This Week Commission', color: 'amber', getValue: () => totals?.thisWeekCommission || 0 },
-      thisWeekCorrection: { label: 'This Week Correction', color: 'rose', getValue: () => totals?.thisWeekCorrection || 0 },
-      thisWeekSwap: { label: 'This Week Swap', color: 'cyan', getValue: () => totals?.thisWeekSwap || 0 },
-      // Computed: NET Week Bonus = This Week Bonus In - This Week Bonus Out
-      netWeekBonus: { label: 'NET Week Bonus', color: 'blue', getValue: () => (totals?.thisWeekBonusIn || 0) - (totals?.thisWeekBonusOut || 0), colorCheck: true },
-      // Computed: NET Week D/W = This Week Deposit - This Week Withdrawal
-      netWeekDW: { label: 'NET Week DW', color: 'blue', getValue: () => (totals?.thisWeekDeposit || 0) - (totals?.thisWeekWithdrawal || 0), colorCheck: true },
-
-      // Rebate cards
-      availableRebate: { label: 'Available Rebate', color: 'teal', getValue: () => rebateTotals?.availableRebate || 0 },
-      availableRebatePercent: { label: 'Available Rebate %', color: 'cyan', getValue: () => rebateTotals?.availableRebatePercent || 0 },
-      totalRebate: { label: 'Total Rebate', color: 'emerald', getValue: () => rebateTotals?.totalRebate || 0 },
-      totalRebatePercent: { label: 'Total Rebate %', color: 'blue', getValue: () => rebateTotals?.totalRebatePercent || 0 },
-      // Computed: NET Monthly Bonus = This Month Bonus In - This Month Bonus Out
-      netMonthBonus: { label: 'NET Monthly Bonus', color: 'blue', getValue: () => (totals?.thisMonthBonusIn || 0) - (totals?.thisMonthBonusOut || 0), colorCheck: true },
-      // Computed: NET Monthly D/W = This Month Deposit - This Month Withdrawal
-      netMonthDW: { label: 'NET Monthly DW', color: 'blue', getValue: () => (totals?.thisMonthDeposit || 0) - (totals?.thisMonthWithdrawal || 0), colorCheck: true },
-      // Computed: NET Lifetime Bonus = Lifetime Bonus In - Lifetime Bonus Out
-      netLifetimeBonus: { label: 'NET Lifetime Bonus', color: 'blue', getValue: () => (totals?.lifetimeBonusIn || 0) - (totals?.lifetimeBonusOut || 0), colorCheck: true },
-      // Computed: NET Lifetime D/W = Lifetime Deposit - Lifetime Withdrawal
-      netLifetimeDW: { label: 'NET Lifetime DW', color: 'blue', getValue: () => (totals?.lifetimeDeposit || 0) - (totals?.lifetimeWithdrawal || 0), colorCheck: true },
-      // Computed: NET Credit = Lifetime Credit In - Lifetime Credit Out (align with Clients module)
-      netCredit: { label: 'NET Credit', color: 'blue', getValue: () => (totals?.lifetimeCreditIn || 0) - (totals?.lifetimeCreditOut || 0), colorCheck: true },
-
-      // Calculated PnL cards
-      netLifetimePnL: { label: 'Net Lifetime PnL', color: 'violet', getValue: () => (totals?.lifetimePnL || 0) - (rebateTotals?.totalRebate || 0), colorCheck: true },
-      netLifetimePnLPercent: { label: 'Net Lifetime PnL %', color: 'purple', getValue: () => (totalsPercent?.lifetimePnL || 0) - (rebateTotals?.totalRebatePercent || 0), colorCheck: true },
-      bookPnL: { label: 'Book PnL', color: 'sky', getValue: () => -((totals?.lifetimePnL || 0) + (totals?.floating || 0)), colorCheck: false, forceColor: 'red' },
-      bookPnLPercent: { label: 'Book PnL %', color: 'indigo', getValue: () => -((totalsPercent?.lifetimePnL || 0) + (totalsPercent?.floating || 0)), colorCheck: false, forceColor: 'red' }
-    }
-
-    return configs[cardKey] || null
-  }, [totalClients, rebateTotals, totals, totalsPercent, computedPercentageTotals])
 
   // Build export payload variants (reuses filter logic from fetchClients)
-  const buildExportPayloadVariants = useCallback((percentageFlag = false) => {
+  useCallback((percentageFlag = false) => {
     // Base payload mirrors current filters/search/sort
     const base = {
       page: 1,
@@ -3173,9 +2622,7 @@ const Client2Page = () => {
 
     // Collect filters like in fetchClients
     const combinedFilters = []
-    let multiOrField = null
-    let multiOrValues = []
-    let multiOrConflict = false
+
     const textFilteredFields = new Set()
     const numberFilteredFields = new Set()
     if (filters && filters.length > 0) {
@@ -3309,10 +2756,10 @@ const Client2Page = () => {
     const p = { ...base }
     if (percentageFlag && percentModeActive) p.percentage = true
     return [p]
-  }, [searchQuery, filters, columnFilters, mt5Accounts, accountRangeMin, accountRangeMax, activeGroup, sortBy, sortOrder])
+  }, [searchQuery, filters, columnFilters, mt5Accounts, accountRangeMin, accountRangeMax, activeGroup, sortBy, sortOrder]);
 
   // Fetch all pages for a single payload
-  const fetchAllPagesForPayload = useCallback(async (payload) => {
+  useCallback(async (payload) => {
     // If payload contains a large IN filter, chunk it and merge all pages
     const inFilters = (payload.filters || []).filter(f => f && f.operator === 'in' && Array.isArray(f.value))
     const LARGE_IN_THRESHOLD = 50
@@ -3359,65 +2806,10 @@ const Client2Page = () => {
       }
     }
     return list
-  }, [])
+  }, []);
 
   // Gather full dataset for export matching current filters
-  const gatherExportDataset = useCallback(async () => {
-    try {
-      console.log('[Client2Page] Building export payload variants...')
-      const variants = buildExportPayloadVariants(false)
-      console.log('[Client2Page] Payload variants:', variants.length, variants)
 
-      // Fetch and merge unique by login
-      const clientMap = new Map()
-      for (let i = 0; i < variants.length; i++) {
-        const p = variants[i]
-        console.log(`[Client2Page] Fetching pages for variant ${i + 1}/${variants.length}...`)
-        const rows = await fetchAllPagesForPayload(p)
-        console.log(`[Client2Page] Got ${rows?.length || 0} rows for variant ${i + 1}`)
-        // Guard: filter out null/undefined rows
-        if (Array.isArray(rows)) {
-          rows.filter(c => c != null).forEach(c => {
-            if (c && c.login) clientMap.set(c.login, c)
-          })
-        }
-      }
-      let rows = Array.from(clientMap.values())
-      console.log('[Client2Page] Merged unique clients:', rows.length)
-
-      // IB filter is applied server-side via mt5Accounts in payload variants
-      // Apply group filter client-side as safety net
-      if (activeGroup) {
-        rows = filterByActiveGroup(rows, 'login', 'client2')
-        console.log('[Client2Page] After group filter:', rows.length, 'rows')
-      }
-
-      // Apply table sort if set
-      if (sortBy) {
-        const dir = sortOrder === 'asc' ? 1 : -1
-        rows.sort((a, b) => {
-          if (!a || !b) return 0 // Guard
-          const av = a[sortBy], bv = b[sortBy]
-          if (av == null && bv == null) return 0
-          if (av == null) return 1
-          if (bv == null) return -1
-          if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
-          const as = String(av).toLowerCase(), bs = String(bv).toLowerCase()
-          if (as < bs) return -1 * dir
-          if (as > bs) return 1 * dir
-          return 0
-        })
-        console.log('[Client2Page] Sorted by', sortBy, sortOrder)
-      }
-
-      console.log('[Client2Page] Final export dataset:', rows.length, 'rows')
-      return rows
-    } catch (err) {
-      console.error('[Client2Page] Export dataset error:', err)
-      alert('Failed to gather export data: ' + (err.message || 'Unknown error'))
-      return []
-    }
-  }, [buildExportPayloadVariants, fetchAllPagesForPayload, selectedIB, ibMT5Accounts, filterByActiveIB, filterByActiveGroup, activeGroup, sortBy, sortOrder])
 
   // Export to Excel handler (CSV for now)
   const handleExportToExcel = (type) => {
@@ -3441,7 +2833,7 @@ const Client2Page = () => {
 
         // Add filters if present
         const combinedFilters = []
-        
+
         // Inject server-side quick filters
         if (quickFilters?.hasFloating) {
           combinedFilters.push({ field: 'floating', operator: 'not_equal', value: '0' })
@@ -3629,7 +3021,7 @@ const Client2Page = () => {
         // Create workbook and worksheet
         const workbook = XLSX.utils.book_new()
         const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
-        
+
         // Auto-size columns
         const maxWidths = columns.map((col, colIndex) => {
           const headerLength = col.label.length
@@ -3640,18 +3032,18 @@ const Client2Page = () => {
           )
           return Math.max(headerLength, maxDataLength, 10)
         })
-        
+
         worksheet['!cols'] = maxWidths.map(w => ({ wch: Math.min(w, 50) }))
-        
+
         // Add worksheet to workbook
         const sheetName = type === 'all' ? 'All Columns' : 'Table Columns'
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
-        
+
         // Generate and download Excel file
         const suffix = type === 'all' ? 'all_columns' : 'table_columns'
         const fileName = `clients_${suffix}_${new Date().toISOString().split('T')[0]}.xlsx`
         XLSX.writeFile(workbook, fileName)
-        
+
         console.log('[Client2Page] Export completed successfully')
       } catch (err) {
         console.error('[Client2Page] Export error:', err)
@@ -3670,7 +3062,7 @@ const Client2Page = () => {
   }
 
   // Format value for display
-  const formatValue = (key, value, isPercentageField = false) => {
+  const formatValue = (key, value) => {
     if (value === null || value === undefined || value === '') {
       return '-'
     }
@@ -3830,11 +3222,7 @@ const Client2Page = () => {
   ])
 
   // Percentage mode: just append a percent sign to the normal formatted number
-  const formatPercentageValue = (value) => {
-    if (value == null || value === '') return ''
-    const num = Number(value) || 0
-    return `${formatIndianNumber(num.toFixed(2))} %`
-  }
+
 
   // Get card icon path based on card title
   const getCardIcon = (cardLabel) => {
@@ -4003,12 +3391,12 @@ const Client2Page = () => {
         isOpen={sidebarOpen}
         onClose={() => {
           setSidebarOpen(false)
-          try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { }
+          try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */  }
         }}
         onToggle={() => {
           setSidebarOpen(v => {
             const next = !v
-            try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch { }
+            try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch { /* Retain the fallback when this operation is unavailable. */  }
             return next
           })
         }}
@@ -4213,7 +3601,7 @@ const Client2Page = () => {
                             const baseItems = Object.entries(baseLabels).map(([key, label]) => [key, label])
                             // In % Mode we still filter base cards only; percent variants are no longer selectable
                             const items = baseItems
-                            const filteredItems = items.filter(([_, label]) =>
+                            const filteredItems = items.filter(([, label]) =>
                               cardFilterSearchQuery === '' || label.toLowerCase().includes(cardFilterSearchQuery.toLowerCase())
                             )
                             const displayedKeys = filteredItems.map(([key]) => key)
@@ -4236,7 +3624,7 @@ const Client2Page = () => {
                             }
                             const baseItems = Object.entries(baseLabels).map(([key, label]) => [key, label])
                             const items = baseItems
-                            const filteredItems = items.filter(([_, label]) =>
+                            const filteredItems = items.filter(([, label]) =>
                               cardFilterSearchQuery === '' || label.toLowerCase().includes(cardFilterSearchQuery.toLowerCase())
                             )
                             const displayedKeys = filteredItems.map(([key]) => key)
@@ -4265,9 +3653,9 @@ const Client2Page = () => {
                             pnl: 'P&L'
                           }
                           // Use faceCardOrder for ordering
-                          const baseItems = (faceCardOrder || Object.keys(baseLabels)).map(key => [key, baseLabels[key]]).filter(([key, label]) => label)
+                          const baseItems = (faceCardOrder || Object.keys(baseLabels)).map(key => [key, baseLabels[key]]).filter(([, label]) => label)
                           // Filter by search
-                          const filteredItems = baseItems.filter(([key, label]) =>
+                          const filteredItems = baseItems.filter(([, label]) =>
                             cardFilterSearchQuery === '' ||
                             label.toLowerCase().includes(cardFilterSearchQuery.toLowerCase())
                           )
@@ -4527,8 +3915,7 @@ const Client2Page = () => {
           {/* Main Content */}
           <div className="flex-1">
             {/* Search Bar and Table Container */}
-            {true && (
-              <div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden">
+            {<div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden">
                 {/* Search and Controls Bar */}
                 <div className="border-b border-[#E5E7EB] p-4">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -4565,7 +3952,7 @@ const Client2Page = () => {
                         <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                       </svg>
                     </button>
-                    
+
                     {searchInput && (
                       <button
                         onClick={() => {
@@ -4582,7 +3969,7 @@ const Client2Page = () => {
                       </button>
                     )}
                   </div>
-                  
+
                   {/* Columns Button (icon only) */}
                   <div className="relative" ref={columnSelectorRef}>
                     <button
@@ -4708,7 +4095,7 @@ const Client2Page = () => {
                     <div className="flex items-center gap-1">
                       <div className="relative group">
                         <button
-                          onClick={() => { setColumnOrder(null); try { localStorage.removeItem('client2ColumnOrder') } catch {} }}
+                          onClick={() => { setColumnOrder(null); try { localStorage.removeItem('client2ColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ } }}
                           className="p-1 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           aria-label="Reset column order"
                         >
@@ -4765,12 +4152,12 @@ const Client2Page = () => {
                     border-collapse: separate;
                     border-spacing: 0;
                   }
-                  
+
                   table th, table td {
                     box-sizing: border-box;
                     position: relative;
                   }
-                  
+
                   /* Ensure text doesn't overflow cell boundaries */
                   table td > *, table th > * {
                     max-width: 100%;
@@ -4780,7 +4167,7 @@ const Client2Page = () => {
                   .no-page-scrollbar::-webkit-scrollbar {
                     display: none;
                   }
-                  
+
                   .overflow-y-auto::-webkit-scrollbar {
                     width: 8px;
                   }
@@ -4794,7 +4181,7 @@ const Client2Page = () => {
                   .overflow-y-auto::-webkit-scrollbar-thumb:hover {
                     background: #6b7280;
                   }
-                  
+
                   /* Horizontal scrollbar styling */
                   .overflow-x-auto::-webkit-scrollbar {
                     height: 12px;
@@ -4811,7 +4198,7 @@ const Client2Page = () => {
                   .overflow-x-auto::-webkit-scrollbar-thumb:hover {
                     background: #6b7280;
                   }
-                  
+
                   /* Sticky horizontal scrollbar styling - always visible */
                   .overflow-x-scroll::-webkit-scrollbar {
                     height: 14px;
@@ -4831,7 +4218,7 @@ const Client2Page = () => {
                   .overflow-x-scroll::-webkit-scrollbar-thumb:active {
                     background: #374151;
                   }
-                  
+
                   /* Hide-scrollbar utility for non-sticky main horizontal scrollbar */
                   .hide-scrollbar {
                     -ms-overflow-style: none; /* IE and Edge */
@@ -4840,7 +4227,7 @@ const Client2Page = () => {
                   .hide-scrollbar::-webkit-scrollbar {
                     display: none; /* Chrome, Safari, Opera */
                   }
-                  
+
                   /* Shimmer effect for loading skeleton */
                   @keyframes shimmer {
                     0% {
@@ -4850,7 +4237,7 @@ const Client2Page = () => {
                       background-position: 1000px 0;
                     }
                   }
-                  
+
                   .skeleton-shimmer {
                     background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 20%, #f0f0f0 40%, #f0f0f0 100%);
                     background-size: 1000px 100%;
@@ -4979,7 +4366,7 @@ const Client2Page = () => {
                                         setShowFilterDropdown(col.key)
 
                                         // Fetch column values for ALL columns (including login) - always refresh to ensure fresh data
-                                        const columnType = getColumnType(col.key)
+                                        getColumnType(col.key);
                                         // Always fetch values for checkbox filtering with forceRefresh=true to avoid "No values available"
                                         fetchColumnValues(col.key, true)
                                         // Don't initialize selectedColumnValues - let it stay undefined so we read from columnFilters
@@ -5004,7 +4391,7 @@ const Client2Page = () => {
                                     const columnKey = col.key // Capture the column key
                                     const columnType = getColumnType(columnKey)
                                     const isNumeric = columnType === 'float' || columnType === 'integer'
-                                    const isInteger = columnType === 'integer'
+                                    columnType === 'integer';
                                     const isBoolean = columnType === 'boolean'
 
                                     // Initialize temp state for numeric filter if needed
@@ -5062,7 +4449,7 @@ const Client2Page = () => {
 
                                         {/* Numeric Filter (Float) */}
                                         {isNumeric && (() => {
-                                          const hasNumberFilter = columnFilters[`${columnKey}_number`]
+                                          columnFilters[`${columnKey}_number`];
                                           const currentSort = columnSortOrder[columnKey]
 
                                           return (
@@ -5188,7 +4575,7 @@ const Client2Page = () => {
                                                           // Show filterValues by default, or interactiveSelected if it differs from filter
                                                           const selected = interactiveSelected !== undefined ? interactiveSelected : filterValues
                                                           const allVisibleSelected = visibleVals.length > 0 && visibleVals.every(v => selected.includes(v))
-                                                          const hasActiveSearch = columnValueSearch[columnKey] && columnValueSearch[columnKey].trim().length > 0
+                                                          columnValueSearch[columnKey] && columnValueSearch[columnKey].trim().length > 0;
                                                           return (
                                                             <>
                                                               <label className="flex items-center gap-2 cursor-pointer">
@@ -5318,7 +4705,7 @@ const Client2Page = () => {
                                                     // Check if there's a number filter to apply
                                                     const temp = numericFilterTemp[columnKey]
                                                     const hasNumberFilter = temp?.operator && (temp?.value1 !== '' && temp?.value1 != null)
-                                                    
+
                                                     if (hasNumberFilter) {
                                                       // Apply number filter and close inline menu
                                                       applyNumberFilter(columnKey)
@@ -5387,12 +4774,12 @@ const Client2Page = () => {
                                         {!isNumeric && !isBoolean && (() => {
                                           const currentSort = columnSortOrder[columnKey]
                                           const checkboxFilterKey = `${columnKey}_checkbox`
-                                          const hasCheckboxFilter = columnFilters[checkboxFilterKey]
+                                          columnFilters[checkboxFilterKey];
 
                                           const allValues = columnValues[columnKey] || []
                                           const loading = columnValuesLoading[columnKey]
-                                          const loadingMore = columnValuesLoadingMore[columnKey]
-                                          const hasMore = columnValuesHasMore[columnKey]
+                                          columnValuesLoadingMore[columnKey];
+                                          columnValuesHasMore[columnKey];
                                           const selected = selectedColumnValues[columnKey] || []
                                           const searchQuery = columnValueSearch[columnKey] || ''
 
@@ -5514,7 +4901,7 @@ const Client2Page = () => {
                                                           const searchQ = (columnValueSearch[columnKey] || '').toLowerCase()
                                                           const visibleVals = searchQ ? allValues.filter(v => String(v).toLowerCase().includes(searchQ)) : allValues
                                                           const allVisibleSelected = visibleVals.length > 0 && visibleVals.every(v => selected.includes(v))
-                                                          const hasActiveSearch = searchQuery && searchQuery.trim().length > 0
+                                                          searchQuery && searchQuery.trim().length > 0;
                                                           return (
                                                             <>
                                                               <label className="flex items-center gap-2 cursor-pointer">
@@ -5630,7 +5017,7 @@ const Client2Page = () => {
                                                     // Check if there's a text filter to apply
                                                     const tempText = textFilterTemp[columnKey]
                                                     const hasTextFilter = tempText?.value && tempText?.value.trim() !== ''
-                                                    
+
                                                     if (hasTextFilter) {
                                                       // Apply text filter and close inline menu
                                                       applyTextFilter(columnKey)
@@ -5748,11 +5135,11 @@ const Client2Page = () => {
                               'lifetimeBonusIn', 'lifetimeBonusOut', 'lifetimeSOCompensationIn', 'lifetimeSOCompensationOut',
                               'lifetimeCommission', 'lifetimeCorrection', 'lifetimeSwap'
                             ]
-                            
+
                             const fieldKey = percentModeActive && fieldsWithPercentage.includes(col.key) 
                               ? `${col.key}_percentage` 
                               : col.key
-                            
+
                             let rawValue = client?.[fieldKey]
                             if ((rawValue === undefined || rawValue === null || rawValue === '') && col.key === 'processorType') {
                               rawValue = client?.processor_type ?? client?.PROCESSOR_TYPE ?? rawValue
@@ -5840,8 +5227,7 @@ const Client2Page = () => {
                   </table>
                   </div>
                 )}
-              </div>
-            )}
+              </div>}
 
             {/* Active Filters Display */}
             {filters.length > 0 && (
@@ -6070,8 +5456,3 @@ const Client2Page = () => {
 }
 
 export default Client2Page
-
-
-
-
-

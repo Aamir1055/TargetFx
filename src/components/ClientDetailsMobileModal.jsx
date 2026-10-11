@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import api, { brokerAPI } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import { exportRowsToExcel } from '../utils/exportExcel'
 import { formatDate as formatDayOnly, formatTime as apiFormatTime, serverNowDate, serverNowEpoch, toServerEpoch, toYmd } from '../utils/dateFormatter'
 
@@ -195,19 +195,19 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
   const [positionsSearch, setPositionsSearch] = useState('')
-  const [netPositionsSearch, setNetPositionsSearch] = useState('')
+  const [netPositionsSearch] = useState('')
   const [dealsSearch, setDealsSearch] = useState('')
   // API search results for positions (overrides local filter when search is active)
   const [searchedPositions, setSearchedPositions] = useState(null)
   const [searchedOrders, setSearchedOrders] = useState(null)
-  
+
   // Broker Rules states
   const [availableRules, setAvailableRules] = useState([])
   const [clientRules, setClientRules] = useState([])
   const [rulesLoading, setRulesLoading] = useState(false)
   const { user } = useAuth()
   const [selectedTimeParam, setSelectedTimeParam] = useState({})
-  
+
   // Funds management state
   const [operationType, setOperationType] = useState('deposit')
   const [amount, setAmount] = useState('')
@@ -225,7 +225,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const rights = user?.rights
     return rights ? operations.filter(op => rights.includes(op.value)) : operations
   }, [user?.rights])
-  
+
   // Date filter states for deals
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -235,11 +235,11 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [totalDealsCount, setTotalDealsCount] = useState(0)
   const [isExportingDeals, setIsExportingDeals] = useState(false)
   const [currentDateFilter, setCurrentDateFilter] = useState({ from: 0, to: 0 })
-  
+
   // Refs for date inputs
   const fromDateInputRef = useRef(null)
   const toDateInputRef = useRef(null)
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(15)
@@ -257,14 +257,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     priceOpen: true,
     profit: true
   })
-  const [netPositionColumns, setNetPositionColumns] = useState({
-    symbol: true,
-    netType: true,
-    volume: true,
-    avgPrice: true,
-    profit: true,
-    positions: true
-  })
+
   const [dealColumns, setDealColumns] = useState({
     deal: true,
     time: true,
@@ -366,21 +359,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     winRate: 0
   })
 
-  const netStats = useMemo(() => {
-    const symbols = netPositions.length
-    const totalNetVolume = netPositions.reduce((s, p) => s + (p.volume || 0), 0)
-    let buyFloating = 0
-    let sellFloating = 0
-    
-    // Calculate floating from positions only (orders don't have profit yet)
-    positions.forEach(p => {
-      const action = (p.action || p.type || '').toString().toLowerCase()
-      if (action === 'buy' || p.action === 0 || p.type === 0) buyFloating += (p.profit || 0)
-      else sellFloating += (p.profit || 0)
-    })
-    
-    return { symbols, totalNetVolume, buyFloating, sellFloating }
-  }, [netPositions, positions])
+
 
   useEffect(() => {
     fetchPositionsAndInitDeals()
@@ -595,7 +574,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   // Sort function for flat arrays
   const sortData = (data, key, direction) => {
     if (!key) return data
-    
+
     return [...data].sort((a, b) => {
       let aVal = a[key]
       let bVal = b[key]
@@ -628,12 +607,12 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         aVal = Number(a.storage ?? 0)
         bVal = Number(b.storage ?? 0)
       }
-      
+
       // Handle numeric values
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return direction === 'asc' ? aVal - bVal : bVal - aVal
       }
-      
+
       // Normalize derived keys for mobile schemas
       if (key === 'action') {
         aVal = getActionText(a)
@@ -651,7 +630,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       // Handle string values uniformly
       aVal = String(aVal ?? '').toLowerCase()
       bVal = String(bVal ?? '').toLowerCase()
-      
+
       if (aVal < bVal) return direction === 'asc' ? -1 : 1
       if (aVal > bVal) return direction === 'asc' ? 1 : -1
       return 0
@@ -661,17 +640,17 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const fetchPositionsAndInitDeals = async () => {  
     try {
       setLoading(true)
-      
+
       // Use cached positions and orders
       let positionsData = allPositionsCache ? allPositionsCache.filter(pos => pos.login === client.login) : []
       setPositions(positionsData)
-      
+
       const ordersData = allOrdersCache ? allOrdersCache.filter(order => order.login === client.login) : []
       setOrders(ordersData)
 
       // Calculate net positions per symbol (desktop parity) - combine positions and orders
       const netPosMap = new Map()
-      
+
       // Process regular positions
       positionsData.forEach(pos => {
         const symbol = pos.symbol
@@ -688,7 +667,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
         if (action === 'buy' || pos.action === 0 || pos.type === 0) bucket.buyPositions.push(pos)
         else bucket.sellPositions.push(pos)
       })
-      
+
       // Process pending orders
       ordersData.forEach(order => {
         const symbol = order.symbol
@@ -811,7 +790,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       const lifetimePnL = Number(merged.lifetimePnL ?? merged.pnl ?? 0)
       const floating = Number(merged.floatingProfit ?? merged.floating ?? overviewAccount.floatingProfit ?? overviewAccount.floating ?? totalPnL)
       const bookPnL = lifetimePnL + floating
-      
+
       setStats({
         positionsCount: positionsData.length,
         totalPnL,
@@ -838,7 +817,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       setCurrentDateFilter({ from: toServerEpoch(dayAgo), to: toServerEpoch(now) })
       setHasAppliedFilter(true)
       // Deals are fetched lazily when user switches to the Deals tab
-      
+
       setLoading(false)
     } catch (error) {
       console.error('Error fetching client details:', error)
@@ -849,14 +828,14 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const fetchDealsWithDateFilter = async (fromTimestamp, toTimestamp, page = 1, positionsArray = null, accountData = null) => {
     try {
       setDealsLoading(true)
-      
+
       // Calculate offset based on page
       const offset = (page - 1) * itemsPerPage
-      
+
       const dealsRes = await brokerAPI.getClientDeals(client.login, fromTimestamp, toTimestamp, itemsPerPage, offset)
       const dealsData = dealsRes.data?.deals || dealsRes.deals || []
       const total = dealsRes.data?.total || dealsRes.total || dealsData.length
-      
+
       setDeals(dealsData)
       setTotalDealsCount(total)
       setCurrentDateFilter({ from: fromTimestamp, to: toTimestamp })
@@ -871,7 +850,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       const floating = Number(effectiveAccount.floatingProfit ?? effectiveAccount.floating ?? client.floating ?? totalPnL)
       const bookPnL = lifetimePnL + floating
       const totalVolume = dealsData.reduce((sum, d) => sum + (d.volume || 0), 0)
-      
+
       const profitableDeals = dealsData.filter(d => (d.profit || 0) > 0).length
       const winRate = dealsData.length > 0 ? (profitableDeals / dealsData.length) * 100 : 0
 
@@ -1005,12 +984,12 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const handleApplyRule = async (rule) => {
     try {
       setRulesLoading(true)
-      
+
       const availableRule = availableRules.find(ar => ar.rule_code === rule.rule_code)
       const requiresTimeParam = availableRule?.requires_time_parameter
-      
+
       let timeParameter = selectedTimeParam[rule.rule_code] || rule.time_parameter || null
-      
+
       if (requiresTimeParam && !timeParameter) {
         alert('Please select a time parameter')
         setRulesLoading(false)
@@ -1018,7 +997,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       }
 
       const response = await brokerAPI.applyClientRule(client.login, rule.rule_code, timeParameter)
-      
+
       if (response.status === 'success') {
         setSelectedTimeParam(prev => {
           const updated = { ...prev }
@@ -1040,7 +1019,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     try {
       setRulesLoading(true)
       const response = await brokerAPI.removeClientRule(client.login, ruleCode)
-      
+
       if (response.status === 'success') {
         await fetchClientRules()
       } else {
@@ -1055,7 +1034,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
 
   const handleFundsOperation = async (e) => {
     e.preventDefault()
-    
+
     if (!amount || parseFloat(amount) <= 0) {
       setOperationError('Please enter a valid amount')
       return
@@ -1098,7 +1077,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       setOperationSuccess(response.message || 'Operation completed successfully')
       setAmount('')
       setComment('')
-      
+
       // Refresh deals after transaction
       setTimeout(async () => {
         if (hasAppliedFilter) {
@@ -1116,20 +1095,20 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     if (num == null || isNaN(num)) return '0.00'
     const value = Number(num).toFixed(decimals)
     const [integerPart, decimalPart] = value.split('.')
-    
+
     // Indian number format: first comma after 3 digits from right, then every 2 digits
     const isNegative = integerPart.startsWith('-')
     const absInteger = isNegative ? integerPart.slice(1) : integerPart
-    
+
     if (absInteger.length <= 3) {
       return value
     }
-    
+
     const lastThree = absInteger.slice(-3)
     const remaining = absInteger.slice(0, -3)
     const formattedRemaining = remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ',')
     const formattedInteger = formattedRemaining + ',' + lastThree
-    
+
     return (isNegative ? '-' : '') + formattedInteger + '.' + decimalPart
   }
 
@@ -1144,15 +1123,15 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       const type = (p.action || p.type || '').toString().toLowerCase()
       return type === 'buy' || type === 'sell' || type === '0' || type === '1'
     })
-    
+
     const pendingOrders = orders.filter(o => {
       const type = (o.action || o.type || '').toString().toLowerCase()
       return type.includes('limit') || type.includes('stop')
     })
-    
+
     return { regularPositions, pendingOrders }
   }, [positions, orders])
-  
+
   // Combine positions and orders for display
   const combinedPositions = useMemo(() => {
     return [...positions, ...orders]
@@ -1207,7 +1186,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       : combinedPositions
     return sortData(base, sortConfig.key, sortConfig.direction)
   }, [combinedPositions, positionsSearch, searchedPositions, searchedOrders, sortConfig])
-  
+
   // Helper: comparator for grouped arrays honoring header sort
   const compareByKey = (a, b, key) => {
     let av, bv
@@ -1270,7 +1249,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     return { regularPositions: regs, pendingOrders: ords }
   }, [groupedPositionsData, positionsSearch, searchedPositions, searchedOrders, sortConfig])
 
-  const filteredNetPositions = useMemo(() => {
+  useMemo(() => {
     let filtered = netPositions
     if (netPositionsSearch.trim()) {
       const query = netPositionsSearch.toLowerCase()
@@ -1279,7 +1258,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       )
     }
     return sortData(filtered, sortConfig.key, sortConfig.direction)
-  }, [netPositions, netPositionsSearch, sortConfig])
+  }, [netPositions, netPositionsSearch, sortConfig]);
 
   const filteredDeals = useMemo(() => {
     // For deals, apply client-side filtering only (data is paginated from server)
@@ -1300,10 +1279,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   }, [deals, dealsSearch, sortConfig])
 
   // Paginate data (positions and netPositions only - deals are paginated from server)
-  const paginatedPositions = useMemo(() => {
-    // Show all positions without pagination
-    return filteredPositions
-  }, [filteredPositions])
+
 
   // Paginate grouped positions
   const paginatedGroupedPositions = useMemo(() => {
@@ -1311,10 +1287,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     return filteredGroupedPositions
   }, [filteredGroupedPositions])
 
-  const paginatedNetPositions = useMemo(() => {
-    // Show all net positions without pagination
-    return filteredNetPositions
-  }, [filteredNetPositions])
+
 
   // For deals, use filteredDeals directly (already paginated from server)
   const paginatedDeals = useMemo(() => {
@@ -1487,7 +1460,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const maxLoss          = Number(ds.maxLoss           ?? ds.max_loss                 ?? 0)
     const buyVolume        = Number(ds.buyVolume         ?? ds.buy_volume              ?? 0)
     const sellVolume       = Number(ds.sellVolume        ?? ds.sell_volume             ?? 0)
-    const totalVol         = Number(ds.totalVolume ?? ds.total_volume ?? (buyVolume + sellVolume)) || 1
+    Number(ds.totalVolume ?? ds.total_volume ?? (buyVolume + sellVolume)) || 1;
     const netPL            = profitSum + losingSum
 
     const apiWinRate       = Math.max(0, Math.min(100, winRate))
@@ -1923,7 +1896,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const renderPositions = () => {
     const regularPositions = paginatedGroupedPositions.regularPositions
     const pendingOrders = paginatedGroupedPositions.pendingOrders
-    
+
     return (
       <>
         <table className="w-full">
@@ -2024,7 +1997,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 ))}
               </>
             )}
-            
+
             {/* Blue Divider */}
             {regularPositions.length > 0 && pendingOrders.length > 0 && (
               <tr>
@@ -2033,7 +2006,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 </td>
               </tr>
             )}
-            
+
             {/* Pending Orders Section */}
             {pendingOrders.length > 0 && (
               <>
@@ -2066,7 +2039,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                 ))}
               </>
             )}
-            
+
             {/* Empty State */}
             {regularPositions.length === 0 && pendingOrders.length === 0 && (
               <tr>
@@ -2081,89 +2054,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     )
   }
 
-  const renderNetPositions = () => (
-    <>
-      <table className="w-full">
-        <thead className="bg-blue-500 sticky top-0 z-20">
-          <tr>
-            {netPositionColumns.symbol && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('symbol')}>
-                <div className="flex items-center gap-1">
-                  Symbol
-                  {sortConfig.key === 'symbol' && (
-                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </div>
-              </th>
-            )}
-            {netPositionColumns.netType && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('netType')}>
-                <div className="flex items-center gap-1">
-                  Net Type
-                  {sortConfig.key === 'netType' && (
-                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </div>
-              </th>
-            )}
-            {netPositionColumns.volume && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('volume')}>
-                <div className="flex items-center gap-1">
-                  Net Volume
-                  {sortConfig.key === 'volume' && (
-                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </div>
-              </th>
-            )}
-            {netPositionColumns.avgPrice && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('avgPrice')}>
-                <div className="flex items-center gap-1">
-                  Avg Open Price
-                  {sortConfig.key === 'avgPrice' && (
-                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </div>
-              </th>
-            )}
-            {netPositionColumns.profit && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-white cursor-pointer select-none" onClick={() => handleSort('profit')}>
-                <div className="flex items-center gap-1">
-                  Profit
-                  {sortConfig.key === 'profit' && (
-                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </div>
-              </th>
-            )}
-            {netPositionColumns.positions && <th className="px-3 py-2 text-left text-xs font-medium text-white">Positions</th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {paginatedNetPositions.map((netPos, idx) => (
-            <tr key={idx} className="hover:bg-gray-50">
-              {netPositionColumns.symbol && <td className="px-3 py-2 text-xs font-medium text-gray-900">{netPos.symbol}</td>}
-              {netPositionColumns.netType && (
-                <td className={`px-3 py-2 text-xs ${netPos.netType === 'Buy' ? 'text-red-600' : 'text-green-600'}`}>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${netPos.netType === 'Buy' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                    {netPos.netType}
-                  </span>
-                </td>
-              )}
-              {netPositionColumns.volume && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(netPos.volume)}</td>}
-              {netPositionColumns.avgPrice && <td className="px-3 py-2 text-xs text-gray-900">{formatNum(netPos.avgPrice, 5)}</td>}
-              {netPositionColumns.profit && (
-                <td className={`px-3 py-2 text-xs ${netPos.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatNum(netPos.totalProfit)}
-                </td>
-              )}
-              {netPositionColumns.positions && <td className="px-3 py-2 text-xs text-gray-900">{netPos.positions}</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
-  )
+
 
   const renderDeals = () => (
     <>
@@ -2349,7 +2240,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
             opacity: 0;
             cursor: pointer;
           }
-          
+
           input[type="date"].mobile-date-picker {
             font-size: 10px !important;
           }
@@ -2623,13 +2514,13 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
               {activeTab === 'overview' && renderOverview()}
               {activeTab === 'positions' && renderPositions()}
               {activeTab === 'deals' && renderDeals()}
-              
+
               {/* Money Transactions Tab */}
               {activeTab === 'funds' && (
                 <div className="p-4">
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Money Transactions</h3>
-                    
+
                     {operationSuccess && (
                       <div className="mb-3 bg-green-50 border-l-4 border-green-500 rounded-r p-2">
                         <div className="flex items-center gap-1.5">
@@ -2761,7 +2652,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                               const requiresTimeParam = rule.requires_time_parameter
                               const timeOptions = rule.available_time_parameters || []
                               const currentTimeParam = clientRule?.time_parameter || ''
-                              
+
                               return (
                                 <tr key={rule.id} className="bg-white hover:bg-gray-50">
                                   <td className="px-3 py-2 text-xs text-gray-900 font-medium">{rule.rule_name}</td>

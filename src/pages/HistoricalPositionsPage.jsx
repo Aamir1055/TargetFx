@@ -1,7 +1,8 @@
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
+import { loadHistoricalRows, searchHistoricalRows } from '../utils/reportPagination'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { brokerAPI } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import Sidebar from '../components/Sidebar'
 import { formatTime as apiFormatTime, serverNowDate } from '../utils/dateFormatter'
 
@@ -127,6 +128,7 @@ const HistoricalPositionsPage = () => {
   const [selectedSymbol, setSelectedSymbol] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
+  const historicalSearchCache = useRef(null)
   const [searchResetVersion, setSearchResetVersion] = useState(0)
   const [appliedFilters, setAppliedFilters] = useState({ from: defaults.from, to: defaults.to, threshold: 5, percentage: true })
 
@@ -149,18 +151,32 @@ const HistoricalPositionsPage = () => {
   useEffect(() => {
     if (!isAuthenticated) return undefined
     let cancelled = false
+    const controller = new AbortController()
     const load = async () => {
       setLoading(true)
       setError('')
       try {
-        const response = await brokerAPI.getHistoricalPositions({
+        const filters = {
           from: appliedFilters.from,
           to: appliedFilters.to,
           up_down_percentage: appliedFilters.threshold,
-          percentage: appliedFilters.percentage,
-          page,
-          limit: pageSize
-        })
+          percentage: appliedFilters.percentage
+        }
+        const fetchPage = (nextPage, limit) => brokerAPI.getHistoricalPositions({ ...filters, page: nextPage, limit }, { signal: controller.signal })
+        if (appliedSearch) {
+          const cached = historicalSearchCache.current
+          const rows = cached?.filters === appliedFilters && cached?.version === searchResetVersion
+            ? cached.rows
+            : await loadHistoricalRows(fetchPage, controller.signal)
+          if (cancelled) return
+          historicalSearchCache.current = { filters: appliedFilters, version: searchResetVersion, rows }
+          const result = searchHistoricalRows(rows, appliedSearch, page, pageSize)
+          setReport(result.rows)
+          setPagination({ total: result.total, total_pages: result.totalPages })
+          setPage(result.page)
+          return
+        }
+        const response = await fetchPage(page, pageSize)
         if (cancelled) return
         const data = response?.data ?? response ?? {}
         setReport(Array.isArray(data.Report) ? data.Report : Array.isArray(data.report) ? data.report : [])
@@ -175,17 +191,18 @@ const HistoricalPositionsPage = () => {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [appliedFilters, appliedSearch, isAuthenticated, page, pageSize, searchResetVersion])
 
   useSearchAsYouType(searchTerm, appliedSearch, setAppliedSearch, setPage)
 
   const total = Number(pagination?.total ?? report.length) || report.length
   const totalPages = Math.max(1, Number(pagination?.total_pages ?? pagination?.totalPages ?? Math.ceil(total / pageSize)) || 1)
-  const filteredReport = report.filter((row) => {
-    const symbol = String(row.Symbol ?? row.symbol ?? '').toLowerCase()
-    return symbol.includes(appliedSearch.toLowerCase())
-  })
+  const filteredReport = report
+
+  useEffect(() => {
+    if (!loading) setPage(current => Math.min(current, totalPages))
+  }, [loading, totalPages])
 
   const applyFilters = (event) => {
     event.preventDefault()
@@ -203,11 +220,7 @@ const HistoricalPositionsPage = () => {
     setAppliedFilters({ from, to, threshold: parsedThreshold, percentage })
   }
 
-  const formatDateLabel = (value) => {
-    if (!value) return 'Custom dates'
-    const [year, month, day] = value.split('-')
-    return `${day} - ${month} - ${year}`
-  }
+
 
   const applyCustomDates = () => {
     if (!from || !to || from > to) {
@@ -222,8 +235,8 @@ const HistoricalPositionsPage = () => {
     <div className="flex h-screen bg-[#F5F7FB]">
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(value => { const next = !value; try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch {}; return next })}
+        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+        onToggle={() => setSidebarOpen(value => { const next = !value; try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return next })}
       />
 
       <main className={`flex-1 min-w-0 px-3 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
@@ -330,7 +343,7 @@ const HistoricalPositionsPage = () => {
           </div>
 
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
-            {loading ? <div className="flex-1 overflow-auto"><HistorySkeleton /></div> : error ? <div className="flex flex-1 items-center justify-center px-5 text-center text-sm text-red-600">{error}</div> : !filteredReport.length ? <div className="flex flex-1 flex-col items-center justify-center px-5 text-center"><div className="mb-3 rounded-full bg-slate-100 p-3 text-slate-400"><svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5m0 14h16M8 16v-4m4 4V8m4 8v-6" /></svg></div><p className="text-sm font-semibold text-slate-700">{appliedSearch ? 'No matching symbols found' : 'No historical position changes found'}</p><p className="mt-1 text-xs text-slate-500">{appliedSearch ? 'Try a different symbol name.' : 'Try a wider date range or a lower threshold.'}</p></div> : (
+            {(
               <div className="min-h-0 flex-1 overflow-auto">
                 <div className="sm:hidden">
                   <div className="grid grid-cols-[minmax(0,1.3fr)_0.8fr_0.8fr_36px] gap-2 bg-[#4285F4] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.06em] text-white">
@@ -340,7 +353,7 @@ const HistoricalPositionsPage = () => {
                     <span className="text-right">Events</span>
                   </div>
                   <div className="divide-y divide-slate-100">
-                  {filteredReport.map((row, index) => {
+                  {loading ? <HistorySkeleton /> : error || !filteredReport.length ? <div role={error ? "alert" : "status"} className="p-8 text-center text-sm">{error || (appliedSearch ? "No matching symbols found" : "No historical position changes found")}</div> : filteredReport.map((row, index) => {
                     const symbol = row.Symbol ?? row.symbol ?? `Symbol ${index + 1}`
                     const events = Array.isArray(row.Events) ? row.Events : Array.isArray(row.events) ? row.events : []
                     const eventCount = Number(row.EventCount ?? row.eventCount) || events.length
@@ -355,8 +368,8 @@ const HistoricalPositionsPage = () => {
                 </div>
                 <table className="hidden min-w-[720px] w-full text-sm sm:table">
                   <thead className="sticky top-0 z-10 bg-[#4285F4] text-[11px] uppercase tracking-[0.08em] text-white"><tr><th className="px-4 py-3.5 text-left font-bold">Symbol</th><th className="px-4 py-3.5 text-right font-bold">Opening position</th><th className="px-4 py-3.5 text-right font-bold">Closing position</th><th className="px-4 py-3.5 text-right font-bold">Events</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredReport.map((row, index) => {
+                  <tbody className="divide-y divide-slate-100" aria-busy={loading}>
+                    {loading ? Array.from({ length: 8 }, (_, index) => <tr key={index}>{Array.from({ length: 4 }, (_, cell) => <td key={cell} className="px-4 py-4"><div className="h-4 rounded bg-slate-200 animate-pulse" /></td>)}</tr>) : error || !filteredReport.length ? <tr><td colSpan={4} role={error ? 'alert' : 'status'} className="p-10 text-center text-sm">{error || (appliedSearch ? 'No matching symbols found' : 'No historical position changes found')}</td></tr> : filteredReport.map((row, index) => {
                       const symbol = row.Symbol ?? row.symbol ?? `Symbol ${index + 1}`
                       const events = Array.isArray(row.Events) ? row.Events : Array.isArray(row.events) ? row.events : []
                       const eventCount = Number(row.EventCount ?? row.eventCount) || events.length

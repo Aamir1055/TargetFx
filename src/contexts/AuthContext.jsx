@@ -1,15 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
+import AuthContext from './authContextStore'
+import React, { useState, useEffect, useRef } from 'react'
 import { authAPI, scheduleTokenRefresh, cancelTokenRefresh } from '../services/api'
 
-const AuthContext = createContext()
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
+
+
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -69,7 +64,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true)
       setAuthError(null)
       const response = await authAPI.login(username, password)
-      
+
       // Check if the response indicates 2FA is required
       if (response.status === 'success' && response.data?.requires_2fa) {
         // 2FA required
@@ -93,10 +88,10 @@ export const AuthProvider = ({ children }) => {
       console.error('Login error:', error)
       console.error('Error response:', error.response)
       console.error('Error data:', error.response?.data)
-      
+
       // Extract error message from various possible locations
       let errorMessage = 'Login failed. Please check your credentials.'
-      
+
       if (error.response?.data) {
         // Try different paths where error message might be
         errorMessage = error.response.data.message 
@@ -108,10 +103,10 @@ export const AuthProvider = ({ children }) => {
       } else if (error.message) {
         errorMessage = error.message
       }
-      
+
       console.log('Final error message to display:', errorMessage)
       setAuthError(errorMessage)
-      
+
       return { 
         success: false, 
         error: errorMessage 
@@ -125,7 +120,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true)
       const response = await authAPI.verify2FA(tempToken, code)
-      
+
       if (response.status === 'success' && response.data?.access_token) {
         handleLoginSuccess(response.data)
         setRequires2FA(false)
@@ -155,16 +150,16 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user_data', JSON.stringify(data.broker))
     // Reset sidebar to open on every login
     localStorage.setItem('sidebarOpen', JSON.stringify(true))
-    
+
     // Update state
     setUser(data.broker)
     setIsAuthenticated(true)
     setAuthError(null)
-    
+
     scheduleTokenRefresh() // proactively refresh before token expires
     console.log('[Auth] Login successful - tokens stored')
     console.log('[Auth] Refresh token will be used automatically when access token expires')
-    
+
     // Dispatch login event to trigger IB email fetch
     window.dispatchEvent(new CustomEvent('auth:login'))
     console.log('[Auth] Login event dispatched')
@@ -185,15 +180,15 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('user_data')
-      
+
       setUser(null)
       setIsAuthenticated(false)
       setRequires2FA(false)
       setTempToken(null)
 
       // Dispatch logout event
-      try { window.dispatchEvent(new CustomEvent('auth:logout')) } catch {}
-      
+      try { window.dispatchEvent(new CustomEvent('auth:logout')) } catch { /* Retain the fallback when this operation is unavailable. */ }
+
       const initData = window.Telegram?.WebApp?.initData
       if (initData) {
         // Logout ends the session, but does not unlink the Telegram account.
@@ -274,7 +269,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true)
       setAuthError(null)
       const response = await authAPI.telegramLogin(initData)
-      
+
       if (response.status === 'success' && response.data?.access_token) {
         handleLoginSuccess(response.data)
         return { success: true }
@@ -289,16 +284,16 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Telegram login error:', error)
-      
+
       let errorMessage = 'Telegram login failed'
       let notRegistered = false
-      
+
       if (error.response?.data) {
         errorMessage = error.response.data.message 
           || error.response.data.data?.message 
           || error.response.data.error
           || errorMessage
-        
+
         // Check if user is not registered
         if (errorMessage.toLowerCase().includes('not found') || 
             errorMessage.toLowerCase().includes('not registered') ||
@@ -306,7 +301,7 @@ export const AuthProvider = ({ children }) => {
           notRegistered = true
         }
       }
-      
+
       setAuthError(errorMessage)
       return { 
         success: false, 
@@ -323,7 +318,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true)
       setAuthError(null)
       const response = await authAPI.telegramLink(initData, username, password)
-      
+
       if (response.status === 'success' && response.data?.access_token) {
         handleLoginSuccess(response.data)
         return { success: true }
@@ -337,16 +332,16 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Telegram link error:', error)
-      
+
       let errorMessage = 'Failed to link Telegram account'
-      
+
       if (error.response?.data) {
         errorMessage = error.response.data.message 
           || error.response.data.data?.message 
           || error.response.data.error
           || errorMessage
       }
-      
+
       setAuthError(errorMessage)
       return { 
         success: false, 
@@ -406,5 +401,3 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-
-export default AuthContext

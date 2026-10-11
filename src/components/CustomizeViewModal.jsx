@@ -5,7 +5,6 @@ const CustomizeViewModal = ({
   onClose, 
   onFilterClick,
   onDealsClick,
-  onDateFilterClick,
   onGroupsClick,
   onReset,
   onApply,

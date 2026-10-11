@@ -1,9 +1,10 @@
+import { loadClientRows, paginateClientRows } from '../utils/reportPagination'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { createLatestRequest } from '../utils/latestRequest'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
 import { formatDate as formatDayOnly, formatTime, serverNowDate, toServerEpoch } from '../utils/dateFormatter'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import { exportRowsToExcel } from '../utils/exportExcel'
 
 // -- Profit Trend Chart with hover crosshair ---------------------------------
@@ -267,7 +268,7 @@ const SvgDonut = ({ segments, size, sw, centerLine1, centerLine2 }) => {
   )
 }
 
-const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCache, allOrdersCache = [], onCacheUpdate }) => {
+const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCache = [], onCacheUpdate }) => {
   const { user } = useAuth()
   // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
   const [numericMode, setNumericMode] = useState(() => {
@@ -299,8 +300,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [loading, setLoading] = useState(true)
   const [dealsLoading, setDealsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [positionsSearchLoading, setPositionsSearchLoading] = useState(false)
+  const [positionsSearchVersion, setPositionsSearchVersion] = useState(0)
   const [netPositions, setNetPositions] = useState([])
-  
+
   // Broker Rules states
   const [availableRules, setAvailableRules] = useState([])
   const [clientRules, setClientRules] = useState([])
@@ -308,34 +311,34 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [selectedTimeParam, setSelectedTimeParam] = useState({})
 
   // Security tab states
-  const [authCurrentPassword, setAuthCurrentPassword] = useState('')
-  const [authNewPassword, setAuthNewPassword] = useState('')
-  const [authConfirmPassword, setAuthConfirmPassword] = useState('')
-  const [authLoading, setAuthLoading] = useState(false)
-  const [authMsg, setAuthMsg] = useState({ type: '', text: '' })
 
-  const [tradingNewPassword, setTradingNewPassword] = useState('')
+
+
+
+
+
+
   const [tradingCheckPassword, setTradingCheckPassword] = useState('')
   const [tradingChangeLoading, setTradingChangeLoading] = useState(false)
   const [tradingCheckLoading, setTradingCheckLoading] = useState(false)
   const [tradingMsg, setTradingMsg] = useState({ type: '', text: '' })
 
-  const [investorNewPassword, setInvestorNewPassword] = useState('')
+
   const [investorCheckPassword, setInvestorCheckPassword] = useState('')
   const [investorChangeLoading, setInvestorChangeLoading] = useState(false)
   const [investorCheckLoading, setInvestorCheckLoading] = useState(false)
   const [investorMsg, setInvestorMsg] = useState({ type: '', text: '' })
 
-  const [showAuthCurrent, setShowAuthCurrent] = useState(false)
-  const [showAuthNew, setShowAuthNew] = useState(false)
-  const [showAuthConfirm, setShowAuthConfirm] = useState(false)
-  const [showTradingNew, setShowTradingNew] = useState(false)
+
+
+
+
   const [showTradingCheck, setShowTradingCheck] = useState(false)
-  const [showInvestorNew, setShowInvestorNew] = useState(false)
+
   const [showInvestorCheck, setShowInvestorCheck] = useState(false)
 
-  const [tradingMode, setTradingMode] = useState('verify') // 'verify' | 'change'
-  const [investorMode, setInvestorMode] = useState('verify') // 'verify' | 'change'
+   // 'verify' | 'change'
+   // 'verify' | 'change'
 
   const [isAccountEnabled, setIsAccountEnabled] = useState(!!client?.accountEnabled)
   const [isTradingEnabled, setIsTradingEnabled] = useState(!!client?.tradingEnabled)
@@ -369,7 +372,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Client data state (for updated balance/credit/equity)
   const [clientData, setClientData] = useState(client)
-  
+
   // Funds management state
   const [operationType, setOperationType] = useState('deposit')
   const [amount, setAmount] = useState('')
@@ -387,7 +390,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     const rights = user?.rights
     return rights ? operations.filter(op => rights.includes(op.value)) : operations
   }, [user?.rights])
-  
+
   // Date filter state
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -399,16 +402,16 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [totalDealsCount, setTotalDealsCount] = useState(0)
   const [currentDateFilter, setCurrentDateFilter] = useState({ from: 0, to: 0 })
   const [isExportingDeals, setIsExportingDeals] = useState(false)
-  
+
   // Search and filter states for positions
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
-  const [columnFilters, setColumnFilters] = useState({})
+  const [columnFilters] = useState({})
   const [showFilterDropdown, setShowFilterDropdown] = useState(null)
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
   const filterRefs = useRef({})
   const searchRef = useRef(null)
-  
+
   // Search bar state for NET positions
   const [netSearchQuery, setNetSearchQuery] = useState('')
 
@@ -420,15 +423,15 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const [showDealsFilterDropdown, setShowDealsFilterDropdown] = useState(null)
   const dealsFilterRefs = useRef({})
   const dealsSearchRef = useRef(null)
-  
+
   // Pagination states for deals
   const [dealsCurrentPage, setDealsCurrentPage] = useState(1)
   const [dealsItemsPerPage, setDealsItemsPerPage] = useState(100)
-  
+
   // Pagination states for positions
   const [positionsCurrentPage, setPositionsCurrentPage] = useState(1)
   const [positionsItemsPerPage, setPositionsItemsPerPage] = useState(100)
-  
+
   // Column visibility for positions
   const [showPositionsColumnSelector, setShowPositionsColumnSelector] = useState(false)
   const positionsColumnSelectorRef = useRef(null)
@@ -463,13 +466,13 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     profit: true,
     comment: true
   })
-  
+
   // Column resizing states for positions
   const [positionsColumnWidths, setPositionsColumnWidths] = useState({})
   const [resizingPositionsColumn, setResizingPositionsColumn] = useState(null)
   const resizeStartX = useRef(0)
   const resizeStartWidth = useRef(0)
-  
+
   // Column resizing states for deals
   const [dealsColumnWidths, setDealsColumnWidths] = useState({})
   const [resizingDealsColumn, setResizingDealsColumn] = useState(null)
@@ -491,8 +494,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Deal stats (aggregated) for face cards
   const [dealStats, setDealStats] = useState(null)
-  const [dealStatsLoading, setDealStatsLoading] = useState(false)
-  const [dealStatsError, setDealStatsError] = useState('')
+
+  const [dealStatsError] = useState('')
   const [showDealStatsFilter, setShowDealStatsFilter] = useState(false)
   const dealStatsFilterRef = useRef(null)
   // Default visibility for aggregated deal stats face cards
@@ -516,8 +519,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     winRate: true
   }
   // Deal stat keys that should NEVER be shown (blacklist)
-  const blockedDealStatKeys = new Set(['totalPnL', 'totalStorage'])
-  const [dealStatVisibility, setDealStatVisibility] = useState(() => {
+  new Set(['totalPnL', 'totalStorage']);
+  const [dealStatVisibility, ] = useState(() => {
     try {
       const saved = localStorage.getItem('positions_dealStats_visibility')
       return saved ? { ...defaultDealStatVisibility, ...JSON.parse(saved) } : defaultDealStatVisibility
@@ -537,7 +540,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     pf_maxProfit: true,
     pf_maxLoss: true
   }
-  const [fixedCardVisibility, setFixedCardVisibility] = useState(() => {
+  const [fixedCardVisibility] = useState(() => {
     try {
       const saved = localStorage.getItem('positions_fixedCard_visibility')
       return saved ? { ...defaultFixedCardVisibility, ...JSON.parse(saved) } : defaultFixedCardVisibility
@@ -562,7 +565,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
     return options
   }
-  
+
   const positionsColumns = [
     { key: 'position', label: 'Position' },
     { key: 'time', label: 'Time' },
@@ -948,7 +951,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       [columnKey]: !prev[columnKey]
     }))
   }
-  
+
   // Close filter dropdown and search suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -975,7 +978,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         setShowDealStatsFilter(false)
       }
     }
-    
+
     if (showFilterDropdown || showDealsFilterDropdown || showSearchSuggestions || showPositionsColumnSelector || showDealsColumnSelector || showDealStatsFilter) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -984,7 +987,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Persist visibilities
   useEffect(() => {
-    try { localStorage.setItem('positions_fixedCard_visibility', JSON.stringify(fixedCardVisibility)) } catch {}
+    try { localStorage.setItem('positions_fixedCard_visibility', JSON.stringify(fixedCardVisibility)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [fixedCardVisibility])
 
   // Update positions and orders when cache changes (WebSocket updates)
@@ -1023,7 +1026,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     if (activeTab !== 'positions') return
     const hasSearch = debouncedSearchQuery && debouncedSearchQuery.trim().length > 0
     const hasSort = !!positionsSortColumn
-    if (!hasSearch && !hasSort) return
+    if (!hasSearch && !hasSort) { setPositionsSearchLoading(false); setError(''); return }
 
     const sortMap = {
       time: 'timeCreate',
@@ -1042,129 +1045,59 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     }
 
     let cancelled = false
+    const controller = new AbortController()
+    setPositionsSearchLoading(true)
+    setError('')
     const run = async () => {
       try {
         const params = {
           mt5Accounts: [String(client.login)],
           page: 1,
-          limit: 15
+          limit: 100
         }
         if (hasSearch) params.search = debouncedSearchQuery.trim()
         if (hasSort) {
           params.sortBy = sortMap[positionsSortColumn] || positionsSortColumn
           params.sortOrder = positionsSortDirection
         }
-        const [posRes, ordRes] = await Promise.all([
-          brokerAPI.searchPositions(params).catch(() => null),
-          brokerAPI.searchOrders(params).catch(() => null)
+        const [posList, ordList] = await Promise.all([
+          loadClientRows((page, limit) => brokerAPI.searchPositions({ ...params, page, limit }, { signal: controller.signal }), 'positions', controller.signal),
+          loadClientRows((page, limit) => brokerAPI.searchOrders({ ...params, page, limit }, { signal: controller.signal }), 'orders', controller.signal)
         ])
         if (cancelled) return
-        const posList =
-          posRes?.data?.positions ||
-          posRes?.positions ||
-          posRes?.data?.data?.positions ||
-          (Array.isArray(posRes?.data) ? posRes.data : null) ||
-          []
-        const ordList =
-          ordRes?.data?.orders ||
-          ordRes?.orders ||
-          ordRes?.data?.data?.orders ||
-          (Array.isArray(ordRes?.data) ? ordRes.data : null) ||
-          []
         if (Array.isArray(posList)) {
           setPositions(posList)
           calculateNetPositions(posList)
         }
         if (Array.isArray(ordList)) setOrders(ordList)
       } catch {
-        // ignore
+        if (!cancelled) setError('Failed to load matching positions and orders. Please try again.')
+      } finally {
+        if (!cancelled) setPositionsSearchLoading(false)
       }
     }
     run()
-    return () => { cancelled = true }
-  }, [activeTab, debouncedSearchQuery, positionsSortColumn, positionsSortDirection, client.login])
+    return () => { cancelled = true; controller.abort() }
+  }, [activeTab, debouncedSearchQuery, positionsSortColumn, positionsSortDirection, client.login, positionsSearchVersion])
 
   // Persist deal stat visibility
   useEffect(() => {
-    try { localStorage.setItem('positions_dealStats_visibility', JSON.stringify(dealStatVisibility)) } catch {}
+    try { localStorage.setItem('positions_dealStats_visibility', JSON.stringify(dealStatVisibility)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [dealStatVisibility])
 
-  const toggleDealStatKey = (key) => {
-    setDealStatVisibility(prev => ({ ...prev, [key]: !prev[key] }))
-  }
 
-  const toTitle = (key) => String(key)
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, s => s.toUpperCase())
 
-  const formatStatValue = (key, value) => {
-    const n = Number(value || 0)
-    if (['totalPnL','totalCommission','totalStorage'].includes(key)) return fmtMoney(n)
-    if (key === 'winRate') return `${n.toFixed(2)}%`
-    if (key.toLowerCase().includes('volume')) return fmtVolume(n)
-    if (Number.isInteger(value)) return `${n}`
-    return fmtMoney(n)
-  }
-  
+
+
+
+
   // Styling for deal stats cards based on metric and value
-  const getDealStatStyle = (key, value) => {
-    const n = Number(value || 0)
-    switch (key) {
-      case 'totalPnL': {
-        const pos = n >= 0
-        return {
-          container: pos ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200',
-          label: pos ? 'text-emerald-600' : 'text-red-600',
-          value: getProfitColor(n)
-        }
-      }
-      case 'totalCommission':
-        return {
-          container: 'bg-amber-50 border-amber-200',
-          label: 'text-amber-600',
-          value: 'text-amber-900'
-        }
-      case 'totalStorage': {
-        const pos = n >= 0
-        return {
-          container: pos ? 'bg-teal-50 border-teal-200' : 'bg-orange-50 border-orange-200',
-          label: pos ? 'text-teal-600' : 'text-orange-600',
-          value: pos ? 'text-teal-900' : 'text-orange-900'
-        }
-      }
-      case 'winRate': {
-        const good = n >= 50
-        return {
-          container: good ? 'bg-emerald-50 border-emerald-200' : 'bg-orange-50 border-orange-200',
-          label: good ? 'text-emerald-600' : 'text-orange-600',
-          value: good ? 'text-emerald-900' : 'text-orange-900'
-        }
-      }
-      case 'totalDeals':
-        return {
-          container: 'bg-blue-50 border-blue-200',
-          label: 'text-blue-600',
-          value: 'text-blue-900'
-        }
-      case 'totalVolume':
-        return {
-          container: 'bg-indigo-50 border-indigo-200',
-          label: 'text-indigo-600',
-          value: 'text-indigo-900'
-        }
-      default:
-        return {
-          container: 'bg-slate-50 border-slate-200',
-          label: 'text-slate-600',
-          value: 'text-slate-900'
-        }
-    }
-  }
-  
+
+
   // Calculate NET positions by grouping by symbol
   const calculateNetPositions = (clientPositions) => {
     const grouped = {}
-    
+
     clientPositions.forEach(pos => {
       const symbol = pos.symbol
       if (!grouped[symbol]) {
@@ -1178,10 +1111,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           positions: []
         }
       }
-      
+
       // Get volume from available fields (volumeCurrent, volume, or volumeInitial)
       const volume = Number(pos.volumeCurrent ?? pos.volume ?? pos.volumeInitial ?? 0)
-      
+
       // Normalize action using helper to handle numeric and string variants
       const actionLabel = getActionLabel(pos.action)
       if (actionLabel === 'Buy') {
@@ -1191,28 +1124,28 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         grouped[symbol].sellVolume += volume
         grouped[symbol].sellPrices.push({ price: pos.priceOpen, volume: volume })
       }
-      
+
       grouped[symbol].totalProfit += pos.profit
       grouped[symbol].positions.push(pos)
     })
-    
+
     // Calculate net positions - show actual NET (difference between buy and sell)
     const netPos = []
     Object.values(grouped).forEach(group => {
       // Calculate net volume (buy - sell)
       const netVolume = group.buyVolume - group.sellVolume
-      
+
       // Determine if net position is Buy or Sell (or Flat if zero)
       let netType = 'Flat'
       let absNetVolume = Math.abs(netVolume)
-      
+
       if (Math.abs(netVolume) >= 0.00001) {
         netType = netVolume > 0 ? 'Buy' : 'Sell'
       } else {
         // If perfectly hedged, show as Flat but still display it
         absNetVolume = 0
       }
-      
+
       // Calculate weighted average price for the net position
       let avgOpenPrice = 0
       if (netVolume > 0 && group.buyPrices.length > 0) {
@@ -1232,7 +1165,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           avgOpenPrice = totalVolume > 0 ? totalWeightedPrice / totalVolume : 0
         }
       }
-      
+
       netPos.push({
         symbol: group.symbol,
         netVolume: absNetVolume,
@@ -1242,7 +1175,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
         positionCount: group.positions.length
       })
     })
-    
+
     setNetPositions(netPos)
   }
 
@@ -1313,42 +1246,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }
 
   // Build POST body for /api/broker/clients/{login}/deals from current UI state (with optional overrides)
-  const buildDealsRequestBody = (fromTs, toTs, page, limit, overrides = {}) => {
-    const body = {
-      from: fromTs,
-      to: toTs,
-      page,
-      limit,
-    }
 
-    const search = overrides.search !== undefined ? overrides.search : dealsSearchQuery
-    if (search && String(search).trim()) body.search = String(search).trim()
-
-    const sortBy = overrides.sortBy !== undefined ? overrides.sortBy : dealsSortColumn
-    const sortOrder = overrides.sortOrder !== undefined ? overrides.sortOrder : dealsSortDirection
-    if (sortBy) {
-      body.sortBy = sortBy
-      body.sortOrder = sortOrder || 'desc'
-    }
-
-    const colFilters = overrides.filters !== undefined ? overrides.filters : dealsColumnFilters
-    const apiFilters = []
-    Object.entries(colFilters || {}).forEach(([field, values]) => {
-      if (!values || values.length === 0) return
-      if (field === 'action') {
-        apiFilters.push({ field: 'action', operator: 'in', value: values.map(actionLabelToServer) })
-      } else if (field === 'symbol') {
-        apiFilters.push({ field: 'symbol', operator: 'in', value: values })
-      } else if (field === 'time') {
-        // Time column filter uses formatted strings — cannot be sent to server, leave as client-side
-      } else {
-        apiFilters.push({ field, operator: 'in', value: values })
-      }
-    })
-    if (apiFilters.length > 0) body.filters = apiFilters
-
-    return body
-  }
 
   const fetchDeals = async (fromTimestamp, toTimestamp, page = 1, limit = null, searchOverride = undefined) => {
     const isCurrent = dealsRequests.current.start()
@@ -1408,7 +1306,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       setCurrentDateFilter({ from: fromTimestamp, to: effectiveTo })
       setHasAppliedFilter(true)
       setDealsServerLimitReached(false)
-    } catch (error) {
+    } catch {
       if (!isCurrent()) return
       setError('Failed to load deals')
       setDeals([])
@@ -1477,14 +1375,14 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     try {
       console.log('[ClientPositionsModal] ? Applying/Activating rule:', rule.rule_code, 'for login:', client.login)
       setRulesLoading(true)
-      
+
       // Find the matching available rule to check if time parameter is required
       const availableRule = availableRules.find(ar => ar.rule_code === rule.rule_code)
       const requiresTimeParam = availableRule?.requires_time_parameter
-      
+
       // Get time parameter from dropdown selection or use existing one
       let timeParameter = selectedTimeParam[rule.rule_code] || rule.time_parameter || null
-      
+
       // Validate time parameter if required
       if (requiresTimeParam && !timeParameter) {
         alert('Please select a time parameter')
@@ -1495,7 +1393,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       console.log('[ClientPositionsModal] ?? Sending apply request with time:', timeParameter)
       const response = await brokerAPI.applyClientRule(client.login, rule.rule_code, timeParameter)
       console.log('[ClientPositionsModal] ? Apply rule response:', response)
-      
+
       if (response.status === 'success') {
         console.log('[ClientPositionsModal] ?? Rule applied/activated successfully')
         // Clear selected time parameter after successful application
@@ -1525,7 +1423,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       setRulesLoading(true)
       const response = await brokerAPI.removeClientRule(client.login, ruleCode)
       console.log('[ClientPositionsModal] ? Remove rule response:', response)
-      
+
       if (response.status === 'success') {
         console.log('[ClientPositionsModal] ?? Rule deactivated successfully')
         // Refresh client rules from API to get updated is_active status
@@ -1580,12 +1478,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     return Number.isNaN(num) ? '-' : num.toFixed(digits)
   }
   // Price: compact only when = 1000 (small forex prices untouched)
-  const fmtPrice = (n, digits = 5) => {
-    const num = Number(n)
-    if (Number.isNaN(num)) return '-'
-    if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
-    return num.toLocaleString('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
-  }
+
   const fmtPriceFull = (n, digits = 5) => {
     const num = Number(n)
     return Number.isNaN(num) ? '-' : num.toLocaleString('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
@@ -1731,9 +1624,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const parseDateInput = (dateStr) => {
     // Parse dd/mm/yyyy format or yyyy-mm-dd format (from date picker)
     if (!dateStr) return null
-    
+
     let day, month, year
-    
+
     if (dateStr.includes('/')) {
       // dd/mm/yyyy format
       const parts = dateStr.split('/')
@@ -1751,10 +1644,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     } else {
       return null
     }
-    
+
     if (isNaN(day) || isNaN(month) || isNaN(year)) return null
     if (day < 1 || day > 31 || month < 0 || month > 11 || year < 1970) return null
-    
+
     return new Date(year, month, day)
   }
 
@@ -1820,9 +1713,9 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const handleDatePreset = async (preset) => {
     const now = serverNowDate()
     let fromDateObj, toDateObj
-    
+
     setSelectedPreset(preset)
-    
+
     switch (preset) {
       case 'today':
         // Last 24 hours: from now-24h to now
@@ -1856,7 +1749,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       default:
         return
     }
-    
+
     // Update the date inputs
     const formatToInput = (date) => {
       const year = date.getFullYear()
@@ -1864,10 +1757,10 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       const day = String(date.getDate()).padStart(2, '0')
       return `${year}-${month}-${day}`
     }
-    
+
     setFromDate(formatToInput(fromDateObj))
     setToDate(formatToInput(toDateObj))
-    
+
     // Automatically apply the filter
     const fromTimestamp = toServerEpoch(fromDateObj)
     const toTimestamp = toServerEpoch(toDateObj)
@@ -1891,7 +1784,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   const getDealActionLabel = (action) => {
     // Handle both numeric and string action values
     const numericAction = typeof action === 'string' ? parseInt(action) : action
-    
+
     const actions = {
       0: 'Buy',
       1: 'Sell',
@@ -1916,17 +1809,17 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       'agent daily': 'Agent Daily',
       'agent monthly': 'Agent Monthly'
     }
-    
+
     // Try lowercase string match if numeric doesn't work
     const stringAction = typeof action === 'string' ? action.toLowerCase() : null
-    
+
     return actions[numericAction] || actions[stringAction] || actions[action] || `Unknown (${action})`
   }
 
   const getDealActionColor = (action) => {
     const numericAction = typeof action === 'string' ? parseInt(action) : action
     const stringAction = typeof action === 'string' ? action.toLowerCase() : ''
-    
+
     // Mirror Live Dealing Action UI: BUY -> green, SELL -> red
     if (numericAction === 0 || stringAction === 'buy') return 'bg-green-100 text-green-800'
     if (numericAction === 1 || stringAction === 'sell') return 'bg-red-100 text-red-800'
@@ -1951,135 +1844,24 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   }
 
   // Filter helper functions
-  const getUniqueColumnValues = (columnKey) => {
-    const values = new Set()
-    positions.forEach(pos => {
-      let value
-      if (columnKey === 'type') {
-        value = getActionLabel(pos.action)
-      } else if (columnKey === 'symbol') {
-        value = pos.symbol
-      } else if (columnKey === 'time') {
-        value = formatDate(pos.timeCreate || pos.timeCreateStr)
-      }
-      if (value) values.add(value)
-    })
-    return Array.from(values).sort()
-  }
 
-  const toggleColumnFilter = (columnKey, value) => {
-    setColumnFilters(prev => {
-      const current = prev[columnKey] || []
-      const updated = current.includes(value)
-        ? current.filter(v => v !== value)
-        : [...current, value]
-      
-      return {
-        ...prev,
-        [columnKey]: updated.length > 0 ? updated : undefined
-      }
-    })
-  }
 
-  const clearColumnFilter = (columnKey) => {
-    setColumnFilters(prev => {
-      const updated = { ...prev }
-      delete updated[columnKey]
-      return updated
-    })
-  }
 
-  const getActiveFilterCount = (columnKey) => {
-    return columnFilters[columnKey]?.length || 0
-  }
 
-  const getUniqueDealsColumnValues = (columnKey) => {
-    const values = new Set()
-    filteredDeals.forEach(deal => {
-      let value
-      if (columnKey === 'action') {
-        value = getDealActionLabel(deal.action)
-      } else if (columnKey === 'symbol') {
-        value = deal.symbol
-      } else if (columnKey === 'time') {
-        value = formatDate(deal.time)
-      }
-      if (value) values.add(value)
-    })
-    return Array.from(values).sort()
-  }
 
-  const toggleDealsColumnFilter = (columnKey, value) => {
-    setDealsColumnFilters(prev => {
-      const current = prev[columnKey] || []
-      const updated = current.includes(value)
-        ? current.filter(v => v !== value)
-        : [...current, value]
-      const next = {
-        ...prev,
-        [columnKey]: updated.length > 0 ? updated : undefined
-      }
-      // Reset to page 1 on filter change (client-side filter)
-      if (columnKey !== 'time' && hasAppliedFilter) {
-        setDealsCurrentPage(1)
-      }
-      return next
-    })
-  }
 
-  const clearDealsColumnFilter = (columnKey) => {
-    setDealsColumnFilters(prev => {
-      const next = { ...prev }
-      delete next[columnKey]
-      if (columnKey !== 'time' && hasAppliedFilter) {
-        setDealsCurrentPage(1)
-      }
-      return next
-    })
-  }
 
-  const getActiveDealsFilterCount = (columnKey) => {
-    return dealsColumnFilters[columnKey]?.length || 0
-  }
+
+
+
+
+
+
+
+
 
   // Get search suggestions for positions
-  const getPositionSearchSuggestions = () => {
-    if (!searchQuery.trim() || searchQuery.length < 1 || !positions || positions.length === 0) {
-      return []
-    }
-    
-    const query = searchQuery.toLowerCase().trim()
-    const uniqueValues = new Map() // Use Map to track type and avoid duplicates
-    
-    positions.forEach(pos => {
-      const symbol = String(pos.symbol || '')
-      const type = getActionLabel(pos.action)
-      const positionNum = String(pos.position || '')
-      const volume = String(pos.volume || '')
-      const time = formatDate(pos.timeCreate || pos.timeCreateStr)
-      
-      // Check each field and add to suggestions if matches
-      if (symbol && symbol.toLowerCase().includes(query) && !uniqueValues.has(symbol)) {
-        uniqueValues.set(symbol, { type: 'Symbol', value: symbol, priority: 1 })
-      }
-      if (type && type.toLowerCase().includes(query) && !uniqueValues.has(type)) {
-        uniqueValues.set(type, { type: 'Type', value: type, priority: 2 })
-      }
-      if (positionNum && positionNum.includes(query) && !uniqueValues.has(`#${positionNum}`)) {
-        uniqueValues.set(`#${positionNum}`, { type: 'Position', value: `#${positionNum}`, priority: 3 })
-      }
-      if (volume && volume.includes(query) && !uniqueValues.has(volume)) {
-        uniqueValues.set(volume, { type: 'Volume', value: volume, priority: 4 })
-      }
-      if (time && time.toLowerCase().includes(query) && !uniqueValues.has(time)) {
-        uniqueValues.set(time, { type: 'Time', value: time, priority: 5 })
-      }
-    })
-    
-    return Array.from(uniqueValues.values())
-      .sort((a, b) => a.priority - b.priority)
-      .slice(0, 8)
-  }
+
 
   // Get search suggestions for deals
 
@@ -2112,16 +1894,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Group filtered positions and orders separately
   const groupedDisplayData = useMemo(() => {
-    const regularPositions = filteredPositions.filter(item => {
-      const type = (item.action || item.type || '').toString().toLowerCase()
-      return item.position && (type === 'buy' || type === 'sell' || type === '0' || type === '1')
-    })
-    
-    const pendingOrders = filteredPositions.filter(item => {
-      const type = (item.action || item.type || '').toString().toLowerCase()
-      return item.order && (type.includes('limit') || type.includes('stop'))
-    })
-    
+    const positionRows = new Set(positions)
+    const orderRows = new Set(orders)
+    const regularPositions = filteredPositions.filter(item => positionRows.has(item))
+    const pendingOrders = filteredPositions.filter(item => orderRows.has(item))
+
     // Sort each section independently so Pending Orders sorts correctly
     if (positionsSortColumn) {
       const getVal = (row) => {
@@ -2172,26 +1949,18 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       regularPositions.sort(cmp)
       pendingOrders.sort(cmp)
     }
-    
+
     return { regularPositions, pendingOrders }
-  }, [filteredPositions, positionsSortColumn, positionsSortDirection])
+  }, [filteredPositions, positions, orders, positionsSortColumn, positionsSortDirection])
 
   // Pagination logic for positions
-  const positionsTotalPages = Math.ceil(filteredPositions.length / positionsItemsPerPage)
-  const positionsStartIndex = (positionsCurrentPage - 1) * positionsItemsPerPage
-  const positionsEndIndex = positionsStartIndex + positionsItemsPerPage
-  const displayedPositions = filteredPositions.slice(positionsStartIndex, positionsEndIndex)
-  
+  const positionsTotalPages = Math.max(1, Math.ceil(filteredPositions.length / positionsItemsPerPage))
+  useEffect(() => { setPositionsCurrentPage(page => Math.min(page, positionsTotalPages)) }, [positionsTotalPages])
+
   // Apply pagination to grouped data
-  const paginatedGroupedData = useMemo(() => {
-    const allItems = [...groupedDisplayData.regularPositions, ...groupedDisplayData.pendingOrders]
-    const paginatedItems = allItems.slice(positionsStartIndex, positionsEndIndex)
-    
-    return {
-      regularPositions: paginatedItems.filter(item => item.position),
-      pendingOrders: paginatedItems.filter(item => item.order)
-    }
-  }, [groupedDisplayData, positionsStartIndex, positionsEndIndex])
+  const paginatedGroupedData = useMemo(() => paginateClientRows(
+    groupedDisplayData.regularPositions, groupedDisplayData.pendingOrders, positionsCurrentPage, positionsItemsPerPage
+  ), [groupedDisplayData, positionsCurrentPage, positionsItemsPerPage])
 
   // Reset to page 1 when positions filters change
   useEffect(() => {
@@ -2201,14 +1970,14 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
   // Apply search and filters to deals
   const filteredDealsResult = (() => {
     if (!hasAppliedFilter) return []
-    
+
     let filtered = [...filteredDeals]
 
     if (dealsSearchQuery.trim()) {
       const query = dealsSearchQuery.toLowerCase()
       // Strip # prefix if present for numeric field matching
       const numericQuery = query.startsWith('#') ? query.slice(1) : query
-      
+
       filtered = filtered.filter(deal => {
         return (
           deal.symbol?.toLowerCase().includes(query) ||
@@ -2241,7 +2010,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
     if (dealsSortColumn) {
       filtered.sort((a, b) => {
         let aValue, bValue
-        
+
         switch (dealsSortColumn) {
           case 'time':
             aValue = a.time || 0
@@ -2266,10 +2035,6 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
           case 'action':
             aValue = getDealActionLabel(a.action)
             bValue = getDealActionLabel(b.action)
-            break
-          case 'entry':
-            aValue = getDealEntryLabel(a.entry)
-            bValue = getDealEntryLabel(b.entry)
             break
           case 'volume':
             aValue = a.volume || 0
@@ -2345,7 +2110,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   // Keep page-size selection valid when total deals count changes
   useEffect(() => {
-    const total = totalDealsCount || filteredDealsResult.length
+    totalDealsCount || filteredDealsResult.length;
     const options = getDealsPageSizeOptions()
     if (options.length > 0 && !options.includes(dealsItemsPerPage)) {
       setDealsItemsPerPage(100)
@@ -2419,7 +2184,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
   const handleFundsOperation = async (e) => {
     e.preventDefault()
-    
+
     if (!amount || parseFloat(amount) <= 0) {
       setOperationError('Please enter a valid amount')
       return
@@ -2462,17 +2227,17 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
       setOperationSuccess(response.message || 'Operation completed successfully')
       setAmount('')
       setComment('')
-      
+
       // Refresh deals and client data silently (no page reload)
       // Wait a bit for the server to process the transaction
       setTimeout(async () => {
         await fetchUpdatedClientData()
-        
+
         // Clear positions cache so it refetches on next page load
         if (onCacheUpdate) {
           onCacheUpdate(null)
         }
-        
+
         await fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
       }, 1000)
     } catch (error) {
@@ -2689,11 +2454,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
                     </button>
-                    
+
                     <span className="text-xs text-gray-700 font-medium px-1">
                       {netCurrentPage}/{netTotalPages}
                     </span>
-                    
+
                     <button
                       onClick={() => setNetCurrentPage(prev => Math.min(netTotalPages, prev + 1))}
                       disabled={netCurrentPage === netTotalPages}
@@ -2835,7 +2600,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               const cx = 100, cy = 72, r = 55, sw = 14
               const semicircle = Math.PI * r
               const profLen = profPct * semicircle
-              const lossLen = semicircle - profLen
+              semicircle - profLen;
               return (
                 <svg viewBox="0 0 200 82" className="w-full max-w-[180px] mx-auto">
                   {/* background track */}
@@ -3146,20 +2911,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 
           {activeTab === 'positions' && (
             <div>
-              {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : positions.length === 0 && !debouncedSearchQuery && !searchQuery ? (
-                <div className="text-center py-12">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p className="text-gray-500 text-sm">No open positions</p>
-                </div>
-              ) : (
+              {error && <div role="alert" className="p-3 text-sm text-red-600">{error} <button type="button" className="ml-2 underline" onClick={() => { if (debouncedSearchQuery.trim() || positionsSortColumn) setPositionsSearchVersion(value => value + 1); else fetchPositions() }}>Retry</button></div>}
+              {positionsSearchLoading && <div role="status" className="p-2 text-sm text-blue-600">Loading matching positions and orders...</div>}
+              {(
                 <>
-                  
+
                   {/* Search Bar */}
                   <div className="mb-4 flex flex-wrap items-center gap-2">
                     <div className="relative flex-1 lg:max-w-xl" ref={searchRef}>
@@ -3310,28 +3066,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       </div>
                     )}
                   </div>
-                  
-                  {filteredPositions.length === 0 ? (
-                    <div className="text-center py-12">
-                      <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                      <p className="text-gray-500 text-sm font-medium mb-1">No positions found</p>
-                      <p className="text-gray-400 text-xs">Try adjusting your search or filters</p>
-                      {(searchQuery || Object.keys(columnFilters).length > 0) && (
-                        <button
-                          onClick={() => {
-                            setSearchQuery('')
-                            setDebouncedSearchQuery('')
-                            setColumnFilters({})
-                          }}
-                          className="mt-3 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          Clear all filters
-                        </button>
-                      )}
-                    </div>
-                  ) : (
+
+                  {(
                 <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-96 relative">
                   <table className="min-w-full table-fixed divide-y divide-gray-200">
                     <thead className="bg-blue-600 sticky top-0 z-10 shadow-md">
@@ -3546,7 +3282,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                         )}
                       </tr>
                     </thead>
-                    <tbody className="bg-white">
+                    <tbody className="bg-white" aria-busy={loading || positionsSearchLoading}>
+                      {loading || positionsSearchLoading ? Array.from({ length: 8 }, (_, row) => <tr key={row}>{Object.entries(positionsVisibleColumns).filter(([, visible]) => visible).map(([key]) => <td key={key} className="px-3 py-3"><div className="h-3 rounded bg-gray-200 animate-pulse" /></td>)}</tr>) : error ? <tr><td colSpan={Object.values(positionsVisibleColumns).filter(Boolean).length} role="alert" className="p-8 text-center text-red-600">{error}</td></tr> : <>
                       {/* Regular Positions Section */}
                       {paginatedGroupedData.regularPositions.length > 0 && (
                         <>
@@ -3628,7 +3365,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           ))}
                         </>
                       )}
-                      
+
                       {/* Blue Divider */}
                       {paginatedGroupedData.regularPositions.length > 0 && paginatedGroupedData.pendingOrders.length > 0 && (
                         <tr>
@@ -3637,7 +3374,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           </td>
                         </tr>
                       )}
-                      
+
                       {/* Pending Orders Section */}
                       {paginatedGroupedData.pendingOrders.length > 0 && (
                         <>
@@ -3719,7 +3456,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           ))}
                         </>
                       )}
-                      
+
                       {/* Empty State */}
                       {paginatedGroupedData.regularPositions.length === 0 && paginatedGroupedData.pendingOrders.length === 0 && (
                         <tr>
@@ -3728,6 +3465,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           </td>
                         </tr>
                       )}
+                      </>}
                     </tbody>
                   </table>
                 </div>
@@ -3939,7 +3677,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                     >
                       Clear
                     </button>
-                    
+
                     {/* Quick Filters Dropdown */}
                     <select
                       value={selectedPreset}
@@ -3958,7 +3696,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                       <option value="last6months">Last 6 Months</option>
                       <option value="allhistory">All History</option>
                     </select>
-                    
+
                     {operationError && (
                       <span className="text-xs text-red-600 ml-2">{operationError}</span>
                     )}
@@ -4002,11 +3740,11 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                           </button>
-                          
+
                           <span className="text-xs text-gray-700 font-medium px-1">
                             {dealsCurrentPage}/{dealsTotalPages}
                           </span>
-                          
+
                           <button
                             onClick={() => setDealsCurrentPage(prev => Math.min(dealsTotalPages, prev + 1))}
                             disabled={dealsCurrentPage === dealsTotalPages}
@@ -4520,7 +4258,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
             <div>
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Money Transactions</h3>
-                
+
                 {/* Success Message */}
                 {operationSuccess && (
                   <div className="mb-3 bg-green-50 border-l-4 border-green-500 rounded-r p-2">
@@ -4949,7 +4687,7 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
                           const requiresTimeParam = rule.requires_time_parameter
                           const timeOptions = rule.available_time_parameters || []
                           const currentTimeParam = clientRule?.time_parameter || ''
-                          
+
                           return (
                             <tr key={rule.id} className="bg-white hover:bg-gray-50 transition-colors">
                               <td className="px-4 py-3 text-sm text-gray-900 font-medium">{rule.rule_name}</td>
@@ -5007,8 +4745,8 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
               {/* Positions + Deals Summary face cards in 2 rows of Excel-like cells */}
               {(() => {
                 // Detect desktop view (for Max Profit/Loss placement)
-                const isDesktop = window.innerWidth > 768
-                
+                window.innerWidth > 768;
+
                 // Show only account money fields in the positions summary bar
                 const balance    = Number(clientData?.balance    ?? 0)
                 const credit     = Number(clientData?.credit     ?? 0)
@@ -5125,4 +4863,3 @@ const ClientPositionsModal = ({ client, onClose, onClientUpdate, allPositionsCac
 }
 
 export default ClientPositionsModal
-

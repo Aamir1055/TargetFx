@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import { brokerAPI } from '../services/api'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
 
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import { applyCumulativeFilters, applySearchFilter, applySorting } from '../utils/mobileFilters'
 
 const formatNum = (n, decimals = 2) => {
@@ -50,7 +50,7 @@ export default function MarginLevelModule() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [mobileReportsOpen, setMobileReportsOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
-  const [activeCardIndex, setActiveCardIndex] = useState(0)
+
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -60,16 +60,23 @@ export default function MarginLevelModule() {
     const [hasPendingFilterChanges, setHasPendingFilterChanges] = useState(false)
     const [pendingFilterDraft, setPendingFilterDraft] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
-  const carouselRef = useRef(null)
+
 
   // Mirror selectedClient into a ref so the polling closure always reads the latest value
   const selectedClientRef = useRef(null)
   useEffect(() => { selectedClientRef.current = selectedClient }, [selectedClient])
 
   // Fetch margin-call clients from REST API
+  const [sortColumn, setSortColumn] = useState(null)
+  const [sortDirection, setSortDirection] = useState('asc')
+  const [accountTypeFilter, setAccountTypeFilter] = useState('')
+  const marginRequestRef = useRef(0)
+  const accountTypeControl = <label className="inline-flex items-center gap-2 text-xs text-slate-600">Account Type<select aria-label="Filter by account type" value={accountTypeFilter} onChange={event => { setAccountTypeFilter(event.target.value); setCurrentPage(1) }} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">All types</option><option value="Liquidate">Liquidate</option><option value="Non-Liquidate">DNL</option></select></label>
   const fetchMarginCallClients = async () => {
+    const requestId = ++marginRequestRef.current
     try {
-      const res = await brokerAPI.getMarginCallClients()
+      const res = await brokerAPI.getMarginCallClients({ ...(accountTypeFilter ? { liquidateType: accountTypeFilter } : {}), ...(sortColumn ? { sortBy: sortColumn, sortOrder: sortDirection } : {}) })
+      if (requestId !== marginRequestRef.current) return
       const data = res?.data ?? res
       const list = Array.isArray(data)
         ? data
@@ -105,18 +112,17 @@ export default function MarginLevelModule() {
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [isAuthenticated, selectedClient])
+  }, [isAuthenticated, selectedClient, accountTypeFilter, sortColumn, sortDirection])
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [isPageChanging, setIsPageChanging] = useState(false)
   const pageChangeTimeoutRef = useRef(null)
   const itemsPerPage = 15
-  const [sortColumn, setSortColumn] = useState(null)
-  const [sortDirection, setSortDirection] = useState('asc')
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
     name: true,
+    liquidateType: true,
     equity: true,
     margin: true,
     marginFree: false,
@@ -213,7 +219,7 @@ export default function MarginLevelModule() {
 
   // Apply search
   const searchedAccounts = useMemo(() => {
-    return applySearchFilter(cumulativeFilteredAccounts, searchInput, ['login', 'name', 'group'])
+    return applySearchFilter(cumulativeFilteredAccounts, searchInput, ['login', 'name', 'group', 'liquidateType'])
   }, [cumulativeFilteredAccounts, searchInput])
 
   // Use searched accounts as ibFilteredAccounts for compatibility
@@ -227,7 +233,7 @@ export default function MarginLevelModule() {
       : 0
     const uniqueLogins = new Set(ibFilteredAccounts.map(a => a.login)).size
     const loginsUnder50 = uniqueLogins
-    
+
     return {
       totalUnder50,
       avgMarginLevel,
@@ -238,8 +244,8 @@ export default function MarginLevelModule() {
 
   // Sort the filtered accounts
   const sortedAccounts = useMemo(() => {
-    if (!sortColumn) return ibFilteredAccounts
-    
+    if (!sortColumn || sortColumn === 'liquidateType') return ibFilteredAccounts
+
     // Special handling for marginLevel column
     if (sortColumn === 'marginLevel') {
       return [...ibFilteredAccounts].sort((a, b) => {
@@ -248,13 +254,13 @@ export default function MarginLevelModule() {
         return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
       })
     }
-    
+
     // Map column keys to actual data fields for sorting
     const columnKeyMapping = {
       'marginFree': 'margin_free'
     }
     const sortKey = columnKeyMapping[sortColumn] || sortColumn
-    
+
     return applySorting(ibFilteredAccounts, sortKey, sortDirection)
   }, [ibFilteredAccounts, sortColumn, sortDirection])
 
@@ -268,24 +274,17 @@ export default function MarginLevelModule() {
   }
 
   // Face cards data - matching desktop layout
-  const [cards, setCards] = useState([])
+  const [, setCards] = useState([])
 
   // Map card labels to icon file paths
-  const getCardIcon = (label) => {
-    const baseUrl = import.meta.env.BASE_URL || '/'
-    const iconMap = {
-      'BELOW 50%': `${baseUrl}mobile-icons/Below 50%.svg`,
-      'AVG MARGIN LEVEL': `${baseUrl}mobile-icons/Avg Margin Level.svg`
-    }
-    return iconMap[label] || `${baseUrl}mobile-icons/Clients.svg`
-  }
-  
+
+
   useEffect(() => {
     const newCards = [
       { label: 'BELOW 50%', value: String(summaryStats.totalUnder50) },
       { label: 'AVG MARGIN LEVEL', value: formatNum(summaryStats.avgMarginLevel, 2) + '%' }
     ]
-    
+
     setCards(prevCards => {
       if (prevCards.length === 0) return newCards
       // Only update if values actually changed
@@ -306,6 +305,7 @@ export default function MarginLevelModule() {
   const allColumns = [
     { key: 'login', label: 'Login', width: '80px', sticky: true },
     { key: 'name', label: 'Name', width: '120px' },
+    { key: 'liquidateType', label: 'Account Type', width: '110px' },
     { key: 'equity', label: 'Equity', width: '100px' },
     { key: 'margin', label: 'Margin', width: '100px' },
     { key: 'marginFree', label: 'Margin Free', width: '100px' },
@@ -318,7 +318,7 @@ export default function MarginLevelModule() {
 
   const renderCellValue = (account, key, isSticky = false) => {
     let value = '-'
-    
+
     switch (key) {
       case 'login':
         value = account.login || '-'
@@ -338,6 +338,9 @@ export default function MarginLevelModule() {
             <span className="truncate">{value}</span>
           </div>
         )
+      case 'liquidateType':
+        value = account.liquidateType || '-'
+        break
       case 'name':
         value = account.name || '-'
         break
@@ -357,9 +360,11 @@ export default function MarginLevelModule() {
         value = fmtMoney(account.margin_free || account.marginFree || 0)
         break
       case 'marginLevel':
-        const ml = getMarginLevelPercent(account)
+        {
+const ml = getMarginLevelPercent(account)
         value = ml !== undefined ? formatNum(ml, 2) + '%' : '-'
         break
+}
       case 'profit':
         value = fmtMoney(account.profit || 0)
         break
@@ -406,7 +411,7 @@ export default function MarginLevelModule() {
             <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
           </svg>
         </button>
-        
+
         <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Margin Level</h1>
         {/* Hide profile avatar on mobile widths */}
         <div className="hidden md:flex w-12 h-12 rounded-full bg-blue-600 items-center justify-center ml-auto">
@@ -444,8 +449,8 @@ export default function MarginLevelModule() {
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
                 <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
-                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
-                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
                 </div>
               </div>
               <div className="border-t border-[#ECECEC] mb-2" />
@@ -496,6 +501,9 @@ export default function MarginLevelModule() {
                       <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                       <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                       <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
+                      <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
+                      <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                      <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                     </div>
                   )}
                 </div>
@@ -613,6 +621,7 @@ export default function MarginLevelModule() {
         </div>
 
 
+        <div className="px-4 pb-3">{accountTypeControl}</div>
         {/* Table */}
         <div>
           <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden">
@@ -855,4 +864,3 @@ export default function MarginLevelModule() {
     </div>
   )
 }
-

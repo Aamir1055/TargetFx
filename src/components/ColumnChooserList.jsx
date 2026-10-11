@@ -118,11 +118,11 @@ const ColumnChooserList = ({
     try {
       e.dataTransfer.effectAllowed = 'move'
       e.dataTransfer.setData('text/plain', key)
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
   const handleDragOver = (e, key) => {
     e.preventDefault()
-    try { e.dataTransfer.dropEffect = 'move' } catch {}
+    try { e.dataTransfer.dropEffect = 'move' } catch { /* Retain the fallback when this operation is unavailable. */ }
     if (key !== draggedKey) setDragOverKey(key)
   }
   const handleDragLeave = (key) => {

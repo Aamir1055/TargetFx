@@ -1,9 +1,9 @@
-import { useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+
+import { useAuth } from '../contexts/authContextStore'
 
 const Header = ({ onMenuToggle }) => {
   const { user } = useAuth()
-  
+
   return (
     <header className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

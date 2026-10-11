@@ -1,3 +1,4 @@
+import { accountTypeLabel } from '../utils/accountType'
 // Web Worker for heavy stats calculations
 // This runs in a separate thread to avoid blocking the UI
 
@@ -23,12 +24,12 @@ function calculateFullStats(clients) {
     totalDeposit: 0,
     netDW: 0
   }
-  
+
   // Use simple for loop for best performance in worker
   for (let i = 0; i < clients.length; i++) {
     const c = clients[i]
     if (!c) continue
-    
+
     stats.totalBalance += (c.balance || 0)
     stats.totalCredit += (c.credit || 0)
     stats.totalEquity += (c.equity || 0)
@@ -43,10 +44,10 @@ function calculateFullStats(clients) {
   stats.lifetimePnL += (c.lifetimePnL || 0)
     stats.totalDeposit += (c.dailyDeposit || 0)
   }
-  
+
   // Calculate net DW
   stats.netDW = stats.dailyDeposit - stats.dailyWithdrawal
-  
+
   return stats
 }
 
@@ -72,14 +73,14 @@ function filterClients(clients, filters) {
     const equity = Number(client?.equity)
     return (Number.isFinite(credit) ? credit : 0) - (Number.isFinite(equity) ? equity : 0)
   }
-  
+
   let filtered = clients.slice() // Fast shallow copy
-  
+
   // Filter by positions (has floating value)
   if (filterByPositions) {
     filtered = filtered.filter(c => c && c.floating && Math.abs(c.floating) > 0)
   }
-  
+
   // Filter by credit (has non-zero credit)
   if (filterByCredit) {
     filtered = filtered.filter(c => c && c.credit && c.credit !== 0)
@@ -93,12 +94,12 @@ function filterClients(clients, filters) {
       return Number.isFinite(pnlValue) && pnlValue !== 0
     })
   }
-  
+
   // Apply column filters
   if (columnFilters && Object.keys(columnFilters).length > 0) {
     Object.entries(columnFilters).forEach(([columnKey, values]) => {
       if (!values || values.length === 0) return
-      
+
       if (columnKey.endsWith('_number')) {
         // Number filter
         const actualKey = columnKey.replace('_number', '')
@@ -124,28 +125,28 @@ function filterClients(clients, filters) {
       }
     })
   }
-  
+
   // Apply search query
   if (searchQuery && searchQuery.trim() !== '') {
     const query = searchQuery.toLowerCase()
     filtered = filtered.filter(client => {
       if (!client) return false
-      
+
       // Search in key fields
       const searchableFields = [
         client.login?.toString(),
         client.name?.toLowerCase(),
         client.email?.toLowerCase(),
         client.group?.toLowerCase(),
-        client.country?.toLowerCase()
+        accountTypeLabel(client.liquidateType, client.country).toLowerCase()
       ]
-      
+
       return searchableFields.some(field => 
         field && field.includes(query)
       )
     })
   }
-  
+
   return filtered
 }
 
@@ -154,28 +155,28 @@ function filterClients(clients, filters) {
  */
 function matchesNumberFilter(value, filterValues) {
   if (!filterValues || typeof filterValues !== 'object') return true
-  
+
   const val = parseFloat(value)
   if (isNaN(val)) return false
-  
+
   const { min, max, equal, notEqual } = filterValues
-  
+
   if (equal !== undefined && equal !== null && equal !== '') {
     return val === parseFloat(equal)
   }
-  
+
   if (notEqual !== undefined && notEqual !== null && notEqual !== '') {
     return val !== parseFloat(notEqual)
   }
-  
+
   if (min !== undefined && min !== null && min !== '') {
     if (val < parseFloat(min)) return false
   }
-  
+
   if (max !== undefined && max !== null && max !== '') {
     if (val > parseFloat(max)) return false
   }
-  
+
   return true
 }
 
@@ -184,16 +185,16 @@ function matchesNumberFilter(value, filterValues) {
  */
 function matchesTextFilter(value, filterValues) {
   if (!filterValues || typeof filterValues !== 'object') return true
-  
+
   const { type, value: needle, caseSensitive } = filterValues
-  
+
   if (!needle || needle === '') return true
-  
+
   const hayRaw = value == null ? '' : String(value)
   const needleRaw = String(needle)
   const hay = caseSensitive ? hayRaw : hayRaw.toLowerCase()
   const n = caseSensitive ? needleRaw : needleRaw.toLowerCase()
-  
+
   switch (type) {
     case 'equal':
       return hay === n
@@ -220,33 +221,33 @@ function matchesTextFilter(value, filterValues) {
  */
 function sortClients(clients, sortConfig) {
   if (!sortConfig || !sortConfig.column) return clients
-  
+
   const { column, direction } = sortConfig
   const sorted = clients.slice()
-  
+
   sorted.sort((a, b) => {
     let aVal = a[column]
     let bVal = b[column]
-    
+
     // Handle null/undefined
     if (aVal == null && bVal == null) return 0
     if (aVal == null) return direction === 'asc' ? 1 : -1
     if (bVal == null) return direction === 'asc' ? -1 : 1
-    
+
     // Numeric comparison
     if (typeof aVal === 'number' && typeof bVal === 'number') {
       return direction === 'asc' ? aVal - bVal : bVal - aVal
     }
-    
+
     // String comparison
     const aStr = String(aVal).toLowerCase()
     const bStr = String(bVal).toLowerCase()
-    
+
     if (aStr < bStr) return direction === 'asc' ? -1 : 1
     if (aStr > bStr) return direction === 'asc' ? 1 : -1
     return 0
   })
-  
+
   return sorted
 }
 
@@ -258,81 +259,83 @@ function sortClients(clients, sortConfig) {
 function deduplicateClients(clients) {
   const seen = new Set()
   const deduped = []
-  
+
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i]
     if (!client) continue
-    
+
     const key = client.login ?? client.clientID ?? client.mqid
     if (key == null || key === '') {
       deduped.push(client) // Keep entries without stable key
       continue
     }
-    
+
     if (!seen.has(key)) {
       seen.add(key)
       deduped.push(client)
     }
   }
-  
+
   return deduped
 }
 
 // Main message handler
 self.onmessage = function(e) {
   const { type, payload, requestId } = e.data
-  
+
   try {
     let result
-    
+
     switch (type) {
       case 'CALCULATE_STATS':
         result = calculateFullStats(payload.clients)
         break
-        
+
       case 'FILTER_CLIENTS':
         result = filterClients(payload.clients, payload.filters)
         break
-        
+
       case 'SORT_CLIENTS':
         result = sortClients(payload.clients, payload.sortConfig)
         break
-        
+
       case 'DEDUPLICATE_CLIENTS':
         result = deduplicateClients(payload.clients)
         break
-        
+
       case 'FULL_PIPELINE':
         // Complete processing pipeline
-        let processed = payload.clients
-        
+        {
+let processed = payload.clients
+
         // 1. Filter
         if (payload.filters) {
           processed = filterClients(processed, payload.filters)
         }
-        
+
         // 2. Sort
         if (payload.sortConfig) {
           processed = sortClients(processed, payload.sortConfig)
         }
-        
+
         // 3. Deduplicate
         processed = deduplicateClients(processed)
-        
+
         // 4. Calculate stats
         const stats = calculateFullStats(processed)
-        
+
         result = {
           filteredClients: processed,
           stats: stats,
           count: processed.length
         }
         break
-        
+}
+
       default:
         throw new Error(`Unknown worker task type: ${type}`)
     }
-    
+
     // Send success response
     self.postMessage({
       type: 'SUCCESS',
@@ -341,7 +344,7 @@ self.onmessage = function(e) {
       result,
       timestamp: Date.now()
     })
-    
+
   } catch (error) {
     // Send error response
     self.postMessage({

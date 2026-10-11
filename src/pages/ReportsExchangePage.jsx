@@ -2,8 +2,8 @@ import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import * as XLSX from 'xlsx-js-style'
 import { brokerAPI } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
-import { useGroups } from '../contexts/GroupContext'
+import { useAuth } from '../contexts/authContextStore'
+import { useGroups } from '../contexts/groupContextStore'
 import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
@@ -583,16 +583,16 @@ const ReportsExchangePage = () => {
         <Sidebar
           desktopOnly
           isOpen={sidebarOpen}
-          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
         />
       </div>
       <div className="lg:hidden">
         <Sidebar
           mobileOnly
           isOpen={sidebarOpen}
-          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+          onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+          onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
         />
       </div>
 
@@ -603,7 +603,7 @@ const ReportsExchangePage = () => {
             <div className="sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
               <button
                 type="button"
-                onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {} ; return n })}
+                onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ } ; return n })}
                 className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center"
                 aria-label="Open menu"
               >

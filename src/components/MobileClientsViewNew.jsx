@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 
-const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
+const MobileClientsViewNew = ({ clients = [] }) => {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false)
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
+  const [, setIsColumnsModalOpen] = useState(false)
+  const [, setIsFilterModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  
+
   // Calculate metrics from clients data
   const metrics = {
     totalClients: clients.length,
@@ -48,25 +48,17 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
     { id: 14, label: 'MONTHLY EQUITY', amount: metrics.monthlyEquity.toLocaleString('en-IN', { minimumFractionDigits: 2 }), trend: metrics.monthlyEquity >= 0 ? 'up' : 'down', percent: '', color: metrics.monthlyEquity >= 0 ? 'green' : 'red' },
     { id: 15, label: 'NET LIFETIME', amount: metrics.netLifetime.toLocaleString('en-IN', { minimumFractionDigits: 2 }), trend: metrics.netLifetime >= 0 ? 'up' : 'down', percent: '', color: metrics.netLifetime >= 0 ? 'green' : 'red' }
   ]
-  
+
   const [faceCards, setFaceCards] = useState(initialCards)
 
-  const [visibleColumns, setVisibleColumns] = useState({
-    login: true,
-    balance: true,
-    floatingProfit: true,
-    equity: true,
-    name: true
-  })
 
-  const toggleColumn = (column) => {
-    setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }))
-  }
+
+
 
   const FaceCard = ({ card }) => {
     const isGreen = card.color === 'green'
     const gradientId = `gradient-${card.id}`
-    
+
     return (
       <div style={{
         boxSizing: 'border-box',
@@ -145,7 +137,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
               whiteSpace: 'nowrap'
             }}>{card.label}</span>
           </div>
-          
+
           {/* Amount */}
           <div style={{
             display: 'flex',
@@ -172,7 +164,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
             }}>USD</span>
           </div>
         </div>
-        
+
         {/* Bottom Section - Percentage + Chart (only for non-simple cards) */}
         {!card.simple && (
           <div style={{
@@ -204,7 +196,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 color: isGreen ? '#15803D' : '#B91C1C'
               }}>{card.percent}</span>
             </div>
-            
+
             {/* Mini Chart */}
             <svg width="50" height="24" viewBox="0 0 50 24" fill="none" style={{ marginRight: '-5px' }}>
               <defs>

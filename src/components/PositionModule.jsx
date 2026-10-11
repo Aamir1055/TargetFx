@@ -2,8 +2,8 @@ import { createLatestRequest } from '../utils/latestRequest'
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue, startTransition } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
-import { useData } from '../contexts/DataContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useData } from '../contexts/dataContextStore'
+import { useAuth } from '../contexts/authContextStore'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
 import DateFilterModal from './DateFilterModal'
@@ -11,7 +11,7 @@ import GroupModal from './GroupModal'
 import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import { applyCumulativeFilters, applySearchFilter, applySorting } from '../utils/mobileFilters'
 import { normalizePositions } from '../utils/currencyNormalization'
 import { formatTime as apiFormatTime, serverNowEpoch } from '../utils/dateFormatter'
@@ -34,7 +34,7 @@ export default function PositionModule() {
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, getGroupLogins, activeGroupFilters } = useGroups()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [mobileReportsOpen, setMobileReportsOpen] = useState(false)
-  const [activeCardIndex, setActiveCardIndex] = useState(0)
+  const [, setActiveCardIndex] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   useEffect(() => {
@@ -72,14 +72,14 @@ export default function PositionModule() {
     })
     return map
   }, [rawClients])
-  
+
   // Apply USD normalization to all positions automatically with USC handling
   const displayPositions = useMemo(() => {
     if (!positions || positions.length === 0) return positions
     return normalizePositions(positions, clientCurrencyMap)
   }, [positions, clientCurrencyMap])
-  
-  const [selectedClientDefaultTab, setSelectedClientDefaultTab] = useState('positions')
+
+
   const carouselRef = useRef(null)
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
@@ -92,12 +92,13 @@ export default function PositionModule() {
   const [showClientNet, setShowClientNet] = useState(false)
   // Exchange view: NET positions segregated by exchange (mutually exclusive with NET Position)
   const [showExchangeView, setShowExchangeView] = useState(true)
+  const [exchangeCardTotals, setExchangeCardTotals] = useState({ positionCount: 0, floatingCombined: 0, floatingINR: 0, floatingUSD: 0 })
   const exchangeViewRef = useRef(null)
-  const [groupByBaseSymbol, setGroupByBaseSymbol] = useState(false)
+  const [groupByBaseSymbol] = useState(false)
   const [displayMode, setDisplayMode] = useState('value') // 'value' or 'percentage'
   const [isExporting, setIsExporting] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const saved = localStorage.getItem('globalDisplayMode'); return saved === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
-  
+
   // Client NET states
   const [clientNetCurrentPage, setClientNetCurrentPage] = useState(1)
   const [isClientNetPageChanging, setIsClientNetPageChanging] = useState(false)
@@ -105,13 +106,8 @@ export default function PositionModule() {
   const clientNetItemsPerPage = 15
   const [clientNetSortColumn, setClientNetSortColumn] = useState(null)
   const [clientNetSortDirection, setClientNetSortDirection] = useState('asc')
-  const [clientNetCardsVisible, setClientNetCardsVisible] = useState({
-    clientNetRows: true,
-    totalNetVolume: true,
-    totalNetPL: true,
-    totalLogins: true
-  })
-  const [clientNetCardFilterOpen, setClientNetCardFilterOpen] = useState(false)
+
+  const [, setClientNetCardFilterOpen] = useState(false)
   const clientNetCardFilterRef = useRef(null)
   const [clientNetVisibleColumns, setClientNetVisibleColumns] = useState({
     symbol: true,
@@ -142,11 +138,11 @@ export default function PositionModule() {
   const [serverPositionsTotals, setServerPositionsTotals] = useState({ profit: 0, volume: 0, uniqueLogins: 0, floatingCombined: 0, floatingINR: 0, floatingUSD: 0 })
   const [hasFetchedServerPositions, setHasFetchedServerPositions] = useState(false)
   const hasFetchedServerPositionsRef = useRef(false)
-  const [isServerPositionsLoading, setIsServerPositionsLoading] = useState(false)
+  const [, setIsServerPositionsLoading] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const initialLoadDoneRef = useRef(false)
   const minTimerDoneRef = useRef(false)
-  
+
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
     firstName: false,
@@ -300,102 +296,12 @@ export default function PositionModule() {
   const dateFilteredPositions = deferredIbFilteredPositions
 
   // Calculate summary statistics (use deferred value to prevent blocking navigation)
-  const summaryStats = useMemo(() => {
-    const totalPositions = dateFilteredPositions.length
-    const totalFloatingProfit = dateFilteredPositions.reduce((sum, p) => sum + (p.profit || 0), 0)
-    const totalFloatingProfitPercentage = dateFilteredPositions.reduce((sum, p) => sum + (p.profit_percentage || 0), 0)
-    const uniqueLogins = new Set(dateFilteredPositions.map(p => p.login)).size
-    const uniqueSymbols = new Set(dateFilteredPositions.map(p => p.symbol)).size
-    
-    return {
-      totalPositions,
-      totalFloatingProfit,
-      totalFloatingProfitPercentage,
-      uniqueLogins,
-      uniqueSymbols
-    }
-  }, [dateFilteredPositions])
+
 
   // Calculate Client NET positions (group by login then symbol)
-  const calculateClientNetPositions = (positions) => {
-    if (!positions || positions.length === 0) return []
 
-    const getBaseSymbol = (s) => {
-      if (!s || typeof s !== 'string') return s
-      const parts = s.split(/[\.\-]/)
-      return parts[0] || s
-    }
 
-    const loginMap = new Map()
 
-    positions.forEach(pos => {
-      const login = pos.login
-      const symbol = pos.symbol
-      if (login == null || !symbol) return
-      
-      if (!loginMap.has(login)) loginMap.set(login, new Map())
-      const symMap = loginMap.get(login)
-      const symbolKey = groupByBaseSymbol ? getBaseSymbol(symbol) : symbol
-      
-      if (!symMap.has(symbolKey)) {
-        symMap.set(symbolKey, {
-          buyPositions: [],
-          sellPositions: []
-        })
-      }
-      const bucket = symMap.get(symbolKey)
-
-      const rawAction = pos.action
-      let actionNorm = null
-      if (rawAction === 0 || rawAction === '0') actionNorm = 'buy'
-      else if (rawAction === 1 || rawAction === '1') actionNorm = 'sell'
-      else if (typeof rawAction === 'string') actionNorm = rawAction.toLowerCase()
-
-      if (actionNorm === 'buy') bucket.buyPositions.push(pos)
-      else if (actionNorm === 'sell') bucket.sellPositions.push(pos)
-    })
-
-    const rows = []
-    loginMap.forEach((symMap, login) => {
-      symMap.forEach((bucket, symbol) => {
-        const buyVol = bucket.buyPositions.reduce((s, p) => s + (p.volume || 0), 0)
-        const sellVol = bucket.sellPositions.reduce((s, p) => s + (p.volume || 0), 0)
-        const netVol = buyVol - sellVol
-        if (netVol === 0) return
-
-        let tw = 0, tv = 0, tp = 0, ts = 0, tc = 0
-        const use = netVol > 0 ? bucket.buyPositions : bucket.sellPositions
-        use.forEach(p => {
-          const v = p.volume || 0
-          const pr = p.priceOpen || 0
-          tw += pr * v
-          tv += v
-          tp += p.profit || 0
-          ts += p.storage || 0
-          tc += p.commission || 0
-        })
-        const avg = tv > 0 ? tw / tv : 0
-        const netType = netVol > 0 ? 'Sell' : 'Buy'
-        const totalPositions = bucket.buyPositions.length + bucket.sellPositions.length
-
-        rows.push({
-          login,
-          symbol,
-          netType,
-          netVolume: Math.abs(netVol),
-          avgPrice: avg,
-          totalProfit: /[cC]$/.test(symbol) ? tp / 100 : tp,
-          totalStorage: /[cC]$/.test(symbol) ? ts / 100 : ts,
-          totalCommission: /[cC]$/.test(symbol) ? tc / 100 : tc,
-          totalPositions
-        })
-      })
-    })
-
-    return rows.sort((a, b) => a.login === b.login ? b.netVolume - a.netVolume : String(a.login).localeCompare(String(b.login)))
-  }
-
-  const clientNetPositions = useMemo(() => calculateClientNetPositions(dateFilteredPositions), [dateFilteredPositions, groupByBaseSymbol])
 
   // Poll server every 2s for regular positions (mirrors PositionsPage.jsx desktop behaviour)
   useEffect(() => {
@@ -621,7 +527,7 @@ export default function PositionModule() {
   const filteredPositions = useMemo(() => {
     // Apply search filter (date filter already applied in dateFilteredPositions)
     let filtered = applySearchFilter(dateFilteredPositions, debouncedSearch, ['symbol', 'login'])
-    
+
     // Map column keys to actual data fields for sorting
     const columnKeyMapping = {
       'updated': 'timeUpdate',
@@ -631,10 +537,10 @@ export default function PositionModule() {
       'totalProfit': 'profit'
     }
     const sortKey = columnKeyMapping[sortColumn] || sortColumn
-    
+
     // Apply sorting
     filtered = applySorting(filtered, sortKey, sortDirection)
-    
+
     return filtered
   }, [dateFilteredPositions, debouncedSearch, sortColumn, sortDirection])
 
@@ -661,10 +567,7 @@ export default function PositionModule() {
   }
 
   // Calculate totals (memoized to prevent recalculation)
-  const totalProfit = useMemo(() => 
-    filteredPositions.reduce((sum, pos) => sum + (Number(pos.profit) || 0), 0),
-    [filteredPositions]
-  )
+
 
   // Mobile now uses server-polled data (same as desktop). isMobileRegularServerMode = true once first poll done.
   const isMobileRegularServerMode = hasFetchedServerPositions
@@ -779,7 +682,7 @@ export default function PositionModule() {
   const renderCellValue = (pos, columnKey, isSticky = false) => {
     const stickyClass = isSticky ? 'sticky left-0 bg-white z-10' : ''
     const stickyStyle = isSticky ? { boxShadow: '2px 0 4px rgba(0,0,0,0.05)' } : {}
-    
+
     switch(columnKey) {
       case 'symbol':
         return <div className={`h-[38px] flex items-center justify-start px-2 overflow-hidden text-ellipsis whitespace-nowrap text-black font-semibold ${stickyClass}`} style={stickyStyle}>{pos.symbol || '-'}</div>
@@ -842,7 +745,8 @@ export default function PositionModule() {
         return <div title={numericMode === 'compact' ? fmtMoneyFull(displayCommission) : undefined} className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{fmtMoney(displayCommission)}</div>
       }
       case 'login':
-        const handleLoginClick = () => {
+        {
+const handleLoginClick = () => {
           const fullClient = clients.find(c => String(c.login) === String(pos.login))
             || rawClients.find(c => String(c.login) === String(pos.login))
           const derivedName = [pos.firstName, pos.lastName].filter(Boolean).join(' ') || pos.name || ''
@@ -861,9 +765,12 @@ export default function PositionModule() {
             {pos.login || '-'}
           </div>
         )
+}
       case 'updated':
-        const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.timeUpdateStr || pos.timeCreateStr, '-')
+        {
+const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.timeUpdateStr || pos.timeCreateStr, '-')
         return <div className={`h-[38px] flex items-center justify-start px-2 ${stickyClass}`} style={stickyStyle}>{formattedTime}</div>
+}
       case 'firstName':
       case 'middleName':
       case 'lastName':
@@ -880,22 +787,10 @@ export default function PositionModule() {
 
 
   // Map card labels to icon file paths (updated for NET view)
-  const getCardIcon = (label) => {
-    const baseUrl = import.meta.env.BASE_URL || '/'
-    const iconMap = {
-      'TOTAL': `${baseUrl}mobile-icons/Total Positions.svg`,
-      'NET VOLUME': `${baseUrl}mobile-icons/Volume Current.svg`,
-      'TOTAL PROFIT': `${baseUrl}mobile-icons/Floating PNL.svg`,
-      'UNIQUE LOGINS': `${baseUrl}mobile-icons/Unique Logins.svg`,
-      'Floating Combined': `${baseUrl}mobile-icons/Floating Combined.svg`,
-      'Floating INR': `${baseUrl}mobile-icons/Floating INR.svg`,
-      'Floating USD': `${baseUrl}mobile-icons/Floating USD.svg`,
-    }
-    return iconMap[label] || `${baseUrl}mobile-icons/Clients.svg`
-  }
+
 
   // Face cards for NET view: use server totals once available (same as desktop)
-  const [cards, setCards] = useState([])
+
   const netTotals = useMemo(() => {
     if (showClientNet && hasFetchedServerNet) {
       const loginSet = new Set(serverNetPositions.map(p => p.login).filter(Boolean))
@@ -923,13 +818,7 @@ export default function PositionModule() {
     }
   }, [showClientNet, hasFetchedServerNet, serverNetPositions, serverNetTotal, serverPositionsTotals, hasFetchedServerPositions, serverPositionsTotal, filteredPositions])
 
-  // Face cards array for rendering
-  const netFaceCards = [
-    { label: 'TOTAL', value: String(netTotals.total) },
-    { label: 'NET VOLUME', value: fmtMoney(netTotals.netVolume) },
-    { label: 'TOTAL PROFIT', value: fmtMoney(netTotals.totalProfit), isProfit: true, profitValue: netTotals.totalProfit },
-    { label: 'UNIQUE LOGINS', value: String(netTotals.uniqueLogins) }
-  ]
+
 
   // Card carousel scroll tracking
   useEffect(() => {
@@ -948,35 +837,9 @@ export default function PositionModule() {
   }, [])
 
   // CSV export helpers
-  const toCSV = (rows, headers) => {
-    if (!rows || rows.length === 0) return headers.map(h => h.label).join(',')
-    const esc = (v) => {
-      if (v === null || v === undefined) return ''
-      let s = String(v)
-      s = s.replace(/"/g, '""')
-      if (/[",\n]/.test(s)) s = '"' + s + '"'
-      return s
-    }
-    const headerRow = headers.map(h => h.label).join(',')
-    const body = rows.map(r => headers.map(h => esc(h.accessor ? h.accessor(r) : r[h.key])).join(',')).join('\n')
-    return headerRow + '\n' + body
-  }
 
-  const downloadFile = (filename, content) => {
-    try {
-      const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    } catch (e) {
-      console.error('CSV download failed:', e)
-    }
-  }
+
+
 
   const handleMobileExport = async () => {
     if (isExporting) return
@@ -1160,11 +1023,11 @@ export default function PositionModule() {
       const vh = window.innerHeight * 0.01
       document.documentElement.style.setProperty('--vh', `${vh}px`)
     }
-    
+
     setVH()
     window.addEventListener('resize', setVH)
     window.addEventListener('orientationchange', setVH)
-    
+
     return () => {
       window.removeEventListener('resize', setVH)
       window.removeEventListener('orientationchange', setVH)
@@ -1183,9 +1046,9 @@ export default function PositionModule() {
             <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
           </svg>
         </button>
-        
+
         <h1 className="text-xl font-semibold text-black">Positions</h1>
-        
+
         <div className="w-12 h-12"></div>
       </div>
 
@@ -1222,8 +1085,8 @@ export default function PositionModule() {
                     type="button"
                     onClick={() => {
                       setNumericMode('compact')
-                      try { localStorage.setItem('globalDisplayMode', 'compact') } catch {}
-                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'compact' })) } catch {}
+                      try { localStorage.setItem('globalDisplayMode', 'compact') } catch { /* Retain the fallback when this operation is unavailable. */ }
+                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'compact' })) } catch { /* Retain the fallback when this operation is unavailable. */ }
                     }}
                     className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode === 'compact' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
                   >
@@ -1233,8 +1096,8 @@ export default function PositionModule() {
                     type="button"
                     onClick={() => {
                       setNumericMode('full')
-                      try { localStorage.setItem('globalDisplayMode', 'full') } catch {}
-                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'full' })) } catch {}
+                      try { localStorage.setItem('globalDisplayMode', 'full') } catch { /* Retain the fallback when this operation is unavailable. */ }
+                      try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: 'full' })) } catch { /* Retain the fallback when this operation is unavailable. */ }
                     }}
                     className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode === 'full' ? 'bg-[#3B5BDB] text-white shadow-sm' : 'text-[#374151] hover:bg-white/70'}`}
                   >
@@ -1290,6 +1153,9 @@ export default function PositionModule() {
                       <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                       <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                       <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
+                      <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
+                      <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                      <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                     </div>
                   )}
                 </div>
@@ -1429,7 +1295,7 @@ export default function PositionModule() {
 
 
         {/* Face Cards Carousel - matching desktop: Total Positions, Floating Combined, Floating INR, Floating USD */}
-        {isMobileView && !showClientNet && !showExchangeView && (() => {
+        {isMobileView && !showClientNet && (() => {
           const cardStyle = {
             boxSizing: 'border-box', minWidth: '125px', width: '125px', height: '60px',
             background: '#FFFFFF', border: '1px solid #F2F2F7',
@@ -1439,13 +1305,13 @@ export default function PositionModule() {
             userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'pan-x'
           }
           const icon = (name) => `${import.meta.env.BASE_URL || '/'}mobile-icons/${name}.svg`
-          const fc = serverPositionsTotals
+          const fc = showExchangeView ? exchangeCardTotals : serverPositionsTotals
           const mobileCards = [
             {
               label: 'Total Positions',
               icon: icon('Total Positions'),
-              value: fmtCount(netTotals?.total || 0),
-              fullValue: netTotals?.total || 0,
+              value: fmtCount(showExchangeView ? exchangeCardTotals.positionCount : netTotals?.total || 0),
+              fullValue: showExchangeView ? exchangeCardTotals.positionCount : netTotals?.total || 0,
               color: '#000000',
               arrow: null
             },
@@ -1639,7 +1505,7 @@ export default function PositionModule() {
                           gridTemplateColumns
                         }}
                       >
-                        {activeColumns.map((col, colIdx) => (
+                        {activeColumns.map((col) => (
                           <div 
                             key={col.key}
                             className={`h-[38px] flex items-center justify-center px-1 ${col.sticky ? 'sticky left-0 bg-white z-10' : ''}`}
@@ -1699,6 +1565,12 @@ export default function PositionModule() {
           <ExchangeNetPositions
             ref={exchangeViewRef}
             variant="mobile"
+            onTotals={totals => setExchangeCardTotals({
+              positionCount: Number(totals?.positionCount) || 0,
+              floatingCombined: Number(totals?.floatingCombined) || 0,
+              floatingINR: Number(totals?.floatingINR) || 0,
+              floatingUSD: Number(totals?.floatingUSD) || 0
+            })}
             displayMode={displayMode}
             masterLabel={getActiveGroupFilter('positions') || 'ALL'}
             loginFilter={(() => {
@@ -2347,4 +2219,3 @@ export default function PositionModule() {
     </div>
   );
 }
-

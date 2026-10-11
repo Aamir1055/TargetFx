@@ -1,6 +1,6 @@
-import { useState } from 'react'
 
-const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
+
+const MobileClientsViewNew = () => {
   return (
     <div style={{
       position: 'relative',
@@ -257,7 +257,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 whiteSpace: 'nowrap'
               }}>NET LIFETIME</span>
             </div>
-            
+
             {/* Amount */}
             <div style={{
               display: 'flex',
@@ -284,7 +284,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
               }}>USD</span>
             </div>
           </div>
-          
+
           {/* Bottom Section - Percentage + Chart */}
           <div style={{
             display: 'flex',
@@ -311,7 +311,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 color: '#15803D'
               }}>12.0%</span>
             </div>
-            
+
             {/* Mini Chart */}
             <svg width="50" height="24" viewBox="0 0 50 24" fill="none" style={{ marginRight: '-5px' }}>
               <defs>
@@ -367,7 +367,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 whiteSpace: 'nowrap'
               }}>DAILY NET D/W</span>
             </div>
-            
+
             <div style={{
               display: 'flex',
               flexDirection: 'row',
@@ -393,7 +393,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
               }}>USD</span>
             </div>
           </div>
-          
+
           <div style={{
             display: 'flex',
             flexDirection: 'row',
@@ -418,7 +418,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 color: '#B91C1C'
               }}>12.0%</span>
             </div>
-            
+
             <svg width="50" height="24" viewBox="0 0 50 24" fill="none" style={{ marginRight: '-5px' }}>
               <defs>
                 <linearGradient id="redGradient1" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -453,7 +453,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
             boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
             borderRadius: '8px'
           }} />
-          
+
           <div style={{
             position: 'absolute',
             left: '5.68%',
@@ -495,7 +495,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                   color: '#475467'
                 }}>MONTHLY EQUITY</span>
               </div>
-              
+
               <div style={{
                 display: 'flex',
                 flexDirection: 'row',
@@ -525,7 +525,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 }}>USD</span>
               </div>
             </div>
-            
+
             <div style={{
               display: 'flex',
               flexDirection: 'row',
@@ -563,7 +563,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                   color: '#B91C1C'
                 }}>12.0%</span>
               </div>
-              
+
               <svg width="44" height="34" viewBox="0 0 44 34" fill="none">
                 <defs>
                   <linearGradient id="redGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -599,7 +599,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
             boxShadow: '0px 0px 12px rgba(75, 75, 75, 0.05)',
             borderRadius: '8px'
           }} />
-          
+
           <div style={{
             position: 'absolute',
             left: '5.68%',
@@ -641,7 +641,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                   color: '#475467'
                 }}>TOTAL EQUITY</span>
               </div>
-              
+
               <div style={{
                 display: 'flex',
                 flexDirection: 'row',
@@ -671,7 +671,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 }}>USD</span>
               </div>
             </div>
-            
+
             <div style={{
               display: 'flex',
               flexDirection: 'row',
@@ -709,7 +709,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                   color: '#15803D'
                 }}>12.0%</span>
               </div>
-              
+
               <svg width="44" height="34" viewBox="0 0 44 34" fill="none">
                 <defs>
                   <linearGradient id="greenGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -773,7 +773,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 <rect width="12" height="12" fill="#2563EB"/>
               </svg>
             </div>
-            
+
             <div style={{
               display: 'flex',
               flexDirection: 'row',
@@ -854,7 +854,7 @@ const MobileClientsViewNew = ({ clients = [], onClientClick }) => {
                 <rect width="12" height="12" fill="#2563EB"/>
               </svg>
             </div>
-            
+
             <div style={{
               display: 'flex',
               flexDirection: 'row',

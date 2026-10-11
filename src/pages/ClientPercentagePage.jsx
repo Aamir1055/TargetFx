@@ -2,9 +2,9 @@ import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { createLatestRequest } from '../utils/latestRequest'
 import { useState, useEffect, useRef, useMemo, Fragment, cloneElement } from 'react'
 import { brokerAPI } from '../services/api'
-import { useGroups } from '../contexts/GroupContext'
-import { useData } from '../contexts/DataContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useGroups } from '../contexts/groupContextStore'
+import { useData } from '../contexts/dataContextStore'
+import { useAuth } from '../contexts/authContextStore'
 import Sidebar from '../components/Sidebar'
 import PageSizeSelect from '../components/PageSizeSelect'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -15,7 +15,8 @@ import GroupModal from '../components/GroupModal'
 import ClientPercentageModule from '../components/ClientPercentageModule'
 import AutoPercentageModal from '../components/AutoPercentageModal'
 import ColumnChooserList from '../components/ColumnChooserList'
-import useColumnResize, { ColumnResizeHandle } from '../hooks/useColumnResize.jsx'
+import useColumnResize from '../hooks/useColumnResize.jsx'
+import { ColumnResizeHandle } from '../components/ColumnResizeHandle'
 import { getPercentageType, getPercentageTypeBadgeClass } from '../utils/percentageType'
 import { formatDate } from '../utils/dateFormatter'
 
@@ -57,9 +58,9 @@ const ClientPercentagePage = () => {
     if (numericMode === 'compact' && Math.abs(num) >= 1000) return formatCompactIndian(num)
     return String(num)
   }
-  
-  const { filterByActiveGroup, activeGroupFilters, getActiveGroupFilter } = useGroups()
-  const { positions: cachedPositions, orders: cachedOrders } = useData()
+
+  const { filterByActiveGroup } = useGroups()
+  useData()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
       const v = localStorage.getItem('sidebarOpen')
@@ -84,11 +85,11 @@ const ClientPercentagePage = () => {
     total_default: 0,
     default_percentage: 0
   })
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(100)
-  
+
   // Search states
   const [searchQuery, setSearchQuery] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -127,17 +128,17 @@ const ClientPercentagePage = () => {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) return parsed
       }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return null
   })
   useEffect(() => {
     try {
       if (columnOrder) localStorage.setItem('clientPercentagePageColumnOrder', JSON.stringify(columnOrder))
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [columnOrder])
   const resetColumnOrder = () => {
     setColumnOrder(null)
-    try { localStorage.removeItem('clientPercentagePageColumnOrder') } catch {}
+    try { localStorage.removeItem('clientPercentagePageColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
   const orderedColumns = (() => {
     if (!Array.isArray(columnOrder) || columnOrder.length === 0) return allColumns
@@ -156,7 +157,7 @@ const ClientPercentagePage = () => {
     } catch { return [] }
   })
   useEffect(() => {
-    try { localStorage.setItem('clientPercentagePagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+    try { localStorage.setItem('clientPercentagePagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -177,7 +178,7 @@ const ClientPercentagePage = () => {
       }
     }
     return map
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [orderedColumns, visibleColumns, pinnedColumns])
 
   const applyPin = (cell, colKey, isHeader) => {
@@ -234,7 +235,7 @@ const ClientPercentagePage = () => {
   const [exportProgress, setExportProgress] = useState(0)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const exportMenuRef = useRef(null)
-  
+
   // Sorting states
   const [sortColumn, setSortColumn] = useState('client_login')
   const [sortDirection, setSortDirection] = useState('asc')
@@ -275,17 +276,17 @@ const ClientPercentagePage = () => {
     try {
       setLoading(true)
       setError('')
-      
+
       const params = { 
         page, 
         page_size: itemsPerPage,
         sort_by: sortColumn === 'client_login' ? 'login' : sortColumn === 'client_name' ? 'name' : sortColumn,
         sort_order: sortDirection
       }
-      
+
       // Add search parameter if search query exists
       const trimmedQuery = searchQuery.trim().toLowerCase()
-      
+
       // Check if searching for type (custom/default)
       if (trimmedQuery === 'custom') {
         params.has_custom = true
@@ -295,10 +296,10 @@ const ClientPercentagePage = () => {
         // Otherwise search by login
         params.login = searchQuery.trim()
       }
-      
+
       const response = await brokerAPI.getAllClientPercentages(params)
       if (!isCurrent()) return
-      
+
       const payload = response?.data?.data ?? response?.data ?? response ?? {}
       const clientsData = Array.isArray(payload.clients) ? payload.clients : []
       setClients(clientsData)
@@ -308,7 +309,7 @@ const ClientPercentagePage = () => {
         total_default: payload.total_default ?? 0,
         default_percentage: payload.default_percentage ?? 0
       })
-      
+
     } catch (err) {
       if (!isCurrent()) return
       console.error('Error fetching client percentages:', err)
@@ -328,13 +329,13 @@ const ClientPercentagePage = () => {
 
   const handleSavePercentage = async () => {
     if (!selectedClient) return
-    
+
     const percentage = parseFloat(editPercentage)
     if (isNaN(percentage) || percentage < 0 || percentage > 100) {
       alert('Please enter a valid percentage between 0 and 100')
       return
     }
-    
+
     try {
       setSaving(true)
       await brokerAPI.setClientPercentage(
@@ -342,10 +343,10 @@ const ClientPercentagePage = () => {
         percentage,
         editComment || `Custom percentage: ${percentage}%`
       )
-      
+
       // Refresh the list
       await fetchAllClientPercentages()
-      
+
       setShowEditModal(false)
       setSelectedClient(null)
       setEditPercentage('')
@@ -718,7 +719,7 @@ const ClientPercentagePage = () => {
   const handleCSVImport = async () => {
     if (csvData.length === 0) return
     const BATCH_SIZE = 500
-    const totalBatches = Math.ceil(csvData.length / BATCH_SIZE)
+    Math.ceil(csvData.length / BATCH_SIZE);
     try {
       setCsvImporting(true)
       setCsvImportProgress({ done: 0, total: csvData.length })
@@ -763,15 +764,7 @@ const ClientPercentagePage = () => {
   }
 
   // Sorting
-  const handleSort = (column) => {
-    setCurrentPage(1)
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortColumn(column)
-      setSortDirection('asc')
-    }
-  }
+
 
   const sortedClients = () => {
     // API handles search and sort — preserve server order, just apply group filter
@@ -788,23 +781,7 @@ const ClientPercentagePage = () => {
     setCurrentPage(1)
   }
 
-  const getAvailableOptions = () => {
-    const totalItems = stats.total
-    const options = []
-    
-    // Start from 100 and increment by 100, dynamically based on total data
-    for (let i = 100; i <= totalItems; i += 100) {
-      options.push(i)
-      if (options.length >= 10) break // Limit to 10 options
-    }
-    
-    // If no options generated or total is less than 100, add at least one option
-    if (options.length === 0) {
-      options.push(Math.max(100, totalItems))
-    }
-    
-    return options
-  }
+
 
   const paginatedClients = () => {
     // Server-side pagination: just return sorted clients as-is
@@ -813,7 +790,7 @@ const ClientPercentagePage = () => {
 
   const totalPages = Math.max(1, Math.ceil(stats.total / itemsPerPage))
   const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
+  startIndex + itemsPerPage;
   const displayedClients = paginatedClients()
 
   // Close column selector when clicking outside
@@ -920,10 +897,10 @@ const ClientPercentagePage = () => {
       )}
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}; return n })}
+        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+        onToggle={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return n })}
       />
-      
+
       <main className={`flex-1 p-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         <div className="max-w-full mx-auto w-full flex flex-col flex-1 overflow-hidden">
           {/* Header Section */}
@@ -1151,7 +1128,7 @@ const ClientPercentagePage = () => {
                         placeholder="Search by Login and Type"
                         className="w-full h-10 pl-10 pr-20 text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                       />
-                      
+
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                         {searchInput && (
                           <button
@@ -1180,7 +1157,7 @@ const ClientPercentagePage = () => {
                         </button>
                       </div>
                     </div>
-                    
+
                     {/* Columns Button (icon only) */}
                     <div className="relative">
                       <button
@@ -1596,7 +1573,7 @@ const ClientPercentagePage = () => {
           </div>
         </div>
       )}
-      
+
       {/* Create Group Modal */}
       <GroupModal
         isOpen={showGroupModal}

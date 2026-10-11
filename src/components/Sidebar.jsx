@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import { useGroups } from '../contexts/GroupContext'
-import { useIB } from '../contexts/IBContext'
+import { useAuth } from '../contexts/authContextStore'
+import { useGroups } from '../contexts/groupContextStore'
+import { useIB } from '../contexts/ibContextStore'
 import { useState, useEffect } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 
@@ -19,14 +19,14 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
       const count = parseInt(localStorage.getItem('marginLevelCount') || '0', 10)
       setStoredMarginCount(count)
     }
-    
+
     // Initial load
     updateCount()
-    
+
     // Listen for changes
     window.addEventListener('marginLevelCountChanged', updateCount)
     window.addEventListener('storage', updateCount)
-    
+
     return () => {
       window.removeEventListener('marginLevelCountChanged', updateCount)
       window.removeEventListener('storage', updateCount)
@@ -45,8 +45,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
   })
   const changeDisplayMode = (next) => {
     setDisplayMode(next)
-    try { localStorage.setItem('globalDisplayMode', next) } catch {}
-    try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: next })) } catch {}
+    try { localStorage.setItem('globalDisplayMode', next) } catch { /* Retain the fallback when this operation is unavailable. */ }
+    try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged', { detail: next })) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
   useEffect(() => {
     const onChange = (e) => {
@@ -60,7 +60,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
       window.removeEventListener('storage', onChange)
     }
   }, [])
-  
+
   const navigationItems = [
     { name: 'Clients', path: '/client2', icon: 'client2', img: 'Clients.svg' },
     { name: 'Positions', path: '/positions', icon: 'positions', img: 'Positions.svg' },
@@ -75,7 +75,10 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
       children: [
         { name: 'Brokerage Data', path: '/reports/exchange' },
         { name: 'Historical Positions', path: '/reports/historical-positions' },
-        { name: 'Deals', path: '/reports/deals' }
+        { name: 'Deals', path: '/reports/deals' },
+        { name: 'Credit', path: '/reports/credit' },
+        { name: 'Agent Details', path: '/reports/agent-details' },
+        { name: 'Deposit and Withdrawal Report', path: '/reports/deposit-withdrawal' }
       ]
     },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
@@ -89,22 +92,22 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
   const reportsExpanded = reportsOpen
 
   const baseUrl = import.meta.env.BASE_URL || '/'
-  
+
   const handleNavigate = (path) => {
     // Clear cross-module filters on navigation (desktop parity with mobile)
     try {
       setActiveGroupFilter('client2', null)
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     try {
       clearIBSelection()
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     // Close the current mobile drawer before switching routes.
     if (typeof onClose === 'function' && window.innerWidth < 1024) {
       onClose()
     }
     navigate(path)
   }
-  
+
   const isActivePath = (path) => {
     return location.pathname === path
   }
@@ -169,7 +172,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
               <div className="border-t border-[#ECECEC] mb-2" />
               <nav className="flex flex-col">
                 {navigationItems.map(item => {
-                  const isParentActive = item.children?.some(child => isActivePath(child.path))
+                  item.children?.some(child => isActivePath(child.path));
                   if (item.children) {
                     return (
                       <div key={item.name}>

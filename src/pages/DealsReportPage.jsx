@@ -3,14 +3,14 @@ import { getPresetRange } from '../utils/dealTimePresets'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { brokerAPI } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import CustomizeViewModal from '../components/CustomizeViewModal'
 import LoginGroupsModal from '../components/LoginGroupsModal'
 import LoginGroupModal from '../components/LoginGroupModal'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
 import PageSizeSelect from '../components/PageSizeSelect'
@@ -147,13 +147,13 @@ const DealsReportPage = () => {
     try {
       const saved = JSON.parse(localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY) || 'null')
       if (saved && typeof saved === 'object') return { ...getDefaultVisibleColumns(), ...saved }
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return getDefaultVisibleColumns()
   })
   const [columnPickerOpen, setColumnPickerOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   useEffect(() => {
-    try { localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns)) } catch {}
+    try { localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [visibleColumns])
   const toggleColumn = (key) => setVisibleColumns(value => {
     const next = { ...value, [key]: !value[key] }
@@ -171,7 +171,7 @@ const DealsReportPage = () => {
     try {
       if (columnOrder) localStorage.setItem('dealsReportColumnOrder', JSON.stringify(columnOrder))
       else localStorage.removeItem('dealsReportColumnOrder')
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [columnOrder])
   const orderedColumns = (() => {
     if (!Array.isArray(columnOrder) || !columnOrder.length) return COLUMNS
@@ -190,7 +190,7 @@ const DealsReportPage = () => {
     } catch { return [] }
   })
   useEffect(() => {
-    try { localStorage.setItem('dealsReportPinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+    try { localStorage.setItem('dealsReportPinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) => setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
   const resetColumns = () => {
@@ -603,8 +603,8 @@ const DealsReportPage = () => {
     <div className="h-screen flex bg-[#F8F8F8] md:bg-gradient-to-br md:from-blue-50 md:via-white md:to-blue-50 overflow-hidden">
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(value => { const next = !value; try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch {}; return next })}
+        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
+        onToggle={() => setSidebarOpen(value => { const next = !value; try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch { /* Retain the fallback when this operation is unavailable. */ }; return next })}
       />
 
       <main className={`flex-1 min-w-0 p-0 md:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
@@ -804,8 +804,7 @@ const DealsReportPage = () => {
             </div>
 
             <div className="overflow-auto flex-1 min-h-0" style={{ scrollbarWidth: 'thin', scrollbarColor: '#9ca3af #e5e7eb' }}>
-              {!loading && !deals.length ? emptyOrError
-                : (
+              {(
                   <table className="min-w-full text-xs border-separate border-spacing-0">
                     <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
                       <tr>
@@ -828,7 +827,7 @@ const DealsReportPage = () => {
                             </td>
                           ))}
                         </tr>
-                      )) : deals.map((deal, index) => (
+                      )) : !deals.length ? <tr><td colSpan={shownColumns.length}>{emptyOrError}</td></tr> : deals.map((deal, index) => (
                         <tr key={`${deal.deal ?? deal.id ?? 'd'}-${index}`} className={`${index % 2 ? 'bg-[#F9FAFB]' : 'bg-white'} hover:bg-blue-50`}>
                           {shownColumns.map(column => (
                             <td

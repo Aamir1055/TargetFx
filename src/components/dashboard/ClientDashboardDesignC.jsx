@@ -1,3 +1,4 @@
+import { parseAccountTypePreferences } from '../../utils/accountType'
 import React, { useMemo, useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FilterModal from '../FilterModal'
@@ -5,8 +6,8 @@ import GroupModal from '../GroupModal'
 import LoginGroupsModal from '../LoginGroupsModal'
 import LoginGroupModal from '../LoginGroupModal'
 import ClientDetailsMobileModal from '../ClientDetailsMobileModal'
-import { useData } from '../../contexts/DataContext'
-import { useGroups } from '../../contexts/GroupContext'
+import { useData } from '../../contexts/dataContextStore'
+import { useGroups } from '../../contexts/groupContextStore'
 import { brokerAPI } from '../../services/api'
 import { formatTime } from '../../utils/dateFormatter'
 
@@ -24,7 +25,7 @@ export default function ClientDashboardDesignC() {
   const clients = rawClients.length > 0 ? rawClients : normalizedClients
   const { groups, deleteGroup, getActiveGroupFilter, setActiveGroupFilter, filterByActiveGroup, activeGroupFilters } = useGroups()
   const [commissionTotals, setCommissionTotals] = useState(null)
-  const [activeCardIndex, setActiveCardIndex] = useState(0)
+  const [, setActiveCardIndex] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
@@ -41,7 +42,7 @@ export default function ClientDashboardDesignC() {
   const carouselRef = useRef(null)
   const viewAllRef = useRef(null)
   const itemsPerPage = 12
-  
+
   // Redirect to desktop view on desktop viewport
   useEffect(() => {
     const checkDesktop = () => {
@@ -50,10 +51,10 @@ export default function ClientDashboardDesignC() {
         navigate('/clients')
       }
     }
-    
+
     // Check on mount
     checkDesktop()
-    
+
     // Check on resize
     window.addEventListener('resize', checkDesktop)
     return () => window.removeEventListener('resize', checkDesktop)
@@ -81,7 +82,7 @@ export default function ClientDashboardDesignC() {
 
     return () => clearInterval(interval)
   }, [])
-  
+
   // Available columns for the table - matching desktop ClientsPage columns
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
@@ -91,7 +92,7 @@ export default function ClientDashboardDesignC() {
     email: false,
     phone: true,
     group: false,
-    country: false,
+    liquidateType: false,
     city: false,
     state: false,
     address: false,
@@ -145,7 +146,7 @@ export default function ClientDashboardDesignC() {
     thisMonthPnL: false,
     thisWeekPnL: false
   })
-  const [columnSearchQuery, setColumnSearchQuery] = useState('')
+
   // Add missing searchInput state for mobile search bar
   const [searchInput, setSearchInput] = useState('')
   const [showViewAllModal, setShowViewAllModal] = useState(false)
@@ -170,7 +171,7 @@ export default function ClientDashboardDesignC() {
     const [moved] = newOrder.splice(fromIdx, 1)
     newOrder.splice(toIdx, 0, moved)
     setCardOrder(newOrder)
-    try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder)) } catch {}
+    try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
 
   // Filter clients based on applied filters
@@ -212,7 +213,7 @@ export default function ClientDashboardDesignC() {
     if (searchInput && searchInput.trim().length > 0) {
       const q = searchInput.toLowerCase().trim();
       filtered = filtered.filter(c => {
-        // Search in login, name, lastName, email, phone, group, country
+        // Search in login, name, lastName, email, phone, group, liquidateType
         return (
           String(c.login || '').toLowerCase().includes(q) ||
           String(c.name || '').toLowerCase().includes(q) ||
@@ -220,7 +221,7 @@ export default function ClientDashboardDesignC() {
           String(c.email || '').toLowerCase().includes(q) ||
           String(c.phone || '').toLowerCase().includes(q) ||
           String(c.group || '').toLowerCase().includes(q) ||
-          String(c.country || '').toLowerCase().includes(q)
+          String(c.liquidateType || '').toLowerCase().includes(q)
         );
       });
     }
@@ -229,31 +230,31 @@ export default function ClientDashboardDesignC() {
 
   const filteredClients = useMemo(() => {
     let filtered = getFilteredClients()
-    
+
     // Apply sorting if sortColumn is set
     if (sortColumn) {
       filtered = [...filtered].sort((a, b) => {
         const aVal = a[sortColumn]
         const bVal = b[sortColumn]
-        
+
         if (aVal == null && bVal == null) return 0
         if (aVal == null) return 1
         if (bVal == null) return -1
-        
+
         // Try numeric comparison first
         const aNum = Number(aVal)
         const bNum = Number(bVal)
         if (!isNaN(aNum) && !isNaN(bNum)) {
           return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
         }
-        
+
         // Fall back to string comparison
         const aStr = String(aVal).toLowerCase()
         const bStr = String(bVal).toLowerCase()
         return sortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr)
       })
     }
-    
+
     return filtered
   }, [clients, filters, lastWsReceiveAt, filterByActiveGroup, activeGroupFilters, sortColumn, sortDirection])
   const totalPages = Math.ceil((filteredClients?.length || 0) / itemsPerPage)
@@ -262,12 +263,12 @@ export default function ClientDashboardDesignC() {
   const exportTableColumns = () => {
     // Export only visible table columns (from filtered data if filters applied)
     const dataToExport = (Object.values(filters).some(f => f)) ? filteredClients : clients
-    
+
     if (!Array.isArray(dataToExport) || dataToExport.length === 0) {
       alert('No data available to export')
       return
     }
-    
+
     const tableData = dataToExport.map(client => ({
       Login: client.login || '',
       Name: client.name || client.fullName || client.clientName || client.email || client.login || '',
@@ -275,14 +276,14 @@ export default function ClientDashboardDesignC() {
       'Balance (USD)': formatNum(client.balance || 0),
       'Floating (USD)': formatNum(client.floating || client.profit || 0)
     }))
-    
+
     // Create CSV content
     const headers = Object.keys(tableData[0] || {})
     const csvContent = [
       headers.join(','),
       ...tableData.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
     ].join('\n')
-    
+
     // Download file
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -297,12 +298,12 @@ export default function ClientDashboardDesignC() {
   const exportAllColumns = () => {
     // Export all available columns (from filtered data if filters applied)
     const dataToExport = (Object.values(filters).some(f => f)) ? filteredClients : clients
-    
+
     if (!Array.isArray(dataToExport) || dataToExport.length === 0) {
       alert('No data available to export')
       return
     }
-    
+
     const allData = dataToExport.map(client => ({
       Login: client.login || '',
       Name: client.name || client.fullName || client.clientName || client.email || client.login || '',
@@ -321,14 +322,14 @@ export default function ClientDashboardDesignC() {
       'Registration Time': formatTime(client.regTime || client.registration, ''),
       'Last Access': formatTime(client.lastAccess, '')
     }))
-    
+
     // Create CSV content
     const headers = Object.keys(allData[0] || {})
     const csvContent = [
       headers.join(','),
       ...allData.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
     ].join('\n')
-    
+
     // Download file
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -349,7 +350,7 @@ export default function ClientDashboardDesignC() {
     { key: 'email', label: 'Email', width: '140px' },
     { key: 'phone', label: 'Phone', width: '100px' },
     { key: 'group', label: 'Group', width: '80px' },
-    { key: 'country', label: 'Country', width: '80px' },
+    { key: 'liquidateType', label: 'Account Type', width: '80px' },
     { key: 'city', label: 'City', width: '80px' },
     { key: 'state', label: 'State', width: '80px' },
     { key: 'address', label: 'Address', width: '140px' },
@@ -428,7 +429,7 @@ export default function ClientDashboardDesignC() {
       email: c.email || '-',
       phone: c.phone || c.phoneNo || c.phone_number || '-',
       group: c.group || '-',
-      country: c.country || '-',
+      liquidateType: c.liquidateType || '-',
       city: c.city || '-',
       state: c.state || '-',
       address: c.address || '-',
@@ -492,13 +493,13 @@ export default function ClientDashboardDesignC() {
     console.log('📊 Cards calculation - clientStats:', clientStats)
     console.log('📊 Filtered clients data:', filteredClients?.slice(0, 2))
     console.log('📊 lastWsReceiveAt:', lastWsReceiveAt)
-    
+
     // Always calculate from actual client data for real-time updates
     // Use filteredClients if any filter is active (basic filters OR group filter)
     const hasBasicFilters = Object.values(filters).some(f => f)
     const hasGroupFilter = activeGroupFilters?.dashboard != null
     const dataToUse = (hasBasicFilters || hasGroupFilter) ? filteredClients : clients
-    
+
     const calculateStats = () => {
       if (!Array.isArray(dataToUse) || dataToUse.length === 0) {
         return {
@@ -533,7 +534,7 @@ export default function ClientDashboardDesignC() {
           previousDayEquity: 0
         }
       }
-      
+
       // Enhanced robust numeric sum helper matching desktop ClientsPage
       const sum = (key) => dataToUse.reduce((acc, c) => {
         if (!c || typeof c !== 'object') return acc
@@ -553,7 +554,7 @@ export default function ClientDashboardDesignC() {
         const n = Number(v)
         return acc + (Number.isFinite(n) ? n : 0)
       }, 0)
-      
+
       return {
         totalClients: dataToUse.length,
         totalBalance: sum('balance'),
@@ -591,10 +592,10 @@ export default function ClientDashboardDesignC() {
         previousDayEquity: sum('yesterdayEquity')
       }
     }
-    
+
     // Always recalculate from client data to ensure real-time updates
     const stats = calculateStats()
-    
+
     if (showPercent) {
       // Show percent for all face cards - comprehensive mapping
       const sum = (key) => Array.isArray(dataToUse) ? dataToUse.reduce((acc, c) => acc + (Number(c?.[key]) || 0), 0) : 0;
@@ -608,7 +609,7 @@ export default function ClientDashboardDesignC() {
         { label: 'TOTAL EQUITY', value: fmt(sum('equity_percentage')), unit: '%', numericValue: getNumericValue('equity_percentage') },
         { label: 'PNL', value: fmt(sum('pnl_percentage')), unit: '%', numericValue: getNumericValue('pnl_percentage') },
         { label: 'Floating Profit', value: fmt(sum('profit_percentage')), unit: '%', numericValue: getNumericValue('profit_percentage') },
-        
+
         // Daily Metrics %
         { label: 'Daily Deposit', value: fmt(sum('dailyDeposit_percentage')), unit: '%', numericValue: getNumericValue('dailyDeposit_percentage') },
         { label: 'Daily Withdrawal', value: fmt(sum('dailyWithdrawal_percentage')), unit: '%', numericValue: getNumericValue('dailyWithdrawal_percentage') },
@@ -616,37 +617,37 @@ export default function ClientDashboardDesignC() {
         { label: 'This Week PnL', value: fmt(sum('thisWeekPnL_percentage')), unit: '%', numericValue: getNumericValue('thisWeekPnL_percentage') },
         { label: 'Monthly EQuity', value: fmt(sum('thisMonthPnL_percentage')), unit: '%', numericValue: getNumericValue('thisMonthPnL_percentage') },
         { label: 'LIFETIME PnL', value: fmt(sum('lifetimePnL_percentage')), unit: '%', numericValue: getNumericValue('lifetimePnL_percentage') },
-        
+
         // Net Calculations % (calculate from percentage values)
         { label: 'Daily Net D/W', value: fmt(sum('dailyDeposit_percentage') - sum('dailyWithdrawal_percentage')), unit: '%', numericValue: sum('dailyDeposit_percentage') - sum('dailyWithdrawal_percentage') },
         { label: 'Book PnL', value: fmt(sum('lifetimePnL_percentage') + sum('profit_percentage')), unit: '%', numericValue: sum('lifetimePnL_percentage') + sum('profit_percentage') },
-        
+
         // Rebate Metrics % (use API commission totals data)
         { label: 'Total Rebate', value: fmt(commissionTotals?.total_commission_percentage || 0), unit: '%', numericValue: commissionTotals?.total_commission_percentage || 0 },
         { label: 'Available Rebate', value: fmt(commissionTotals?.total_available_commission_percentage || 0), unit: '%', numericValue: commissionTotals?.total_available_commission_percentage || 0 },
         { label: 'Blocked Rebate', value: fmt(sum('blockedCommission_percentage') || 0), unit: '%', numericValue: sum('blockedCommission_percentage') || 0 },
-        
+
         // Weekly Metrics %
         { label: 'Week Deposit', value: fmt(sum('weekDeposit_percentage') || sum('thisWeekDeposit_percentage')), unit: '%', numericValue: sum('weekDeposit_percentage') || sum('thisWeekDeposit_percentage') },
         { label: 'Week Withdrawal', value: fmt(sum('weekWithdrawal_percentage') || sum('thisWeekWithdrawal_percentage')), unit: '%', numericValue: sum('weekWithdrawal_percentage') || sum('thisWeekWithdrawal_percentage') },
         { label: 'NET Week DW', value: fmt((sum('weekDeposit_percentage') || sum('thisWeekDeposit_percentage')) - (sum('weekWithdrawal_percentage') || sum('thisWeekWithdrawal_percentage'))), unit: '%', numericValue: (sum('weekDeposit_percentage') || sum('thisWeekDeposit_percentage')) - (sum('weekWithdrawal_percentage') || sum('thisWeekWithdrawal_percentage')) },
-        
+
         // Monthly Metrics %
         { label: 'Monthly Deposit', value: fmt(sum('monthDeposit_percentage') || sum('thisMonthDeposit_percentage')), unit: '%', numericValue: sum('monthDeposit_percentage') || sum('thisMonthDeposit_percentage') },
         { label: 'Monthly Withdrawal', value: fmt(sum('monthWithdrawal_percentage') || sum('thisMonthWithdrawal_percentage')), unit: '%', numericValue: sum('monthWithdrawal_percentage') || sum('thisMonthWithdrawal_percentage') },
         { label: 'NET Monthly DW', value: fmt((sum('monthDeposit_percentage') || sum('thisMonthDeposit_percentage')) - (sum('monthWithdrawal_percentage') || sum('thisMonthWithdrawal_percentage'))), unit: '%', numericValue: (sum('monthDeposit_percentage') || sum('thisMonthDeposit_percentage')) - (sum('monthWithdrawal_percentage') || sum('thisMonthWithdrawal_percentage')) },
-        
+
         // Lifetime Metrics %
         { label: 'Lifetime Deposit', value: fmt(sum('lifetimeDeposit_percentage')), unit: '%', numericValue: sum('lifetimeDeposit_percentage') },
         { label: 'Lifetime Withdrawal', value: fmt(sum('lifetimeWithdrawal_percentage')), unit: '%', numericValue: sum('lifetimeWithdrawal_percentage') },
         { label: 'NET Lifetime DW', value: fmt(sum('lifetimeDeposit_percentage') - sum('lifetimeWithdrawal_percentage')), unit: '%', numericValue: sum('lifetimeDeposit_percentage') - sum('lifetimeWithdrawal_percentage') },
-        
+
         // Rebate/Commission Metrics % (from API commission totals)
         { label: 'Total Rebate', value: fmt(commissionTotals?.total_commission_percentage || 0), unit: '%', numericValue: commissionTotals?.total_commission_percentage || 0 },
         { label: 'Available Rebate', value: fmt(commissionTotals?.total_available_commission_percentage || 0), unit: '%', numericValue: commissionTotals?.total_available_commission_percentage || 0 },
         { label: 'Blocked Rebate', value: fmt(sum('blockedCommission_percentage') || 0), unit: '%', numericValue: sum('blockedCommission_percentage') || 0 },
         { label: 'Available Rebate %', value: fmt(commissionTotals?.total_available_commission_percentage || 0), unit: '%', numericValue: commissionTotals?.total_available_commission_percentage || 0 },
-        
+
         // Bonus Metrics %
         { label: 'Daily Bonus IN', value: fmt(sum('dailyBonusIn_percentage')), unit: '%', numericValue: sum('dailyBonusIn_percentage') },
         { label: 'Daily Bonus OUT', value: fmt(sum('dailyBonusOut_percentage')), unit: '%', numericValue: sum('dailyBonusOut_percentage') },
@@ -654,7 +655,7 @@ export default function ClientDashboardDesignC() {
         { label: 'Week Bonus IN', value: fmt(sum('weekBonusIn_percentage') || sum('thisWeekBonusIn_percentage')), unit: '%', numericValue: sum('weekBonusIn_percentage') || sum('thisWeekBonusIn_percentage') },
         { label: 'Week Bonus OUT', value: fmt(sum('weekBonusOut_percentage') || sum('thisWeekBonusOut_percentage')), unit: '%', numericValue: sum('weekBonusOut_percentage') || sum('thisWeekBonusOut_percentage') },
         { label: 'NET Week Bonus', value: fmt((sum('weekBonusIn_percentage') || sum('thisWeekBonusIn_percentage')) - (sum('weekBonusOut_percentage') || sum('thisWeekBonusOut_percentage'))), unit: '%', numericValue: (sum('weekBonusIn_percentage') || sum('thisWeekBonusIn_percentage')) - (sum('weekBonusOut_percentage') || sum('thisWeekBonusOut_percentage')) },
-        
+
         // Credit Bonus Metrics %
         { label: 'Credit Bonus IN', value: fmt(sum('creditBonusIn_percentage')), unit: '%', numericValue: sum('creditBonusIn_percentage') },
         { label: 'Credit Bonus OUT', value: fmt(sum('creditBonusOut_percentage')), unit: '%', numericValue: sum('creditBonusOut_percentage') },
@@ -669,7 +670,7 @@ export default function ClientDashboardDesignC() {
       { label: 'TOTAL EQUITY', value: formatNum(stats?.totalEquity || 0), unit: 'USD', numericValue: stats?.totalEquity || 0 },
       { label: 'PNL', value: formatNum(stats?.totalPnl || stats?.dailyPnL || 0), unit: 'USD', numericValue: stats?.totalPnl || stats?.dailyPnL || 0 },
       { label: 'Floating Profit', value: formatNum(stats?.totalProfit || 0), unit: 'USD', numericValue: stats?.totalProfit || 0 },
-      
+
       // Daily Metrics
       { label: 'Daily Deposit', value: formatNum(stats?.dailyDeposit || 0), unit: 'USD', numericValue: stats?.dailyDeposit || 0 },
       { label: 'Daily Withdrawal', value: formatNum(stats?.dailyWithdrawal || 0), unit: 'USD', numericValue: stats?.dailyWithdrawal || 0 },
@@ -677,37 +678,37 @@ export default function ClientDashboardDesignC() {
       { label: 'This Week PnL', value: formatNum(stats?.thisWeekPnL || 0), unit: 'USD', numericValue: stats?.thisWeekPnL || 0 },
       { label: 'Monthly EQuity', value: formatNum(stats?.thisMonthPnL || 0), unit: 'USD', numericValue: stats?.thisMonthPnL || 0 },
       { label: 'LIFETIME PnL', value: formatNum(stats?.lifetimePnL || 0), unit: 'USD', numericValue: stats?.lifetimePnL || 0 },
-      
+
       // Net Calculations  
       { label: 'Daily Net D/W', value: formatNum((stats?.dailyDeposit || 0) - (stats?.dailyWithdrawal || 0)), unit: 'USD', numericValue: (stats?.dailyDeposit || 0) - (stats?.dailyWithdrawal || 0) },
       { label: 'Book PnL', value: formatNum((stats?.lifetimePnL || 0) + (stats?.totalProfit || 0)), unit: 'USD', numericValue: (stats?.lifetimePnL || 0) + (stats?.totalProfit || 0) },
-      
+
       // Rebate Metrics (from API commission totals)
       { label: 'Total Rebate', value: formatNum(commissionTotals?.total_commission || 0), unit: 'USD', numericValue: commissionTotals?.total_commission || 0 },
       { label: 'Available Rebate', value: formatNum(commissionTotals?.total_available_commission || 0), unit: 'USD', numericValue: commissionTotals?.total_available_commission || 0 },
       { label: 'Blocked Rebate', value: formatNum(stats?.blockedCommission), unit: 'USD', numericValue: stats?.blockedCommission || 0 },
-      
+
       // Weekly Metrics
       { label: 'Week Deposit', value: formatNum(stats?.weekDeposit), unit: 'USD' },
       { label: 'Week Withdrawal', value: formatNum(stats?.weekWithdrawal), unit: 'USD' },
       { label: 'NET Week DW', value: formatNum((stats?.weekDeposit || 0) - (stats?.weekWithdrawal || 0)), unit: 'USD' },
-      
+
       // Monthly Metrics
       { label: 'Monthly Deposit', value: formatNum(stats?.monthDeposit), unit: 'USD' },
       { label: 'Monthly Withdrawal', value: formatNum(stats?.monthWithdrawal), unit: 'USD' },
       { label: 'NET Monthly DW', value: formatNum((stats?.monthDeposit || 0) - (stats?.monthWithdrawal || 0)), unit: 'USD' },
-      
+
       // Lifetime Metrics
       { label: 'Lifetime Deposit', value: formatNum(stats?.lifetimeDeposit), unit: 'USD' },
       { label: 'Lifetime Withdrawal', value: formatNum(stats?.lifetimeWithdrawal), unit: 'USD' },
       { label: 'NET Lifetime DW', value: formatNum((stats?.lifetimeDeposit || 0) - (stats?.lifetimeWithdrawal || 0)), unit: 'USD' },
-      
+
       // Rebate/Commission Metrics (from API commission totals)
       { label: 'Total Rebate', value: formatNum(commissionTotals?.total_commission || 0), unit: 'USD', numericValue: commissionTotals?.total_commission || 0 },
       { label: 'Available Rebate', value: formatNum(commissionTotals?.total_available_commission || 0), unit: 'USD', numericValue: commissionTotals?.total_available_commission || 0 },
       { label: 'Blocked Rebate', value: formatNum(stats?.blockedCommission), unit: 'USD', numericValue: stats?.blockedCommission || 0 },
       { label: 'Available Rebate %', value: formatNum(commissionTotals?.total_available_commission_percentage || 0), unit: '%', numericValue: commissionTotals?.total_available_commission_percentage || 0 },
-      
+
       // Bonus Metrics
       { label: 'Daily Bonus IN', value: formatNum(stats?.dailyBonusIn), unit: 'USD' },
       { label: 'Daily Bonus OUT', value: formatNum(stats?.dailyBonusOut), unit: 'USD' },
@@ -715,15 +716,15 @@ export default function ClientDashboardDesignC() {
       { label: 'Week Bonus IN', value: formatNum(stats?.weekBonusIn), unit: 'USD' },
       { label: 'Week Bonus OUT', value: formatNum(stats?.weekBonusOut), unit: 'USD' },
       { label: 'NET Week Bonus', value: formatNum((stats?.weekBonusIn || 0) - (stats?.weekBonusOut || 0)), unit: 'USD' },
-      
+
       // Credit Bonus Metrics
       { label: 'Credit Bonus IN', value: formatNum(stats?.creditBonusIn), unit: 'USD' },
       { label: 'Credit Bonus OUT', value: formatNum(stats?.creditBonusOut), unit: 'USD' },
       { label: 'NET Credit Bonus', value: formatNum((stats?.creditBonusIn || 0) - (stats?.creditBonusOut || 0)), unit: 'USD' },
-      
+
       // Previous Equity Metrics
       { label: 'Previous Day Equity', value: formatNum(stats?.previousDayEquity), unit: 'USD' },
-      
+
       // Additional Calculated Metrics
       { label: 'Net Lifetime PnL', value: formatNum((stats?.lifetimePnL || 0) - (stats?.totalCommission || 0)), unit: 'USD' },
     ]
@@ -736,8 +737,8 @@ export default function ClientDashboardDesignC() {
     let saved = []
     try {
       const raw = localStorage.getItem(CARD_ORDER_KEY)
-      saved = raw ? JSON.parse(raw) : []
-    } catch {}
+      saved = raw ? parseAccountTypePreferences(raw) : []
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
 
     let order = Array.isArray(saved) && saved.length > 0
       ? saved.filter(l => labels.includes(l))
@@ -750,7 +751,7 @@ export default function ClientDashboardDesignC() {
     const changed = JSON.stringify(order) !== JSON.stringify(cardOrder)
     if (changed) {
       setCardOrder(order)
-      try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(order)) } catch {}
+      try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(order)) } catch { /* Retain the fallback when this operation is unavailable. */ }
     }
   }, [cards])
 
@@ -1154,7 +1155,7 @@ export default function ClientDashboardDesignC() {
                   e.dataTransfer.setData('cardLabel', card.label)
                   setDragStartLabel(card.label)
                   e.currentTarget.style.opacity = '0.5'
-                } catch {}
+                } catch { /* Retain the fallback when this operation is unavailable. */ }
               }}
               onDragEnd={(e) => {
                 e.currentTarget.style.opacity = '1'
@@ -1179,7 +1180,7 @@ export default function ClientDashboardDesignC() {
                 e.currentTarget.style.transform = 'scale(1)'
                 e.currentTarget.style.boxShadow = '0 0 12px rgba(75, 75, 75, 0.05)'
                 let fromLabel = ''
-                try { fromLabel = e.dataTransfer.getData('cardLabel') } catch {}
+                try { fromLabel = e.dataTransfer.getData('cardLabel') } catch { /* Retain the fallback when this operation is unavailable. */ }
                 const toLabel = card.label
                 if (fromLabel && fromLabel !== toLabel) {
                   swapOrder(fromLabel, toLabel)
@@ -1265,7 +1266,7 @@ export default function ClientDashboardDesignC() {
               className="flex-1 min-w-0 outline-none border-0 text-[11px] text-[#4B4B4B] placeholder:text-[#999999] bg-transparent font-outfit" 
             />
           </div>
-          
+
           {/* Column selector button */}
           <div className="relative" ref={columnDropdownRef}>
             <button 
@@ -1319,7 +1320,7 @@ export default function ClientDashboardDesignC() {
           <div className="relative" style={{ minWidth: 'max-content' }}>
           {/* Header row */}
           <div className="grid bg-[#1A63BC] text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
-            {visibleColumnsList.map((col, idx) => (
+            {visibleColumnsList.map((col) => (
               <div 
                 key={col.key}
                 onClick={() => {
@@ -1347,7 +1348,7 @@ export default function ClientDashboardDesignC() {
           {/* Rows */}
           {rows.map((r, idx) => (
             <div key={idx} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
-              {visibleColumnsList.map((col, colIdx) => (
+              {visibleColumnsList.map((col) => (
                 <div 
                   key={col.key}
                   onClick={() => {
@@ -1367,7 +1368,7 @@ export default function ClientDashboardDesignC() {
           ))}
           {/* Footer row */}
           <div className="grid bg-[#EFF4FB] text-[#1A63BC] text-[10px] font-semibold border-t-2 border-[#1A63BC]" style={{gap: '0px', gridGap: '0', columnGap: '0', gridTemplateColumns}}>
-            {visibleColumnsList.map((col, idx) => (
+            {visibleColumnsList.map((col) => (
               <div 
                 key={col.key}
                 className={`h-[38px] flex items-center justify-center px-1 ${col.key === 'login' ? 'font-bold sticky left-0 bg-[#EFF4FB] z-10' : ''}`}
@@ -1488,7 +1489,7 @@ export default function ClientDashboardDesignC() {
                 'Email': 'email',
                 'Phone': 'phone',
                 'Group': 'group',
-                'Country': 'country',
+                'Account Type': 'liquidateType',
                 'City': 'city',
                 'State': 'state',
                 'Address': 'address',
@@ -1579,7 +1580,7 @@ export default function ClientDashboardDesignC() {
                     email: false,
                     phone: true,
                     group: false,
-                    country: false,
+                    liquidateType: false,
                     city: false,
                     state: false,
                     address: false,
@@ -1682,7 +1683,7 @@ export default function ClientDashboardDesignC() {
               onClick={() => {
                 const labels = Array.from(new Set((Array.isArray(cards) ? cards : []).map(c => c.label)))
                 setCardOrder(labels)
-                try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(labels)) } catch {}
+                try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(labels)) } catch { /* Retain the fallback when this operation is unavailable. */ }
                 const firstMap = new Map()
                 for (const c of (Array.isArray(cards) ? cards : [])) { if (!firstMap.has(c.label)) firstMap.set(c.label, c) }
                 setViewAllCards(labels.map(l => firstMap.get(l)).filter(Boolean))
@@ -1701,13 +1702,13 @@ export default function ClientDashboardDesignC() {
                 data-label={card.label}
                 draggable="true"
                 onDragStart={(e) => {
-                  try { e.dataTransfer.setData('cardLabel', card.label) } catch {}
+                  try { e.dataTransfer.setData('cardLabel', card.label) } catch { /* Retain the fallback when this operation is unavailable. */ }
                 }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
                   let fromLabel = ''
-                  try { fromLabel = e.dataTransfer.getData('cardLabel') } catch {}
+                  try { fromLabel = e.dataTransfer.getData('cardLabel') } catch { /* Retain the fallback when this operation is unavailable. */ }
                   const toLabel = card.label
                   if (!fromLabel || !toLabel || fromLabel === toLabel) return
                   const fromIdx = cardOrder.indexOf(fromLabel)
@@ -1717,15 +1718,15 @@ export default function ClientDashboardDesignC() {
                   const [moved] = newOrder.splice(fromIdx, 1)
                   newOrder.splice(toIdx, 0, moved)
                   setCardOrder(newOrder)
-                  try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder)) } catch {}
+                  try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder)) } catch { /* Retain the fallback when this operation is unavailable. */ }
                   const map = new Map(orderedCards.map(c => [c.label, c]))
                   setViewAllCards(newOrder.map(l => map.get(l)).filter(Boolean))
                 }}
                 onPointerDown={(e) => {
                   setDragStartLabel(card.label)
-                  try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+                  try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* Retain the fallback when this operation is unavailable. */ }
                 }}
-                onPointerUp={(e) => {
+                onPointerUp={() => {
                   const toLabel = card.label
                   if (dragStartLabel && toLabel && dragStartLabel !== toLabel) {
                     const fromIdx = cardOrder.indexOf(dragStartLabel)
@@ -1735,7 +1736,7 @@ export default function ClientDashboardDesignC() {
                       const [moved] = newOrder.splice(fromIdx, 1)
                       newOrder.splice(toIdx, 0, moved)
                       setCardOrder(newOrder)
-                      try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder)) } catch {}
+                      try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder)) } catch { /* Retain the fallback when this operation is unavailable. */ }
                       const map = new Map(orderedCards.map(c => [c.label, c]))
                       setViewAllCards(newOrder.map(l => map.get(l)).filter(Boolean))
                     }

@@ -18,9 +18,9 @@ const BulkUpdatePercentageModal = ({ isOpen, onClose, selectedIBData, onSuccess 
       setIsUpdating(true)
       const updates = selectedIBData.map(ib => ({ id: ib.id, percentage: percentageValue }))
       const response = await brokerAPI.bulkUpdateIBPercentages(updates)
-      
+
       if (response.status === 'success') {
-        alert(`Successfully updated ${selectedIBs.length} IB commission(s) to ${percentageValue}%`)
+        alert(`Successfully updated ${selectedIBData.length} IB commission(s) to ${percentageValue}%`)
         setPercentage('')
         onSuccess()
         onClose()
@@ -112,7 +112,7 @@ const BulkUpdatePercentageModal = ({ isOpen, onClose, selectedIBData, onSuccess 
               autoFocus
             />
             <p className="text-[11px] text-gray-500 mt-1">
-              This percentage will be applied to all {selectedIBs.length} selected IB(s)
+              This percentage will be applied to all {selectedIBData.length} selected IB(s)
             </p>
           </div>
         </div>
@@ -131,7 +131,7 @@ const BulkUpdatePercentageModal = ({ isOpen, onClose, selectedIBData, onSuccess 
           </button>
           <button
             onClick={handleUpdate}
-            disabled={isUpdating || !percentage || selectedIBs.length === 0}
+            disabled={isUpdating || !percentage || selectedIBData.length === 0}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all"
           >
             {isUpdating ? (

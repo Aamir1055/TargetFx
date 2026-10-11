@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import websocketService from '../services/websocket'
-import { useData } from '../contexts/DataContext'
+import { useData } from '../contexts/dataContextStore'
 
 const WebSocketIndicator = () => {
   const [connectionState, setConnectionState] = useState('disconnected')

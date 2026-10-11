@@ -1,10 +1,11 @@
+import { parseAccountTypePreferences } from '../utils/accountType'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 // ...existing code...
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useData } from '../contexts/DataContext'
-import { useGroups } from '../contexts/GroupContext'
-import { useIB } from '../contexts/IBContext'
+import { useData } from '../contexts/dataContextStore'
+import { useGroups } from '../contexts/groupContextStore'
+import { useIB } from '../contexts/ibContextStore'
 import Sidebar from '../components/Sidebar'
 import PageSizeSelect from '../components/PageSizeSelect'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -23,17 +24,17 @@ const ClientsPage = () => {
     // Card filter search query for filter modal
     const [cardFilterSearchQuery, setCardFilterSearchQuery] = useState('');
   const navigate = useNavigate()
-  const { clients: cachedClients, rawClients, positions: cachedPositions, orders: cachedOrders, clientStats, latestServerTimestamp, lastWsReceiveAt, latestMeasuredLagMs, fetchClients, fetchPositions, loading, connectionState, statsDrift } = useData()
-  
+  const {  rawClients, latestServerTimestamp, lastWsReceiveAt, latestMeasuredLagMs, fetchClients, fetchPositions } = useData()
+
   // Always use rawClients (unnormalized) for Clients module - USC values are handled by backend
   // rawClients contains data without frontend USC normalization
   const clients = rawClients.length > 0 ? rawClients : []
   const { filterByActiveGroup, activeGroupFilters, setActiveGroupFilter } = useGroups()
   const { filterByActiveIB, selectedIB, ibMT5Accounts, refreshIBList, clearIBSelection } = useIB()
-  
+
   // Mobile detection with redirect
   const [isMobile] = useState(false)
-  
+
   // Redirect to mobile view on mobile viewport
   useEffect(() => {
     const checkMobile = () => {
@@ -42,18 +43,18 @@ const ClientsPage = () => {
         navigate('/client-dashboard-c')
       }
     }
-    
+
     // Check on mount
     checkMobile()
-    
+
     // Check on resize
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [navigate])
-  
+
   // Track if component is mounted to prevent updates after unmount
   const isMountedRef = useRef(true)
-  
+
   // Ensure IB list is prefetched when entering Clients module (navigation)
   useEffect(() => {
     try {
@@ -61,7 +62,7 @@ const ClientsPage = () => {
     } catch (e) {
       console.warn('[ClientsPage] Failed to prefetch IB list:', e)
     }
-    
+
     return () => {
       // Mark component as unmounted
       isMountedRef.current = false
@@ -71,30 +72,30 @@ const ClientsPage = () => {
     try {
       const v = localStorage.getItem('sidebarOpen')
       if (v === null) return true
-      return JSON.parse(v)
+      return parseAccountTypePreferences(v)
     } catch { return true }
   }
   const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarOpen)
-  const [error, setError] = useState('')
+  const [error] = useState('')
   const [showColumnSelector, setShowColumnSelector] = useState(false)
-  const [columnSearchQuery, setColumnSearchQuery] = useState('')
+
   const [showFilterMenu, setShowFilterMenu] = useState(false)
-  const [showDisplayMenu, setShowDisplayMenu] = useState(false)
+  const [, setShowDisplayMenu] = useState(false)
   // faceCardTotals will be computed later in the file (after state and derived values are defined)
   const [customTextFilterColumn, setCustomTextFilterColumn] = useState(null)
   const [customTextFilterType, setCustomTextFilterType] = useState('contains')
   const [customTextFilterValue, setCustomTextFilterValue] = useState('')
   const [customTextFilterCaseSensitive, setCustomTextFilterCaseSensitive] = useState(false)
-  
+
   // IB Commission totals state (fetched from API every hour)
   const [commissionTotals, setCommissionTotals] = useState(null)
-  
+
   // Web Worker states for stats calculation
   const [workerStats, setWorkerStats] = useState(null)
-  const [isCalculatingInWorker, setIsCalculatingInWorker] = useState(false)
+  const [, setIsCalculatingInWorker] = useState(false)
   const workerCalculationTimeoutRef = useRef(null)
   const lastWorkerInputRef = useRef(null) // Track last input to prevent duplicate calculations
-  
+
   const tableRef = useRef(null)
 
   // Column resizing states
@@ -110,7 +111,7 @@ const ClientsPage = () => {
 
   // Page zoom states
   const [zoomLevel, setZoomLevel] = useState(100)
-  const [faceCardTheme, setFaceCardTheme] = useState('default')
+
 
   // Verification handler removed
 
@@ -119,7 +120,7 @@ const ClientsPage = () => {
     const saved = localStorage.getItem('clientsPageVisibleColumns')
     if (saved) {
       try {
-        return JSON.parse(saved)
+        return parseAccountTypePreferences(saved)
       } catch (e) {
         console.error('Failed to parse saved columns:', e)
       }
@@ -128,13 +129,13 @@ const ClientsPage = () => {
       login: true,
       name: true,
       group: true,
-      country: true,
+      liquidateType: true,
       clientID: true,
       balance: true,
       equity: true,
       profit: true,
       dailyDeposit: true,
-      
+
       // Hidden by default
       pnl: false,
       lastName: false,
@@ -192,22 +193,22 @@ const ClientsPage = () => {
   }
 
   const [visibleColumns, setVisibleColumns] = useState(getInitialVisibleColumns)
-  
+
   // Column order state - load from localStorage or use default order
   const getInitialColumnOrder = () => {
     const saved = localStorage.getItem('clientsPageColumnOrder')
     if (saved) {
       try {
-        return JSON.parse(saved)
+        return parseAccountTypePreferences(saved)
       } catch (e) {
         console.error('Failed to parse saved column order:', e)
       }
     }
     return null // Will use default order from allColumns
   }
-  
+
   const [columnOrder, setColumnOrder] = useState(getInitialColumnOrder)
-  const [draggingColumn, setDraggingColumn] = useState(null)
+
 
   // ----- Missing UI state and refs (initialized here to avoid TDZ/ReferenceErrors) -----
   // Time and latency
@@ -221,20 +222,20 @@ const ClientsPage = () => {
   const [filterByCredit, setFilterByCredit] = useState(false)
   const [filterNoDeposit, setFilterNoDeposit] = useState(false)
   const [hasPnl, setHasPnl] = useState(false)
-  
+
   // Initialize columnFilters from localStorage
   const getInitialColumnFilters = () => {
     try {
       const saved = localStorage.getItem('clientsColumnFilters')
       if (saved) {
-        return JSON.parse(saved)
+        return parseAccountTypePreferences(saved)
       }
     } catch (e) {
       console.error('Failed to load column filters:', e)
     }
     return {}
   }
-  
+
   const [columnFilters, setColumnFilters] = useState(getInitialColumnFilters)
   const [filterSearchQuery, setFilterSearchQuery] = useState({})
   const [searchQuery, setSearchQuery] = useState('')
@@ -255,9 +256,9 @@ const ClientsPage = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
-  const [displayMode, setDisplayMode] = useState(getInitialDisplayMode)
+  const [displayMode] = useState(getInitialDisplayMode)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isSorting, setIsSorting] = useState(false)
+  const [, setIsSorting] = useState(false)
 
   // Dropdowns, modals, and refs
   const [showFilterDropdown, setShowFilterDropdown] = useState(null)
@@ -268,7 +269,7 @@ const ClientsPage = () => {
   const [showCustomTextFilterModal, setShowCustomTextFilterModal] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
-  const [showThemeMenu, setShowThemeMenu] = useState(false)
+  const [, setShowThemeMenu] = useState(false)
   const [showCardFilterMenu, setShowCardFilterMenu] = useState(false)
   const [showFaceCards, setShowFaceCards] = useState(true)
   const [selectedClient, setSelectedClient] = useState(null)
@@ -290,8 +291,8 @@ const ClientsPage = () => {
   const [customFilterValue1, setCustomFilterValue1] = useState('')
   const [customFilterValue2, setCustomFilterValue2] = useState('')
   const [customFilterOperator, setCustomFilterOperator] = useState('AND')
-  const [showCustomNumberFilter, setShowCustomNumberFilter] = useState(false)
-  const [showCustomTextFilter, setShowCustomTextFilter] = useState(false)
+
+
 
   // Face cards: visibility, order, theme
   const defaultFaceCardOrder = [
@@ -302,17 +303,17 @@ const ClientsPage = () => {
     4,   // Total Equity
     5,   // PNL
     6,   // Floating Profit
-    
+
     // Daily metrics
     8,   // Daily Deposit
     9,   // Daily Withdrawal
     10,  // Daily PNL
-    
+
     // Period PNL
     11,  // This Week PNL
     12,  // This Month PNL
     13,  // Lifetime PNL
-    
+
     // Additional metrics
     14,  // Daily Net D/W
     15,  // Total Rebate
@@ -322,8 +323,8 @@ const ClientsPage = () => {
   const getInitialFaceCardOrder = () => {
     try {
       const saved = localStorage.getItem('clientsFaceCardOrder')
-      if (saved) return JSON.parse(saved)
-    } catch {}
+      if (saved) return parseAccountTypePreferences(saved)
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     return defaultFaceCardOrder
   }
   const [faceCardOrder, setFaceCardOrder] = useState(getInitialFaceCardOrder)
@@ -332,8 +333,8 @@ const ClientsPage = () => {
   const getInitialCardVisibility = (() => {
     try {
       const saved = localStorage.getItem('clientsCardVisibility')
-      if (saved) return JSON.parse(saved)
-    } catch {}
+      if (saved) return parseAccountTypePreferences(saved)
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
     // Only show cards in defaultFaceCardOrder, hide all others
     const map = {}
     // Set all cards to false first
@@ -362,7 +363,7 @@ const ClientsPage = () => {
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Phone' },
     { key: 'group', label: 'Group' },
-    { key: 'country', label: 'Country' },
+    { key: 'liquidateType', label: 'Account Type' },
     { key: 'city', label: 'City' },
     { key: 'state', label: 'State' },
     { key: 'address', label: 'Address' },
@@ -412,7 +413,7 @@ const ClientsPage = () => {
     { key: 'rightsMask', label: 'Rights Mask' },
     { key: 'dailyDeposit', label: 'Daily Deposit' },
     { key: 'dailyWithdrawal', label: 'Daily Withdrawal' },
-    
+
     { key: 'lifetimePnL', label: 'Lifetime PnL' },
     // dailyPnL removed - using percentage display column only
     { key: 'thisMonthPnL', label: 'This Month PnL' },
@@ -434,14 +435,14 @@ const ClientsPage = () => {
   }
 
   const isMetricColumn = (key) => Object.prototype.hasOwnProperty.call(percentageFieldMap, key)
-  
+
   // Metrics that should NOT show virtual percentage display columns (raw % column already visible)
   const metricsWithoutVirtualPercentage = new Set([])
 
   // Define string/text columns (no number filters)
   const stringColumns = [
     'name', 'lastName', 'middleName', 'email', 'phone', 'group', 
-    'country', 'city', 'state', 'address', 'zipCode', 'currency',
+    'liquidateType', 'city', 'state', 'address', 'zipCode', 'currency',
     'company', 'comment', 'color', 'leadCampaign', 'leadSource',
     'status', 'mqid', 'language', 'rights', 'rightsMask'
   ]
@@ -494,7 +495,7 @@ const ClientsPage = () => {
     return detectedColumns.sort((a, b) => {
       const aIndex = allColumns.findIndex(col => col.key === a.key)
       const bIndex = allColumns.findIndex(col => col.key === b.key)
-      
+
       if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
       if (aIndex !== -1) return -1
       if (bIndex !== -1) return 1
@@ -507,12 +508,12 @@ const ClientsPage = () => {
   // Memoize visible columns list for performance
   const visibleColumnsList = useMemo(() => {
     const visibleCols = dynamicColumns.filter(c => visibleColumns[c.key] === true)
-    
+
     // Apply custom column order if it exists
     if (columnOrder && Array.isArray(columnOrder)) {
       const orderedCols = []
       const colMap = new Map(visibleCols.map(col => [col.key, col]))
-      
+
       // First, add columns in the saved order
       columnOrder.forEach(key => {
         if (colMap.has(key)) {
@@ -520,13 +521,13 @@ const ClientsPage = () => {
           colMap.delete(key)
         }
       })
-      
+
       // Then add any remaining columns that weren't in the saved order
       colMap.forEach(col => orderedCols.push(col))
-      
+
       return orderedCols
     }
-    
+
     return visibleCols
   }, [dynamicColumns, visibleColumns, columnOrder])
 
@@ -550,12 +551,12 @@ const ClientsPage = () => {
   // Pinned (frozen) columns - persisted to localStorage
   const [pinnedColumns, setPinnedColumns] = useState(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('clientsPagePinnedColumns'))
+      const saved = parseAccountTypePreferences(localStorage.getItem('clientsPagePinnedColumns'))
       return Array.isArray(saved) ? saved : []
     } catch { return [] }
   })
   useEffect(() => {
-    try { localStorage.setItem('clientsPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch {}
+    try { localStorage.setItem('clientsPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [pinnedColumns])
   const togglePinColumn = (key) =>
     setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
@@ -589,7 +590,7 @@ const ClientsPage = () => {
   useEffect(() => {
     localStorage.setItem('clientsPageVisibleColumns', JSON.stringify(visibleColumns))
   }, [visibleColumns])
-  
+
   // Save column order to localStorage whenever it changes
   useEffect(() => {
     if (columnOrder) {
@@ -645,12 +646,12 @@ const ClientsPage = () => {
       })
     }
   }, [latestServerTimestamp])
-  
+
   // Separate effect for client timestamp fallback to avoid infinite loop
   useEffect(() => {
     // Only run fallback if we don't have a server timestamp
     if (latestServerTimestamp) return
-    
+
     if (clients && clients.length > 0) {
       const toMs = (ts) => {
         if (!ts) return 0
@@ -658,7 +659,7 @@ const ClientsPage = () => {
         if (!isFinite(n) || n <= 0) return 0
         return n < 10000000000 ? n * 1000 : n
       }
-      
+
       let maxTs = 0
       for (let i = 0; i < Math.min(clients.length, 50); i++) {
         const rawTs = clients[i]?.serverTimestamp || clients[i]?.lastUpdate || 0
@@ -819,7 +820,7 @@ const ClientsPage = () => {
     }
   }
 
-  
+
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -870,49 +871,15 @@ const ClientsPage = () => {
       [columnKey]: !prev[columnKey]
     }))
   }
-  
+
   // Column drag and drop handlers for reordering
-  const handleColumnDragStart = (e, columnKey) => {
-    setDraggingColumn(columnKey)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/html', e.currentTarget)
-  }
 
-  const handleColumnDragOver = (e) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
 
-  const handleColumnDrop = (e, targetColumnKey) => {
-    e.preventDefault()
-    
-    if (!draggingColumn || draggingColumn === targetColumnKey) {
-      setDraggingColumn(null)
-      return
-    }
 
-    // Get current order from visibleColumnsList
-    const currentOrder = visibleColumnsList.map(col => col.key)
-    const draggedIndex = currentOrder.indexOf(draggingColumn)
-    const targetIndex = currentOrder.indexOf(targetColumnKey)
 
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggingColumn(null)
-      return
-    }
 
-    // Create new order array
-    const newOrder = [...currentOrder]
-    const [removed] = newOrder.splice(draggedIndex, 1)
-    newOrder.splice(targetIndex, 0, removed)
 
-    setColumnOrder(newOrder)
-    setDraggingColumn(null)
-  }
 
-  const handleColumnDragEnd = () => {
-    setDraggingColumn(null)
-  }
 
   // Reset column order to default
   const resetColumnOrder = () => {
@@ -921,27 +888,23 @@ const ClientsPage = () => {
   }
 
   // Reset column visibility to defaults
-  const resetColumnVisibility = () => {
-    const defaultVisible = getInitialVisibleColumns()
-    setVisibleColumns(defaultVisible)
-    localStorage.removeItem('clientsPageVisibleColumns')
-  }
+
 
   // Column filter helper functions - Memoized for performance
   const getUniqueColumnValues = useMemo(() => {
     // Create a cache object for all columns
     const cache = {}
-    
+
     return (columnKey) => {
       // Return cached result if search query hasn't changed
       const cacheKey = `${columnKey}_${filterSearchQuery[columnKey] || ''}`
       if (cache[cacheKey]) {
         return cache[cacheKey]
       }
-      
+
       const values = new Set()
       if (!Array.isArray(clients)) return []
-      
+
       clients.forEach(client => {
         if (!client) return
         const value = client[columnKey]
@@ -949,14 +912,14 @@ const ClientsPage = () => {
           values.add(value)
         }
       })
-      
+
       const sortedValues = Array.from(values).sort((a, b) => {
         if (typeof a === 'number' && typeof b === 'number') {
           return a - b
         }
         return String(a).localeCompare(String(b))
       })
-      
+
       // Filter by search query if exists
       const searchQuery = filterSearchQuery[columnKey]?.toLowerCase() || ''
       const result = searchQuery
@@ -964,7 +927,7 @@ const ClientsPage = () => {
             String(value).toLowerCase().includes(searchQuery)
           )
         : sortedValues
-      
+
       // Cache the result
       cache[cacheKey] = result
       return result
@@ -977,12 +940,12 @@ const ClientsPage = () => {
       const newFilters = currentFilters.includes(value)
         ? currentFilters.filter(v => v !== value)
         : [...currentFilters, value]
-      
+
       if (newFilters.length === 0) {
         const { [columnKey]: _, ...rest } = prev
         return rest
       }
-      
+
       return { ...prev, [columnKey]: newFilters }
     })
   }
@@ -1019,14 +982,14 @@ const ClientsPage = () => {
   const getActiveFilterCount = (columnKey) => {
     // Check for regular checkbox filters
     const checkboxCount = columnFilters[columnKey]?.length || 0
-    
+
     // Check for number filter
     const numberFilterKey = `${columnKey}_number`
     const hasNumberFilter = columnFilters[numberFilterKey] ? 1 : 0
     // Check for text filter
     const textFilterKey = `${columnKey}_text`
     const hasTextFilter = columnFilters[textFilterKey] ? 1 : 0
-    
+
     return checkboxCount + hasNumberFilter + hasTextFilter
   }
 
@@ -1056,7 +1019,7 @@ const ClientsPage = () => {
     setShowCustomFilterModal(false)
     setShowFilterDropdown(null)
     setShowNumberFilterDropdown(null)
-    
+
     // Reset form
     setCustomFilterValue1('')
     setCustomFilterValue2('')
@@ -1092,7 +1055,7 @@ const ClientsPage = () => {
   // Check if value matches number filter
   const matchesNumberFilter = (value, filterConfig) => {
     if (!filterConfig) return true
-    
+
     const numValue = parseFloat(value)
     if (isNaN(numValue)) return false
 
@@ -1153,19 +1116,19 @@ const ClientsPage = () => {
     const equity = Number(client?.equity)
     return (Number.isFinite(credit) ? credit : 0) - (Number.isFinite(equity) ? equity : 0)
   }
-  
+
   // Get filtered clients based on filter settings
   const getFilteredClients = useCallback(() => {
     // Safety check: ensure clients is an array
     if (!Array.isArray(clients)) return []
-    
+
     let filtered = [...clients].filter(c => c != null)
-    
+
     if (filterByPositions) {
       // Filter clients who have floating values
       filtered = filtered.filter(c => c && c.floating && Math.abs(c.floating) > 0)
     }
-    
+
     if (filterByCredit) {
       // Filter clients who have credit (positive or negative, but not zero)
       filtered = filtered.filter(c => {
@@ -1220,17 +1183,17 @@ const ClientsPage = () => {
         })
       }
     })
-    
+
     return filtered
   }, [clients, filterByPositions, filterByCredit, filterNoDeposit, hasPnl, columnFilters])
-  
+
   // Sorting function with type detection
   const sortClients = useCallback((clientsToSort) => {
     if (!sortColumn) return clientsToSort
-    
+
     // Deduplication now happens in filteredClients useMemo, not here
     // This avoids double processing
-    
+
     const sorted = [...clientsToSort].sort((a, b) => {
       // Determine actual field to sort by
       let sortKey = sortColumn
@@ -1252,12 +1215,12 @@ const ClientsPage = () => {
         aVal = a[sortKey]
         bVal = b[sortKey]
       }
-      
+
       // Handle null/undefined values
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
       if (bVal == null) return -1
-      
+
       // Detect data type and sort accordingly
       // Check if it's a number (including balance, equity, profit, etc.)
       const aNum = Number(aVal)
@@ -1265,14 +1228,14 @@ const ClientsPage = () => {
       if (Number.isFinite(aNum) && Number.isFinite(bNum)) {
         return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
       }
-      
+
       // Check if it's a date/timestamp (registration, lastAccess)
       if ((sortColumn === 'registration' || sortColumn === 'lastAccess') && !isNaN(aVal) && !isNaN(bVal)) {
         const aTime = Number(aVal)
         const bTime = Number(bVal)
         return sortDirection === 'asc' ? aTime - bTime : bTime - aTime
       }
-      
+
       // Default to string comparison (alphabetical)
       const aStr = String(aVal).toLowerCase()
       const bStr = String(bVal).toLowerCase()
@@ -1282,10 +1245,10 @@ const ClientsPage = () => {
         return bStr.localeCompare(aStr)
       }
     })
-    
+
     return sorted
   }, [sortColumn, sortDirection, displayMode, percentageFieldMap])
-  
+
   // Search helpers
   const searchClients = useCallback((list) => {
     if (!searchQuery || typeof searchQuery !== 'string' || !searchQuery.trim()) return list
@@ -1330,10 +1293,10 @@ const ClientsPage = () => {
 
   // Offload filter/sort/dedup to filter worker; keep group filter on main thread for parity
   const [filteredClients, setFilteredClients] = useState([])
-  
+
   // Use refs to track previous values and avoid infinite loops
   const prevDepsRef = useRef({})
-  
+
   useEffect(() => {
     if (!Array.isArray(clients) || clients.length === 0) {
       setFilteredClients([])
@@ -1358,11 +1321,11 @@ const ClientsPage = () => {
       hasActiveGroupFilters: !!(activeGroupFilters?.clients),
       hasIBMT5Accounts: Array.isArray(ibMT5Accounts) && ibMT5Accounts.length > 0
     }
-    
+
     // Check if dependencies actually changed
     const depsChanged = JSON.stringify(currentDeps) !== JSON.stringify(prevDepsRef.current)
     if (!depsChanged) return
-    
+
     prevDepsRef.current = currentDeps
 
     // Resolve sort column with percentage-aware logic
@@ -1466,7 +1429,7 @@ const ClientsPage = () => {
             return true
           })
           if (!canceled) setFilteredClients(deduped)
-        } catch (e) {
+        } catch {
           if (!canceled) setFilteredClients([])
         }
       }
@@ -1588,19 +1551,19 @@ const ClientsPage = () => {
     Object.keys(columnFilters).length,
     showFaceCards
   ])
-  
+
   // Handle column header click for sorting with debounce protection
   const sortTimeoutRef = useRef(null)
   const handleSort = useCallback((columnKey) => {
     // Trigger loading animation
     setIsSorting(true)
     setTimeout(() => setIsSorting(false), 1200) // Match animation duration
-    
+
     // Clear any pending sort operation
     if (sortTimeoutRef.current) {
       clearTimeout(sortTimeoutRef.current)
     }
-    
+
     // Debounce rapid clicks (150ms) to prevent duplicate key errors during rapid sorting
     sortTimeoutRef.current = setTimeout(() => {
       if (sortColumn === columnKey) {
@@ -1613,15 +1576,15 @@ const ClientsPage = () => {
       }
     }, 150)
   }, [sortColumn])
-  
+
   // Generate dynamic pagination options based on data count
   const generatePageSizeOptions = () => {
     const totalCount = filteredClients.length
-    
+
     if (totalCount === 0) return [50]
-    
+
     const options = []
-    
+
     // Add standard options up to 500 max
     const standardSizes = [50, 100, 200, 500]
     standardSizes.forEach(size => {
@@ -1629,26 +1592,26 @@ const ClientsPage = () => {
         options.push(size)
       }
     })
-    
+
     // If no options were added (totalCount < 50), add at least one option
     if (options.length === 0) {
       options.push(Math.min(50, totalCount))
     }
-    
+
     return options
   }
-  
-  const pageSizeOptions = generatePageSizeOptions()
-  
+
+  generatePageSizeOptions();
+
   // Pagination logic - optimized (deduplication already done in filteredClients)
   const { totalPages, displayedClients } = useMemo(() => {
     const total = Math.ceil(filteredClients.length / itemsPerPage)
     const startIndex = (currentPage - 1) * itemsPerPage
     const endIndex = startIndex + itemsPerPage
-    
+
     // Simple slice - deduplication already handled in filteredClients useMemo
     const sliced = filteredClients.slice(startIndex, endIndex)
-    
+
     return {
       totalPages: total || 1,
       displayedClients: sliced
@@ -1712,7 +1675,7 @@ const ClientsPage = () => {
     try {
       // Use full clients array for 'all' export, filtered for table export
       const dataToExport = exportType === 'all' ? clients : filteredClients
-      
+
       if (!dataToExport || dataToExport.length === 0) {
         alert('No data to export')
         return
@@ -1722,7 +1685,7 @@ const ClientsPage = () => {
       const columnsToExport = exportType === 'all' 
         ? dynamicColumns  // Export all columns
         : dynamicColumns.filter(col => visibleColumns[col.key] === true)  // Export only visible columns
-      
+
       // Prepare CSV content
       const headers = columnsToExport.map(col => col.label).join(',')
       // SAFETY: Filter out null/undefined clients before mapping
@@ -1730,17 +1693,17 @@ const ClientsPage = () => {
         return columnsToExport.map(col => {
           // SAFETY: Use optional chaining for property access
           let value = client?.[col.key]
-          
+
           // Handle different data types
           if (value === null || value === undefined) {
             return ''
           }
-          
+
           // Format numbers
           if (typeof value === 'number') {
             value = value.toString()
           }
-          
+
           // Escape commas and quotes in strings
           if (typeof value === 'string') {
             value = value.replace(/"/g, '""')
@@ -1748,7 +1711,7 @@ const ClientsPage = () => {
               value = `"${value}"`
             }
           }
-          
+
           return value
         }).join(',')
       }).join('\n')
@@ -1766,7 +1729,7 @@ const ClientsPage = () => {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      
+
       // Close the export menu after export
       setShowExportMenu(false)
     } catch (error) {
@@ -1806,7 +1769,7 @@ const ClientsPage = () => {
     const target = Math.max(50, Math.min(Math.ceil(maxW + paddingLR + buffer), 450))
     setColumnWidths(prev => ({ ...prev, [visKey]: target }))
   }, [displayedClients, percentageFieldMap])
-  
+
   // Reset to page 1 when filters or items per page changes
   useEffect(() => {
     setCurrentPage(1)
@@ -1818,7 +1781,7 @@ const ClientsPage = () => {
       if (showFilterDropdown) {
         const clickedInsideButton = filterRefs.current[showFilterDropdown]?.contains(event.target)
         const clickedInsidePanel = filterPanelRef.current?.contains(event.target)
-        
+
         if (!clickedInsideButton && !clickedInsidePanel) {
           setShowFilterDropdown(null)
         }
@@ -1828,19 +1791,19 @@ const ClientsPage = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showFilterDropdown])
-  
+
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage)
     // Scroll to top of table
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  
+
   const handleItemsPerPageChange = (value) => {
     setItemsPerPage(parseInt(value))
     setCurrentPage(1)
   }
 
-  const formatPercent = (value, client = null) => {
+  const formatPercent = (value) => {
     if (value === null || value === undefined || value === '') return '-'
     let num = Number(value)
     if (isNaN(num)) return '-'
@@ -1869,7 +1832,7 @@ const ClientsPage = () => {
 
   const handleFaceCardDrop = (e, targetCardId) => {
     e.preventDefault()
-    
+
     if (draggedFaceCard === targetCardId) return
 
     const newOrder = [...faceCardOrder]
@@ -1896,104 +1859,29 @@ const ClientsPage = () => {
   const formatIndianNumber = (num) => {
     const numStr = num.toString()
     const [integerPart, decimalPart] = numStr.split('.')
-    
+
     // Handle negative numbers
     const isNegative = integerPart.startsWith('-')
     const absoluteInteger = isNegative ? integerPart.substring(1) : integerPart
-    
+
     if (absoluteInteger.length <= 3) {
       return decimalPart ? `${integerPart}.${decimalPart}` : integerPart
     }
-    
+
     // Indian format: last 3 digits, then groups of 2
     const lastThree = absoluteInteger.substring(absoluteInteger.length - 3)
     const otherNumbers = absoluteInteger.substring(0, absoluteInteger.length - 3)
     const formattedOther = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',')
     const formatted = `${formattedOther},${lastThree}`
-    
+
     const result = (isNegative ? '-' : '') + formatted
     return decimalPart ? `${result}.${decimalPart}` : result
   }
 
   // Get face card configuration by ID
   // Apply theme colors based on selected theme
-  const getThemedColors = (defaultBorder, defaultText, defaultValue) => {
-    if (faceCardTheme === 'subtle') {
-      // Subtle theme - 3-color system: Teal (increase), Rose (decrease), Slate (neutral)
-      // Softer, muted colors for a calm, professional look
-      const subtleMap = {
-        // Teal cards (deposits, profits, credits, positive metrics)
-        'border-emerald-200': 'border-teal-400', 'text-emerald-600': 'text-teal-400', 'text-emerald-700': 'text-teal-400',
-        'border-green-200': 'border-teal-400', 'text-green-600': 'text-teal-400', 'text-green-700': 'text-teal-400',
-        'border-teal-200': 'border-teal-400', 'text-teal-600': 'text-teal-400', 'text-teal-700': 'text-teal-400',
-        'border-lime-200': 'border-teal-400', 'text-lime-600': 'text-teal-400', 'text-lime-700': 'text-teal-400',
-        
-        // Rose cards (withdrawals, losses, negative metrics)
-        'border-red-200': 'border-rose-400', 'text-red-600': 'text-rose-400', 'text-red-700': 'text-rose-400',
-        'border-rose-200': 'border-rose-400', 'text-rose-600': 'text-rose-400', 'text-rose-700': 'text-rose-400',
-        'border-pink-200': 'border-rose-400', 'text-pink-600': 'text-rose-400', 'text-pink-700': 'text-rose-400',
-        'border-orange-200': 'border-rose-400', 'text-orange-600': 'text-rose-400', 'text-orange-700': 'text-rose-400',
-        'border-amber-200': 'border-rose-400', 'text-amber-600': 'text-rose-400', 'text-amber-700': 'text-rose-400',
-        
-        // Slate cards (totals, counts, neutral metrics)
-        'border-blue-200': 'border-blue-300', 'text-blue-600': 'text-blue-700', 'text-blue-700': 'text-blue-800',
-        'border-indigo-200': 'border-indigo-300', 'text-indigo-600': 'text-indigo-700', 'text-indigo-700': 'text-indigo-800',
-        'border-sky-200': 'border-sky-300', 'text-sky-600': 'text-sky-700', 'text-sky-700': 'text-sky-800',
-        'border-cyan-200': 'border-cyan-300', 'text-cyan-600': 'text-cyan-700', 'text-cyan-700': 'text-cyan-800',
-        'border-violet-200': 'border-violet-300', 'text-violet-600': 'text-violet-700', 'text-violet-700': 'text-violet-800',
-        'border-purple-200': 'border-purple-300', 'text-purple-600': 'text-purple-700', 'text-purple-700': 'text-purple-800',
-        'border-fuchsia-200': 'border-fuchsia-300', 'text-fuchsia-600': 'text-fuchsia-700', 'text-fuchsia-700': 'text-fuchsia-800',
-      }
-      
-      return {
-        borderColor: subtleMap[defaultBorder] || defaultBorder,
-        textColor: subtleMap[defaultText] || defaultText,
-        valueColor: subtleMap[defaultValue] || defaultValue
-      }
-    } else if (faceCardTheme === 'vibrant') {
-      // Vibrant theme - 3-color system: Green (increase), Red (decrease), Blue (neutral)
-      // Green for: deposits, profits, credits, rebates (positive metrics)
-      // Red for: withdrawals, losses, negative values
-      // Blue for: totals, counts, neutral metrics
-      
-      const vibrantMap = {
-        // Green cards (deposits, profits, credits, positive metrics)
-        'border-emerald-200': 'border-green-600', 'text-emerald-600': 'text-green-600', 'text-emerald-700': 'text-green-600',
-        'border-green-200': 'border-green-600', 'text-green-600': 'text-green-600', 'text-green-700': 'text-green-600',
-        'border-teal-200': 'border-green-600', 'text-teal-600': 'text-green-600', 'text-teal-700': 'text-green-600',
-        'border-lime-200': 'border-green-600', 'text-lime-600': 'text-green-600', 'text-lime-700': 'text-green-600',
-        
-        // Red cards (withdrawals, losses, negative metrics)
-        'border-red-200': 'border-red-600', 'text-red-600': 'text-red-600', 'text-red-700': 'text-red-600',
-        'border-rose-200': 'border-red-600', 'text-rose-600': 'text-red-600', 'text-rose-700': 'text-red-600',
-        'border-pink-200': 'border-red-600', 'text-pink-600': 'text-red-600', 'text-pink-700': 'text-red-600',
-        'border-orange-200': 'border-red-600', 'text-orange-600': 'text-red-600', 'text-orange-700': 'text-red-600',
-        'border-amber-200': 'border-red-600', 'text-amber-600': 'text-red-600', 'text-amber-700': 'text-red-600',
-        
-        // Blue cards (totals, counts, neutral metrics)
-        'border-blue-200': 'border-blue-400', 'text-blue-600': 'text-blue-700', 'text-blue-700': 'text-blue-800',
-        'border-indigo-200': 'border-indigo-400', 'text-indigo-600': 'text-indigo-700', 'text-indigo-700': 'text-indigo-800',
-        'border-sky-200': 'border-sky-400', 'text-sky-600': 'text-sky-700', 'text-sky-700': 'text-sky-800',
-        'border-cyan-200': 'border-cyan-400', 'text-cyan-600': 'text-cyan-700', 'text-cyan-700': 'text-cyan-800',
-        'border-violet-200': 'border-violet-400', 'text-violet-600': 'text-violet-700', 'text-violet-700': 'text-violet-800',
-        'border-purple-200': 'border-purple-400', 'text-purple-600': 'text-purple-700', 'text-purple-700': 'text-purple-800',
-        'border-fuchsia-200': 'border-fuchsia-400', 'text-fuchsia-600': 'text-fuchsia-700', 'text-fuchsia-700': 'text-fuchsia-800',
-      }
-      
-      return {
-        borderColor: vibrantMap[defaultBorder] || defaultBorder,
-        textColor: vibrantMap[defaultText] || defaultText,
-        valueColor: vibrantMap[defaultValue] || defaultValue
-      }
-    }
-    // Default theme - return original colors
-    return {
-      borderColor: defaultBorder,
-      textColor: defaultText,
-      valueColor: defaultValue
-    }
-  }
-  
+
+
   // Get icon path for each card based on title
   const getCardIcon = (cardTitle) => {
     const iconMap = {
@@ -2074,7 +1962,7 @@ const ClientsPage = () => {
   const getFaceCardConfig = (cardId, stats) => {
     // Calculate Net DW (Deposit - Withdrawal)
     const netDW = (stats.dailyDeposit || 0) - (stats.dailyWithdrawal || 0)
-    
+
     const configs = {
       1: { id: 1, title: 'Total Clients', value: Number(stats.totalClients || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }), numericValue: stats.totalClients || 0, unit: '', simple: true, borderColor: 'border-blue-200', textColor: 'text-blue-600' },
       2: { id: 2, title: 'Total Balance', value: formatIndianNumber(stats.totalBalance.toFixed(2)), numericValue: stats.totalBalance || 0, unit: 'USD', simple: true, borderColor: 'border-indigo-200', textColor: 'text-indigo-600' },
@@ -2141,7 +2029,7 @@ const ClientsPage = () => {
   // Daily Deposit & Withdrawal % (sum of percentage columns)
   54: { id: 54, title: 'Daily Deposit %', value: stats.dailyDepositPercent || 0, simple: true, formattedValue: `${formatIndianNumber(Math.abs(stats.dailyDepositPercent || 0).toFixed(4))}`, borderColor: 'border-green-300', textColor: 'text-green-700', valueColor: 'text-green-800' },
   55: { id: 55, title: 'Daily Withdrawal %', value: stats.dailyWithdrawalPercent || 0, simple: true, formattedValue: `${formatIndianNumber(Math.abs(stats.dailyWithdrawalPercent || 0).toFixed(4))}`, borderColor: 'border-red-300', textColor: 'text-red-700', valueColor: 'text-red-800' },
-      
+
       // Percentage variants for main metrics
       56: { id: 56, title: 'Total Balance %', value: stats.totalBalancePercent || 0, formattedValue: `${formatIndianNumber(Math.abs(stats.totalBalancePercent || 0).toFixed(4))}`, simple: true, borderColor: 'border-indigo-300', textColor: 'text-indigo-700' },
       57: { id: 57, title: 'Total Credit %', value: stats.totalCreditPercent || 0, formattedValue: `${formatIndianNumber(Math.abs(stats.totalCreditPercent || 0).toFixed(4))}`, simple: true, borderColor: 'border-emerald-300', textColor: 'text-emerald-700' },
@@ -2191,18 +2079,7 @@ const ClientsPage = () => {
     }, 0)
 
     // Lightweight numeric coercion helper for weighted percentage calculations
-    const toNum = (v) => {
-      if (v == null) return 0
-      if (typeof v === 'number') return Number.isFinite(v) ? v : 0
-      if (typeof v === 'string') {
-        const cleaned = v.replace(/,/g, '').trim()
-        if (cleaned === '' || cleaned === '-') return 0
-        const n = Number(cleaned)
-        return Number.isFinite(n) ? n : 0
-      }
-      const n = Number(v)
-      return Number.isFinite(n) ? n : 0
-    }
+
 
     // Bonus calculations
     const dailyBonusIn = sum('dailyBonusIn')
@@ -2318,7 +2195,7 @@ const ClientsPage = () => {
       // Lifetime: keep existing backend lifetime percentage sum behavior
       lifetimePnLPercent: sum('lifetimePnL_percentage')
     }
-    
+
     return totals
     } catch (error) {
       console.error('[ClientsPage] ❌ Error calculating face card totals:', error)
@@ -2338,7 +2215,7 @@ const ClientsPage = () => {
 
   // Removed totals helpers (no longer needed)
 
-  
+
 
   const formatValue = (key, value, client = null) => {
     if (value === null || value === undefined || value === '') {
@@ -2356,7 +2233,7 @@ const ClientsPage = () => {
       }
       return '-'
     }
-    
+
     // Handle Processor Type (boolean) - display as Connected/Not Connected (text)
     if (key === 'processorType' || key === 'processor_type' || key === 'PROCESSOR_TYPE') {
       if (typeof value === 'boolean') {
@@ -2365,7 +2242,7 @@ const ClientsPage = () => {
       // Handle other value types
       return String(value)
     }
-    
+
   // Numeric currency fields
     if (['balance', 'credit', 'equity', 'margin', 'marginFree', 'profit', 'floating', 'pnl', 'assets', 'liabilities', 
          'blockedCommission', 'blockedProfit', 'storage', 'marginInitial', 'marginMaintenance', 
@@ -2399,12 +2276,12 @@ const ClientsPage = () => {
       const formatted = formatIndianNumber(num.toFixed(2))
       return formatted
     }
-    
+
     // Percentage fields
     if (key === 'marginLevel' || key === 'applied_percentage' || key === 'soLevel') {
       return value != null && value !== '' ? `${parseFloat(value).toFixed(2)}%` : '-'
     }
-    
+
     // Other percentage fields (balance, credit, equity, pnl, profit, etc.)
     if (key.includes('_percentage') || key.includes('Percentage')) {
       if (value == null || value === '') return '-'
@@ -2412,7 +2289,7 @@ const ClientsPage = () => {
       if (!Number.isFinite(num)) return '-'
       return `${num.toFixed(4)}%`
     }
-    
+
     // Integer fields
     if (key === 'soTime') return formatTime(value, '-')
 
@@ -2421,22 +2298,22 @@ const ClientsPage = () => {
       const formatted = formatIndianNumber(parseInt(value))
       return formatted
     }
-    
+
     // Boolean fields
     if (key === 'applied_percentage_is_custom') {
       return value ? 'Yes' : 'No'
     }
-    
+
     // Date/timestamp fields (Unix timestamps - auto-detect seconds vs milliseconds)
     if (['registration', 'lastAccess', 'lastUpdate', 'accountLastUpdate', 'userLastUpdate'].includes(key)) {
       return formatTime(value, '-')
     }
-    
+
     // Array fields (rights)
     if (key === 'rights' && Array.isArray(value)) {
       return value.join(', ')
     }
-    
+
     return value
   }
 
@@ -2473,20 +2350,20 @@ const ClientsPage = () => {
     <div className="h-screen flex overflow-hidden relative">
       {/* Clean White Background */}
       <div className="absolute inset-0 bg-white"></div>
-      
+
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => {
           setSidebarOpen(false)
-          try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {}
+          try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ }
         }}
         onToggle={() => setSidebarOpen(v => {
           const n = !v
-          try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch {}
+          try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ }
           return n
         })}
       />
-      
+
       <main className={`flex-1 p-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} overflow-auto relative z-10`}>
         <div className="max-w-full mx-auto flex flex-col min-h-0">
 
@@ -2549,9 +2426,9 @@ const ClientsPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              
+
               <WebSocketIndicator />
-              
+
               {/* Filter Button */}
               <div className="relative">
                 <button
@@ -2743,7 +2620,7 @@ const ClientsPage = () => {
                               setFaceCardOrder(prev => {
                                 if (prev.includes(card.id)) return prev
                                 const updated = [...prev, card.id]
-                                try { localStorage.setItem('clientsFaceCardOrder', JSON.stringify(updated)) } catch {}
+                                try { localStorage.setItem('clientsFaceCardOrder', JSON.stringify(updated)) } catch { /* Retain the fallback when this operation is unavailable. */ }
                                 return updated
                               })
                             }}
@@ -2752,7 +2629,7 @@ const ClientsPage = () => {
                           <span className="ml-2 text-xs font-semibold text-gray-700">{card.label}</span>
                         </label>
                       ))
-                      
+
                       return allCardOptions
                     })()}
                   </div>
@@ -2771,7 +2648,7 @@ const ClientsPage = () => {
                   setShowGroupModal(true)
                 }}
               />
-              
+
               {/* Show Face Cards Toggle (moved before Columns button) */}
               {/* Show Face Cards Toggle (moved before Columns button) */}
               <button
@@ -2790,7 +2667,7 @@ const ClientsPage = () => {
                   />
                 </div>
               </button>
-              
+
               <button
                 onClick={handleManualRefresh}
                 disabled={isRefreshing}
@@ -2869,7 +2746,7 @@ const ClientsPage = () => {
                 Reset Order
               </button>
             </div>
-            
+
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[8px] mb-4 md:mb-6">
             {displayMode === 'value' && (
               <>
@@ -2897,15 +2774,15 @@ const ClientsPage = () => {
                   if (percentToNormalMap[cardId]) {
                     effectiveCardId = percentToNormalMap[cardId]
                   }
-                  
+
                   const card = getFaceCardConfig(effectiveCardId, faceCardTotals)
-                  
+
                   if (!card || cardVisibility[cardId] === false) return null
-                  
+
                   // Determine color based on value: green (>0), red (<0), black (=0)
                   const numericValue = Number(card.numericValue) || 0
                   const valueColor = numericValue > 0 ? 'text-[#16A34A]' : numericValue < 0 ? 'text-[#DC2626]' : 'text-[#000000]'
-                  
+
                   return (
                     <div
                       key={`${card.id}-${card.value}`}
@@ -2981,10 +2858,10 @@ const ClientsPage = () => {
                     8: 54, // Daily Deposit -> Daily Deposit %
                     9: 55  // Daily Withdrawal -> Daily Withdrawal %
                   }
-                  
+
                   // List of percentage card IDs that exist
                   const percentageCardIds = [56, 57, 58, 59, 60, 65, 17, 18, 54, 55]
-                  
+
                   // In percentage mode, only show cards that have percentage equivalents or are already percentage cards
                   if (normalToPercentMap[cardId]) {
                     effectiveCardId = normalToPercentMap[cardId]
@@ -2992,15 +2869,15 @@ const ClientsPage = () => {
                     // Skip cards that don't have percentage equivalents
                     return null
                   }
-                  
+
                   const card = getFaceCardConfig(effectiveCardId, faceCardTotals)
-                  
+
                   if (!card || cardVisibility[cardId] === false) return null
-                  
+
                   // Determine color based on value: green (>0), red (<0), black (=0)
                   const numericValue = Number(card.numericValue) || 0
                   const valueColor = numericValue > 0 ? 'text-[#16A34A]' : numericValue < 0 ? 'text-[#DC2626]' : 'text-[#000000]'
-                  
+
                   return (
                     <div
                       key={`${card.id}-${card.value}`}
@@ -3058,16 +2935,16 @@ const ClientsPage = () => {
                   if (percentCardIds.includes(cardId)) {
                     return null
                   }
-                  
+
                   // In both mode, show both normal and percentage cards side by side
                   const cards = []
-                  
+
                   // Add the normal card
                   const normalCard = getFaceCardConfig(cardId, faceCardTotals)
                   if (normalCard && cardVisibility[cardId] !== false) {
                     cards.push({ ...normalCard, renderKey: `${cardId}-normal` })
                   }
-                  
+
                   // Check if this card has a percentage variant
                   const normalToPercentMap = {
                     2: 56, 3: 57, 4: 58, 5: 59, 6: 60, 10: 61, 11: 62, 12: 63, 53: 65,
@@ -3080,7 +2957,7 @@ const ClientsPage = () => {
                       cards.push({ ...percentCard, renderKey: `${cardId}-percent` })
                     }
                   }
-                  
+
                   return cards.map(card => {
                     // Render compact Client2-style card with trend-based value color
                     const prev = lastValuesRef.current[card.id]
@@ -3099,9 +2976,9 @@ const ClientsPage = () => {
                     const isStable = prev !== undefined && card.numericValue === prev && age >= STABLE_THRESHOLD_MS
                     const isPositive = card.numericValue > 0
                     const isNegative = card.numericValue < 0
-                    const arrowColor = isPositive ? '#16A34A' : isNegative ? '#DC2626' : '#000000'
+                    isPositive ? '#16A34A' : isNegative ? '#DC2626' : '#000000';
                     const valueColor = isStable ? 'text-[#000000]' : (trend === 'inc' ? 'text-[#16A34A]' : trend === 'dec' ? 'text-[#DC2626]' : 'text-[#000000]')
-                    
+
                     return (
                       <div
                         key={card.renderKey}
@@ -3317,7 +3194,7 @@ const ClientsPage = () => {
                 )}
               </div>
             </div>
-            
+
             {/* Right Side: Page Navigation + Zoom Controls */}
             <div className="flex items-center gap-3">
               <PageSizeSelect value={itemsPerPage} onChange={handleItemsPerPageChange} menuZIndex={9999} />
@@ -3362,7 +3239,7 @@ const ClientsPage = () => {
             minHeight: '250px',
             height: showFaceCards ? '310px' : '510px'
           }}>
-            
+
             <div ref={scrollContainerRef} onScroll={handleScroll} className="overflow-auto flex-1" style={{ 
               scrollbarWidth: 'thin',
               scrollbarColor: '#3b82f6 #e5e7eb',
@@ -3459,7 +3336,7 @@ const ClientsPage = () => {
                           >
                             <div className="absolute right-0 top-0 w-px h-full bg-white/30 group-hover/resize:bg-yellow-400 active:bg-yellow-500 transition-colors"></div>
                           </div>
-                          
+
                           <div className="flex items-center gap-1 justify-between">
                             <div 
                               className="flex items-center gap-1 truncate cursor-pointer flex-1"
@@ -3488,7 +3365,7 @@ const ClientsPage = () => {
                                 </svg>
                               )}
                             </div>
-                            
+
                             {isFilterable && (
                               <div className="relative" ref={el => {
                                 if (!filterRefs.current) filterRefs.current = {}
@@ -3622,7 +3499,7 @@ const ClientsPage = () => {
                                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                                             </svg>
                                           </button>
-                                          
+
                                           {/* Number Filter Dropdown - Opens to the left to avoid overlap */}
                                           {showNumberFilterDropdown === col.baseKey && (
                                             <div 
@@ -3900,7 +3777,7 @@ const ClientsPage = () => {
                     })()}
                   </tr>
                 </thead>
-                
+
                 <tbody className="bg-white divide-y divide-gray-100">
                   {/* Virtualization padding (top) */}
                   {topPadding > 0 && (
@@ -3911,8 +3788,8 @@ const ClientsPage = () => {
                   {/* SAFETY: Filter null clients before rendering */}
                   {virtualizedClients.filter(client => client != null && client.login != null).map((client, index) => {
                     const globalIndex = virtualizationMetrics.startIndex + index
-                    const isLastRow = index === displayedClients.length - 1
-                    
+                    index === displayedClients.length - 1;
+
                     // Build render columns for each row consistent with header
                     const baseVisible = visibleColumnsList
                     const renderCols = []
@@ -3935,7 +3812,7 @@ const ClientsPage = () => {
                         // SAFETY: Use optional chaining for property access
                         titleVal = formatValue(col.key, client?.[col.key], client)
                         displayVal = formatValue(col.key, client?.[col.key], client)
-                        
+
                         // Debug: Log percentage column values
                         if (col.key.includes('percentage') || col.key.includes('PnL')) {
                           if (globalIndex === 0) { // Only log first row to avoid spam
@@ -4001,7 +3878,7 @@ const ClientsPage = () => {
                               </td>
                             )
                           }
-                          
+
                           // Regular columns
                           const defaultPixelWidth = 150
                           return (
@@ -4042,7 +3919,7 @@ const ClientsPage = () => {
           onCacheUpdate={() => { /* Positions managed by DataContext; no local update needed */ }}
         />
       )}
-      
+
       {/* Group Modal */}
       <GroupModal
         isOpen={showGroupModal}
@@ -4267,11 +4144,3 @@ const ClientsPage = () => {
 }
 
 export default ClientsPage
-
-
-
-
-
-
-
-

@@ -1,68 +1,13 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react'
+import { accountTypeLabel } from '../utils/accountType'
+import DataContext from './dataContextStore'
+import { useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react'
 import { brokerAPI } from '../services/api'
 import websocketService from '../services/websocket'
-import { useAuth } from './AuthContext'
+import { useAuth } from './authContextStore'
 
-const DataContext = createContext()
 
-export const useData = () => {
-  const context = useContext(DataContext)
-  if (!context) {
-    // Provide a resilient, no-crash fallback with sensible defaults.
-    // This preserves the UI if a subtree renders outside the provider
-    // (e.g., during lazy routes, portals mounted early, or test mounts),
-    // while surfacing a clear console warning for developers.
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.warn('[DataContext] useData called outside of DataProvider; returning fallback context')
-    }
-    const noop = async () => {}
-    return {
-      clients: [],
-      rawClients: [], // Raw clients without USC normalization
-      positions: [],
-      orders: [],
-      deals: [],
-      accounts: [],
-      latestServerTimestamp: null,
-      latestMeasuredLagMs: null,
-      lastWsReceiveAt: null,
-      clientStats: {
-        totalClients: 0,
-        totalBalance: 0,
-        totalCredit: 0,
-        totalEquity: 0,
-        totalPnl: 0,
-        totalProfit: 0,
-        dailyDeposit: 0,
-        dailyWithdrawal: 0,
-        dailyPnL: 0,
-        thisWeekPnL: 0,
-        thisMonthPnL: 0,
-        lifetimePnL: 0,
-        totalDeposit: 0
-      },
-      fetchClients: noop,
-      fetchPositions: noop,
-      fetchOrders: noop,
-      fetchDeals: noop,
-      fetchAccounts: noop,
-      loading: { clients: false, positions: false, orders: false, deals: false, accounts: false },
-      lastFetch: { clients: null, positions: null, orders: null, deals: null, accounts: null },
-      connectionState: 'disconnected',
-      statsDrift: {
-        lastSource: null,
-        lastReconciledAt: null,
-        lastVerifiedAt: null,
-        lastDeltas: null,
-        lastApiStats: null,
-        lastLocalStats: null,
-        lastCount: null
-      }
-    }
-  }
-  return context
-}
+
+
 
 // Robust numeric parser shared across all data processing functions
 // Handles strings with commas, nulls, NaN, and various edge cases
@@ -104,9 +49,9 @@ export const DataProvider = ({ children }) => {
   const lastReceiveEmitRef = useRef(0)
   // Expose to window for debug UI without causing provider re-renders
   useEffect(() => {
-    try { window.__brokerPerf = perfRef.current } catch {}
+    try { window.__brokerPerf = perfRef.current } catch { /* Retain the fallback when this operation is unavailable. */ }
   }, [])
-  
+
   // Aggregated stats for face cards - updated incrementally
   const [clientStats, setClientStats] = useState({
     totalClients: 0,
@@ -123,7 +68,7 @@ export const DataProvider = ({ children }) => {
     lifetimePnL: 0,
     totalDeposit: 0
   })
-  
+
   // Batch stats updates to avoid excessive re-renders
   const statsUpdateBatchRef = useRef({
     pending: false,
@@ -145,18 +90,18 @@ export const DataProvider = ({ children }) => {
   // Adaptive batching delay for stats updates (ms)
   const statsBatchDelayRef = useRef(1000)
   const perfLastEmitRef = useRef(0)
-  
+
   // Track last processed state per client to prevent duplicate delta calculations
   const lastClientStateRef = useRef(new Map())
   // Track last accepted timestamp per client to prevent out-of-order overwrites
   const lastClientTimestampRef = useRef(new Map())
-  
+
   // Flag to prevent multiple simultaneous full stats calculations
-  const isCalculatingStatsRef = useRef(false)
-  
+
+
   // Lock to prevent concurrent fetchClients calls
   const isFetchingClientsRef = useRef(false)
-  
+
   // Refs to access current data without adding them to useCallback deps
   const ordersRef = useRef(orders)
   ordersRef.current = orders
@@ -164,22 +109,22 @@ export const DataProvider = ({ children }) => {
   positionsRef.current = positions
   const accountsRef = useRef(accounts)
   accountsRef.current = accounts
-  
+
   // Track if initial sync has been done
   const hasInitialSyncedRef = useRef(false)
-  
+
   // Track if REST data was loaded (to prevent WebSocket from replacing it immediately)
   const hasRestDataRef = useRef(false)
-  
+
   // Track if initial data load is complete (to control WebSocket connection)
   const [hasInitialData, setHasInitialData] = useState(false)
-  
+
   // Track last lag check to prevent frequent reconnections
   const isReconnectingRef = useRef(false)
   const latestMeasuredLagRef = useRef(null)
   const LAG_THRESHOLD_MS = 100000 // 100 seconds = 100,000 milliseconds
   const LAG_CHECK_INTERVAL_MS = 5000 // Check every 5 seconds for faster detection
-  
+
   const [loading, setLoading] = useState({
     clients: false,
     positions: false,
@@ -187,7 +132,7 @@ export const DataProvider = ({ children }) => {
     deals: false,
     accounts: false
   })
-  
+
   const [lastFetch, setLastFetch] = useState({
     clients: null,
     positions: null,
@@ -195,7 +140,7 @@ export const DataProvider = ({ children }) => {
     deals: null,
     accounts: null
   })
-  
+
   const [connectionState, setConnectionState] = useState('disconnected')
   const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes cache
 
@@ -254,12 +199,12 @@ export const DataProvider = ({ children }) => {
     if (skipNormalization) {
       return client
     }
-    
+
     // WebSocket sends USC values multiplied by 100, need to divide them back
     if (client && client.currency === 'USC') {
       // Get list of percentage fields that were freshly recalculated (already in 0-100 scale)
       const skipPercentages = new Set(client.__recalculatedPercentages || [])
-      
+
       const normalized = {
         ...client,
         // Currency fields
@@ -329,10 +274,10 @@ export const DataProvider = ({ children }) => {
         dailyDeposit_percentage: client.dailyDeposit_percentage != null && !skipPercentages.has('dailyDeposit_percentage') ? toNum(client.dailyDeposit_percentage) / 100 : client.dailyDeposit_percentage,
         dailyWithdrawal_percentage: client.dailyWithdrawal_percentage != null && !skipPercentages.has('dailyWithdrawal_percentage') ? toNum(client.dailyWithdrawal_percentage) / 100 : client.dailyWithdrawal_percentage
       }
-      
+
       // Clean up the temporary marker
       delete normalized.__recalculatedPercentages
-      
+
       return normalized
     }
     return client
@@ -361,7 +306,7 @@ export const DataProvider = ({ children }) => {
       lifetimePnL: 0,
       totalDeposit: 0
     }
-    
+
     clientsArray.forEach(client => {
       stats.totalBalance += toNum(client.balance)
       stats.totalCredit += toNum(client.credit)
@@ -378,7 +323,7 @@ export const DataProvider = ({ children }) => {
       stats.lifetimePnL += toNum(client.lifetimePnL)
       stats.totalDeposit += toNum(client.dailyDeposit)  // Sum all daily deposits
     })
-    
+
     return stats
   }, [])
 
@@ -509,7 +454,7 @@ export const DataProvider = ({ children }) => {
     isFetchingClientsRef.current = false
     setLoading(prev => ({ ...prev, clients: false }))
     return clients
-    
+
     /* isFetchingClientsRef.current = true
     setLoading(prev => ({ ...prev, clients: true }))
 
@@ -594,13 +539,13 @@ export const DataProvider = ({ children }) => {
       console.log('[DataContext] Not authenticated, skipping fetchPositions')
       return []
     }
-    
+
     if (!force && positionsRef.current.length > 0 && !isStale('positions')) {
       return positionsRef.current
     }
 
     setLoading(prev => ({ ...prev, positions: true }))
-    
+
     try {
       const response = await fetchWithRetry(() => brokerAPI.getPositions(), { retries: 2, baseDelayMs: 700, label: 'getPositions' })
       const data = response.data?.positions || []
@@ -621,13 +566,13 @@ export const DataProvider = ({ children }) => {
       console.log('[DataContext] Not authenticated, skipping fetchOrders')
       return []
     }
-    
+
     if (!force && ordersRef.current.length > 0 && !isStale('orders')) {
       return ordersRef.current
     }
 
     setLoading(prev => ({ ...prev, orders: true }))
-    
+
     try {
       const response = await fetchWithRetry(() => brokerAPI.getOrders(), { retries: 2, baseDelayMs: 700, label: 'getOrders' })
       const data = response.data?.orders || []
@@ -648,13 +593,13 @@ export const DataProvider = ({ children }) => {
       console.log('[DataContext] Not authenticated, skipping fetchAccounts')
       return []
     }
-    
+
     if (!force && accountsRef.current.length > 0 && !isStale('accounts')) {
       return accountsRef.current
     }
 
     setLoading(prev => ({ ...prev, accounts: true }))
-    
+
     // /api/broker/clients endpoint not in use - accounts are populated via WebSocket
     setLoading(prev => ({ ...prev, accounts: false }))
     return accountsRef.current
@@ -669,7 +614,7 @@ export const DataProvider = ({ children }) => {
       }
       return
     }
-    
+
     // Connect WebSocket only after initial data is loaded
     console.log('[DataContext] 🔌 Connecting WebSocket after initial data load...')
     websocketService.connect()
@@ -677,7 +622,7 @@ export const DataProvider = ({ children }) => {
     // Monitor connection state
     const unsubState = websocketService.onConnectionStateChange((state) => {
       setConnectionState(state)
-      
+
       // Refresh all data once when disconnected
       if ((state === 'disconnected' || state === 'failed') && isAuthenticated) {
         fetchClients(true).catch(() => {})
@@ -691,17 +636,17 @@ export const DataProvider = ({ children }) => {
     const seenEvents = new Set()
     let totalMessagesReceived = 0
     let lastActivityLog = Date.now()
-    
+
   const unsubDebug = websocketService.subscribe('all', (message) => {
       totalMessagesReceived++
-      
+
       // Log activity every 10 seconds
       if (Date.now() - lastActivityLog > 10000) {
         console.log(`[DataContext] 📡 WebSocket active: ${totalMessagesReceived} messages in last 10s`)
         totalMessagesReceived = 0
         lastActivityLog = Date.now()
       }
-      
+
       const eventType = message.event || message.type
       if (eventType && !seenEvents.has(eventType)) {
         seenEvents.add(eventType)
@@ -725,7 +670,7 @@ export const DataProvider = ({ children }) => {
           // Backend handles USC normalization - use raw values as-is
           const normalized = rawClients // No normalization needed
           const unnormalized = rawClients // Same for both
-          
+
           // Debug: Check RAW values BEFORE normalization
           if (rawClients.length > 0 && rawClients[0]) {
             const rawSample = rawClients[0]
@@ -738,7 +683,7 @@ export const DataProvider = ({ children }) => {
               lifetimePnL_percentage: rawSample.lifetimePnL_percentage
             })
           }
-          
+
           // Debug: Check AFTER normalization
           if (normalized.length > 0 && normalized[0]) {
             const sample = normalized[0]
@@ -750,7 +695,7 @@ export const DataProvider = ({ children }) => {
               lifetimePnL_percentage: sample.lifetimePnL_percentage
             })
           }
-          
+
           const map = new Map()
           const rawMap = new Map()
           normalized.forEach(c => { if (c && c.login) map.set(c.login, c) })
@@ -896,30 +841,25 @@ export const DataProvider = ({ children }) => {
   // Processing lock to prevent race conditions during heavy flow
   let isProcessingBatch = false
   let queuedProcessing = false
-    
+
     // Create index map for O(1) lookups instead of O(n) findIndex
     let clientIndexMap = new Map()
     let accountIndexMap = new Map()
-    
-    const rebuildIndexMaps = (clientsArray, accountsArray) => {
-      clientIndexMap.clear()
-      accountIndexMap.clear()
-      clientsArray.forEach((c, i) => clientIndexMap.set(c.login, i))
-      accountsArray.forEach((a, i) => accountIndexMap.set(a.login, i))
-    }
-    
+
+
+
     const processBatch = () => {
       if (pendingUpdates.size === 0) return
-      
+
       // CRITICAL: Prevent concurrent batch processing to avoid race conditions
       if (isProcessingBatch) {
         // Queue another processing call after current one finishes
         queuedProcessing = true
         return
       }
-      
+
       isProcessingBatch = true
-      
+
       // Mark receive timestamp at the start of processing a batch (throttled)
       {
         const nowTs = Date.now()
@@ -933,9 +873,9 @@ export const DataProvider = ({ children }) => {
       const batchSize = pendingUpdates.size
       const updates = Array.from(pendingUpdates.values())
       pendingUpdates.clear()
-      
+
       totalProcessed += batchSize
-      
+
       // Find the most recent timestamp in this batch (ensure ms)
       let batchMaxTimestamp = 0
       for (let i = 0; i < updates.length; i++) {
@@ -943,18 +883,18 @@ export const DataProvider = ({ children }) => {
         const ts = toMs(rawTs)
         if (ts > batchMaxTimestamp) batchMaxTimestamp = ts
       }
-      
+
       // If no valid server timestamp, use current time as fallback (WebSocket is live)
       if (batchMaxTimestamp === 0 && batchSize > 0) {
         batchMaxTimestamp = Date.now()
       }
-      
+
       if (batchMaxTimestamp > lastBatchTimestamp) {
         lastBatchTimestamp = batchMaxTimestamp
         setLatestServerTimestamp(batchMaxTimestamp)
         setLatestMeasuredLagMs(Math.max(0, Date.now() - batchMaxTimestamp))
       }
-      
+
       // Log batch processing with timing
       if (batchSize > 200 || totalProcessed % 1000 === 0) {
         const latency = batchMaxTimestamp > 0 ? Math.floor((Date.now() - batchMaxTimestamp) / 1000) : 0
@@ -976,7 +916,7 @@ export const DataProvider = ({ children }) => {
         perf.lastBatchAgeMs = ageMs
         perf.totalProcessedUpdates = totalProcessed
         perf.lastFlushAt = now
-        try { window.__brokerPerf = perf } catch {}
+        try { window.__brokerPerf = perf } catch { /* Retain the fallback when this operation is unavailable. */ }
       }
 
       // Adapt stats update delay based on load
@@ -985,7 +925,7 @@ export const DataProvider = ({ children }) => {
       } else {
         statsBatchDelayRef.current = 1000
       }
-      
+
       // OPTIMIZED: Single state update for clients with index map
       let addedClientsCount = 0
       lowPriority(() => setClients(prev => {
@@ -996,10 +936,9 @@ export const DataProvider = ({ children }) => {
             if (c?.login) clientIndexMap.set(c.login, i)
           })
         }
-        
+
         const updated = [...prev]
-        let hasNewClients = false
-        
+
         // Cache original values BEFORE any modifications (for accurate delta calculation)
         const originalValues = new Map()
         for (let i = 0; i < updates.length; i++) {
@@ -1009,7 +948,7 @@ export const DataProvider = ({ children }) => {
             originalValues.set(accountLogin, updated[index])
           }
         }
-        
+
         for (let i = 0; i < updates.length; i++) {
           const { updatedAccount, accountLogin } = updates[i]
 
@@ -1028,28 +967,27 @@ export const DataProvider = ({ children }) => {
               continue
             }
           }
-          
+
           // Safety check: skip if updatedAccount is null/undefined
           if (!updatedAccount || !accountLogin) {
             console.warn('DataContext: Invalid update entry', { updatedAccount, accountLogin })
             continue
           }
-          
+
           const index = clientIndexMap.get(accountLogin)
-          
+
           if (index === undefined) {
             // New client - add to end
             updateStatsIncremental(null, updatedAccount)
             const newIndex = updated.length
             updated.push(updatedAccount)
             clientIndexMap.set(accountLogin, newIndex)
-            hasNewClients = true
             addedClientsCount++
           } else {
             // Update existing - SELECTIVE MERGE: only update defined values, preserve existing for undefined
             const oldClient = originalValues.get(accountLogin)
             const existingClient = updated[index]
-            
+
             // Safety check: if existingClient is undefined or login mismatch, rebuild index and retry
             if (!existingClient || existingClient.login !== accountLogin) {
               // Index map is stale - find correct index
@@ -1063,7 +1001,7 @@ export const DataProvider = ({ children }) => {
               // Retry with correct index
               const correctClient = updated[correctIndex]
               const oldClientRetry = originalValues.get(accountLogin) || correctClient
-              
+
               // Check if there are actual changes
               let hasChanges = false
               for (const key in updatedAccount) {
@@ -1075,23 +1013,23 @@ export const DataProvider = ({ children }) => {
                   break
                 }
               }
-              
+
               if (!hasChanges) {
                 continue
               }
-              
+
               const merged = { ...correctClient }
               for (const key in updatedAccount) {
                 if (updatedAccount[key] !== undefined) {
                   merged[key] = updatedAccount[key]
                 }
               }
-              
+
               updateStatsIncremental(oldClientRetry, merged)
               updated[correctIndex] = merged
               continue
             }
-            
+
             // Check if there are actual changes to prevent unnecessary object creation
             let hasChanges = false
             for (const key in updatedAccount) {
@@ -1104,12 +1042,12 @@ export const DataProvider = ({ children }) => {
                 break
               }
             }
-            
+
             // Only create new object if there are actual changes
             if (!hasChanges) {
               continue // Skip this update, no changes needed
             }
-            
+
             // Merge: only overwrite fields that are explicitly defined in the update
             const merged = { ...existingClient }
             for (const key in updatedAccount) {
@@ -1117,11 +1055,11 @@ export const DataProvider = ({ children }) => {
                 merged[key] = updatedAccount[key]
               }
             }
-            
+
             // Recalculate percentage fields ONLY if not provided by backend
             // Backend sends accurate percentage values, only calculate as fallback
             const recalculatedPercentages = new Set()
-            
+
             // Daily PnL % - only calculate if backend didn't send it
             if (updatedAccount.dailyPnL_percentage === undefined && 
                 (updatedAccount.dailyPnL !== undefined || updatedAccount.previousEquity !== undefined)) {
@@ -1156,12 +1094,12 @@ export const DataProvider = ({ children }) => {
               merged.lifetimePnL_percentage = netDeposit !== 0 ? (lifetimePnL / netDeposit) * 100 : 0
               recalculatedPercentages.add('lifetimePnL_percentage')
             }
-            
+
             // Store recalculated percentage keys to prevent double normalization
             if (recalculatedPercentages.size > 0) {
               merged.__recalculatedPercentages = Array.from(recalculatedPercentages)
             }
-            
+
             updateStatsIncremental(oldClient, merged)
             updated[index] = merged
             // Update last timestamp after a successful apply
@@ -1175,7 +1113,7 @@ export const DataProvider = ({ children }) => {
       if (addedClientsCount > 0) {
         lowPriority(() => setClientStats(s => ({ ...s, totalClients: s.totalClients + addedClientsCount })))
       }
-      
+
       // CRITICAL FIX: Also update rawClients (unnormalized) for Clients module in real-time
       lowPriority(() => setRawClients(prev => {
         // Build index map for rawClients
@@ -1183,19 +1121,19 @@ export const DataProvider = ({ children }) => {
         prev.forEach((c, i) => {
           if (c?.login) rawIndexMap.set(c.login, i)
         })
-        
+
         const rawUpdated = [...prev]
-        
+
         for (let i = 0; i < updates.length; i++) {
           const { updatedAccount, accountLogin } = updates[i]
-          
+
           // Get the RAW (unnormalized) version by applying normalizeUSCValues with skipNormalization=true
           const rawAccount = normalizeUSCValues(updatedAccount, true)
-          
+
           if (!rawAccount || !accountLogin) continue
-          
+
           const index = rawIndexMap.get(accountLogin)
-          
+
           if (index === undefined) {
             // New client - add to raw list
             const newIndex = rawUpdated.length
@@ -1204,7 +1142,7 @@ export const DataProvider = ({ children }) => {
           } else {
             // Update existing raw client
             const existingRaw = rawUpdated[index]
-            
+
             if (!existingRaw || existingRaw.login !== accountLogin) {
               const correctIndex = rawUpdated.findIndex(c => c?.login === accountLogin)
               if (correctIndex === -1) continue
@@ -1218,7 +1156,7 @@ export const DataProvider = ({ children }) => {
               rawUpdated[correctIndex] = merged
               continue
             }
-            
+
             // Selective merge - only update defined values
             let hasChanges = false
             for (const key in rawAccount) {
@@ -1227,9 +1165,9 @@ export const DataProvider = ({ children }) => {
                 break
               }
             }
-            
+
             if (!hasChanges) continue
-            
+
             const merged = { ...existingRaw }
             for (const key in rawAccount) {
               if (rawAccount[key] !== undefined) {
@@ -1239,10 +1177,10 @@ export const DataProvider = ({ children }) => {
             rawUpdated[index] = merged
           }
         }
-        
+
         return rawUpdated
       }))
-      
+
       // OPTIMIZED: Single state update for accounts with index map
       lowPriority(() => setAccounts(prev => {
         // Rebuild index if needed OR if size mismatch (indicates stale map)
@@ -1252,9 +1190,9 @@ export const DataProvider = ({ children }) => {
             if (a?.login) accountIndexMap.set(a.login, i)
           })
         }
-        
+
         const updated = [...prev]
-        
+
         for (let i = 0; i < updates.length; i++) {
           const { updatedAccount, accountLogin } = updates[i]
           // Ordering guard mirrors clients array update
@@ -1266,7 +1204,7 @@ export const DataProvider = ({ children }) => {
             if (incomingTs < prevTs) continue
           }
           const index = accountIndexMap.get(accountLogin)
-          
+
           if (index === undefined) {
             // New account
             const newIndex = updated.length
@@ -1275,7 +1213,7 @@ export const DataProvider = ({ children }) => {
           } else {
             // Update existing - SELECTIVE MERGE: only update defined values
             const existingAccount = updated[index]
-            
+
             // Safety check: if existingAccount is undefined or login mismatch, rebuild index and retry
             if (!existingAccount || existingAccount.login !== accountLogin) {
               // Index map is stale - find correct index
@@ -1288,7 +1226,7 @@ export const DataProvider = ({ children }) => {
               accountIndexMap.set(accountLogin, correctIndex)
               // Retry with correct index
               const correctAccount = updated[correctIndex]
-              
+
               // Check if there are actual changes
               let hasChanges = false
               for (const key in updatedAccount) {
@@ -1300,23 +1238,23 @@ export const DataProvider = ({ children }) => {
                   break
                 }
               }
-              
+
               if (!hasChanges) {
                 continue
               }
-              
+
               const merged = { ...correctAccount }
               for (const key in updatedAccount) {
                 if (updatedAccount[key] !== undefined) {
                   merged[key] = updatedAccount[key]
                 }
               }
-              
+
               updated[correctIndex] = merged
               if (incomingTs) lastClientTimestampRef.current.set(accountLogin, incomingTs)
               continue
             }
-            
+
             // Check if there are actual changes to prevent unnecessary object creation
             let hasChanges = false
             for (const key in updatedAccount) {
@@ -1329,12 +1267,12 @@ export const DataProvider = ({ children }) => {
                 break
               }
             }
-            
+
             // Only create new object if there are actual changes
             if (!hasChanges) {
               continue
             }
-            
+
             const merged = { ...existingAccount }
             for (const key in updatedAccount) {
               if (updatedAccount[key] !== undefined) {
@@ -1345,10 +1283,10 @@ export const DataProvider = ({ children }) => {
             if (incomingTs) lastClientTimestampRef.current.set(accountLogin, incomingTs)
           }
         }
-        
+
         return updated
       }))
-      
+
       // Release processing lock and check if another batch is queued
       // Use setTimeout to ensure state updates complete before next batch
       setTimeout(() => {
@@ -1363,43 +1301,43 @@ export const DataProvider = ({ children }) => {
     // Track if we're receiving updates
     let updateCount = 0
     let lastUpdateLog = Date.now()
-    
+
     // Subscribe to ACCOUNT_UPDATED for individual updates (BATCHED)
     const unsubAccountUpdate = websocketService.subscribe('ACCOUNT_UPDATED', (message) => {
       try {
         updateCount++
-        
+
         // Log every 5 seconds to confirm we're receiving updates
         if (Date.now() - lastUpdateLog > 5000) {
           console.log(`[DataContext] ✅ Receiving updates: ${updateCount} in last 5s`)
           updateCount = 0
           lastUpdateLog = Date.now()
         }
-        
+
         const updatedAccount = message.data
         const accountLogin = message.login || updatedAccount?.login
-        
+
         if (!updatedAccount || !accountLogin) {
           console.warn('[DataContext] ⚠️ Invalid ACCOUNT_UPDATED message:', message)
           return
         }
-        
+
         // Normalize USC currency values
         const normalizedAccount = normalizeUSCValues(updatedAccount)
-        
+
         // Safety check: ensure normalized account is valid
         if (!normalizedAccount) {
           console.error('[DataContext] ⚠️ normalizeUSCValues returned null/undefined for:', accountLogin)
           return
         }
-        
+
         // Keep SERVER timestamp to measure actual system latency
         const serverTimestamp = message.timestamp
         if (serverTimestamp) {
           const timestampMs = serverTimestamp < 10000000000 ? serverTimestamp * 1000 : serverTimestamp
           normalizedAccount.serverTimestamp = timestampMs
         }
-        
+
         // Add to batch (Map prevents duplicates)
         pendingUpdates.set(accountLogin, { updatedAccount: normalizedAccount, accountLogin })
 
@@ -1427,7 +1365,7 @@ export const DataProvider = ({ children }) => {
             processBatch()
           }, remaining)
         }
-        
+
       } catch (error) {
         console.error('[DataContext] Error processing ACCOUNT_UPDATED:', error)
       }
@@ -1438,13 +1376,13 @@ export const DataProvider = ({ children }) => {
       try {
         const newUser = message.data
         const userLogin = message.login || newUser?.login
-        
+
         console.log('[DataContext] 👤 USER_ADDED:', userLogin, newUser)
-        
+
         if (newUser && userLogin) {
           // Normalize USC currency values
           const normalizedUser = normalizeUSCValues(newUser)
-          
+
           setClients(prev => {
             const exists = Array.isArray(prev) && prev.some(c => c && c.login === userLogin)
             if (exists) {
@@ -1452,7 +1390,7 @@ export const DataProvider = ({ children }) => {
               return prev
             }
             console.log('[DataContext] ➕ Adding NEW user to clients:', userLogin)
-            
+
             // Initialize signature tracking for new user
             const signature = [
               toNum(normalizedUser.balance),
@@ -1471,13 +1409,13 @@ export const DataProvider = ({ children }) => {
             lastClientStateRef.current.set(userLogin, signature)
             const seedTs = (normalizedUser.serverTimestamp || normalizedUser.lastUpdate) ? (normalizedUser.serverTimestamp || (normalizedUser.lastUpdate < 10000000000 ? normalizedUser.lastUpdate * 1000 : normalizedUser.lastUpdate)) : 0
             if (seedTs) lastClientTimestampRef.current.set(userLogin, seedTs)
-            
+
             // Update stats incrementally for new user
             updateStatsIncremental(null, normalizedUser)
             setClientStats(s => ({ ...s, totalClients: s.totalClients + 1 }))
             return [normalizedUser, ...prev]
           })
-          
+
           // Also add to rawClients (unnormalized) for Clients module
           const rawUser = normalizeUSCValues(newUser, true)
           setRawClients(prev => {
@@ -1487,7 +1425,7 @@ export const DataProvider = ({ children }) => {
             }
             return [rawUser, ...prev]
           })
-          
+
           setAccounts(prev => {
             const exists = Array.isArray(prev) && prev.some(c => c && c.login === userLogin)
             if (exists) return prev
@@ -1504,7 +1442,7 @@ export const DataProvider = ({ children }) => {
       try {
         const updatedUser = message.data
         const userLogin = message.login || updatedUser?.login
-        
+
         if (updatedUser && userLogin) {
           // Normalize USC currency values
           const normalizedUser = normalizeUSCValues(updatedUser)
@@ -1522,10 +1460,10 @@ export const DataProvider = ({ children }) => {
               return
             }
           }
-          
+
           let oldClient = null
           let mergedClient = null
-          
+
           setClients(prev => {
             // First, deduplicate the previous array to ensure clean state
             // Filter out null/undefined entries and deduplicate by login
@@ -1537,7 +1475,7 @@ export const DataProvider = ({ children }) => {
                 return map
               }, new Map()).values()
             )
-            
+
             const index = dedupedPrev.findIndex(c => c && c.login === userLogin)
             if (index === -1) {
               // User not found, add as new
@@ -1549,7 +1487,7 @@ export const DataProvider = ({ children }) => {
             oldClient = dedupedPrev[index]
             const updated = [...dedupedPrev]
             const existingUser = updated[index]
-            
+
             // Check if there are actual changes
             let hasChanges = false
             for (const key in normalizedUser) {
@@ -1561,12 +1499,12 @@ export const DataProvider = ({ children }) => {
                 break
               }
             }
-            
+
             // Only update if there are actual changes
             if (!hasChanges) {
               return prev // No changes, return original array
             }
-            
+
             const merged = { ...existingUser }
             for (const key in normalizedUser) {
               if (normalizedUser[key] !== undefined) {
@@ -1579,17 +1517,17 @@ export const DataProvider = ({ children }) => {
             if (incomingTs) lastClientTimestampRef.current.set(userLogin, incomingTs)
             return updated
           })
-          
+
           // Update stats incrementally based on the change - use merged client, not raw update
           updateStatsIncremental(oldClient, mergedClient)
-          
+
           // Also update rawClients (unnormalized) for Clients module
           const rawUser = normalizeUSCValues(updatedUser, true)
           if (msgTs) {
             const tsMs = msgTs < 10000000000 ? msgTs * 1000 : msgTs
             rawUser.serverTimestamp = tsMs
           }
-          
+
           setRawClients(prev => {
             const index = prev.findIndex(c => c && c.login === userLogin)
             if (index === -1) {
@@ -1598,7 +1536,7 @@ export const DataProvider = ({ children }) => {
             }
             const updated = [...prev]
             const existingRaw = updated[index]
-            
+
             // Check if there are actual changes
             let hasChanges = false
             for (const key in rawUser) {
@@ -1607,12 +1545,12 @@ export const DataProvider = ({ children }) => {
                 break
               }
             }
-            
+
             // Only update if there are actual changes
             if (!hasChanges) {
               return prev
             }
-            
+
             const merged = { ...existingRaw }
             for (const key in rawUser) {
               if (rawUser[key] !== undefined) {
@@ -1622,13 +1560,13 @@ export const DataProvider = ({ children }) => {
             updated[index] = merged
             return updated
           })
-          
+
           setAccounts(prev => {
             const index = prev.findIndex(c => c && c.login === userLogin)
             if (index === -1) return [normalizedUser, ...prev]
             const updated = [...prev]
             const existingAccount = updated[index]
-            
+
             // Check if there are actual changes
             let hasChanges = false
             for (const key in normalizedUser) {
@@ -1640,12 +1578,12 @@ export const DataProvider = ({ children }) => {
                 break
               }
             }
-            
+
             // Only update if there are actual changes
             if (!hasChanges) {
               return prev
             }
-            
+
             const merged = { ...existingAccount }
             for (const key in normalizedUser) {
               if (normalizedUser[key] !== undefined) {
@@ -1667,23 +1605,23 @@ export const DataProvider = ({ children }) => {
       try {
         const deletedUser = message.data
         const userLogin = message.login || deletedUser?.login
-        
+
         console.log('[DataContext] 👤 USER_DELETED:', userLogin)
-        
+
         if (userLogin) {
           // Remove from signature tracking
           lastClientStateRef.current.delete(userLogin)
-          
+
           let deletedClient = null
-          
+
           setClients(prev => {
             // Find the client BEFORE removing to capture their values
             deletedClient = prev.find(c => c.login === userLogin)
-            
+
             const filtered = prev.filter(c => c.login !== userLogin)
             if (filtered.length < prev.length) {
               console.log('[DataContext] ➖ Removed user from clients:', userLogin)
-              
+
               // Subtract deleted client's values from stats
               if (deletedClient) {
                 // Create a "zero client" to calculate negative delta
@@ -1701,10 +1639,10 @@ export const DataProvider = ({ children }) => {
             }
             return filtered
           })
-          
+
           // Also remove from rawClients
           setRawClients(prev => prev.filter(c => c.login !== userLogin))
-          
+
           setAccounts(prev => prev.filter(c => c.login !== userLogin))
         }
       } catch (error) {
@@ -1752,7 +1690,7 @@ export const DataProvider = ({ children }) => {
       try {
         const updatedOrder = message.data || message
         const orderId = updatedOrder?.order || updatedOrder?.ticket || updatedOrder?.id
-        
+
         if (orderId) {
           lowPriority(() => setOrders(prev => {
             const index = prev.findIndex(o => (o.order || o.ticket || o.id) === orderId)
@@ -1788,7 +1726,7 @@ export const DataProvider = ({ children }) => {
         processBatch() // Process any pending updates
       }
       firstPendingAtRef.current = 0
-      
+
       unsubDebug()
       unsubState()
       unsubClients()
@@ -1836,73 +1774,26 @@ export const DataProvider = ({ children }) => {
   }, [clients, clientStats, calculateFullStats, diffStats])
 
   // Verify current totals against a fresh API read; optionally apply fix
-  const verifyAgainstAPI = useCallback(async (apply = false) => {
-    // /api/broker/clients endpoint not in use - populated via WebSocket
-    return
-    const response = await fetchWithRetry(() => brokerAPI.getClients(), { retries: 1, baseDelayMs: 600, label: 'verify:getClients' })
-    const raw = response.data?.clients || []
-    const normalized = raw.map(normalizeUSCValues)
-    // Dedup
-    const map = new Map()
-    normalized.forEach(c => { if (c && c.login) map.set(c.login, c) })
-    const fresh = Array.from(map.values())
-    const apiStats = calculateFullStats(fresh)
-    const localStats = calculateFullStats(clients || [])
-    const deltas = diffStats(apiStats, localStats)
-    setStatsDrift(prev => ({
-      ...prev,
-      lastSource: 'verify',
-      lastVerifiedAt: Date.now(),
-      lastDeltas: deltas,
-      lastApiStats: apiStats,
-      lastLocalStats: localStats,
-      lastCount: fresh.length
-    }))
-    if (apply) {
-      setClients(fresh)
-      setAccounts(fresh)
-      setClientStats(apiStats)
-      // Reset signatures to API snapshot
-      lastClientStateRef.current.clear()
-      fresh.forEach(c => {
-        if (c?.login) {
-          const sig = [
-            toNum(c.balance),
-            toNum(c.credit),
-            toNum(c.equity),
-            toNum(c.pnl),
-            toNum(c.profit),
-            toNum(c.dailyDeposit),
-            toNum(c.dailyWithdrawal),
-            toNum(c.dailyPnL),
-            toNum(c.thisWeekPnL),
-            toNum(c.thisMonthPnL),
-            toNum(c.lifetimePnL),
-            toNum(c.lastUpdate)
-          ].join('_')
-          lastClientStateRef.current.set(c.login, sig)
-        }
-      })
-    }
-    return { apiStats, localStats, deltas, count: fresh.length }
-  }, [clients, calculateFullStats, fetchWithRetry])
+  const verifyAgainstAPI = useCallback(async () => {
+    // Client totals are supplied by WebSocket; the retired REST endpoint is unavailable.
+  }, [])
 
   // On successful authentication, perform an initial data sync
   useEffect(() => {
     if (!isAuthenticated) return
-    
+
     // Prevent duplicate initial sync (React StrictMode calls effects twice in dev)
     if (hasInitialSyncedRef.current) {
       console.log('[DataContext] ⚠️ Initial sync already completed, skipping duplicate')
       return
     }
-    
+
     hasInitialSyncedRef.current = true
-    
+
     const initialSync = async () => {
       const maxAttempts = 3
       let fetchedClients = []
-      
+
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           const results = await Promise.allSettled([
@@ -1911,12 +1802,12 @@ export const DataProvider = ({ children }) => {
             fetchOrders(true),
             fetchAccounts(true)
           ])
-          
+
           // Get the actual fetched clients from the first promise result
           // if (results[0].status === 'fulfilled' && Array.isArray(results[0].value)) {
           //   fetchedClients = results[0].value
           // }
-          
+
           // Log any failures
           results.forEach((result, idx) => {
             if (result.status === 'rejected') {
@@ -1924,7 +1815,7 @@ export const DataProvider = ({ children }) => {
               console.error(`[DataContext] Initial ${names[idx]} fetch failed:`, result.reason?.message || result.reason)
             }
           })
-          
+
           // Mark as successful if at least accounts loaded
           fetchedClients = ['success'] // Mark sync as complete
         } catch (error) {
@@ -1936,7 +1827,7 @@ export const DataProvider = ({ children }) => {
           console.log(`[DataContext] ✅ Initial sync successful`)
           break
         }
-        
+
         if (attempt < maxAttempts) {
           const backoff = 800 * attempt
           console.log(`[DataContext] ⚠️ Retrying initial sync after ${backoff}ms (attempt ${attempt + 1}/${maxAttempts})`)
@@ -1950,20 +1841,20 @@ export const DataProvider = ({ children }) => {
         console.log('[DataContext] 🔌 Initial data ready, WebSocket can now connect')
       }
     }
-    
+
     initialSync()
   }, [isAuthenticated])
 
   // Continuously update lag every second based on last known server timestamp
   useEffect(() => {
     if (!latestServerTimestamp) return
-    
+
     const lagUpdateInterval = setInterval(() => {
       const currentLag = Math.max(0, Date.now() - latestServerTimestamp)
       setLatestMeasuredLagMs(currentLag)
       latestMeasuredLagRef.current = currentLag
     }, 1000) // Update every second
-    
+
     return () => clearInterval(lagUpdateInterval)
   }, [latestServerTimestamp])
 
@@ -1973,23 +1864,23 @@ export const DataProvider = ({ children }) => {
       console.log('[DataContext] Lag monitor disabled:', { isAuthenticated, hasInitialData })
       return
     }
-    
+
     console.log('[DataContext] 🔍 Lag monitor started - will check every 5s and reconnect if lag is >= 100s (100 seconds or more)')
-    
+
     const lagCheckInterval = setInterval(() => {
       const currentLag = latestMeasuredLagRef.current
       const lagSeconds = currentLag ? Math.floor(currentLag / 1000) : 0
       console.log(`[DataContext] Lag check: ${lagSeconds}s (threshold: 100s, reconnecting: ${isReconnectingRef.current})`)
-      
+
       // Check if lag exceeds threshold
       if (currentLag && currentLag >= LAG_THRESHOLD_MS && !isReconnectingRef.current) {
         console.warn(`[DataContext] ⚠️ High lag detected: ${lagSeconds}s (threshold: 100s) - Reconnecting WebSocket and fetching fresh data...`)
-        
+
         isReconnectingRef.current = true
-        
+
         // Disconnect WebSocket
         websocketService.disconnect()
-        
+
         // Fetch fresh data from API
         Promise.all([
           fetchClients(true).catch(err => console.error('[DataContext] Lag recovery: fetchClients failed:', err)),
@@ -1998,7 +1889,7 @@ export const DataProvider = ({ children }) => {
           fetchAccounts(true).catch(err => console.error('[DataContext] Lag recovery: fetchAccounts failed:', err))
         ]).then(() => {
           console.log('[DataContext] ✅ Fresh data loaded, reconnecting WebSocket...')
-          
+
           // Wait a moment for data to settle, then reconnect WebSocket
           setTimeout(() => {
             websocketService.connect()
@@ -2015,14 +1906,16 @@ export const DataProvider = ({ children }) => {
         })
       }
     }, LAG_CHECK_INTERVAL_MS)
-    
+
     return () => clearInterval(lagCheckInterval)
   }, [isAuthenticated, hasInitialData])
 
+  const displayClients = useMemo(() => clients.map(client => ({ ...client, liquidateType: accountTypeLabel(client.liquidateType, client.country) })), [clients])
+  const displayRawClients = useMemo(() => rawClients.map(client => ({ ...client, liquidateType: accountTypeLabel(client.liquidateType, client.country) })), [rawClients])
   const value = useMemo(() => ({
     // Data
-    clients,
-    rawClients, // Raw clients without USC normalization (for Clients module)
+    clients: displayClients,
+    rawClients: displayRawClients, // Raw clients without USC normalization (for Clients module)
     positions,
     orders,
     deals,
@@ -2059,7 +1952,7 @@ export const DataProvider = ({ children }) => {
     verifyAgainstAPI,
     statsDrift
   }), [
-    clients, rawClients, positions, orders, deals, accounts,
+    displayClients, displayRawClients, positions, orders, deals, accounts,
     clientStats,
     latestServerTimestamp, latestMeasuredLagMs, lastWsReceiveAt,
     loading, connectionState,

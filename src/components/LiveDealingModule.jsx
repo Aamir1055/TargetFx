@@ -3,8 +3,8 @@ import { getPresetRange, QUICK_FILTERS } from '../utils/dealTimePresets'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
-import { useData } from '../contexts/DataContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useData } from '../contexts/dataContextStore'
+import { useAuth } from '../contexts/authContextStore'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
 import GroupModal from './GroupModal'
@@ -13,7 +13,7 @@ import LoginGroupModal from './LoginGroupModal'
 import TimeFilterModal from './TimeFilterModal'
 import DealsFilterModal from './DealsFilterModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
@@ -46,7 +46,7 @@ export default function LiveDealingModule() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [mobileReportsOpen, setMobileReportsOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
-  const [activeCardIndex, setActiveCardIndex] = useState(0)
+
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -58,7 +58,7 @@ export default function LiveDealingModule() {
   const [editingGroup, setEditingGroup] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
   const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
-  const carouselRef = useRef(null)
+
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -67,11 +67,11 @@ export default function LiveDealingModule() {
   const [sortColumn, setSortColumn] = useState('time')
   const [sortDirection, setSortDirection] = useState('desc')
   const [isMobileView, setIsMobileView] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
-  
+
   // Deals state
   const [deals, setDeals] = useState([])
   const [newDealIds, setNewDealIds] = useState(new Set()) // Track new deals for blinking
-  const [connectionState, setConnectionState] = useState('disconnected')
+  const [, setConnectionState] = useState('disconnected')
   const [timeFilter, setTimeFilter] = useState('today')
   const [moduleFilter, setModuleFilter] = useState('both') // 'deal', 'money', 'both'
   const [customFromDate, setCustomFromDate] = useState('')
@@ -88,7 +88,7 @@ export default function LiveDealingModule() {
   const [pendingTimeDraft, setPendingTimeDraft] = useState(null)
   const [hasPendingDealsChanges, setHasPendingDealsChanges] = useState(false)
   const [pendingDealsDraft, setPendingDealsDraft] = useState(null)
-  
+
   const [visibleColumns, setVisibleColumns] = useState({
     time: true,
     login: true,
@@ -167,29 +167,15 @@ export default function LiveDealingModule() {
   }, [])
 
   // Format request text from deal data
-  const formatRequestFromDeal = (deal) => {
-    const action = deal.action || '-'
-    const symbol = deal.symbol || '-'
-    const volume = formatNum(deal.volume || 0, 2)
-    const price = formatNum(deal.price || 0, 2)
-    return `${action} ${volume} ${symbol} at ${price}`
-  }
+
 
   // Load and save deals cache
   const WS_CACHE_KEY = 'liveDealsWsCache'
-  const loadWsCache = () => {
-    try {
-      const raw = localStorage.getItem(WS_CACHE_KEY)
-      const arr = raw ? JSON.parse(raw) : []
-      return Array.isArray(arr) ? arr : []
-    } catch {
-      return []
-    }
-  }
+
   const saveWsCache = (list) => {
     try {
       localStorage.setItem(WS_CACHE_KEY, JSON.stringify(list))
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
 
   // Build a login→client map from all available sources so name shows immediately on click
@@ -317,10 +303,10 @@ export default function LiveDealingModule() {
 
       setDeals(prevDeals => {
         if (prevDeals.some(d => d.id === dealEntry.id)) return prevDeals
-        
+
         // Mark this deal as new for highlight effect
         setNewDealIds(prev => new Set(prev).add(dealEntry.id))
-        
+
         // Remove the highlight effect after 6 seconds (matching animation duration)
         setTimeout(() => {
           setNewDealIds(prev => {
@@ -329,7 +315,7 @@ export default function LiveDealingModule() {
             return updated
           })
         }, 6000)
-        
+
         const updated = [dealEntry, ...prevDeals]
         saveWsCache(updated.slice(0, 200))
         return updated
@@ -340,7 +326,7 @@ export default function LiveDealingModule() {
     const handleDealUpdated = (data) => {
       const dealData = data.data || data
       const dealId = dealData.deal || dealData.id
-      
+
       if (!dealId) return
 
       setDeals(prevDeals => {
@@ -362,7 +348,7 @@ export default function LiveDealingModule() {
     const handleDealDeleted = (data) => {
       const dealData = data.data || data
       const dealId = dealData.deal || dealData.id
-      
+
       if (!dealId) return
 
       setDeals(prevDeals => prevDeals.filter(d => d.id !== dealId))
@@ -374,10 +360,10 @@ export default function LiveDealingModule() {
     const unsubscribeNewDeal = websocketService.subscribe('NEW_DEAL', handleDealAdded)
     const unsubscribeDeal = websocketService.subscribe('deal', handleDealAdded)
     const unsubscribeLegacyDealAdded = websocketService.subscribe('deal_added', handleDealAdded)
-    
+
     const unsubscribeDealUpdated = websocketService.subscribe('DEAL_UPDATED', handleDealUpdated)
     const unsubscribeDealUpdate = websocketService.subscribe('DEAL_UPDATE', handleDealUpdated)
-    
+
     const unsubscribeDealDeleted = websocketService.subscribe('DEAL_DELETED', handleDealDeleted)
     const unsubscribeDealDelete = websocketService.subscribe('DEAL_DELETE', handleDealDeleted)
 
@@ -429,17 +415,17 @@ export default function LiveDealingModule() {
   const sortedDeals = useMemo(() => ibFilteredDeals, [ibFilteredDeals])
 
   // Calculate summary statistics
-  const summaryStats = useMemo(() => {
+  useMemo(() => {
     const totalDeals = totalDealsCount
     const uniqueLogins = new Set(deals.map(d => d.login)).size
     const uniqueSymbols = new Set(deals.map(d => d.rawData?.symbol)).size
-    
+
     return {
       totalDeals,
       uniqueLogins,
       uniqueSymbols,
     }
-  }, [sortedDeals])
+  }, [sortedDeals]);
 
   const handleSort = (columnKey) => {
     if (sortColumn === columnKey) {
@@ -451,26 +437,10 @@ export default function LiveDealingModule() {
   }
 
   // Map card labels to icon file paths
-  const getCardIcon = (label) => {
-    const baseUrl = import.meta.env.BASE_URL || '/'
-    if (label.includes('DEALS')) return `${baseUrl}mobile-icons/P&L.svg`
-    const iconMap = {
-      'UNIQUE LOGINS': `${baseUrl}mobile-icons/Unique Logins.svg`,
-      'SYMBOLS': `${baseUrl}mobile-icons/Equity.svg`
-    }
-    return iconMap[label] || `${baseUrl}mobile-icons/Clients.svg`
-  }
+
 
   // Face cards data - use useMemo to avoid infinite loop
-  const cards = useMemo(() => {
-    const presetLabel = QUICK_FILTERS.find(option => option.value === timeFilter)?.label
-    const timeLabel = presetLabel ? `DEALS (${presetLabel.toUpperCase()})` : timeFilter === '24h' ? 'DEALS (24H)' : timeFilter === '7d' ? 'DEALS (7D)' : 'DEALS (CUSTOM)'
-    return [
-      { label: timeLabel, value: String(summaryStats.totalDeals) },
-      { label: 'UNIQUE LOGINS', value: String(summaryStats.uniqueLogins) },
-      { label: 'SYMBOLS', value: String(summaryStats.uniqueSymbols) }
-    ]
-  }, [summaryStats, timeFilter])
+
 
   // Get visible columns
   const allColumns = [
@@ -504,11 +474,11 @@ export default function LiveDealingModule() {
 
       const exportColumns = activeColumns
       const headers = exportColumns.map(col => col.label).join(',')
-      
+
       const rows = dataToExport.map(deal => {
         return exportColumns.map(col => {
           let value = ''
-          
+
           switch(col.key) {
             case 'time':
               value = formatTime(deal.rawData?.time)
@@ -560,18 +530,18 @@ export default function LiveDealingModule() {
             default:
               value = deal.rawData?.[col.key] || '-'
           }
-          
+
           if (typeof value === 'string') {
             value = value.replace(/"/g, '""')
             if (value.includes(',') || value.includes('"')) {
               value = `"${value}"`
             }
           }
-          
+
           return value
         }).join(',')
       }).join('\n')
-      
+
       const csvContent = headers + '\n' + rows
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
@@ -590,7 +560,7 @@ export default function LiveDealingModule() {
 
   const renderCellValue = (deal, key, isSticky = false) => {
     let value = '-'
-    
+
     switch (key) {
       case 'time':
         value = formatTime(deal.timestamp || deal.timestampStr || deal.rawData?.timeStr)
@@ -614,7 +584,8 @@ export default function LiveDealingModule() {
           </div>
         )
       case 'netType':
-        const action = deal.rawData?.action || '-'
+        {
+const action = deal.rawData?.action || '-'
         const actionLower = action.toLowerCase()
         return (
           <div 
@@ -636,6 +607,7 @@ export default function LiveDealingModule() {
             </span>
           </div>
         )
+}
       case 'netVolume':
         if (displayMode === 'both') {
           const volValue = fmtMoney(deal.rawData?.volume || 0)
@@ -651,7 +623,8 @@ export default function LiveDealingModule() {
         value = formatNum(deal.rawData?.price || 0, 2)
         break
       case 'totalProfit':
-        const profit = deal.rawData?.profit || 0
+        {
+const profit = deal.rawData?.profit || 0
         let profitValue
         if (displayMode === 'both') {
           const profVal = fmtMoney(profit)
@@ -676,6 +649,7 @@ export default function LiveDealingModule() {
             </span>
           </div>
         )
+}
       case 'commission':
         if (displayMode === 'both') {
           const commValue = fmtMoney(deal.rawData?.commission || 0)
@@ -810,8 +784,8 @@ export default function LiveDealingModule() {
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
                 <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
-                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
-                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
                 </div>
               </div>
               <div className="border-t border-[#ECECEC] mb-2" />
@@ -870,6 +844,9 @@ export default function LiveDealingModule() {
                       <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                       <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                       <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
+                      <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
+                      <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                      <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                     </div>
                   )}
                 </div>
@@ -989,7 +966,7 @@ export default function LiveDealingModule() {
                   className="flex-1 min-w-0 text-[11px] sm:text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit focus:ring-0" 
                 />
               </div>
-              
+
               {/* Column selector button */}
               <button 
                 onClick={() => setIsColumnSelectorOpen(true)}
@@ -1244,7 +1221,7 @@ export default function LiveDealingModule() {
       )}
 
       {/* Modals */}
-      
+
       {/* CustomizeView Modal */}
       <CustomizeViewModal
         isOpen={isCustomizeOpen}
@@ -1454,4 +1431,3 @@ export default function LiveDealingModule() {
     </div>
   )
 }
-

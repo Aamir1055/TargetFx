@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
-import { useData } from '../contexts/DataContext'
+import { useData } from '../contexts/dataContextStore'
 import { brokerAPI } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import CustomizeViewModal from './CustomizeViewModal'
 import FilterModal from './FilterModal'
 import GroupModal from './GroupModal'
@@ -12,16 +12,12 @@ import LoginGroupModal from './LoginGroupModal'
 import SetCustomPercentageModal from './SetCustomPercentageModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
 import AutoPercentageModal from './AutoPercentageModal'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
 import { getPercentageType } from '../utils/percentageType'
 import { formatDate } from '../utils/dateFormatter'
 
-const formatNum = (n, decimals = 2) => {
-  const v = Number(n || 0)
-  if (!isFinite(v)) return '0.00'
-  return v.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-}
+
 
 const formatCompactIndian = (v) => {
   const n = Number(v)
@@ -43,11 +39,11 @@ export default function ClientPercentageModule() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [mobileReportsOpen, setMobileReportsOpen] = useState(false)
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
-  const [activeCardIndex, setActiveCardIndex] = useState(0)
+
   const [searchInput, setSearchInput] = useState('')
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [isGroupOpen, setIsGroupOpen] = useState(false)
+
   const [isLoginGroupsOpen, setIsLoginGroupsOpen] = useState(false)
   const [isLoginGroupModalOpen, setIsLoginGroupModalOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
@@ -169,7 +165,7 @@ export default function ClientPercentageModule() {
     try {
       setLoading(true)
       setError('')
-      
+
       // Server-side pagination for both views
       // Some backends use `limit` instead of `page_size` for this endpoint
       const params = isMobileView ? { page, limit: 15 } : { page, limit: 100 }
@@ -179,7 +175,7 @@ export default function ClientPercentageModule() {
       const payload = response?.data?.data || response?.data || {}
       try {
         console.log('[ClientPercentage] fetch', { page, params, parsedTotal: payload?.total, count: Array.isArray(payload?.clients) ? payload.clients.length : 0 })
-      } catch {}
+      } catch { /* Retain the fallback when this operation is unavailable. */ }
       const clientsData = payload?.clients || []
       setClients(clientsData)
       setStats(prev => ({
@@ -194,7 +190,7 @@ export default function ClientPercentageModule() {
       if (total > 0 && allClients.length === 0) {
         fetchAllForGroupFilter(total)
       }
-      
+
       setLoading(false)
     } catch (err) {
       console.error('Error fetching client percentages:', err)
@@ -210,7 +206,7 @@ export default function ClientPercentageModule() {
       const payload = response?.data?.data || response?.data || {}
       const all = payload?.clients || []
       if (all.length > 0) setAllClients(all)
-    } catch {}
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
   }
 
   // Handle edit click
@@ -241,28 +237,14 @@ export default function ClientPercentageModule() {
   }, [percentageData, filters, filterByActiveGroup, activeGroupFilters])
 
   // Calculate summary statistics
-  const summaryStats = useMemo(() => {
-    const totalClients = ibFilteredData.length
-    const customClients = ibFilteredData.filter(c => c.is_custom).length
-    const defaultClients = totalClients - customClients
-    const avgPercentage = totalClients > 0 
-      ? ibFilteredData.reduce((sum, c) => sum + (Number(c.percentage) || 0), 0) / totalClients 
-      : 0
-    
-    return {
-      totalClients,
-      customClients,
-      defaultClients,
-      avgPercentage
-    }
-  }, [ibFilteredData])
+
 
   // Filter data based on search
   const filteredData = useMemo(() => {
     let filtered = ibFilteredData.filter(item => {
       if (!searchInput.trim()) return true
       const query = searchInput.toLowerCase()
-      
+
       // Special handling for Type column search
       const itemType = getPercentageType(item)
       if (query === 'auto' || query === 'autofill') {
@@ -274,7 +256,7 @@ export default function ClientPercentageModule() {
       if (query === 'custom') {
         return itemType === 'Custom'
       }
-      
+
       // Search across all primitive fields
       return (
         String(item.client_login || item.login || '').toLowerCase().includes(query) ||
@@ -290,7 +272,7 @@ export default function ClientPercentageModule() {
       filtered.sort((a, b) => {
         // Map column keys to actual data fields for sorting
         let aVal, bVal
-        
+
         if (sortColumn === 'login') {
           aVal = a.client_login || a.login
           bVal = b.client_login || b.login
@@ -304,17 +286,17 @@ export default function ClientPercentageModule() {
           aVal = a[sortColumn]
           bVal = b[sortColumn]
         }
-        
+
         if (aVal == null && bVal == null) return 0
         if (aVal == null) return 1
         if (bVal == null) return -1
-        
+
         const aNum = Number(aVal)
         const bNum = Number(bVal)
         if (!isNaN(aNum) && !isNaN(bNum)) {
           return sortDirection === 'asc' ? aNum - bNum : bNum - aNum
         }
-        
+
         const aStr = String(aVal).toLowerCase()
         const bStr = String(bVal).toLowerCase()
         if (sortDirection === 'asc') {
@@ -351,7 +333,7 @@ export default function ClientPercentageModule() {
     }
     return iconMap[label] || `${baseUrl}desktop-icons/Clients.svg`
   }
-  
+
   useEffect(() => {
     const fmtCount = (v) => {
       const n = Number(v) || 0
@@ -367,7 +349,7 @@ export default function ClientPercentageModule() {
       { label: 'USING DEFAULT', value: fmtCount(stats.total_default), numericValue: stats.total_default },
       { label: 'DEFAULT PERCENTAGE', value: `${stats.default_percentage || 0}`, numericValue: stats.default_percentage }
     ]
-    
+
     if (cards.length === 0) {
       setCards(newCards)
     } else {
@@ -424,7 +406,7 @@ export default function ClientPercentageModule() {
 
   const renderCellValue = (item, key, isSticky = false) => {
     let value = '-'
-    
+
     switch (key) {
       case 'login':
         value = item.client_login || item.login || '-'
@@ -682,11 +664,11 @@ export default function ClientPercentageModule() {
 
       const exportColumns = activeColumns
       const headers = exportColumns.map(col => col.label).join(',')
-      
+
       const rows = dataToExport.map(item => {
         return exportColumns.map(col => {
           let value = ''
-          
+
           switch(col.key) {
             case 'login':
               value = item.client_login || item.login || '-'
@@ -709,18 +691,18 @@ export default function ClientPercentageModule() {
             default:
               value = item[col.key] || '-'
           }
-          
+
           if (typeof value === 'string') {
             value = value.replace(/"/g, '""')
             if (value.includes(',') || value.includes('"')) {
               value = `"${value}"`
             }
           }
-          
+
           return value
         }).join(',')
       }).join('\n')
-      
+
       const csvContent = headers + '\n' + rows
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
@@ -741,21 +723,11 @@ export default function ClientPercentageModule() {
     setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const handleModalApply = (type, value) => {
-    if (type === 'filter') {
-      setFilters(value)
-    }
-  }
 
-  const handleOpenGroup = () => {
-    setActiveGroupFilter('clientpercentage', getActiveGroupFilter('clientpercentage'))
-    setIsGroupOpen(true)
-  }
 
-  const handleGroupApply = (groupId) => {
-    setActiveGroupFilter('clientpercentage', groupId)
-    setIsGroupOpen(false)
-  }
+
+
+
 
   // Close export menu when clicking outside
   useEffect(() => {
@@ -1573,8 +1545,8 @@ export default function ClientPercentageModule() {
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
                 <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
-                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
-                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch {} try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch {} }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
+                  <button type="button" onClick={() => { setNumericMode('compact'); try { localStorage.setItem('globalDisplayMode','compact') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'compact'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='compact'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Compact</button>
+                  <button type="button" onClick={() => { setNumericMode('full'); try { localStorage.setItem('globalDisplayMode','full') } catch { /* Retain the fallback when this operation is unavailable. */ } try { window.dispatchEvent(new CustomEvent('globalDisplayModeChanged',{detail:'full'})) } catch { /* Retain the fallback when this operation is unavailable. */ } }} className={`flex-1 py-1.5 text-[11px] font-medium transition-colors rounded ${numericMode==='full'?'bg-[#3B5BDB] text-white shadow-sm':'text-[#374151] hover:bg-white/70'}`}>Full</button>
                 </div>
               </div>
               <div className="border-t border-[#ECECEC] mb-2" />
@@ -1619,6 +1591,9 @@ export default function ClientPercentageModule() {
                         <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                         <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                         <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
+                        <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
+                        <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                        <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                       </div>
                     )}
                   </div>
@@ -1672,4 +1647,3 @@ export default function ClientPercentageModule() {
     </div>
   )
 }
-

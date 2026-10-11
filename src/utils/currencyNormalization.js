@@ -66,17 +66,17 @@ export const getContractSize = (symbol) => {
  */
 export const getCurrencyFromSymbol = (symbol) => {
   if (!symbol || symbol.length < 6) return 'USD'
-  
+
   // For standard forex pairs (6 characters)
   if (symbol.length === 6) {
     return symbol.substring(3, 6) // Quote currency (last 3 chars)
   }
-  
+
   // For metals and other symbols
   if (symbol.startsWith('XAU') || symbol.startsWith('XAG')) {
     return 'USD'
   }
-  
+
   // Default to USD
   return 'USD'
 }
@@ -99,7 +99,7 @@ export const normalizeToUSD = (value, currency) => {
  * @param {string} symbol - Trading symbol
  * @returns {number} - Normalized volume
  */
-export const normalizeVolume = (volume, symbol) => {
+export const normalizeVolume = (volume) => {
   if (volume === null || volume === undefined || isNaN(volume)) return 0
   // Volume is already in lots, just return as is
   // Or you can normalize to contracts: volume * contractSize
@@ -115,14 +115,14 @@ export const normalizeVolume = (volume, symbol) => {
  */
 export const normalizePosition = (position, clientCurrencyMap = {}) => {
   if (!position) return position
-  
+
   // Check if this login uses USC currency
   const clientCurrency = clientCurrencyMap[position.login]
   const isUSC = clientCurrency === 'USC'
-  
+
   // For USC, divide by 100 to convert to USD. For USD or any other currency, use as-is
   const uscDivisor = isUSC ? 100 : 1
-  
+
   return {
     ...position,
     profit: (position.profit || 0) / uscDivisor,
