@@ -44,12 +44,13 @@ const DealsIcon = ({ className }) => (
   </Svg>
 )
 
-// Summary: a simple list/report sheet
+// Summary: a framed overview chart with a total/underline — reads as "aggregated totals",
+// distinct from the Reports parent icon (plain clipboard) and the other sub-icons.
 const SummaryIcon = ({ className }) => (
   <Svg className={className}>
-    <path d="M6 3h9l4 4v14H6z" />
-    <path d="M15 3v4h4" />
-    <path d="M9 12h7M9 15.5h7M9 8.5h3" />
+    <rect x="4" y="3.5" width="16" height="16" rx="3" />
+    <path d="M8 13.5v-3M12 13.5V8M16 13.5v-5.2" />
+    <path d="M7.5 17h9" />
   </Svg>
 )
 

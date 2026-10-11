@@ -5,6 +5,12 @@ import { createPortal } from 'react-dom'
 import { brokerAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
+import GroupSelector from '../components/GroupSelector'
+import GroupModal from '../components/GroupModal'
+import CustomizeViewModal from '../components/CustomizeViewModal'
+import LoginGroupsModal from '../components/LoginGroupsModal'
+import LoginGroupModal from '../components/LoginGroupModal'
+import { useGroups } from '../contexts/GroupContext'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
 import PageSizeSelect from '../components/PageSizeSelect'
@@ -41,67 +47,6 @@ const ymdToEpoch = (value, endOfDay = false) => {
     : serverEpochFromParts(year, month - 1, day, 0, 0, 0)
 }
 
-// The four query modes the backend's /api/broker/reports/summary endpoint supports.
-// Each sends the same base body (from/to/page/limit/sortBy/sortOrder) plus its own extra fields.
-const MODES = [
-  { value: 'all', label: 'All Clients' },
-  { value: 'active', label: 'Active Only' },
-  { value: 'accounts', label: 'Specific Accounts' },
-  { value: 'range', label: 'Login Range' }
-]
-
-// Small glyphs for the mode switcher — kept local since they're only meaningful here.
-const ModeIcon = ({ mode, className = 'w-3.5 h-3.5' }) => {
-  const common = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
-  if (mode === 'all') return (
-    <svg className={`${className} flex-shrink-0`} {...common}>
-      <circle cx="9" cy="8" r="3" /><circle cx="17" cy="9.5" r="2.4" />
-      <path d="M3.5 20c0-3.1 2.6-5.3 5.5-5.3s5.5 2.2 5.5 5.3" /><path d="M15 15.3c2.6.3 4.5 2.1 4.5 4.7" />
-    </svg>
-  )
-  if (mode === 'active') return (
-    <svg className={`${className} flex-shrink-0`} {...common}>
-      <path d="M4 6h16M4 6l6 7v6l4-2v-4l6-7" />
-    </svg>
-  )
-  if (mode === 'accounts') return (
-    <svg className={`${className} flex-shrink-0`} {...common}>
-      <rect x="3" y="5" width="18" height="14" rx="2.2" /><path d="M3 10h18M8 15h4" />
-    </svg>
-  )
-  if (mode === 'range') return (
-    <svg className={`${className} flex-shrink-0`} {...common}>
-      <path d="M4 12h16" /><path d="M4 12l3.2-3.2M4 12l3.2 3.2" /><path d="M20 12l-3.2-3.2M20 12l-3.2 3.2" />
-    </svg>
-  )
-  return null
-}
-
-const FILTER_FIELDS = ['login', 'currency', 'volume', 'profit', 'balance', 'equity', 'commission', 'group', 'symbol']
-const FILTER_OPERATORS = [
-  { value: 'equal', label: 'Equals' },
-  { value: 'not_equal', label: 'Not equals' },
-  { value: 'greater_than', label: 'Greater than' },
-  { value: 'less_than', label: 'Less than' },
-  { value: 'greater_or_equal', label: 'Greater or equal' },
-  { value: 'less_or_equal', label: 'Less or equal' },
-  { value: 'contains', label: 'Contains' },
-  { value: 'in', label: 'In (comma separated)' }
-]
-let filterRowSeq = 0
-const newFilterRow = () => ({ id: `f${++filterRowSeq}`, field: 'currency', operator: 'equal', value: '' })
-
-// Coerce a filter row's raw text value to what the API expects for its operator.
-const coerceFilterValue = (row) => {
-  if (row.operator === 'in') {
-    const parts = row.value.split(',').map(v => v.trim()).filter(Boolean)
-    const allNumeric = parts.length > 0 && parts.every(v => /^-?\d+(\.\d+)?$/.test(v))
-    return allNumeric ? parts.map(Number) : parts
-  }
-  const trimmed = row.value.trim()
-  return /^-?\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : trimmed
-}
-
 // Columns: Login, Name, Deposit/Withdrawal, Credit, Additional, Volume, Commission, Profit, Current Balance, Current Equity.
 // Field names returned by the API aren't finalised, so each accessor tries a few likely spellings.
 const COLUMNS = [
@@ -125,6 +70,25 @@ const MOBILE_WIDTHS = { login: 76, name: 110, inOut: 96, credit: 84, additional:
 const mobileGridFor = (columns) => columns.map(c => `${MOBILE_WIDTHS[c.key] || 90}px`).join(' ')
 
 const SummaryReportPage = () => {
+  const { groups, getActiveGroupFilter, getGroupLogins, setActiveGroupFilter, deleteGroup } = useGroups()
+  const activeGroupName = getActiveGroupFilter('summary-report')
+  const activeGroup = groups.find(group => group.name === activeGroupName) || null
+  const groupKey = JSON.stringify(activeGroup)
+  const previousGroupKey = useRef(groupKey)
+  const [showGroupModal, setShowGroupModal] = useState(false)
+  const [editingGroup, setEditingGroup] = useState(null)
+  const [mobileFilterView, setMobileFilterView] = useState(null)
+  const [pendingGroupName, setPendingGroupName] = useState(null)
+  const openMobileFilters = () => {
+    setPendingGroupName(activeGroupName)
+    setMobileFilterView('customize')
+  }
+  const applyMobileGroup = (name) => {
+    setActiveGroupFilter('summary-report', name)
+    setPage(1)
+    setMobileFilterView(null)
+  }
+
   const [selectedClient, setSelectedClient] = useState(null)
   const { isAuthenticated } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -157,8 +121,7 @@ const SummaryReportPage = () => {
 
   // Mobile table: bounded to its own scroll area (sticky header, like every other report page)
   // instead of scrolling with the whole page. Its height is measured live from the header + the
-  // toolbar/mode-panel/pagination above it — rather than a hardcoded guess — so it's always
-  // correct no matter which mode's panel (none, filters, accounts, range) is currently showing.
+  // toolbar above it — rather than a hardcoded guess — so it's always correct.
   const mobileHeaderRef = useRef(null)
   const mobileAboveTableRef = useRef(null)
   const [mobileTableMaxHeight, setMobileTableMaxHeight] = useState(300)
@@ -167,7 +130,7 @@ const SummaryReportPage = () => {
     const recompute = () => {
       const headerH = mobileHeaderRef.current?.getBoundingClientRect().height || 0
       const aboveH = mobileAboveTableRef.current?.getBoundingClientRect().height || 0
-      setMobileTableMaxHeight(Math.max(180, Math.round(viewportHeight - headerH - aboveH - 16)))
+      setMobileTableMaxHeight(Math.max(180, Math.round(viewportHeight - headerH - aboveH - 2)))
     }
     recompute()
     let observer = null
@@ -202,15 +165,9 @@ const SummaryReportPage = () => {
     }
   }, [datePickerOpen])
 
-  // ───────── Query mode + per-mode inputs ─────────
-  const [mode, setMode] = useState('all')
-
-  // "active" mode
-  const [hideInactive, setHideInactive] = useState(true)
+  // ───────── Search (debounced, same as Deals) ─────────
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [filterDraft, setFilterDraft] = useState([])
-  const [filters, setFilters] = useState([])
   useEffect(() => {
     const timer = setTimeout(() => {
       const next = searchInput.trim()
@@ -219,31 +176,12 @@ const SummaryReportPage = () => {
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
-  const applyFilters = () => {
-    const cleaned = filterDraft.filter(row => row.field.trim() && row.value.trim())
-    setFilters(cleaned)
+  const submitSearch = () => {
+    const next = searchInput.trim()
+    if (next === search) setReloadKey(value => value + 1)
+    else setSearch(next)
     setPage(1)
   }
-
-  // "accounts" mode
-  const [accountsList, setAccountsList] = useState([])
-  const [accountsInput, setAccountsInput] = useState('')
-  const addAccounts = () => {
-    const parsed = accountsInput.split(/[\s,]+/).map(v => v.trim()).filter(Boolean).map(Number).filter(Number.isFinite)
-    if (!parsed.length) return
-    setAccountsList(prev => Array.from(new Set([...prev, ...parsed])))
-    setAccountsInput('')
-    setPage(1)
-  }
-  const removeAccount = (login) => { setAccountsList(prev => prev.filter(v => v !== login)); setPage(1) }
-
-  // "range" mode
-  const [rangeMinInput, setRangeMinInput] = useState('')
-  const [rangeMaxInput, setRangeMaxInput] = useState('')
-  const [appliedRange, setAppliedRange] = useState({ min: '', max: '' })
-  const applyLoginRange = () => { setAppliedRange({ min: rangeMinInput.trim(), max: rangeMaxInput.trim() }); setPage(1) }
-
-  const changeMode = (next) => { setMode(next); setPage(1); setError('') }
 
   // ───────── Columns ─────────
   const [visibleColumns, setVisibleColumns] = useState(() => {
@@ -321,44 +259,36 @@ const SummaryReportPage = () => {
     setExportProgress(null)
   }
 
-  // Builds the mode-specific extra fields on top of from/to/page/limit/sortBy/sortOrder.
-  // Returns null when the mode's required inputs aren't ready yet (so the fetch is skipped).
+  // POST /api/broker/reports/summary: an active login group becomes `mt5Accounts` (groups expand
+  // to concrete logins — whether created by picking individual logins or by a login range — via
+  // getGroupLogins, same as the Deals report). A numeric search narrows/replaces that to one login;
+  // a text search is sent as `search` instead.
   const buildExtraBody = () => {
-    if (mode === 'active') {
-      const body = { hideInactive }
-      if (search) body.search = search
-      if (filters.length) body.filters = filters.map(row => ({ field: row.field, operator: row.operator, value: coerceFilterValue(row) }))
-      return body
-    }
-    if (mode === 'accounts') {
-      if (!accountsList.length) return null
-      return { mt5Accounts: accountsList }
-    }
-    if (mode === 'range') {
-      if (appliedRange.min === '' || appliedRange.max === '') return null
-      return { accountRangeMin: Number(appliedRange.min), accountRangeMax: Number(appliedRange.max) }
-    }
-    return {}
+    const body = { sortBy, sortOrder }
+    let logins = activeGroup ? [...new Set(getGroupLogins(activeGroup.name).map(Number).filter(Number.isFinite))] : null
+    if (/^\d+$/.test(search)) {
+      const login = Number(search)
+      logins = logins === null ? [login] : logins.filter(value => value === login)
+    } else if (search) body.search = search
+    if (logins !== null) body.mt5Accounts = logins
+    return body
   }
-
-  // A stable key summarising everything that should trigger a refetch (besides page/pageSize/sort/range).
-  const queryKey = JSON.stringify({ mode, hideInactive, search, filters, accountsList, appliedRange })
 
   useEffect(() => {
     if (!isAuthenticated) return undefined
-    const extra = buildExtraBody()
-    if (extra === null) {
-      setRows([])
-      setTotal(0)
-      setLoading(false)
-      return undefined
+    if (previousGroupKey.current !== groupKey) {
+      previousGroupKey.current = groupKey
+      if (page !== 1) {
+        setPage(1)
+        return undefined
+      }
     }
     let cancelled = false
     const load = async () => {
       setLoading(true)
       setError('')
       try {
-        const response = await brokerAPI.getSummaryReport({ from: range.from, to: range.to, page, limit: effectivePageSize, sortBy, sortOrder, ...extra })
+        const response = await brokerAPI.getSummaryReport({ from: range.from, to: range.to, page, limit: effectivePageSize, ...buildExtraBody() })
         if (cancelled) return
         const payload = response?.data ?? response ?? {}
         const data = payload?.summary || payload?.items || payload?.clients || payload?.rows || payload?.data || []
@@ -378,7 +308,7 @@ const SummaryReportPage = () => {
     load()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, isAuthenticated, page, effectivePageSize, sortBy, sortOrder, reloadKey, queryKey])
+  }, [range, search, isAuthenticated, page, effectivePageSize, sortBy, sortOrder, reloadKey, groupKey])
 
   const totalPages = Math.max(1, Math.ceil(total / effectivePageSize))
   // When the on-screen keyboard has shrunk the visible viewport, let the mobile column-picker
@@ -442,28 +372,24 @@ const SummaryReportPage = () => {
     return sums
   }, [rows, shownColumns])
 
-  // Export every row in the current mode/range, fetched in chunks of EXPORT_CHUNK
+  // Export every row for the current date range/group/search, fetched in chunks of EXPORT_CHUNK
   const handleExport = async () => {
     if (exportControllerRef.current) return
-    const extra = buildExtraBody()
-    if (extra === null) {
-      setError(mode === 'accounts' ? 'Add at least one account before exporting.' : 'Enter a login range and click Apply before exporting.')
-      return
-    }
     const controller = new AbortController()
     exportControllerRef.current = controller
     setExportProgress({ done: 0, total })
     try {
+      const extra = buildExtraBody()
       const getPayload = (res) => res?.data ?? res ?? {}
       const getRows = (payload) => payload?.summary || payload?.items || payload?.clients || payload?.rows || payload?.data || []
-      const first = getPayload(await brokerAPI.getSummaryReport({ from: range.from, to: range.to, page: 1, limit: EXPORT_CHUNK, sortBy, sortOrder, ...extra }, { signal: controller.signal }))
+      const first = getPayload(await brokerAPI.getSummaryReport({ from: range.from, to: range.to, page: 1, limit: EXPORT_CHUNK, ...extra }, { signal: controller.signal }))
       if (controller.signal.aborted) return
       let all = getRows(first)
       const exportTotal = Number(first?.pagination?.total ?? first?.total ?? first?.totalCount ?? first?.total_count ?? all.length) || all.length
       const pages = Math.ceil(exportTotal / EXPORT_CHUNK)
       setExportProgress({ done: all.length, total: exportTotal })
       for (let p = 2; p <= pages; p++) {
-        const payload = getPayload(await brokerAPI.getSummaryReport({ from: range.from, to: range.to, page: p, limit: EXPORT_CHUNK, sortBy, sortOrder, ...extra }, { signal: controller.signal }))
+        const payload = getPayload(await brokerAPI.getSummaryReport({ from: range.from, to: range.to, page: p, limit: EXPORT_CHUNK, ...extra }, { signal: controller.signal }))
         if (controller.signal.aborted) return
         const chunk = getRows(payload)
         if (!chunk.length) break
@@ -472,7 +398,6 @@ const SummaryReportPage = () => {
       }
       if (controller.signal.aborted || !all.length) return
       const stamp = toYmd(serverNowDate())
-      const modeLabel = MODES.find(m => m.value === mode)?.label || mode
       const excelColumns = shownColumns.map(c => c.numeric
         ? { key: c.key, label: c.label, value: c.get, type: 'number', digits: 2, signed: !!c.signed }
         : { key: c.key, label: c.label, value: c.get })
@@ -482,13 +407,14 @@ const SummaryReportPage = () => {
       exportStyledExcel({
         title: 'Summary Report',
         meta: [
-          `Mode: ${modeLabel}`,
-          `Period: ${toYmd(fromServerEpoch(range.from))} – ${toYmd(fromServerEpoch(range.to))}`
+          `Period: ${toYmd(fromServerEpoch(range.from))} – ${toYmd(fromServerEpoch(range.to))}`,
+          ...(activeGroupName ? [`Group: ${activeGroupName}`] : []),
+          ...(search ? [`Search: ${search}`] : [])
         ],
         columns: excelColumns,
         sections: [{ rows: all, totals: { label: 'TOTAL', values: totals } }],
         sheetName: 'Summary',
-        fileName: `summary_${mode}_${stamp}.xlsx`
+        fileName: `summary_${stamp}.xlsx`
       })
     } catch (exportError) {
       if (controller.signal.aborted) return
@@ -576,48 +502,11 @@ const SummaryReportPage = () => {
     </div>
   ))
 
-  // Mobile: a 2x2 grid of full-width cards — every option stays fully visible and legible,
-  // instead of a cramped single-row strip that clips or needs horizontal scrolling.
-  // Desktop: a compact icon + label segmented control, which has plenty of room to spare.
-  const modeTabs = isMobile ? (
-    <div className="grid grid-cols-2 gap-1" role="group" aria-label="Summary query mode">
-      {MODES.map(m => (
-        <button
-          key={m.value}
-          type="button"
-          aria-pressed={mode === m.value}
-          onClick={() => changeMode(m.value)}
-          className={`flex h-8 items-center justify-center gap-1 rounded-md px-1.5 text-[11px] font-semibold transition-colors ${mode === m.value ? 'bg-[#3B5BDB] text-white shadow-sm' : 'bg-white border border-[#E5E7EB] text-[#4B5563] active:bg-gray-50'}`}
-        >
-          <ModeIcon mode={m.value} className={`w-3 h-3 shrink-0 ${mode === m.value ? 'text-white' : 'text-[#9CA3AF]'}`} />
-          <span className="truncate">{m.label}</span>
-        </button>
-      ))}
-    </div>
-  ) : (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="hidden md:inline shrink-0 text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">Report view</span>
-      <div
-        className="flex shrink min-w-0 items-center gap-1 h-10 bg-[#F3F4F6] rounded-xl p-1 shadow-inner overflow-x-auto"
-        style={{ scrollbarWidth: 'none' }}
-        role="group"
-        aria-label="Summary query mode"
-      >
-        {MODES.map(m => (
-          <button
-            key={m.value}
-            type="button"
-            aria-pressed={mode === m.value}
-            onClick={() => changeMode(m.value)}
-            className={`flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-semibold transition-all duration-150 ${mode === m.value ? 'bg-[#3B5BDB] text-white shadow-md' : 'text-[#4B5563] hover:bg-white hover:text-[#1F2937] hover:shadow-sm'}`}
-          >
-            <ModeIcon mode={m.value} className={`w-3.5 h-3.5 ${mode === m.value ? 'text-white' : 'text-[#9CA3AF]'}`} />
-            {m.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
+  const groupSelector = <GroupSelector
+    moduleName="summary-report"
+    onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }}
+    onEditClick={(group) => { setEditingGroup(group); setShowGroupModal(true) }}
+  />
 
   const actionButtons = (
     <>
@@ -637,83 +526,6 @@ const SummaryReportPage = () => {
     </>
   )
 
-  const smallInput = 'h-8 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-xs text-[#1F2937] placeholder:text-[#9CA3AF] outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-
-  // Mode-specific query panel, shown above the table for all modes except "all"
-  const modePanel = mode === 'active' ? (
-    <div className="rounded-xl border border-[#E5E7EB] bg-slate-50/70 p-3 md:p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[180px] max-w-sm">
-          <input type="text" value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Search login or name" className={`${smallInput} w-full pl-8`} aria-label="Search clients" />
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#9CA3AF]" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-        </div>
-        <label className="flex h-8 items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-xs font-medium text-[#374151]">
-          <input type="checkbox" checked={hideInactive} onChange={e => { setHideInactive(e.target.checked); setPage(1) }} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-          Hide inactive accounts
-        </label>
-      </div>
-      <div className="mt-3 space-y-2">
-        {filterDraft.map(row => (
-          <div key={row.id} className="flex flex-wrap items-center gap-2">
-            <input list="summary-filter-fields" value={row.field} onChange={e => setFilterDraft(prev => prev.map(r => r.id === row.id ? { ...r, field: e.target.value } : r))} placeholder="field" className={`${smallInput} w-28`} />
-            <select value={row.operator} onChange={e => setFilterDraft(prev => prev.map(r => r.id === row.id ? { ...r, operator: e.target.value } : r))} className={`${smallInput} w-40`}>
-              {FILTER_OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
-            </select>
-            <input value={row.value} onChange={e => setFilterDraft(prev => prev.map(r => r.id === row.id ? { ...r, value: e.target.value } : r))} placeholder="value" className={`${smallInput} w-32`} />
-            <button type="button" onClick={() => setFilterDraft(prev => prev.filter(r => r.id !== row.id))} className="h-8 w-8 rounded-md text-[#9CA3AF] hover:bg-red-50 hover:text-red-600 flex items-center justify-center" aria-label="Remove filter">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
-        ))}
-        <datalist id="summary-filter-fields">
-          {FILTER_FIELDS.map(f => <option key={f} value={f} />)}
-        </datalist>
-        <div className="flex items-center gap-2 pt-1">
-          <button type="button" onClick={() => setFilterDraft(prev => [...prev, newFilterRow()])} className="h-8 rounded-md border border-dashed border-[#9CA3AF] px-3 text-xs font-medium text-[#374151] hover:bg-white">+ Add filter</button>
-          <button type="button" onClick={applyFilters} className="h-8 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700">Apply filters</button>
-          {filters.length > 0 && <span className="text-[11px] text-[#6B7280]">{filters.length} filter{filters.length > 1 ? 's' : ''} applied</span>}
-        </div>
-      </div>
-    </div>
-  ) : mode === 'accounts' ? (
-    <div className="rounded-xl border border-[#E5E7EB] bg-slate-50/70 p-3 md:p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <input value={accountsInput} onChange={e => setAccountsInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAccounts() } }} placeholder="e.g. 750001, 750002" className={`${smallInput} w-56`} aria-label="MT5 account logins" />
-        <button type="button" onClick={addAccounts} className="h-8 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700">Add</button>
-        {accountsList.length > 0 && <button type="button" onClick={() => setAccountsList([])} className="h-8 rounded-md border border-[#E5E7EB] bg-white px-3 text-xs font-medium text-[#374151] hover:bg-gray-50">Clear all</button>}
-      </div>
-      {accountsList.length > 0 ? (
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {accountsList.map(login => (
-            <span key={login} className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 pl-2.5 pr-1 py-1 text-xs font-medium text-blue-700">
-              {login}
-              <button type="button" onClick={() => removeAccount(login)} className="h-4 w-4 rounded-full hover:bg-blue-200 flex items-center justify-center" aria-label={`Remove ${login}`}>
-                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-2 text-[11px] text-[#6B7280]">Add one or more MT5 logins to query specific accounts.</p>
-      )}
-    </div>
-  ) : mode === 'range' ? (
-    <div className="rounded-xl border border-[#E5E7EB] bg-slate-50/70 p-3 md:p-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="block text-xs font-medium text-[#374151]">
-          Min login
-          <input type="number" value={rangeMinInput} onChange={e => setRangeMinInput(e.target.value)} placeholder="750000" className={`${smallInput} mt-1 block w-32`} />
-        </label>
-        <label className="block text-xs font-medium text-[#374151]">
-          Max login
-          <input type="number" value={rangeMaxInput} onChange={e => setRangeMaxInput(e.target.value)} placeholder="759999" className={`${smallInput} mt-1 block w-32`} />
-        </label>
-        <button type="button" onClick={applyLoginRange} disabled={!rangeMinInput.trim() || !rangeMaxInput.trim()} className="h-8 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Apply range</button>
-        {appliedRange.min !== '' && appliedRange.max !== '' && <span className="text-[11px] text-[#6B7280]">Showing logins {appliedRange.min}–{appliedRange.max}</span>}
-      </div>
-    </div>
-  ) : null
-
   const exportingNote = exporting && (
     <LoadingSpinner
       onCancel={cancelExport}
@@ -723,22 +535,14 @@ const SummaryReportPage = () => {
     />
   )
 
-  const promptMessage = mode === 'accounts' && !accountsList.length
-    ? 'Add at least one MT5 login above to see results.'
-    : mode === 'range' && (appliedRange.min === '' || appliedRange.max === '')
-      ? 'Enter a login range above and click Apply to see results.'
-      : null
-
   const emptyOrError = error
     ? <div className="flex min-h-[200px] items-center justify-center px-5 text-center text-sm text-red-600">{error}</div>
-    : promptMessage
-      ? <div className="flex min-h-[200px] items-center justify-center px-5 text-center text-sm text-slate-500">{promptMessage}</div>
-      : (
-        <div className="flex min-h-[200px] flex-col items-center justify-center px-5 text-center">
-          <p className="text-sm font-semibold text-slate-700">No results found</p>
-          <p className="mt-1 text-xs text-slate-500">{search ? 'Try a different search.' : 'Try a wider date range or adjust your filters.'}</p>
-        </div>
-      )
+    : (
+      <div className="flex min-h-[200px] flex-col items-center justify-center px-5 text-center">
+        <p className="text-sm font-semibold text-slate-700">No results found</p>
+        <p className="mt-1 text-xs text-slate-500">{search ? 'Try a different search.' : 'Try a wider date range or a different group.'}</p>
+      </div>
+    )
 
   const prevDisabled = page <= 1
   const nextDisabled = page >= totalPages
@@ -767,22 +571,29 @@ const SummaryReportPage = () => {
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div ref={mobileAboveTableRef}>
-              <div className="pt-3 pb-2 px-2 space-y-2">
+              <div className="pt-3 pb-2 px-2">
                 <div className="flex w-full flex-nowrap items-center gap-1 overflow-x-auto py-1 [&>select]:w-[72px] [&>select]:h-7 [&>select]:px-1 [&>select]:text-[10px] [&>button]:h-7 [&>button]:w-7 [&>div]:shrink-0 [&>div[data-summary-datepicker]>button]:h-7 [&>div[data-summary-datepicker]>button]:w-7">
+                  <div className="shrink-0">
+                    <button type="button" onClick={openMobileFilters} aria-haspopup="dialog" aria-expanded={mobileFilterView !== null} title={activeGroupName ? `Group filter: ${activeGroupName}` : 'Customize view'} className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-medium shadow-sm ${activeGroupName ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-[#E5E7EB] bg-white text-[#374151]'}`}>
+                      <svg className="h-3 w-3" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 3h14M4 6h10M6 9h6" /></svg>
+                      Filter
+                      {activeGroupName && <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
+                    </button>
+                  </div>
                   {actionButtons}
                 </div>
-                {modeTabs}
                 {exportingNote}
               </div>
 
-              {modePanel && <div className="px-2 pb-2 [&_input]:text-xs [&_select]:text-xs">{modePanel}</div>}
-
               <div className="mx-1 mb-2 bg-white rounded-xl border border-[#E5E7EB] shadow-sm px-2.5 py-2">
                 <div className="flex items-center gap-1.5">
-                  <button type="button" onClick={() => { setColumnSearch(''); setColumnPickerOpen(true) }} className="h-7 w-7 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 flex-shrink-0" title="Show/Hide Columns" aria-label="Show or hide columns">
+                  <div className="w-[40%] max-w-[160px] min-w-0 h-7 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md px-2 flex items-center gap-1.5">
+                    <svg width="12" height="12" viewBox="0 0 18 18" fill="none" className="flex-shrink-0 text-[#9CA3AF]"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                    <input placeholder="Search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} className="flex-1 min-w-0 text-[11px] text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit" aria-label="Search clients" />
+                  </div>
+                  <button type="button" onClick={() => { setColumnSearch(''); setColumnPickerOpen(true) }} className="h-7 w-7 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 flex-shrink-0 mr-auto" title="Show/Hide Columns" aria-label="Show or hide columns">
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="4" height="10" rx="1" stroke="#4B5563" strokeWidth="1.2" /><rect x="8" y="3" width="6" height="10" rx="1" stroke="#4B5563" strokeWidth="1.2" /></svg>
                   </button>
-                  <div className="flex-1 min-w-0" />
                   <button type="button" onClick={() => setPage(Math.max(1, page - 1))} disabled={prevDisabled} className={`h-7 w-7 rounded-md bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center flex-shrink-0 ${prevDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50'}`} aria-label="Previous page">
                     <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M12 14L8 10L12 6" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </button>
@@ -798,11 +609,11 @@ const SummaryReportPage = () => {
               </div>
             </div>
 
-            <div className="bg-white shadow-sm border border-blue-100 overflow-hidden mx-1 mb-4">
-              {/* Bounded to its own scroll area (sticky header) instead of growing with the page —
-                  mobileTableMaxHeight is measured live from the header + the toolbar/mode-panel
-                  above, so it's always correct regardless of which mode's panel is showing. */}
-              <div className="w-full overflow-x-auto overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', scrollbarWidth: 'none', maxHeight: mobileTableMaxHeight }}>
+            <div className="bg-white shadow-sm border border-blue-100 overflow-hidden mx-1">
+              {/* Fixed `height` (not `maxHeight`): the card's white background always fills the
+                  remaining screen space down to the bottom, even when a page has few rows, so there's
+                  no gray page background showing through below it. */}
+              <div className="w-full overflow-x-auto overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', scrollbarWidth: 'none', height: mobileTableMaxHeight }}>
                 <div className="relative" style={{ minWidth: 'max-content' }}>
                   <div className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{ gridTemplateColumns: mobileGrid }}>
                     {shownMobileColumns.map(column => (
@@ -859,19 +670,36 @@ const SummaryReportPage = () => {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {modeTabs}
+                {groupSelector}
                 {actionButtons}
               </div>
             </div>
             {exportingNote}
           </div>
 
-          {modePanel && <div className="mb-4">{modePanel}</div>}
-
           <div className="bg-white rounded-lg shadow-sm border border-[#E5E7EB] overflow-hidden flex flex-col flex-1 min-h-0">
             <div className="border-b border-[#E5E7EB] p-4">
               <div className="flex items-center gap-2">
-                <div className="relative" data-summary-column-picker="">
+                <div className="relative flex-1 max-w-md">
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === 'Enter') submitSearch() }}
+                    placeholder="Search login or name"
+                    className="w-full h-10 pl-4 pr-20 text-sm border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] text-[#1F2937] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    aria-label="Search clients"
+                  />
+                  {searchInput && (
+                    <button type="button" onClick={() => { setSearchInput(''); setSearch(''); setPage(1) }} className="absolute right-12 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#4B5563]" title="Clear search">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  )}
+                  <button type="button" onClick={submitSearch} className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors shadow-sm" title="Search" aria-label="Search">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 18 18"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                  </button>
+                </div>
+                <div className="relative mr-auto" data-summary-column-picker="">
                   <button type="button" onClick={() => { setColumnSearch(''); setColumnPickerOpen(value => !value) }} className="h-10 w-10 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors" title="Show/Hide Columns" aria-label="Show or hide columns" aria-expanded={columnPickerOpen}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                       <line x1="2" y1="4" x2="14" y2="4" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round" /><circle cx="6" cy="4" r="1.5" fill="white" stroke="#4B5563" strokeWidth="1.5" />
@@ -908,10 +736,6 @@ const SummaryReportPage = () => {
                     </div>
                   )}
                 </div>
-
-                <p className="text-xs text-[#6B7280] mr-auto">
-                  {total > 0 ? `${total.toLocaleString('en-IN')} client${total === 1 ? '' : 's'}` : loading ? 'Loading…' : ' '}
-                </p>
 
                 <div className="flex items-center gap-3">
                   <PageSizeSelect value={pageSize} onChange={(value) => { setPageSize(Number(value)); setPage(1) }} options={PAGE_SIZE_OPTIONS} />
@@ -1005,6 +829,37 @@ const SummaryReportPage = () => {
       ))}
 
       {isMobile && datePickerOpen && createPortal(datePickerPopover, document.body)}
+      {isMobile && (
+        <>
+          <CustomizeViewModal
+            isOpen={mobileFilterView === 'customize'}
+            onClose={() => setMobileFilterView(null)}
+            onGroupsClick={() => setMobileFilterView('groups')}
+            onReset={() => applyMobileGroup(null)}
+            onApply={() => applyMobileGroup(pendingGroupName)}
+            hasPendingChanges={pendingGroupName !== activeGroupName}
+          />
+          <LoginGroupsModal
+            isOpen={mobileFilterView === 'groups'}
+            onClose={() => setMobileFilterView(view => view === 'groups' ? null : view)}
+            onBack={() => setMobileFilterView('customize')}
+            groups={groups.map(group => ({ ...group, loginCount: group.range ? Number(group.range.to) - Number(group.range.from) + 1 : (group.loginIds?.length || 0) }))}
+            activeGroupName={activeGroupName}
+            onSelectGroup={group => applyMobileGroup(group?.name || null)}
+            onPendingChange={(_hasPending, name) => setPendingGroupName(name || null)}
+            onCreateGroup={() => { setEditingGroup(null); setMobileFilterView('edit') }}
+            onEditGroup={group => { setEditingGroup(group); setMobileFilterView('edit') }}
+            onDeleteGroup={group => deleteGroup(group.name)}
+          />
+          <LoginGroupModal
+            isOpen={mobileFilterView === 'edit'}
+            editGroup={editingGroup}
+            onClose={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+            onBack={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+            onSave={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+          />
+        </>
+      )}
 
       {/* Mobile column picker (bottom sheet) */}
       {columnPickerOpen && (
@@ -1045,6 +900,15 @@ const SummaryReportPage = () => {
           </div>
         </div>
       )}
+
+      <GroupModal
+        isOpen={showGroupModal}
+        onClose={() => { setShowGroupModal(false); setEditingGroup(null) }}
+        availableItems={rows}
+        loginField="login"
+        displayField="name"
+        editGroup={editingGroup}
+      />
     </div>
   )
 }

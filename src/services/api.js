@@ -919,7 +919,10 @@ export const brokerAPI = {
     if (payload.hideInactive !== undefined) body.hideInactive = payload.hideInactive
     if (payload.search) body.search = payload.search
     if (Array.isArray(payload.filters) && payload.filters.length) body.filters = payload.filters
-    if (Array.isArray(payload.mt5Accounts) && payload.mt5Accounts.length) body.mt5Accounts = payload.mt5Accounts
+    // Note: an explicit empty array is passed through (not dropped) — e.g. a selected login group
+    // narrowed by search to zero matching logins should correctly ask the server for zero results,
+    // not silently fall back to "no account filter at all".
+    if (Array.isArray(payload.mt5Accounts)) body.mt5Accounts = payload.mt5Accounts
     if (payload.accountRangeMin !== undefined && payload.accountRangeMin !== null && payload.accountRangeMin !== '') body.accountRangeMin = payload.accountRangeMin
     if (payload.accountRangeMax !== undefined && payload.accountRangeMax !== null && payload.accountRangeMax !== '') body.accountRangeMax = payload.accountRangeMax
     if (DEBUG_LOGS) console.log('[API] POST /api/broker/reports/summary', body)
