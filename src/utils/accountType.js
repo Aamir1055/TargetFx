@@ -1,8 +1,9 @@
 export function accountTypeLabel(value, country) {
-  const raw = String(value || country || '').trim()
+  const raw = String(value || '').trim()
+  if (!raw) return String(country || '').trim() ? 'Non-Liquidate' : '-'
   const key = raw.toLowerCase().replace(/[.\s_-]/g, '')
   if (key === 'liquidate' || key === 'india') return 'Liquidate'
-  if (['nonliquidate', 'dnl', 'uae', 'unitedarabemirates'].includes(key)) return 'DNL'
+  if (['nonliquidate', 'dnl', 'uae', 'unitedarabemirates'].includes(key)) return 'Non-Liquidate'
   return value ? String(value) : '-'
 }
 

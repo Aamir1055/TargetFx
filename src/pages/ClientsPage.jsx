@@ -363,7 +363,7 @@ const ClientsPage = () => {
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Phone' },
     { key: 'group', label: 'Group' },
-    { key: 'liquidateType', label: 'Account Type' },
+    { key: 'liquidateType', label: 'Liquidation Category' },
     { key: 'city', label: 'City' },
     { key: 'state', label: 'State' },
     { key: 'address', label: 'Address' },

@@ -63,13 +63,10 @@ const BillsPage = lazy(() => import('./pages/BillsPage'))
 const ReportsExchangePage = lazy(() => import('./pages/ReportsExchangePage'))
 const HistoricalPositionsPage = lazy(() => import('./pages/HistoricalPositionsPage'))
 const DealsReportPage = lazy(() => import('./pages/DealsReportPage'))
-<<<<<<< HEAD
 const AgentDetailsReportPage = lazy(() => import('./pages/AgentDetailsReportPage'))
 const CreditReportPage = lazy(() => import('./pages/CreditReportPage'))
 const DepositWithdrawalReportPage = lazy(() => import('./pages/DepositWithdrawalReportPage'))
-=======
 const SummaryReportPage = lazy(() => import('./pages/SummaryReportPage'))
->>>>>>> 304ecac74dc934d12e642faa5638b9755211d70d
 const BrokerRulePage = lazy(() => import('./pages/BrokerRulePage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const GraphicalAnalyticsPage = lazy(() => import('./pages/GraphicalAnalyticsPage'))
@@ -230,13 +227,10 @@ const AppContent = () => {
         <Route path="/reports/exchange" element={<ReportsExchangePage />} />
         <Route path="/reports/historical-positions" element={<HistoricalPositionsPage />} />
         <Route path="/reports/deals" element={<DealsReportPage />} />
-<<<<<<< HEAD
         <Route path="/reports/agent-details" element={<AgentDetailsReportPage />} />
         <Route path="/reports/credit" element={<CreditReportPage />} />
         <Route path="/reports/deposit-withdrawal" element={<DepositWithdrawalReportPage />} />
-=======
         <Route path="/reports/summary" element={<SummaryReportPage />} />
->>>>>>> 304ecac74dc934d12e642faa5638b9755211d70d
         <Route path="/broker-rules" element={<BrokerRulePage />} />
   <Route path="/analytics" element={<GraphicalAnalyticsPage />} />
           <Route path="/client-dashboard-c" element={<ClientDashboardDesignCPage />} />

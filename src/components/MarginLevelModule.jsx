@@ -71,7 +71,7 @@ export default function MarginLevelModule() {
   const [sortDirection, setSortDirection] = useState('asc')
   const [accountTypeFilter, setAccountTypeFilter] = useState('')
   const marginRequestRef = useRef(0)
-  const accountTypeControl = <label className="inline-flex items-center gap-2 text-xs text-slate-600">Account Type<select aria-label="Filter by account type" value={accountTypeFilter} onChange={event => { setAccountTypeFilter(event.target.value); setCurrentPage(1) }} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">All types</option><option value="Liquidate">Liquidate</option><option value="Non-Liquidate">DNL</option></select></label>
+  const accountTypeControl = <label className="inline-flex items-center gap-2 text-xs text-slate-600">Account Type<select aria-label="Filter by account type" value={accountTypeFilter} onChange={event => { setAccountTypeFilter(event.target.value); setCurrentPage(1) }} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">All types</option><option value="Liquidate">Liquidate</option><option value="Non-Liquidate">Non-Liquidate</option></select></label>
   const fetchMarginCallClients = async () => {
     const requestId = ++marginRequestRef.current
     try {
@@ -501,13 +501,10 @@ const ml = getMarginLevelPercent(account)
                       <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                       <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                       <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
-<<<<<<< HEAD
                       <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
                       <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
                       <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
-=======
                       <button type="button" onClick={() => { navigate('/reports/summary'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/summary' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/summary" />Summary</button>
->>>>>>> 304ecac74dc934d12e642faa5638b9755211d70d
                     </div>
                   )}
                 </div>

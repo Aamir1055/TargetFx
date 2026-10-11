@@ -680,7 +680,7 @@ const Client2Page = () => {
     { key: 'email', label: 'Email', type: 'text' },
     { key: 'phone', label: 'Phone', type: 'text' },
     { key: 'group', label: 'Group', type: 'text' },
-    { key: 'liquidateType', label: 'Account Type', type: 'text' },
+    { key: 'liquidateType', label: 'Liquidation Category', type: 'text' },
     { key: 'city', label: 'City', type: 'text' },
     { key: 'address', label: 'Address', type: 'text' },
     { key: 'status', label: 'Status', type: 'text' },

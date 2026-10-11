@@ -62,7 +62,7 @@ const MarginLevelPage = () => {
   const [sortDirection, setSortDirection] = useState('asc')
   const [accountTypeFilter, setAccountTypeFilter] = useState('')
   const marginRequestRef = useRef(0)
-  const accountTypeControl = <label className="inline-flex items-center gap-2 text-xs text-slate-600">Account Type<select aria-label="Filter by account type" value={accountTypeFilter} onChange={event => { setAccountTypeFilter(event.target.value); setCurrentPage(1) }} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">All types</option><option value="Liquidate">Liquidate</option><option value="Non-Liquidate">DNL</option></select></label>
+  const accountTypeControl = <label className="inline-flex items-center gap-2 text-xs text-slate-600">Account Type<select aria-label="Filter by account type" value={accountTypeFilter} onChange={event => { setAccountTypeFilter(event.target.value); setCurrentPage(1) }} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">All types</option><option value="Liquidate">Liquidate</option><option value="Non-Liquidate">Non-Liquidate</option></select></label>
   const fetchMarginCallClients = async () => {
     const requestId = ++marginRequestRef.current
     try {

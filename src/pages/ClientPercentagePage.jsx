@@ -17,7 +17,8 @@ import AutoPercentageModal from '../components/AutoPercentageModal'
 import ColumnChooserList from '../components/ColumnChooserList'
 import useColumnResize from '../hooks/useColumnResize.jsx'
 import { ColumnResizeHandle } from '../components/ColumnResizeHandle'
-import { getPercentageType, getPercentageTypeBadgeClass } from '../utils/percentageType'
+import { getPercentageType, getPercentageTypeBadgeClass, filterPercentageTypes, percentageSearchType, loadPercentageClients } from '../utils/percentageType'
+import PercentageTypeFilter from '../components/PercentageTypeFilter'
 import { formatDate } from '../utils/dateFormatter'
 
 const ClientPercentagePage = () => {
@@ -93,6 +94,10 @@ const ClientPercentagePage = () => {
   // Search states
   const [searchQuery, setSearchQuery] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [selectedTypes, setSelectedTypes] = useState([])
+  const searchType = percentageSearchType(searchQuery)
+  const useLocalTypeFiltering = selectedTypes.length > 0 || searchType !== null
+  const serverPage = useLocalTypeFiltering ? 1 : currentPage
   const percentageRequests = useRef(createLatestRequest())
   useSearchAsYouType(searchInput, searchQuery, setSearchQuery, setCurrentPage)
   const searchRef = useRef(null)
@@ -254,9 +259,9 @@ const ClientPercentagePage = () => {
     const requests = percentageRequests.current
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
     if (!isAuthenticated || unauthorized || hidden) return
-    fetchAllClientPercentages(currentPage)
+    fetchAllClientPercentages(serverPage)
     return () => requests.invalidate()
-  }, [searchQuery, sortColumn, sortDirection, currentPage, itemsPerPage, isAuthenticated, unauthorized])
+  }, [searchQuery, sortColumn, sortDirection, serverPage, itemsPerPage, isAuthenticated, unauthorized, useLocalTypeFiltering])
 
   useEffect(() => {
     const onRefreshed = () => setUnauthorized(false)
@@ -284,20 +289,13 @@ const ClientPercentagePage = () => {
         sort_order: sortDirection
       }
 
-      // Add search parameter if search query exists
-      const trimmedQuery = searchQuery.trim().toLowerCase()
-
-      // Check if searching for type (custom/default)
-      if (trimmedQuery === 'custom') {
-        params.has_custom = true
-      } else if (trimmedQuery === 'default') {
-        params.has_custom = false
-      } else if (trimmedQuery) {
-        // Otherwise search by login
+      if (searchQuery.trim() && !searchType) {
         params.login = searchQuery.trim()
       }
 
-      const response = await brokerAPI.getAllClientPercentages(params)
+      const response = useLocalTypeFiltering
+        ? await loadPercentageClients(brokerAPI.getAllClientPercentages, params, isCurrent)
+        : await brokerAPI.getAllClientPercentages(params)
       if (!isCurrent()) return
 
       const payload = response?.data?.data ?? response?.data ?? response ?? {}
@@ -314,6 +312,7 @@ const ClientPercentagePage = () => {
       if (!isCurrent()) return
       console.error('Error fetching client percentages:', err)
       setError('Failed to load client percentages')
+      if (useLocalTypeFiltering) setClients([])
       if (err?.response?.status === 401) setUnauthorized(true)
     } finally {
       if (isCurrent()) setLoading(false)
@@ -376,7 +375,7 @@ const ClientPercentagePage = () => {
   }
 
   const toggleAllRows = (clients) => {
-    if (selectedRows.size > 0 && selectedRows.size === clients.length) {
+    if (clients.length > 0 && clients.every(client => selectedRows.has(client.client_login))) {
       setSelectedRows(new Set())
     } else {
       setSelectedRows(new Set(clients.map(c => c.client_login)))
@@ -425,6 +424,23 @@ const ClientPercentagePage = () => {
 
     if (mode === 'selected' && selectedRows.size === 0) {
       alert('No rows selected')
+      return
+    }
+
+    if (useLocalTypeFiltering) {
+      if (loading || error) {
+        alert('Wait for the filtered results to load successfully before exporting.')
+        return
+      }
+      const rows = sortedClients()
+      const exportRows = mode === 'selected'
+        ? rows.filter(row => selectedRows.has(row.client_login) || selectedRows.has(row.login))
+        : rows
+      if (!exportRows.length) {
+        alert('No data to export')
+        return
+      }
+      downloadCSV(buildCSV(exportRows), `client_percentage_${mode}_${new Date().toISOString().split('T')[0]}.csv`)
       return
     }
 
@@ -768,7 +784,9 @@ const ClientPercentagePage = () => {
 
   const sortedClients = () => {
     // API handles search and sort — preserve server order, just apply group filter
-    return filterByActiveGroup(clients, 'client_login', 'clientpercentage')
+    const typedClients = filterPercentageTypes(clients, selectedTypes)
+    const searchedClients = searchType ? filterPercentageTypes(typedClients, [searchType]) : typedClients
+    return filterByActiveGroup(searchedClients, 'client_login', 'clientpercentage')
   }
 
   // Pagination
@@ -784,11 +802,13 @@ const ClientPercentagePage = () => {
 
 
   const paginatedClients = () => {
-    // Server-side pagination: just return sorted clients as-is
+    if (useLocalTypeFiltering) {
+      return sortedClients().slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+    }
     return sortedClients()
   }
 
-  const totalPages = Math.max(1, Math.ceil(stats.total / itemsPerPage))
+  const totalPages = Math.max(1, Math.ceil((useLocalTypeFiltering ? sortedClients().length : stats.total) / itemsPerPage))
   const startIndex = (currentPage - 1) * itemsPerPage
   startIndex + itemsPerPage;
   const displayedClients = paginatedClients()
@@ -906,7 +926,7 @@ const ClientPercentagePage = () => {
           {/* Header Section */}
           <div className="bg-white rounded-2xl shadow-sm px-6 py-3 mb-6">
             {/* Title + Actions */}
-            <div className="mb-1.5 pb-1.5 flex items-center justify-between gap-3">
+            <div className="mb-1.5 pb-1.5 flex flex-wrap items-center justify-between gap-3">
             {/* Title Section */}
             <div>
               <h1 className="text-xl font-bold text-[#1A1A1A]">Client Percentage</h1>
@@ -914,7 +934,12 @@ const ClientPercentagePage = () => {
             </div>
 
             {/* Action Buttons - All on right side */}
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                  <PercentageTypeFilter selectedTypes={selectedTypes} onChange={types => {
+                    setSelectedTypes(types)
+                    setCurrentPage(1)
+                    setSelectedRows(new Set())
+                  }} />
                   {/* Auto Percentage Button */}
                   {canSetPercentage && (
                   <button
@@ -970,7 +995,7 @@ const ClientPercentagePage = () => {
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
                         >
                           <span>Download All</span>
-                          <span className="text-xs text-gray-500">{stats.total || ''}</span>
+                          <span className="text-xs text-gray-500">{useLocalTypeFiltering ? sortedClients().length : stats.total || ''}</span>
                         </button>
                         <button
                           onClick={() => { setShowExportMenu(false); handleExport('selected') }}
@@ -1299,7 +1324,7 @@ const ClientPercentagePage = () => {
                     <th className="px-3 py-3 text-left text-xs font-semibold text-white" style={{ backgroundColor: '#2563eb', width: '40px' }}>
                       <input
                         type="checkbox"
-                        checked={displayedClients.length > 0 && selectedRows.size === displayedClients.length}
+                        checked={displayedClients.length > 0 && displayedClients.every(client => selectedRows.has(client.client_login))}
                         onChange={() => toggleAllRows(displayedClients)}
                         className="w-3.5 h-3.5 rounded border-white/50 text-blue-600 focus:ring-blue-500 cursor-pointer"
                       />

@@ -76,13 +76,10 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
         { name: 'Brokerage Data', path: '/reports/exchange' },
         { name: 'Historical Positions', path: '/reports/historical-positions' },
         { name: 'Deals', path: '/reports/deals' },
-<<<<<<< HEAD
         { name: 'Credit', path: '/reports/credit' },
         { name: 'Agent Details', path: '/reports/agent-details' },
-        { name: 'Deposit and Withdrawal Report', path: '/reports/deposit-withdrawal' }
-=======
+        { name: 'Deposit and Withdrawal Report', path: '/reports/deposit-withdrawal' },
         { name: 'Summary', path: '/reports/summary' }
->>>>>>> 304ecac74dc934d12e642faa5638b9755211d70d
       ]
     },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
@@ -276,8 +273,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
           </svg>
         </button>
 
-        <div className="flex flex-col flex-1">
-          <div className={`flex items-center ${isOpen ? 'px-4' : 'px-2'} py-4 border-b border-slate-200`}>
+        <div className="flex min-h-0 flex-col flex-1">
+          <div className={`flex shrink-0 items-center ${isOpen ? 'px-4' : 'px-2'} py-4 border-b border-slate-200`}>
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
               <img src={`${baseUrl}Favicon.svg`} alt="Broker Eye" className="w-6 h-6" style={{ filter: 'brightness(0) invert(1)' }} />
             </div>
@@ -291,7 +288,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
 
           {/* Global Compact / Full numeric display mode (applies across all pages) */}
           {isOpen ? (
-            <div className="px-3 pt-3">
+            <div className="shrink-0 px-3 pt-3">
               <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full overflow-hidden" style={{borderRadius:'4px'}}>
                 <button
                   type="button"
@@ -312,7 +309,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
               </div>
             </div>
           ) : (
-            <div className="px-2 pt-3 flex justify-center">
+            <div className="shrink-0 px-2 pt-3 flex justify-center">
               <button
                 type="button"
                 onClick={() => changeDisplayMode(displayMode === 'compact' ? 'full' : 'compact')}
@@ -324,7 +321,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
             </div>
           )}
 
-          <nav className="flex-1 overflow-y-auto px-2 py-4">
+          <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-4">
             {navigationItems.map((item) => {
               if (item.children) {
                 const anyChildActive = item.children.some(c => isActivePath(c.path))
@@ -421,7 +418,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
         </div>
 
         {/* Logout Button at Bottom */}
-        <div className="p-2 lg:p-4 border-t border-slate-200 bg-slate-50">
+        <div className="shrink-0 p-2 lg:p-4 border-t border-slate-200 bg-slate-50">
           <button
             onClick={handleLogout}
             className={`group w-full flex items-center ${isOpen ? 'px-4' : 'px-2 justify-center'} py-3 text-sm font-medium text-slate-700 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-200 transform hover:scale-[1.02]`}

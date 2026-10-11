@@ -14,7 +14,9 @@ import ClientDetailsMobileModal from './ClientDetailsMobileModal'
 import AutoPercentageModal from './AutoPercentageModal'
 import { useGroups } from '../contexts/groupContextStore'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
-import { getPercentageType } from '../utils/percentageType'
+import { getPercentageType, filterPercentageTypes, percentageSearchType, loadPercentageClients } from '../utils/percentageType'
+import { createLatestRequest } from '../utils/latestRequest'
+import PercentageTypeFilter from './PercentageTypeFilter'
 import { formatDate } from '../utils/dateFormatter'
 
 
@@ -41,6 +43,9 @@ export default function ClientPercentageModule() {
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
 
   const [searchInput, setSearchInput] = useState('')
+  const [selectedTypes, setSelectedTypes] = useState([])
+  const useLocalTypeFiltering = selectedTypes.length > 0 || percentageSearchType(searchInput) !== null
+  const percentageRequests = useRef(createLatestRequest())
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
@@ -57,6 +62,7 @@ export default function ClientPercentageModule() {
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const serverPage = useLocalTypeFiltering ? 1 : currentPage
   const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 768)
   const itemsPerPage = isMobileView ? 15 : 100
   const [sortColumn, setSortColumn] = useState(null)
@@ -156,12 +162,8 @@ export default function ClientPercentageModule() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Fetch data on mount
-  useEffect(() => {
-    fetchAllClientPercentages(1)
-  }, [])
-
   const fetchAllClientPercentages = async (page = 1) => {
+    const isCurrent = percentageRequests.current.start()
     try {
       setLoading(true)
       setError('')
@@ -169,33 +171,38 @@ export default function ClientPercentageModule() {
       // Server-side pagination for both views
       // Some backends use `limit` instead of `page_size` for this endpoint
       const params = isMobileView ? { page, limit: 15 } : { page, limit: 100 }
-      const response = await brokerAPI.getAllClientPercentages(params)
+      const response = useLocalTypeFiltering
+        ? await loadPercentageClients(brokerAPI.getAllClientPercentages, { ...params, sort_by: 'login', sort_order: 'asc' }, isCurrent)
+        : await brokerAPI.getAllClientPercentages(params)
+      if (!isCurrent()) return
 
       // Normalize nested API shape: response.data?.data
-      const payload = response?.data?.data || response?.data || {}
+      const payload = response?.data?.data ?? response?.data ?? response ?? {}
       try {
         console.log('[ClientPercentage] fetch', { page, params, parsedTotal: payload?.total, count: Array.isArray(payload?.clients) ? payload.clients.length : 0 })
       } catch { /* Retain the fallback when this operation is unavailable. */ }
       const clientsData = payload?.clients || []
       setClients(clientsData)
       setStats(prev => ({
-        total: Number(payload?.total) || clientsData.length,
-        total_custom: Number(payload?.total_custom) || prev.total_custom,
-        total_default: Number(payload?.total_default) || prev.total_default,
-        default_percentage: Number(payload?.default_percentage) || prev.default_percentage
+        total: Number(payload?.total ?? clientsData.length),
+        total_custom: Number(payload?.total_custom ?? prev.total_custom),
+        total_default: Number(payload?.total_default ?? prev.total_default),
+        default_percentage: Number(payload?.default_percentage ?? prev.default_percentage)
       }))
 
       // If we have a total count and allClients is not yet populated, load all for group filtering
       const total = Number(payload?.total) || clientsData.length
-      if (total > 0 && allClients.length === 0) {
+      if (!useLocalTypeFiltering && total > 0 && allClients.length === 0) {
         fetchAllForGroupFilter(total)
       }
 
-      setLoading(false)
     } catch (err) {
+      if (!isCurrent()) return
       console.error('Error fetching client percentages:', err)
       setError('Failed to load client percentages')
-      setLoading(false)
+      if (useLocalTypeFiltering) setClients([])
+    } finally {
+      if (isCurrent()) setLoading(false)
     }
   }
 
@@ -217,14 +224,14 @@ export default function ClientPercentageModule() {
 
   // Handle edit success
   const handleEditSuccess = async () => {
-    await fetchAllClientPercentages()
+    await fetchAllClientPercentages(currentPage)
     setShowEditModal(false)
     setSelectedClient(null)
   }
 
   // Use allClients when a group is active (to filter across all records), else current page
   const activeGroup = getActiveGroupFilter('clientpercentage')
-  const percentageData = activeGroup ? allClients : clients
+  const percentageData = activeGroup && !useLocalTypeFiltering ? allClients : clients
 
   // Apply cumulative filters: Customize View -> IB -> Group
   const ibFilteredData = useMemo(() => {
@@ -241,7 +248,7 @@ export default function ClientPercentageModule() {
 
   // Filter data based on search
   const filteredData = useMemo(() => {
-    let filtered = ibFilteredData.filter(item => {
+    let filtered = filterPercentageTypes(ibFilteredData, selectedTypes).filter(item => {
       if (!searchInput.trim()) return true
       const query = searchInput.toLowerCase()
 
@@ -308,7 +315,7 @@ export default function ClientPercentageModule() {
     }
 
     return filtered
-  }, [ibFilteredData, searchInput, sortColumn, sortDirection])
+  }, [ibFilteredData, searchInput, sortColumn, sortDirection, selectedTypes])
 
   const handleSort = (columnKey) => {
     if (sortColumn === columnKey) {
@@ -364,32 +371,34 @@ export default function ClientPercentageModule() {
 
   // Fetch data when page changes (only in non-group mode)
   useEffect(() => {
-    if (!activeGroup) {
-      fetchAllClientPercentages(currentPage)
+    const requests = percentageRequests.current
+    if (!activeGroup || useLocalTypeFiltering) {
+      fetchAllClientPercentages(serverPage)
     }
-  }, [currentPage])
+    return () => requests.invalidate()
+  }, [serverPage, isMobileView, useLocalTypeFiltering, activeGroup])
 
   // Reset to page 1 and ensure allClients is loaded when group filter changes
   useEffect(() => {
     setCurrentPage(1)
-    if (activeGroup && allClients.length === 0 && stats.total > 0) {
+    if (activeGroup && !useLocalTypeFiltering && allClients.length === 0 && stats.total > 0) {
       fetchAllForGroupFilter(stats.total)
     }
   }, [activeGroup])
 
   // Pagination — when group is active we paginate filteredData client-side
   const paginatedData = useMemo(() => {
-    if (activeGroup) {
+    if (activeGroup || useLocalTypeFiltering) {
       const start = (currentPage - 1) * itemsPerPage
       return filteredData.slice(start, start + itemsPerPage)
     }
-    return filteredData.length > 0 ? filteredData : clients
-  }, [activeGroup, clients, filteredData, currentPage, itemsPerPage])
+    return filteredData
+  }, [activeGroup, filteredData, currentPage, itemsPerPage, useLocalTypeFiltering])
 
   const totalPages = useMemo(() => {
-    if (activeGroup) return Math.max(1, Math.ceil(filteredData.length / itemsPerPage))
+    if (activeGroup || useLocalTypeFiltering) return Math.max(1, Math.ceil(filteredData.length / itemsPerPage))
     return Math.max(1, Math.ceil(stats.total / itemsPerPage))
-  }, [activeGroup, filteredData.length, stats.total, itemsPerPage])
+  }, [activeGroup, filteredData.length, stats.total, itemsPerPage, useLocalTypeFiltering])
 
   // Get visible columns
   const allColumns = [
@@ -481,7 +490,7 @@ export default function ClientPercentageModule() {
 
   const toggleAllRows = (data) => {
     const logins = data.map(c => c.client_login || c.login).filter(Boolean)
-    if (selectedRows.size > 0 && selectedRows.size === logins.length) {
+    if (logins.length > 0 && logins.every(login => selectedRows.has(login))) {
       setSelectedRows(new Set())
     } else {
       setSelectedRows(new Set(logins))
@@ -616,6 +625,18 @@ export default function ClientPercentageModule() {
   const handleExport = async (mode = 'all') => {
     if (exporting) return
     if (mode === 'selected' && selectedRows.size === 0) { alert('No rows selected'); return }
+    if (useLocalTypeFiltering) {
+      if (loading || error) {
+        alert('Wait for the filtered results to load successfully before exporting.')
+        return
+      }
+      const rows = mode === 'selected'
+        ? filteredData.filter(row => selectedRows.has(row.client_login) || selectedRows.has(row.login))
+        : filteredData
+      if (!rows.length) { alert('No data to export'); return }
+      downloadCSV(buildCSV(rows), `client_percentage_${mode}_${new Date().toISOString().split('T')[0]}.csv`)
+      return
+    }
     try {
       setExporting(true)
       setExportProgress(0)
@@ -655,6 +676,10 @@ export default function ClientPercentageModule() {
   }
 
   const handleExportToCSV = () => {
+    if (useLocalTypeFiltering && (loading || error)) {
+      alert('Wait for the filtered results to load successfully before exporting.')
+      return
+    }
     try {
       const dataToExport = filteredData
       if (!dataToExport || dataToExport.length === 0) {
@@ -783,8 +808,13 @@ export default function ClientPercentageModule() {
       <div className="flex-1 overflow-hidden flex flex-col">
         {/* Action Buttons + View All */}
         <div className="px-5 pt-3 pb-2">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex gap-[8px]">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex max-w-full flex-wrap items-center gap-[8px]">
+              <PercentageTypeFilter selectedTypes={selectedTypes} onChange={types => {
+                setSelectedTypes(types)
+                setCurrentPage(1)
+                setSelectedRows(new Set())
+              }} />
               {!isMobileView && (
                 <button 
                   onClick={() => {
@@ -873,7 +903,7 @@ export default function ClientPercentageModule() {
                       className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between"
                     >
                       <span>Download All</span>
-                      <span className="text-[10px] text-gray-400">{stats.total || ''}</span>
+                      <span className="text-[10px] text-gray-400">{useLocalTypeFiltering ? filteredData.length : stats.total || ''}</span>
                     </button>
                     <button
                       onClick={() => { setShowExportMenu(false); handleExport('selected') }}
@@ -1000,7 +1030,7 @@ export default function ClientPercentageModule() {
               <input 
                 placeholder="Search"
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={(e) => { setSearchInput(e.target.value); setCurrentPage(1) }}
                 className="flex-1 min-w-0 text-[11px] sm:text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none bg-transparent font-outfit focus:ring-0"
               />
             </div>
@@ -1078,7 +1108,7 @@ export default function ClientPercentageModule() {
                   <div className="h-[32px] flex items-center justify-center sticky left-0 z-30" style={{ backgroundColor: '#3B82F6' }}>
                     <input
                       type="checkbox"
-                      checked={paginatedData.length > 0 && selectedRows.size === paginatedData.length}
+                      checked={paginatedData.length > 0 && paginatedData.every(item => selectedRows.has(item.client_login || item.login))}
                       onChange={() => toggleAllRows(paginatedData)}
                       className="w-3 h-3 rounded cursor-pointer"
                     />
@@ -1591,13 +1621,10 @@ export default function ClientPercentageModule() {
                         <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                         <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                         <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
-<<<<<<< HEAD
                         <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
                         <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
                         <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
-=======
                         <button type="button" onClick={() => { navigate('/reports/summary'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/summary' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/summary" />Summary</button>
->>>>>>> 304ecac74dc934d12e642faa5638b9755211d70d
                       </div>
                     )}
                   </div>
