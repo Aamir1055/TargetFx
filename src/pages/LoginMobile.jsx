@@ -152,7 +152,7 @@ const LoginMobile = () => {
             className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#2563EB] px-4 py-3 text-base font-semibold text-white disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             {isLoading && <span aria-hidden="true" className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-            {isLoading ? (showSelfRegister ? 'Linking Account...' : 'Signing in...') : (showSelfRegister ? 'Link & Continue' : 'Log In')}
+            {isLoading ? (showSelfRegister ? 'Linking Account...' : 'Logging in...') : (showSelfRegister ? 'Link & Continue' : 'Log In')}
           </button>
         </form>
         <footer className="mt-6 text-center text-[10px] leading-4 text-gray-400">

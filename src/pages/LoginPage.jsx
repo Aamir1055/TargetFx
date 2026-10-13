@@ -176,7 +176,7 @@ const LoginPage = () => {
               {isLoading ? (
                 <div className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
-                  <span>{showSelfRegister ? 'Linking Account...' : 'Signing in...'}</span>
+                  <span>{showSelfRegister ? 'Linking Account...' : 'Logging in...'}</span>
                 </div>
               ) : (
                 showSelfRegister ? 'Link & Continue' : 'Log In'
