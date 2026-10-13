@@ -72,14 +72,14 @@
 .mobile-login-content {
   padding: 24px max(20px, var(--app-safe-right)) calc(24px + var(--app-safe-bottom)) max(20px, var(--app-safe-left));
 }
-/* Short Telegram sheets and open keyboards prioritize the form. */
+/* Short screens and open keyboards compact the hero instead of hiding it; the page scrolls. */
 @media (max-height: 600px) {
   .mobile-login-hero { padding-top: calc(12px + var(--app-safe-top)); padding-bottom: 16px; }
-  .mobile-login-features { display: none; }
+  .mobile-login-hero > div { gap: 10px; }
   .mobile-login-heading { font-size: 20px; }
+  .mobile-login-features img { width: 28px; height: 28px; }
   .mobile-login-content { padding-top: 16px; }
 }
-.mobile-login:focus-within .mobile-login-features { display: none; }
 
 .app-viewport-panel {
   height: var(--app-viewport-height);
