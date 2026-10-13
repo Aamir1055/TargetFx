@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import QuickTimeFilter from '../components/QuickTimeFilter'
 import { getPresetRange } from '../utils/dealTimePresets'
 import { useEffect, useRef, useState } from 'react'
@@ -437,7 +438,7 @@ const DealsReportPage = () => {
           totals: { label: 'TOTAL', values: { volume: sum('volume'), profit: sum('profit'), commission: sum('commission'), storage: sum('storage') } }
         }],
         sheetName: 'Deals',
-        fileName: `deals_${preset}_${stamp}.xlsx`
+        fileName: `deals_${preset}_${stamp}.csv`
       })
     } catch (exportError) {
       if (controller.signal.aborted) return
@@ -563,7 +564,7 @@ const DealsReportPage = () => {
         </button>
         {!isMobile && datePickerPopover}
       </div>
-      <button type="button" onClick={handleExport} disabled={exporting || loading || !total} className={iconButton} aria-label="Export deals" title={exporting ? `Exporting ${exportProgress.done} / ${exportProgress.total}...` : 'Export all deals in this range to Excel'}>
+      <button type="button" onClick={handleExport} disabled={exporting || loading || !total} className={iconButton} aria-label="Export deals" title={exporting ? `Exporting ${exportProgress.done} / ${exportProgress.total}...` : 'Export all deals in this range to CSV'}>
         <svg className={`h-4 w-4 ${exporting ? 'animate-pulse text-blue-600' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>
       </button>
       {isMobile && moduleFilterButtons}
@@ -600,7 +601,7 @@ const DealsReportPage = () => {
   }
 
   return (
-    <div className="h-screen flex bg-[#F8F8F8] md:bg-gradient-to-br md:from-blue-50 md:via-white md:to-blue-50 overflow-hidden">
+    <div className="mobile-responsive-page h-screen flex bg-[#F8F8F8] md:bg-gradient-to-br md:from-blue-50 md:via-white md:to-blue-50 overflow-hidden">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
@@ -610,14 +611,18 @@ const DealsReportPage = () => {
       <main className={`flex-1 min-w-0 p-0 md:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         {/* ───────── Mobile (matches the other mobile modules) ───────── */}
         <div className="md:hidden flex flex-1 flex-col overflow-hidden">
-          <div className="relative flex items-center px-4 py-4 bg-white border-b border-[#ECECEC]">
+          <div className="flex-wrap relative flex items-center px-4 py-4 bg-white border-b border-[#ECECEC]">
             <button type="button" onClick={() => setSidebarOpen(true)} className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center" aria-label="Open menu">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round" /></svg>
             </button>
-            <h1 className="text-lg font-semibold text-[#000000] absolute left-1/2 -translate-x-1/2">Deals</h1>
-          </div>
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-lg font-semibold text-[#000000] min-w-0 max-sm:text-sm">Deals</h1><BrokerCreditSummary variant="header" /></div>
+          
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             {/* Toolbar */}
             <div className="pt-3 pb-2 px-2">
               <div className="flex w-full flex-nowrap items-center justify-between gap-1 overflow-x-auto py-1 [&>select]:w-[72px] [&>select]:h-7 [&>select]:px-1 [&>select]:text-[10px] [&>button]:h-7 [&>button]:w-7 [&>div]:shrink-0 [&>div[data-deals-datepicker]>button]:h-7 [&>div[data-deals-datepicker]>button]:w-7 [&>div[role=group]]:h-7 [&>div[role=group]>button]:w-auto [&>div[role=group]>button]:px-1 [&>div[role=group]>button]:text-[10px]">
@@ -659,9 +664,9 @@ const DealsReportPage = () => {
 
             {/* Table */}
             <div className="bg-white shadow-sm border border-blue-100 overflow-hidden mx-1">
-              <div className="w-full overflow-x-auto overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', maxHeight: 'calc(100dvh - 230px)' }}>
+              <div className="mobile-table-scroll w-full overflow-x-auto overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', maxHeight: 'max(152px, calc(var(--app-viewport-height, 100dvh) - 230px))' }}>
                 <div className="relative" style={{ minWidth: 'max-content' }}>
-                  <div className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{ gridTemplateColumns: mobileGrid }}>
+                  <div data-mobile-data-row="header" className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{ gridTemplateColumns: mobileGrid }}>
                     {shownMobileColumns.map(column => (
                       <div key={column.key} onClick={() => handleSort(column.key)} className={`h-[32px] flex items-center px-1 cursor-pointer select-none ${column.key === 'login' ? 'sticky left-0 z-30 bg-blue-500 px-2' : ''}`}>
                         <span className="truncate">{column.label}</span>
@@ -672,7 +677,7 @@ const DealsReportPage = () => {
 
                   {loading ? (
                     Array.from({ length: MOBILE_PAGE_SIZE }, (_, row) => (
-                      <div key={`sk-${row}`} className="grid bg-white border-b border-[#E1E1E1]" style={{ gridTemplateColumns: mobileGrid }}>
+                      <div data-mobile-data-row="body" key={`sk-${row}`} className="grid bg-white border-b border-[#E1E1E1]" style={{ gridTemplateColumns: mobileGrid }}>
                         {shownMobileColumns.map(column => (
                           <div key={column.key} className={`h-[38px] flex items-center px-1 ${column.key === 'login' ? 'sticky left-0 bg-white z-10' : ''}`}>
                             <div className="h-3 w-full max-w-[80%] rounded bg-gray-200 animate-pulse" />
@@ -682,7 +687,7 @@ const DealsReportPage = () => {
                     ))
                   ) : deals.length ? (
                     deals.map((deal, index) => (
-                      <div key={`${deal.deal ?? deal.id ?? 'd'}-m-${index}`} className={`grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC]`} style={{ gridTemplateColumns: mobileGrid }}>
+                      <div data-mobile-data-row="body" key={`${deal.deal ?? deal.id ?? 'd'}-m-${index}`} className={`grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC]`} style={{ gridTemplateColumns: mobileGrid }}>
                         {shownMobileColumns.map(column => (
                           <div
                             key={column.key}
@@ -695,6 +700,7 @@ const DealsReportPage = () => {
                       </div>
                     ))
                   ) : null}
+                  <div aria-hidden="true" className="mobile-table-end" />
                 </div>
                 {!loading && !deals.length && emptyOrError}
               </div>
@@ -711,7 +717,7 @@ const DealsReportPage = () => {
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25}><path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
                 </button>
                 <div className="min-w-0">
-                  <h1 className="truncate text-xl font-bold text-[#1A1A1A]">Deals</h1>
+                  <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="truncate text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Deals</h1><BrokerCreditSummary variant="header" /></div>
                   <p className="text-xs text-[#6B7280] mt-0.5">All deals across all accounts</p>
                 </div>
               </div>
@@ -722,7 +728,11 @@ const DealsReportPage = () => {
               </div>
             </div>
             {exportingNote}
-          </div>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           <div className="bg-white rounded-lg shadow-sm border border-[#E5E7EB] overflow-hidden flex flex-col flex-1 min-h-0">
             <div className="border-b border-[#E5E7EB] p-4">

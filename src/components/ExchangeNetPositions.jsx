@@ -15,7 +15,7 @@ const POLL_MS = 3000
 const MOBILE_ROWS_PER_EXCHANGE = 10
 const MOBILE_TABLE_MAX_HEIGHT = 28 + 34 + MOBILE_ROWS_PER_EXCHANGE * 34 + 1
 // Reserve room for the mobile header, toolbar, and 68px summary card row.
-const MOBILE_VIEW_HEIGHT = 'calc(var(--vh, 1vh) * 100 - 218px)'
+const MOBILE_VIEW_HEIGHT = 'max(180px, calc(var(--app-viewport-height, 100dvh) - 218px))'
 
 const formatNumber = (value, digits = 2) => {
   const number = Number(value)
@@ -233,7 +233,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
         columns,
         sections,
         sheetName: 'Position',
-        fileName: `position_by_exchange_${new Date().toISOString().slice(0, 10)}.xlsx`
+        fileName: `position_by_exchange_${new Date().toISOString().slice(0, 10)}.csv`
       })
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Failed to export exchange positions')
@@ -245,7 +245,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
   useImperativeHandle(ref, () => ({ exportData, isExporting: exporting, refresh: () => setSearchVersion(version => version + 1) }))
 
   const visibleGroups = useMemo(() => groups.filter(g => g.positions.length || !search), [groups, search])
-  const exportOverlay = exporting && <LoadingSpinner message="Exporting exchange positions…" subtitle="Please wait" />
+  const exportOverlay = exporting && <LoadingSpinner message="Exporting exchange positions…" subtitle="Preparing your CSV download" />
 
   const exchangeFilter = (
     <div className="relative" data-exchange-filter="">
@@ -330,9 +330,9 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
                   <span className="text-[10px] text-[#6B7280]">{group.positions.length} symbols</span>
                 </button>
                 {!isCollapsed && (
-                  <div className="relative isolate overflow-auto" style={{ contain: 'paint', maxHeight: MOBILE_TABLE_MAX_HEIGHT, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                  <div className="mobile-table-scroll relative isolate overflow-auto" style={{ contain: 'paint', maxHeight: MOBILE_TABLE_MAX_HEIGHT, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
                     <div className="w-max min-w-full">
-                      <div className="grid bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wide sticky top-0 z-30" style={{ gridTemplateColumns: grid, isolation: 'isolate' }}>
+                      <div data-mobile-data-row="header" className="grid bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wide sticky top-0 z-30" style={{ gridTemplateColumns: grid, isolation: 'isolate' }}>
                         {COLUMNS.map(column => (
                           <div key={column.key} onClick={() => handleSort(column)} className={`h-[28px] flex items-center px-1.5 min-w-0 overflow-hidden bg-blue-500 cursor-pointer select-none ${column.key === 'symbol' ? 'sticky left-0 z-10 px-2' : ''}`} style={column.key === 'symbol' ? { boxShadow: '2px 0 4px rgba(0,0,0,0.12)' } : undefined}>
                             <span className="truncate">{column.label}{column.pct && percentage ? ' %' : ''}</span>
@@ -340,7 +340,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
                           </div>
                         ))}
                       </div>
-                      <div className="grid sticky top-[28px] z-20 bg-blue-50 text-[12px] font-semibold tabular-nums border-b border-blue-200" style={{ gridTemplateColumns: grid }}>
+                      <div data-mobile-data-row="header" className="grid sticky top-[28px] z-20 bg-blue-50 text-[12px] font-semibold tabular-nums border-b border-blue-200" style={{ gridTemplateColumns: grid }}>
                         <div className="h-[34px] flex items-center px-2 sticky left-0 z-10 bg-blue-50 text-[#1A63BC]">TOTAL</div>
                         <div className="h-[34px] bg-blue-50" />
                         <div className="h-[34px] flex items-center px-1.5 bg-blue-50 text-[#374151]">{formatNumber(volume)}</div>
@@ -351,7 +351,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
                         <div className="h-[34px] flex items-center px-1.5 bg-blue-50 text-[#374151]">{group.totals.positionCount ?? group.totals.totalPositions ?? ''}</div>
                       </div>
                       {group.positions.map((p, index) => (
-                        <div key={`${p.symbol}-${index}`} className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1]" style={{ gridTemplateColumns: grid }}>
+                        <div data-mobile-data-row="body" key={`${p.symbol}-${index}`} className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1]" style={{ gridTemplateColumns: grid }}>
                           <div className="h-[34px] flex items-center px-2 sticky left-0 bg-white z-10 font-semibold text-[#1F2937] min-w-0" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.05)' }}><span className="truncate">{p.symbol}</span></div>
                           <div className="h-[34px] flex items-center px-1.5"><NetTypeChip type={p.netType} compact /></div>
                           <div className="h-[34px] flex items-center px-1.5">{formatNumber(p.netVolume)}</div>
@@ -362,6 +362,7 @@ const ExchangeNetPositions = forwardRef(({ variant = 'desktop', displayMode = 'v
                           <div className="h-[34px] flex items-center px-1.5">{p.positionCount}</div>
                         </div>
                       ))}
+                      <div aria-hidden="true" className="mobile-table-end" />
                     </div>
                   </div>
                 )}

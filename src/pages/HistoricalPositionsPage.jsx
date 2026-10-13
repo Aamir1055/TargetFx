@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { loadHistoricalRows, searchHistoricalRows } from '../utils/reportPagination'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -70,7 +71,7 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
 
         <div className="min-h-0 flex-1 overflow-hidden px-0 pb-0 pt-3 sm:p-4">
           <div className="h-full overflow-hidden sm:rounded-lg sm:border sm:border-slate-200">
-            <div className="h-full max-h-none overflow-auto sm:max-h-[min(74vh,560px)]">
+            <div className="mobile-table-scroll-responsive h-full max-h-none overflow-auto sm:max-h-[min(74vh,560px)]">
               <div className="sm:hidden">
                 <div className="sticky top-0 z-10 grid grid-cols-[1.55fr_0.72fr_0.82fr_0.82fr_0.78fr_0.78fr] gap-1 bg-[#4285F4] px-2 py-2 text-[10px] font-bold uppercase tracking-[0.03em] text-white">
                   <span>Time</span><span>Action</span><span className="text-right">Previous</span><span className="text-right">New</span><span className="text-right">Change</span><span>Direction</span>
@@ -94,6 +95,7 @@ const HistoricalPositionDetails = ({ row, onClose }) => {
                 <thead className="sticky top-0 z-10 bg-[#4285F4] text-[11px] uppercase tracking-wide text-white shadow-[0_1px_0_#3b78e7]"><tr><th className="px-4 py-2 text-left">Time</th><th className="px-4 py-2 text-left">Action</th><th className="px-4 py-2 text-right">Previous</th><th className="px-4 py-2 text-right">New</th><th className="px-4 py-2 text-right">Change</th><th className="px-4 py-2 text-left">Direction</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">{visibleEvents.map((event, index) => { const change = Number(event.ChangePercentage ?? event.changePercentage); const increase = String(event.Direction ?? event.direction ?? '').toLowerCase() === 'increase' || change > 0; return <tr key={`${symbol}-row-${index}`} className="hover:bg-slate-50"><td className="whitespace-nowrap px-4 py-2 text-slate-600">{formatTime(event.Time ?? event.time)}</td><td className="px-4 py-2 font-semibold capitalize text-slate-800">{event.PositionAction ?? event.positionAction ?? '-'}</td><td className="px-4 py-2 text-right tabular-nums text-slate-600">{formatNumber(event.PreviousPosition ?? event.previousPosition)}</td><td className="px-4 py-2 text-right tabular-nums text-slate-800">{formatNumber(event.NewPosition ?? event.newPosition)}</td><td className={`px-4 py-2 text-right font-semibold tabular-nums ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{change > 0 ? '+' : ''}{formatNumber(change)}%</td><td className={`px-4 py-2 capitalize ${increase ? 'text-emerald-600' : 'text-rose-600'}`}>{event.Direction ?? event.direction ?? '-'}</td></tr> })}</tbody>
               </table>
+              <div aria-hidden="true" className="mobile-table-end mobile-table-end-responsive" />
             </div>
         </div>
       </div>
@@ -232,7 +234,7 @@ const HistoricalPositionsPage = () => {
   }
 
   return (
-    <div className="flex h-screen bg-[#F5F7FB]">
+    <div className="mobile-responsive-page flex h-screen bg-[#F5F7FB]">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch { /* Retain the fallback when this operation is unavailable. */ } }}
@@ -242,16 +244,20 @@ const HistoricalPositionsPage = () => {
       <main className={`flex-1 min-w-0 px-3 pt-0 pb-3 sm:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col overflow-hidden">
           <header className="mb-0 rounded-none bg-transparent sm:mb-3 sm:rounded-xl sm:bg-white sm:px-6 sm:py-4 sm:shadow-sm">
-            <div className="relative flex items-center justify-between border-b border-[#ECECEC] bg-white px-4 py-4 shadow-sm sm:hidden">
+            <div className="flex-wrap relative flex items-center justify-between border-b border-[#ECECEC] bg-white px-4 py-4 shadow-sm sm:hidden">
               <button type="button" onClick={() => setSidebarOpen(true)} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F8F8F8] text-slate-900" aria-label="Open menu">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25}><path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
               </button>
-              <h1 className="absolute left-1/2 max-w-[calc(100vw-7rem)] -translate-x-1/2 truncate whitespace-nowrap text-xl font-semibold text-black">Historical Positions</h1>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="max-w-[calc(100vw-7rem)] truncate whitespace-nowrap text-xl font-semibold text-black min-w-0 max-sm:text-sm">Historical Positions</h1><BrokerCreditSummary variant="header" /></div>
               <span className="h-12 w-12" aria-hidden="true" />
-            </div>
+            
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
             <div className="hidden items-center gap-5 sm:flex">
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-lg font-bold text-slate-900 sm:text-xl">Historical Positions</h1>
+                <div className="flex min-w-0 items-center justify-between gap-3"><h1 className="truncate text-lg font-bold text-slate-900 sm:text-xl">Historical Positions</h1><BrokerCreditSummary variant="header" /></div>
               </div>
               <form onSubmit={applyFilters} className="flex min-w-0 flex-1 items-center justify-end gap-2">
               <div className="relative shrink-0" ref={datePickerDesktopRef}>
@@ -280,7 +286,11 @@ const HistoricalPositionsPage = () => {
               </button>
               </form>
             </div>
-          </header>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</header>
           <form onSubmit={applyFilters} className="mb-3 flex items-center gap-1.5 bg-transparent px-3 py-2 sm:hidden">
               <div className="relative shrink-0" ref={datePickerMobileRef}>
                 <button type="button" onClick={() => setDatePickerOpen(value => !value)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white shadow-sm transition hover:bg-gray-50" aria-expanded={datePickerOpen} aria-haspopup="dialog" aria-label="Custom dates" title="Custom dates">
@@ -344,7 +354,7 @@ const HistoricalPositionsPage = () => {
 
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
             {(
-              <div className="min-h-0 flex-1 overflow-auto">
+              <div className="mobile-table-scroll-responsive min-h-0 flex-1 overflow-auto">
                 <div className="sm:hidden">
                   <div className="grid grid-cols-[minmax(0,1.3fr)_0.8fr_0.8fr_36px] gap-2 bg-[#4285F4] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.06em] text-white">
                     <span className="text-left">Symbol</span>
@@ -382,6 +392,7 @@ const HistoricalPositionsPage = () => {
                     })}
                   </tbody>
                 </table>
+                <div aria-hidden="true" className="mobile-table-end mobile-table-end-responsive" />
               </div>
             )}
           </section>

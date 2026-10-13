@@ -76,7 +76,7 @@ const LoginPage = () => {
               </div>
               <div className="flex flex-col justify-center items-center text-center">
                 <h1 className="text-[16px] leading-5 font-semibold text-[#404040]">Broker Eyes</h1>
-                <p className="text-[12px] leading-5 font-medium text-[#64748B]">Trading Platform</p>
+                <p className="text-[12px] leading-5 font-medium text-[#64748B]">Financial Dashboard</p>
               </div>
             </div>
 

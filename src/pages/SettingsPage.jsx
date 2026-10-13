@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/authContextStore'
 import { authAPI } from '../services/api'
@@ -242,10 +243,14 @@ const SettingsPage = () => {
                 <path d="M3 6h18M3 12h18M3 18h18" stroke="#000" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </button>
-            <h1 className="text-xl font-semibold text-black">Settings</h1>
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-black min-w-0 max-sm:text-sm">Settings</h1><BrokerCreditSummary variant="header" /></div>
             <div className="w-9 h-9" />
           </div>
-        </div>
+        
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
         <div className="p-4 space-y-4">
 
@@ -419,9 +424,13 @@ const SettingsPage = () => {
           <div className="mb-5">
             {/* Hide sidebar toggle on mobile for settings page */}
             {null}
-            <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-gray-900 min-w-0 max-sm:text-sm">Settings</h1><BrokerCreditSummary variant="header" /></div>
             <p className="text-sm text-gray-500 mt-0.5">Manage your account security</p>
-          </div>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
             {/* Alert Messages */}
             {error && (

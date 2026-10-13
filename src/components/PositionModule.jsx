@@ -1,3 +1,4 @@
+import BrokerCreditSummary from './BrokerCreditSummary'
 import { createLatestRequest } from '../utils/latestRequest'
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue, startTransition } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
@@ -931,7 +932,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
           columns: netColumns,
           sections: [{ rows: allRows, totals: { label: 'TOTAL', values: sumColumns(allRows, netColumns, ['netVolume', 'totalProfit', 'totalStorage', 'totalCommission', 'totalPositions']) } }],
           sheetName: 'NET Position',
-          fileName: `net_positions_${new Date().toISOString().slice(0, 10)}.xlsx`
+          fileName: `net_positions_${new Date().toISOString().slice(0, 10)}.csv`
         })
 
       } else {
@@ -1001,7 +1002,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
           columns: posColumns,
           sections: [{ rows: allPositions, totals: { label: 'TOTAL', values: sumColumns(allPositions, posColumns, ['volume', 'volumePercentage', 'netVolume', 'profit', 'profitPercentage', 'totalProfit', 'storage', 'storagePercentage', 'commission']) } }],
           sheetName: 'Positions',
-          fileName: `positions_${new Date().toISOString().slice(0, 10)}.xlsx`
+          fileName: `positions_${new Date().toISOString().slice(0, 10)}.csv`
         })
       }
     } catch (e) {
@@ -1035,9 +1036,9 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
   }, [])
 
   return (
-    <div className="h-screen flex flex-col bg-[#F8F8F8] overflow-hidden" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
+    <div className="h-screen flex flex-col bg-[#F8F8F8] overflow-hidden" style={{ height: 'var(--app-viewport-height, 100dvh)' }}>
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between px-4 py-4 bg-white border-b border-[#ECECEC]">
+      <div className="flex-wrap flex shrink-0 items-center justify-between px-4 py-4 bg-white border-b border-[#ECECEC]">
         <button 
           onClick={() => setIsSidebarOpen(true)}
           className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center"
@@ -1047,10 +1048,14 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
           </svg>
         </button>
 
-        <h1 className="text-xl font-semibold text-black">Positions</h1>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-black min-w-0 max-sm:text-sm">Positions</h1><BrokerCreditSummary variant="header" /></div>
 
-        <div className="w-12 h-12"></div>
-      </div>
+        
+      
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
@@ -1066,7 +1071,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-[#000000]">Broker Eye</div>
-                  <div className="text-xs text-[#404040]">Trading Platform</div>
+                  <div className="text-xs text-[#404040]">Financial Dashboard</div>
                 </div>
               </div>
               <button onClick={() => setIsSidebarOpen(false)}>
@@ -1153,10 +1158,10 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                       <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                       <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
-                      <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
-                      <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
-                      <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                       <button type="button" onClick={() => { navigate('/reports/summary'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/summary' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/summary" />Summary</button>
+                      <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit Report</button>
+                      <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                      <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' :  'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />D/W Report</button>
                     </div>
                   )}
                 </div>
@@ -1188,7 +1193,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
       )}
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="mobile-position-content flex-1 min-h-0 flex flex-col overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Action buttons row */}
         <div className="pt-5 pb-4 px-4">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
@@ -1434,7 +1439,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
         <div className="flex-1 min-h-0 flex flex-col" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex-1 min-h-0 flex flex-col bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden">
             {/* Single scroll container with sticky header */}
-            <div className="w-full flex-1 min-h-0 overflow-x-auto overflow-y-auto scrollbar-hide" style={{
+            <div className="mobile-table-scroll w-full flex-1 min-h-0 overflow-x-auto overflow-y-auto scrollbar-hide" style={{
               WebkitOverflowScrolling: 'touch',
               scrollbarWidth: 'none',
               paddingRight: '8px',
@@ -1443,7 +1448,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
             }}>
                 <div className="relative" style={{ minWidth: 'max-content' }}>
                   {/* Table Header - Sticky */}
-                  <div 
+                  <div data-mobile-data-row="header" 
                     className="grid bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wide shadow-[0_2px_4px_rgba(0,0,0,0.1)] sticky top-0 z-20"
                     style={{
                       gap: '0px', 
@@ -1496,7 +1501,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                     // YouTube-style skeleton loading
                   <>
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                      <div 
+                      <div data-mobile-data-row="body" 
                         key={`skeleton-row-${i}`}
                         className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1]"
                         style={{
@@ -1532,7 +1537,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                   </div>
                 ) : (
                   mobileRegularDisplayedPositions.map((pos, idx) => (
-                    <div 
+                    <div data-mobile-data-row="body" 
                       key={idx} 
                       className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors"
                       style={{
@@ -1552,6 +1557,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                 )}
 
                 {/* Table Footer removed for mobile view */}
+                <div aria-hidden="true" className="mobile-table-end" />
               </div>
             </div>
           </div>
@@ -1559,7 +1565,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
         )}
 
         {/* Export loading overlay (same dialog as Bills export) */}
-        {isExporting && <LoadingSpinner message={showClientNet ? 'Exporting NET positions…' : 'Exporting positions…'} subtitle="Please wait" />}
+        {isExporting && <LoadingSpinner message={showClientNet ? 'Exporting NET positions…' : 'Exporting positions…'} subtitle="Preparing your CSV download" />}
 
         {/* Exchange View - NET positions segregated by exchange */}
         {showExchangeView && isMobileView && (
@@ -1654,13 +1660,13 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
             <div className="flex-1 min-h-0 flex flex-col" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
               <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden flex-1 min-h-0 flex flex-col">
                 {/* Table - single scroll container */}
-                <div className="overflow-x-auto overflow-y-auto scrollbar-hide flex-1 min-h-0" style={{
+                <div className="mobile-table-scroll overflow-x-auto overflow-y-auto scrollbar-hide flex-1 min-h-0" style={{
                   paddingRight: '8px',
                   paddingBottom: '0px',
                   overflowY: 'auto'
                 }}>
                   {/* Header - Sticky */}
-                  <div
+                  <div data-mobile-data-row="header"
                     className="grid bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wide h-[30px] sticky top-0 z-30"
                     style={{
                       minWidth: 'max-content',
@@ -1836,7 +1842,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                   {(isServerNetLoading || isClientNetPageChanging) && filteredClientNetPositions.length === 0 ? (
                     <>
                       {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={`client-net-skeleton-${i}`} className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1]" style={{
+                        <div data-mobile-data-row="body" key={`client-net-skeleton-${i}`} className="grid text-[12px] text-[#374151] tabular-nums bg-white border-b border-[#E1E1E1]" style={{
                           minWidth: 'max-content',
                           gridTemplateColumns: [
                             clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
@@ -1868,7 +1874,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                     <div className="text-center py-8 text-[#6B7280] text-sm">No NET positions found</div>
                   ) : (
                     clientNetPaginatedPositions.map((pos, idx) => (
-                      <div key={idx} className="grid text-[12px] text-[#374151] tabular-nums hover:bg-[#F8FAFC]" style={{
+                      <div data-mobile-data-row="body" key={idx} className="grid text-[12px] text-[#374151] tabular-nums hover:bg-[#F8FAFC]" style={{
                         minWidth: 'max-content',
                         gridTemplateColumns: [
                           clientNetVisibleColumns.symbol ? 'minmax(140px, 2fr)' : '',
@@ -1907,6 +1913,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                   )}
 
                   {/* Footer removed for mobile view */}
+                  <div aria-hidden="true" className="mobile-table-end" />
                 </div>
               </div>
             </div>

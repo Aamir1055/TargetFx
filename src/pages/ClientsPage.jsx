@@ -1,3 +1,5 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
+import { withExportLoading } from '../utils/exportLoading'
 import { parseAccountTypePreferences } from '../utils/accountType'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 // ...existing code...
@@ -130,6 +132,7 @@ const ClientsPage = () => {
       name: true,
       group: true,
       liquidateType: true,
+      country: false,
       clientID: true,
       balance: true,
       equity: true,
@@ -364,6 +367,7 @@ const ClientsPage = () => {
     { key: 'phone', label: 'Phone' },
     { key: 'group', label: 'Group' },
     { key: 'liquidateType', label: 'Liquidation Category' },
+    { key: 'country', label: 'Country' },
     { key: 'city', label: 'City' },
     { key: 'state', label: 'State' },
     { key: 'address', label: 'Address' },
@@ -442,7 +446,7 @@ const ClientsPage = () => {
   // Define string/text columns (no number filters)
   const stringColumns = [
     'name', 'lastName', 'middleName', 'email', 'phone', 'group', 
-    'liquidateType', 'city', 'state', 'address', 'zipCode', 'currency',
+    'liquidateType', 'country', 'city', 'state', 'address', 'zipCode', 'currency',
     'company', 'comment', 'color', 'leadCampaign', 'leadSource',
     'status', 'mqid', 'language', 'rights', 'rightsMask'
   ]
@@ -1670,8 +1674,8 @@ const ClientsPage = () => {
   const { virtualizedClients, topPadding, bottomPadding } = virtualizationMetrics
 
 
-  // Export to Excel (placed after filteredClients is defined)
-  const handleExportToExcel = useCallback((exportType = 'table') => {
+  // Export to CSV (placed after filteredClients is defined)
+  const handleExportToExcel = withExportLoading(useCallback((exportType = 'table') => {
     try {
       // Use full clients array for 'all' export, filtered for table export
       const dataToExport = exportType === 'all' ? clients : filteredClients
@@ -1736,7 +1740,7 @@ const ClientsPage = () => {
       console.error('[ClientsPage] Export failed:', error)
       alert('Export failed. Please check the console for details.')
     }
-  }, [clients, filteredClients, visibleColumns, allColumns])
+  }, [clients, filteredClients, visibleColumns, allColumns]))
 
   // Auto-fit like Excel on double click (placed after displayedClients to avoid TDZ)
   const handleAutoFit = useCallback((visKey, baseKey) => {
@@ -2371,7 +2375,7 @@ const ClientsPage = () => {
           <div className="bg-white rounded-2xl shadow-sm px-6 py-3 mb-6">
             {/* Title */}
             <div className="mb-2.5 pb-2.5 border-b border-gray-200">
-              <h1 className="text-xl font-bold text-[#1A1A1A]">Clients</h1>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Clients</h1><BrokerCreditSummary variant="header" /></div>
               <p className="text-xs text-[#6B7280] mt-0.5">Manage and view all client accounts</p>
               {/* Timestamp Info */}
               <div className="mt-2 flex items-center gap-4 text-[10px] font-mono">
@@ -2718,7 +2722,11 @@ const ClientsPage = () => {
                 )}
               </div>
             </div>
-          </div>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           {/* Removed drift diagnostics panel per user request */}
 

@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment, cloneElement } from 'react'
 import { ReportsIcon, ReportSubIcon } from '../components/ReportIcons'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -879,7 +880,7 @@ const BillsPage = () => {
           {/* Header Card */}
           <div className="-mx-3 sm:mx-0 bg-white rounded-none sm:rounded-2xl shadow-sm px-0 sm:px-6 py-0 sm:py-3 mb-2 sm:mb-4">
             {/* Mobile-only header (centered title, large rounded hamburger) — matches other modules */}
-            <div className="sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
+            <div className="flex-wrap sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
               <button
                 onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ } ; return n })}
                 className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center"
@@ -889,8 +890,12 @@ const BillsPage = () => {
                   <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </button>
-              <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Bills</h1>
-            </div>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-black transform min-w-0 max-sm:text-sm">Bills</h1><BrokerCreditSummary variant="header" /></div>
+            
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
             {/* Desktop title row */}
             <div className="hidden sm:flex items-center gap-3 mb-0">
@@ -904,7 +909,7 @@ const BillsPage = () => {
                 </svg>
               </button>
               <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Bills</h1>
+                <div className="flex min-w-0 items-center justify-between gap-3"><h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Bills</h1><BrokerCreditSummary variant="header" /></div>
                 <p className="hidden sm:block text-xs text-[#6B7280] mt-0.5"></p>
               </div>
 
@@ -1020,7 +1025,11 @@ const BillsPage = () => {
                 </div>
               </div>
             </div>
-          </div>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           {/* Mobile-only: all controls aligned in one compact row */}
           <div className="sm:hidden flex flex-nowrap items-center gap-1 mb-3 px-1">
@@ -1404,10 +1413,10 @@ const BillsPage = () => {
 
             {/* ═══ MOBILE Table (CSS Grid — matches Client Percentage pattern) ═══ */}
             <div className="sm:hidden flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="report-table-scroll w-full min-h-0 flex-1 overflow-auto scrollbar-hide">
+              <div className="mobile-table-scroll report-table-scroll w-full min-h-0 flex-1 overflow-auto scrollbar-hide">
                 <div className="relative" style={{ minWidth: 'max-content' }}>
                   {/* Grid Header */}
-                  <div
+                  <div data-mobile-data-row="header"
                     className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
                     style={{ gridTemplateColumns: '32px ' + orderedColumns.filter(c => visibleColumns[c.key]).map(c => c.key === 'login' ? '80px' : c.key === 'name' ? '90px' : c.key === 'actions' ? '80px' : '110px').join(' ') }}
                   >
@@ -1444,7 +1453,7 @@ const BillsPage = () => {
                   {loading ? (
                     <div className="space-y-0">
                       {[...Array(8)].map((_, idx) => (
-                        <div
+                        <div data-mobile-data-row="body"
                           key={idx}
                           className="grid text-[10px] bg-white border-b border-[#E1E1E1]"
                           style={{ gridTemplateColumns: '32px ' + orderedColumns.filter(c => visibleColumns[c.key]).map(c => c.key === 'login' ? '80px' : c.key === 'name' ? '90px' : c.key === 'actions' ? '80px' : '110px').join(' ') }}
@@ -1470,7 +1479,7 @@ const BillsPage = () => {
                     rows.map((r) => {
                       const isChecked = selected.has(r.Login)
                       return (
-                        <div
+                        <div data-mobile-data-row="header"
                           key={r.Login}
                           className={`grid text-[10px] text-[#4B4B4B] font-outfit border-b border-[#E1E1E1] transition-colors ${isChecked ? 'bg-blue-50' : 'bg-white hover:bg-[#F8FAFC]'}`}
                           style={{ gridTemplateColumns: '32px ' + orderedColumns.filter(c => visibleColumns[c.key]).map(c => c.key === 'login' ? '80px' : c.key === 'name' ? '90px' : c.key === 'actions' ? '80px' : '110px').join(' ') }}
@@ -1530,6 +1539,7 @@ const BillsPage = () => {
                       )
                     })
                   )}
+                  <div aria-hidden="true" className="mobile-table-end" />
                 </div>
               </div>
 
@@ -1725,7 +1735,7 @@ const BillsPage = () => {
               </div>
               <div className="flex-1">
                 <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eye</div>
-                <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
+                <div className="text-[11px] text-[#7A7A7A]">Financial Dashboard</div>
               </div>
               <button
                 onClick={closeMobileSidebar}
@@ -1859,7 +1869,7 @@ const BillsPage = () => {
                               style={{ touchAction: 'manipulation' }}
                             >
                               <ReportSubIcon path="/reports/credit" />
-                              Credit
+                              Credit Report
                             </button>
                             <button
                               type="button"
@@ -1887,7 +1897,7 @@ const BillsPage = () => {
                               style={{ touchAction: 'manipulation' }}
                             >
                               <ReportSubIcon path="/reports/deposit-withdrawal" />
-                              Deposit and Withdrawal Report
+                              D/W Report
                             </button>
                           </div>
                         )}

@@ -1,3 +1,5 @@
+import BrokerCreditSummary from '../BrokerCreditSummary'
+import { withExportLoading } from '../../utils/exportLoading'
 import { parseAccountTypePreferences } from '../../utils/accountType'
 import React, { useMemo, useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -93,6 +95,7 @@ export default function ClientDashboardDesignC() {
     phone: true,
     group: false,
     liquidateType: false,
+    country: false,
     city: false,
     state: false,
     address: false,
@@ -221,7 +224,8 @@ export default function ClientDashboardDesignC() {
           String(c.email || '').toLowerCase().includes(q) ||
           String(c.phone || '').toLowerCase().includes(q) ||
           String(c.group || '').toLowerCase().includes(q) ||
-          String(c.liquidateType || '').toLowerCase().includes(q)
+          String(c.liquidateType || '').toLowerCase().includes(q) ||
+          String(c.country || '').toLowerCase().includes(q)
         );
       });
     }
@@ -260,7 +264,7 @@ export default function ClientDashboardDesignC() {
   const totalPages = Math.ceil((filteredClients?.length || 0) / itemsPerPage)
 
   // Export functions
-  const exportTableColumns = () => {
+  const exportTableColumns = withExportLoading(() => {
     // Export only visible table columns (from filtered data if filters applied)
     const dataToExport = (Object.values(filters).some(f => f)) ? filteredClients : clients
 
@@ -293,9 +297,9 @@ export default function ClientDashboardDesignC() {
     a.click()
     window.URL.revokeObjectURL(url)
     setIsColumnDropdownOpen(false)
-  }
+  })
 
-  const exportAllColumns = () => {
+  const exportAllColumns = withExportLoading(() => {
     // Export all available columns (from filtered data if filters applied)
     const dataToExport = (Object.values(filters).some(f => f)) ? filteredClients : clients
 
@@ -339,7 +343,7 @@ export default function ClientDashboardDesignC() {
     a.click()
     window.URL.revokeObjectURL(url)
     setIsColumnDropdownOpen(false)
-  }
+  })
 
   // Column configuration with labels and keys
   const columnConfig = [
@@ -351,6 +355,7 @@ export default function ClientDashboardDesignC() {
     { key: 'phone', label: 'Phone', width: '100px' },
     { key: 'group', label: 'Group', width: '80px' },
     { key: 'liquidateType', label: 'Liquidation Category', width: '150px' },
+    { key: 'country', label: 'Country', width: '150px' },
     { key: 'city', label: 'City', width: '80px' },
     { key: 'state', label: 'State', width: '80px' },
     { key: 'address', label: 'Address', width: '140px' },
@@ -430,6 +435,7 @@ export default function ClientDashboardDesignC() {
       phone: c.phone || c.phoneNo || c.phone_number || '-',
       group: c.group || '-',
       liquidateType: c.liquidateType || '-',
+      country: c.country || '-',
       city: c.city || '-',
       state: c.state || '-',
       address: c.address || '-',
@@ -824,9 +830,9 @@ export default function ClientDashboardDesignC() {
   return (
     <div className="w-full min-h-screen bg-[#F5F5F5] font-outfit overflow-x-hidden">
       {/* Header - White rounded rectangle */}
-      <div className="sticky top-0 left-0 w-full h-[76px] bg-white shadow-[0px_3.64px_44.92px_rgba(0,0,0,0.05)] z-10">
+      <div className="sticky top-0 left-0 w-full min-h-[76px] bg-white shadow-[0px_3.64px_44.92px_rgba(0,0,0,0.05)] z-10">
         {/* Group container - full width */}
-        <div className="absolute left-0 right-0 top-5 px-4 h-9 flex items-center justify-between">
+        <div className="relative px-4 py-5 h-[76px] flex items-center justify-between">
           {/* Hamburger button - Frame with auto layout */}
           <button onClick={() => setIsSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center rounded-[6px] border-0 bg-[rgba(230,238,248,0.44)] shadow-[inset_0px_2px_2px_rgba(155,151,151,0.2)] p-[11px]">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -837,17 +843,19 @@ export default function ClientDashboardDesignC() {
           </button>
 
           {/* Clients heading - H2 Mobile / Semibold / 18px, centered */}
-          <span className="absolute left-1/2 -translate-x-1/2 top-[6px] font-outfit font-semibold text-[18px] leading-[24px] text-center text-black">Clients</span>
+          <span className="font-outfit font-semibold text-[18px] leading-[24px] text-center text-black">Clients</span><BrokerCreditSummary variant="header" />
 
           {/* Profile avatar - positioned at right with spacing */}
-          <div className="absolute right-4 w-9 h-9 rounded-full overflow-hidden shadow-[inset_0px_4px_4px_rgba(0,0,0,0.25)] bg-gray-200 flex items-center justify-center">
+          <div className="hidden sm:flex w-9 h-9 rounded-full overflow-hidden shadow-[inset_0px_4px_4px_rgba(0,0,0,0.25)] bg-gray-200 flex items-center justify-center">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="8" r="4" fill="#9CA3AF"/>
               <path d="M4 20C4 16.6863 6.68629 14 10 14H14C17.3137 14 20 16.6863 20 20V20" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </div>
         </div>
-      </div>
+      
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
       {/* Action buttons and View All row */}
       <div className="pt-5 pb-4 px-4">
@@ -1078,7 +1086,7 @@ export default function ClientDashboardDesignC() {
               </div>
               <div className="flex-1">
                 <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eye</div>
-                <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
+                <div className="text-[11px] text-[#7A7A7A]">Financial Dashboard</div>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -1319,7 +1327,7 @@ export default function ClientDashboardDesignC() {
         }}>
           <div className="relative" style={{ minWidth: 'max-content' }}>
           {/* Header row */}
-          <div className="grid bg-[#1A63BC] text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
+          <div data-mobile-data-row="header" className="grid bg-[#1A63BC] text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
             {visibleColumnsList.map((col) => (
               <div 
                 key={col.key}
@@ -1347,7 +1355,7 @@ export default function ClientDashboardDesignC() {
           </div>
           {/* Rows */}
           {rows.map((r, idx) => (
-            <div key={idx} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
+            <div data-mobile-data-row="body" key={idx} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
               {visibleColumnsList.map((col) => (
                 <div 
                   key={col.key}
@@ -1367,7 +1375,7 @@ export default function ClientDashboardDesignC() {
             </div>
           ))}
           {/* Footer row */}
-          <div className="grid bg-[#EFF4FB] text-[#1A63BC] text-[10px] font-semibold border-t-2 border-[#1A63BC]" style={{gap: '0px', gridGap: '0', columnGap: '0', gridTemplateColumns}}>
+          <div data-mobile-data-row="body" className="grid bg-[#EFF4FB] text-[#1A63BC] text-[10px] font-semibold border-t-2 border-[#1A63BC]" style={{gap: '0px', gridGap: '0', columnGap: '0', gridTemplateColumns}}>
             {visibleColumnsList.map((col) => (
               <div 
                 key={col.key}
@@ -1490,6 +1498,7 @@ export default function ClientDashboardDesignC() {
                 'Phone': 'phone',
                 'Group': 'group',
                 'Liquidation Category': 'liquidateType',
+                'Country': 'country',
                 'City': 'city',
                 'State': 'state',
                 'Address': 'address',
@@ -1581,6 +1590,7 @@ export default function ClientDashboardDesignC() {
                     phone: true,
                     group: false,
                     liquidateType: false,
+                    country: false,
                     city: false,
                     state: false,
                     address: false,

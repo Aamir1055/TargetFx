@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx-js-style'
+import XLSX from 'xlsx-js-style'
 
 // Report-style Excel export (modelled on the BrokerEye Position PDF):
 //   ┌ Title band (navy) ─────────────────────── generated-at ┐
@@ -18,7 +18,7 @@ import * as XLSX from 'xlsx-js-style'
 //   }],
 //   columns: [{ label, value: key | row => v, type: 'text'|'number'|'integer', digits: 2, signed: true, width }],
 //   sheetName: 'Deals',
-//   fileName: 'deals.xlsx'
+//   fileName: 'deals.csv'
 // })
 
 const NAVY = '1F3864'
@@ -54,7 +54,7 @@ export const exportStyledExcel = ({
   sections = [],
   columns = [],
   sheetName = 'Sheet1',
-  fileName = 'export.xlsx'
+  fileName = 'export.csv'
 }) => {
   const cols = columns.filter(Boolean)
   const colCount = Math.max(cols.length, 2)
@@ -182,7 +182,7 @@ export const exportStyledExcel = ({
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, String(sheetName).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31))
-  XLSX.writeFile(wb, fileName)
+  XLSX.writeFile(wb, fileName, { bookType: 'csv' })
 }
 
 // Buy / Sell style text colouring for action / type columns

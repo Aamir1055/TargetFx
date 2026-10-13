@@ -1,5 +1,8 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
+import ExportLoading from '../components/ExportLoading'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyReportGroupFilter } from '../utils/reportGroupFilter'
+import { fetchAllRows, downloadCsv, EXPORT_CHUNK_SIZE } from '../utils/exportAllPages'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { createPortal } from 'react-dom'
 import ColumnChooserList from '../components/ColumnChooserList'
@@ -11,12 +14,15 @@ import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
+import CustomizeViewModal from '../components/CustomizeViewModal'
+import LoginGroupsModal from '../components/LoginGroupsModal'
+import LoginGroupModal from '../components/LoginGroupModal'
 import { useGroups } from '../contexts/groupContextStore'
 import { getPresetRange } from '../utils/dealTimePresets'
 import { useAuth } from '../contexts/authContextStore'
 import { brokerAPI } from '../services/api'
 import { serverNowDate, serverEpochFromParts, formatTime } from '../utils/dateFormatter'
-import { buildDepositWithdrawalRequest, parseDepositWithdrawalReport } from '../utils/depositWithdrawalReport'
+import { buildDepositWithdrawalRequest, loadDepositWithdrawalReport } from '../utils/depositWithdrawalReport'
 
 const EMPTY_CLIENT_CACHE = []
 const ignoreCacheUpdate = () => {}
@@ -58,8 +64,19 @@ export default function DepositWithdrawalReportPage() {
     if (window.innerWidth < 1024) return false
     try { return JSON.parse(localStorage.getItem('sidebarOpen') ?? 'true') } catch { return true }
   })
-  const { groups, getActiveGroupFilter } = useGroups()
+  const { groups, getActiveGroupFilter, setActiveGroupFilter, deleteGroup } = useGroups()
   const groupName = getActiveGroupFilter('deposit-withdrawal-report')
+  const [mobileFilterView, setMobileFilterView] = useState(null)
+  const [pendingGroupName, setPendingGroupName] = useState(null)
+  const openMobileFilters = () => {
+    setPendingGroupName(groupName)
+    setMobileFilterView('customize')
+  }
+  const applyMobileGroup = name => {
+    setActiveGroupFilter('deposit-withdrawal-report', name)
+    setPage(1)
+    setMobileFilterView(null)
+  }
   const groupKey = JSON.stringify(groupName ? groups.find(group => group.name === groupName) ?? { loginIds: [] } : null)
   const previousGroup = useRef(groupKey)
   const [showGroupModal, setShowGroupModal] = useState(false)
@@ -129,15 +146,23 @@ export default function DepositWithdrawalReportPage() {
     const controller = new AbortController()
     setLoading(true)
     setError('')
-    const body = buildDepositWithdrawalRequest(applied, page, limit)
+    let body
+    try {
+      body = buildDepositWithdrawalRequest(applied, page, limit)
+    } catch (requestError) {
+      setError(requestError.message)
+      setResult({ rows: [], total: null, pages: null })
+      setLoading(false)
+      return () => controller.abort()
+    }
     if (!applyReportGroupFilter(body, JSON.parse(groupKey))) {
       setResult({ rows: [], total: 0, pages: 1 })
       setLoading(false)
       return () => controller.abort()
     }
-    brokerAPI.getDepositWithdrawalReport(body, { signal: controller.signal })
+    loadDepositWithdrawalReport(brokerAPI.getDepositWithdrawalReport, body, applied.search, controller.signal)
       .then(response => {
-        if (!controller.signal.aborted) setResult(parseDepositWithdrawalReport(response))
+        if (!controller.signal.aborted) setResult(response)
       })
       .catch(requestError => {
         if (!controller.signal.aborted) {
@@ -205,15 +230,20 @@ export default function DepositWithdrawalReportPage() {
     setApplied(previous => ({ ...previous, ...getPresetRange(value) }))
     setPage(1)
   }
-  const exportPage = () => {
-    const csv = [columns.map(([, label]) => label), ...result.rows.map(row => columns.map(([key]) => display(row, key)))]
-      .map(row => row.map(value => '"' + String(value).replace(/^[=+@-]/, "'$&").replaceAll('"', '""') + '"').join(',')).join('\r\n')
-    const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8;' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `deposit-withdrawal-report-page-${page}.csv`
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  const [exporting, setExporting] = useState(false)
+  const exportPage = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const rows = await fetchAllRows(async exportPageNumber => {
+        const body = buildDepositWithdrawalRequest(applied, exportPageNumber, EXPORT_CHUNK_SIZE)
+        if (!applyReportGroupFilter(body, JSON.parse(groupKey))) return { rows: [], total: 0, pages: 1 }
+        return loadDepositWithdrawalReport(brokerAPI.getDepositWithdrawalReport, body, applied.search)
+      })
+      downloadCsv(columns.map(([, label]) => label), rows.map(row => columns.map(([key]) => display(row, key))), 'deposit-withdrawal-report.csv')
+    } catch (exportError) {
+      window.alert(exportError?.response?.data?.message || exportError.message || 'Unable to export report.')
+    } finally { setExporting(false) }
   }
   const totalPages = result.pages ?? (result.total == null ? null : Math.max(1, Math.ceil(result.total / limit)))
   const hasNext = totalPages == null ? result.rows.length === limit : page < totalPages
@@ -225,23 +255,28 @@ export default function DepositWithdrawalReportPage() {
     return { position: 'sticky', left: before * 160, width: 160, minWidth: 160, maxWidth: 160, zIndex: header ? 30 : 10, boxShadow: '2px 0 4px -2px rgba(0,0,0,0.1)' }
   }
   const mobileColumns = shownColumns
-  const iconButton = 'h-8 w-8 shrink-0 rounded-md border border-[#E5E7EB] bg-white text-[#4B5563] shadow-sm flex items-center justify-center hover:bg-gray-50 disabled:opacity-40'
+  const iconButton = 'h-7 w-7 md:h-8 md:w-8 shrink-0 rounded-md border border-[#E5E7EB] bg-white text-[#4B5563] shadow-sm flex items-center justify-center hover:bg-gray-50 disabled:opacity-40'
   const openPanel = value => { setValidation(''); setPanel(value) }
-  const actions = <>
-    <GroupSelector refreshOnOpen moduleName="deposit-withdrawal-report" onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }} onEditClick={group => { setEditingGroup(group); setShowGroupModal(true) }} />
-    <div role="group" aria-label="Transaction type" className="flex h-8 shrink-0 items-center rounded-md bg-gray-100 p-0.5">
+  const typeToggle = <div role="group" aria-label="Transaction type" className="flex h-8 shrink-0 items-center rounded-md bg-gray-100 p-0.5">
       {[['all', 'All'], ['deposit', 'Deposit'], ['withdrawal', 'Withdrawal']].map(([value, label]) => <button key={value} type="button" aria-pressed={applied.type === value} onClick={() => { setApplied(previous => ({ ...previous, type: value })); setPage(1) }} className={`h-7 rounded px-2 text-xs font-semibold ${applied.type === value ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}>{label}</button>)}
     </div>
-    <QuickTimeFilter value={preset} onChange={changePreset} />
-    <button type="button" data-deposit-withdrawal-calendar="" onClick={event => {
+  const quickFilter = <QuickTimeFilter value={preset} onChange={changePreset} />
+  const calendarButton = <button type="button" data-deposit-withdrawal-calendar="" onClick={event => {
       if (panel === 'dates') { setPanel(null); return }
       const rect = event.currentTarget.getBoundingClientRect()
       const width = Math.min(360, window.innerWidth - 24)
       setDatePosition({ width, left: Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12)), top: Math.min(rect.bottom + 8, Math.max(12, window.innerHeight - 340)) })
       openPanel('dates')
     }} className={iconButton} aria-label="Choose custom dates" title="Choose custom dates"><Icon name="calendar" /></button>
-    <button type="button" onClick={exportPage} disabled={loading || !!error || !result.rows.length} className={iconButton} aria-label="Export current page" title="Export current page to CSV"><Icon name="download" /></button>
-    <button type="button" onClick={() => setRefresh(value => value + 1)} disabled={loading} className={iconButton} aria-label="Refresh deposit and withdrawal report" title="Refresh"><Icon name="refresh" /></button>
+  const downloadButton = <button type="button" onClick={exportPage} disabled={loading || exporting || !!error || !result.rows.length} className={iconButton} aria-label="Export all pages" title="Export all rows to CSV"><Icon name="download" /></button>
+  const refreshButton = <button type="button" onClick={() => setRefresh(value => value + 1)} disabled={loading} className={iconButton} aria-label="Refresh deposit and withdrawal report" title="Refresh"><Icon name="refresh" /></button>
+  const actions = <>
+    <GroupSelector refreshOnOpen moduleName="deposit-withdrawal-report" onCreateClick={() => { setEditingGroup(null); setShowGroupModal(true) }} onEditClick={group => { setEditingGroup(group); setShowGroupModal(true) }} />
+    {typeToggle}
+    {quickFilter}
+    {calendarButton}
+    {downloadButton}
+    {refreshButton}
   </>
   const pagination = <div className="flex shrink-0 items-center gap-1 md:gap-3">
     <div className="hidden md:block"><PageSizeSelect value={limit} onChange={value => { setLimit(Number(value)); setPage(1) }} options={[25, 50, 100]} /></div>
@@ -257,22 +292,42 @@ export default function DepositWithdrawalReportPage() {
   </table>
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-[#F8F8F8] md:bg-gradient-to-br md:from-blue-50 md:via-white md:to-blue-50">
+    <div className="mobile-responsive-page flex h-[100dvh] overflow-hidden bg-[#F8F8F8] md:bg-gradient-to-br md:from-blue-50 md:via-white md:to-blue-50">
+      {exporting && <ExportLoading />}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={toggleSidebar} />
       <main className={`flex min-w-0 flex-1 flex-col overflow-hidden p-0 transition-all duration-300 md:p-4 lg:p-6 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
-        <header className="relative flex shrink-0 items-center border-b border-[#ECECEC] bg-white px-4 py-4 md:mb-6 md:justify-between md:gap-3 md:rounded-2xl md:border-0 md:px-6 md:py-3 md:shadow-sm md:flex-wrap">
-          <div className="flex items-center gap-2"><button type="button" onClick={() => setSidebarOpen(true)} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F8F8F8] text-black md:h-9 md:w-9 md:rounded-lg lg:hidden" aria-label="Open menu"><Icon name="menu" /></button><div><h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-semibold text-black max-md:top-7 max-md:w-[calc(100%-140px)] max-md:text-center max-md:text-sm md:static md:translate-x-0 md:text-xl md:font-bold">Deposit and Withdrawal Report</h1><p className="mt-0.5 hidden text-xs text-[#6B7280] md:block">Deposits and withdrawals across all accounts</p></div></div>
+        <header className="flex-wrap relative flex shrink-0 items-center border-b border-[#ECECEC] bg-white px-4 py-4 md:mb-6 md:justify-between md:gap-3 md:rounded-2xl md:border-0 md:px-6 md:py-3 md:shadow-sm md:flex-wrap">
+          <div className="flex items-center gap-2"><button type="button" onClick={() => setSidebarOpen(true)} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F8F8F8] text-black md:h-9 md:w-9 md:rounded-lg lg:hidden" aria-label="Open menu"><Icon name="menu" /></button><div><div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-lg font-semibold text-black max-md:text-sm md:static md:translate-x-0 md:text-xl md:font-bold min-w-0 max-sm:text-sm">D/W Report</h1><BrokerCreditSummary variant="header" /></div><p className="mt-0.5 hidden text-xs text-[#6B7280] md:block">Deposits and withdrawals across all accounts</p></div></div>
           <div className="hidden flex-wrap items-center gap-2 md:flex">{actions}</div>
-        </header>
-        <div className="flex shrink-0 items-center gap-1 overflow-x-auto px-2 py-3 md:hidden">{actions}</div>
+        
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</header>
+        <div className="flex w-full shrink-0 flex-nowrap items-center justify-between gap-1.5 overflow-x-auto px-2 py-3 md:hidden [&>select]:h-7 [&>select]:w-[52px] [&>select]:px-1 [&>select]:text-[10px] [&>button]:h-7 [&>button]:w-7 [&>div]:shrink-0 [&>div[role=group]]:h-7 [&>div[role=group]>button]:h-6 [&>div[role=group]>button]:w-auto [&>div[role=group]>button]:px-[3px] [&>div[role=group]>button]:text-[10px]">
+          <div className="shrink-0">
+            <button type="button" onClick={openMobileFilters} aria-haspopup="dialog" aria-expanded={mobileFilterView !== null} title={groupName ? `Group filter: ${groupName}` : 'Customize view'} className={`flex h-7 items-center gap-1 rounded-md border px-1.5 text-[10px] font-medium shadow-sm ${groupName ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-[#E5E7EB] bg-white text-[#374151]'}`}>
+              <svg className="h-3 w-3" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M2 3h14M4 6h10M6 9h6" /></svg>
+              Filter
+              {groupName && <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
+            </button>
+          </div>
+          {quickFilter}
+          {calendarButton}
+          {downloadButton}
+          {typeToggle}
+          {refreshButton}
+        </div>
         <section aria-label="Deposit and withdrawal records" className="mx-1 flex min-h-0 flex-1 flex-col overflow-hidden md:mx-0 md:rounded-lg md:border md:border-[#E5E7EB] md:bg-white md:shadow-sm">
           <div className="shrink-0 px-2 py-3 md:border-b md:border-[#E5E7EB] md:p-4"><div className="flex items-center gap-1 md:gap-2">
-            <form onSubmit={submitSearch} className="relative min-w-0 flex-1 md:max-w-md"><input type="search" aria-label="Search comments" placeholder="Search comments" value={searchInput} onChange={event => setSearchInput(event.target.value)} className="h-8 w-full rounded-md border border-[#E5E7EB] bg-[#F9FAFB] pl-2 pr-16 [&::-webkit-search-cancel-button]:appearance-none text-[11px] text-[#1F2937] outline-none placeholder:text-[#9CA3AF] focus:ring-2 focus:ring-blue-500 md:h-10 md:rounded-lg md:pl-4 md:pr-20 md:text-sm" />{searchInput && <button type="button" onClick={() => setSearchInput('')} className="absolute right-8 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-gray-400 hover:text-gray-600 md:right-12" aria-label="Clear search"><Icon name="close" /></button>}<button type="submit" className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-white md:h-8 md:w-9" aria-label="Search"><Icon name="search" /></button></form>
+            <form onSubmit={submitSearch} className="relative min-w-0 flex-1 md:max-w-md"><input type="search" aria-label="Search all columns" placeholder="Search all columns" value={searchInput} onChange={event => setSearchInput(event.target.value)} className="h-7 w-full rounded-md border border-[#E5E7EB] bg-[#F9FAFB] pl-2 pr-16 [&::-webkit-search-cancel-button]:appearance-none text-[11px] text-[#1F2937] outline-none placeholder:text-[#9CA3AF] focus:ring-2 focus:ring-blue-500 md:h-10 md:rounded-lg md:pl-4 md:pr-20 md:text-sm" />{searchInput && <button type="button" onClick={() => setSearchInput('')} className="absolute right-8 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-gray-400 hover:text-gray-600 md:right-12" aria-label="Clear search"><Icon name="close" /></button>}<button type="submit" className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-white md:h-8 md:w-9" aria-label="Search"><Icon name="search" /></button></form>
             <button ref={columnButtonRef} type="button" onClick={toggleColumnPicker} aria-expanded={!!columnPickerPosition} aria-haspopup="dialog" className={`${iconButton} mr-auto md:h-10 md:w-10`} aria-label="Show or hide columns" title="Show/Hide Columns"><Icon name="sliders" /></button>
             {pagination}
           </div></div>
           <div className="hidden min-h-0 flex-1 overflow-auto md:block" style={{ scrollbarWidth: 'thin', scrollbarColor: '#9ca3af #e5e7eb' }}>{table(shownColumns)}</div>
-          <div className="min-h-0 flex-1 overflow-auto border border-blue-100 bg-white md:hidden" style={{ WebkitOverflowScrolling: 'touch' }}>{table(mobileColumns, true)}</div>
+          <div className="mobile-table-scroll min-h-0 flex-1 overflow-auto border border-blue-100 bg-white md:hidden" style={{ WebkitOverflowScrolling: 'touch' }}>{table(mobileColumns, true)}
+<div aria-hidden="true" className="mobile-table-end" />
+</div>
         </section>
       </main>
       {columnPickerPosition && createPortal(
@@ -302,6 +357,37 @@ export default function DepositWithdrawalReportPage() {
         <ClientPositionsModal key={selectedClient.login} client={selectedClient} onClose={() => setSelectedClient(null)} allPositionsCache={EMPTY_CLIENT_CACHE} allOrdersCache={EMPTY_CLIENT_CACHE} onCacheUpdate={ignoreCacheUpdate} />
       ))}
       <GroupModal isOpen={showGroupModal} onClose={() => setShowGroupModal(false)} editGroup={editingGroup} />
+      {isMobile && (
+        <>
+          <CustomizeViewModal
+            isOpen={mobileFilterView === 'customize'}
+            onClose={() => setMobileFilterView(null)}
+            onGroupsClick={() => setMobileFilterView('groups')}
+            onReset={() => applyMobileGroup(null)}
+            onApply={() => applyMobileGroup(pendingGroupName)}
+            hasPendingChanges={pendingGroupName !== groupName}
+          />
+          <LoginGroupsModal
+            isOpen={mobileFilterView === 'groups'}
+            onClose={() => setMobileFilterView(view => view === 'groups' ? null : view)}
+            onBack={() => setMobileFilterView('customize')}
+            groups={groups.map(group => ({ ...group, loginCount: group.range ? Number(group.range.to) - Number(group.range.from) + 1 : (group.loginIds?.length || 0) }))}
+            activeGroupName={groupName}
+            onSelectGroup={group => applyMobileGroup(group?.name || null)}
+            onPendingChange={(_hasPending, name) => setPendingGroupName(name || null)}
+            onCreateGroup={() => { setEditingGroup(null); setMobileFilterView('edit') }}
+            onEditGroup={group => { setEditingGroup(group); setMobileFilterView('edit') }}
+            onDeleteGroup={group => deleteGroup(group.name)}
+          />
+          <LoginGroupModal
+            isOpen={mobileFilterView === 'edit'}
+            editGroup={editingGroup}
+            onClose={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+            onBack={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+            onSave={() => { setEditingGroup(null); setMobileFilterView('groups') }}
+          />
+        </>
+      )}
       {panel && <div className={panel === 'dates' ? 'fixed z-50' : 'fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-3 sm:items-center'} style={panel === 'dates' ? datePosition : undefined} onMouseDown={event => { if (event.target === event.currentTarget) setPanel(null) }}>
         <div ref={panelRef} role="dialog" aria-modal={panel === 'dates' ? undefined : true} aria-labelledby="deposit-withdrawal-panel-title" className={panel === 'dates' ? 'max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white text-left shadow-[0_12px_40px_rgba(15,23,42,0.16)]' : 'max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-xl'}>
           <div className={panel === 'dates' ? 'flex items-center gap-3 border-b border-slate-100 px-4 py-3' : 'mb-4 flex items-center justify-between'}>

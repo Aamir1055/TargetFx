@@ -3,6 +3,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Shared mobile typography, matching the Summary report. Desktop is unchanged. */
+@media (max-width: 767px) {
+  body, body :where(button, input, select, textarea, div, span, p, a, label, h1, h2, h3, h4, table, th, td) {
+    font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif !important;
+  }
+
+  :is(table th, table td, [data-mobile-data-row]) {
+    font-size: 10px !important;
+    line-height: 15px !important;
+    letter-spacing: normal !important;
+  }
+
+  :is(table th, table td, [data-mobile-data-row]) :where(span, div, a, button) {
+    font-size: inherit !important;
+    line-height: inherit !important;
+    letter-spacing: normal !important;
+  }
+
+  :is(table th, [data-mobile-data-row="header"]) {
+    font-weight: 600 !important;
+    text-transform: none !important;
+  }
+
+  :is(table th, [data-mobile-data-row="header"]) :where(span, div, button) {
+    font-weight: inherit !important;
+    text-transform: none !important;
+  }
+
+  :is(table td, [data-mobile-data-row="body"]) {
+    font-weight: 400;
+  }
+
+  :is(table td, [data-mobile-data-row="body"]) :is(a, button.text-blue-600, .font-semibold) {
+    font-weight: 600 !important;
+  }
+
+  h1 { font-size: 18px !important; line-height: 24px !important; font-weight: 600 !important; }
+  /* Gap between the menu button and the module name in every module header. */
+  .flex-1.min-w-0.items-center.justify-between:has(> h1) { padding-left: 16px; }
+  input[type="search"], input[placeholder^="Search"] { font-size: 11px !important; }
+}
+
 :root {
   --app-viewport-height: 100dvh;
   --app-safe-top: max(env(safe-area-inset-top, 0px), calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)));
@@ -69,6 +111,50 @@
 .report-table-scroll {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
+}
+
+/* A page-end marker lives after the rows, inside the scrollable content. */
+.mobile-table-end {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 100%;
+  height: calc(32px + var(--app-safe-bottom, 0px));
+  flex: none;
+  border-top: 2px solid #3b82f6;
+  background: white;
+}
+.mobile-table-scroll {
+  min-height: 0;
+  isolation: isolate;
+  contain: paint;
+  padding-bottom: 0 !important;
+  -webkit-overflow-scrolling: touch;
+}
+.mobile-table-scroll > table { border-bottom: 2px solid #3b82f6; }
+.mobile-table-scroll > table + .mobile-table-end { border-top: 0; }
+.mobile-table-end-responsive { display: none; }
+@media (max-width: 767px) {
+  .mobile-responsive-page {
+    height: var(--app-viewport-height, 100dvh);
+    padding-top: var(--app-safe-top, 0px);
+  }
+}
+/* Landscape phones must be able to scroll past the controls to the table. */
+@media (max-height: 500px) {
+  .mobile-position-content { overflow-y: auto; }
+  .mobile-position-content > * { flex-shrink: 0; }
+  .mobile-position-content .mobile-table-scroll { min-height: 152px; }
+}
+@media (max-width: 639px) {
+  .mobile-table-end-responsive { display: block; }
+  .mobile-table-scroll-responsive {
+    min-height: 0;
+    isolation: isolate;
+    contain: paint;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mobile-table-scroll-responsive > table { border-bottom: 2px solid #3b82f6; }
+  .mobile-table-scroll-responsive > table + .mobile-table-end { border-top: 0; }
 }
 
 /* Lock viewport — prevents browser-level scrollbar on all mobile modules */

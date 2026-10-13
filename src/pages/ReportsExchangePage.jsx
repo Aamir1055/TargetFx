@@ -1,3 +1,5 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
+import { withExportLoading } from '../utils/exportLoading'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import * as XLSX from 'xlsx-js-style'
@@ -385,7 +387,7 @@ const ReportsExchangePage = () => {
     return list.find(c => String(c.Login ?? c.login) === String(login)) ?? list[0] ?? null
   }
 
-  const exportExcel = async () => {
+  const exportExcel = withExportLoading(async () => {
     if (exporting || !selectedWeekId) return
 
     setExporting(true)
@@ -569,13 +571,13 @@ const ReportsExchangePage = () => {
       const customDateTag = appliedFromDate && appliedToDate
         ? `_custom_${appliedFromDate}_to_${appliedToDate}`
         : ''
-      XLSX.writeFile(workbook, `brokerage_data_${weekFileTag || `week_${selectedWeekId}`}${customDateTag}.xlsx`)
+      XLSX.writeFile(workbook, `brokerage_data_${weekFileTag || `week_${selectedWeekId}`}${customDateTag}.csv`, { bookType: 'csv' })
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to export brokerage data')
     } finally {
       setExporting(false)
     }
-  }
+  })
 
   return (
     <div className="report-viewport flex bg-gray-50">
@@ -600,7 +602,7 @@ const ReportsExchangePage = () => {
         <div className="max-w-full min-w-0 min-h-0 mx-auto w-full flex flex-col flex-1 overflow-hidden">
           {/* Header Card */}
           <div className="bg-white rounded-none sm:rounded-2xl shadow-sm px-0 sm:px-6 py-0 sm:py-3 mb-0 sm:mb-2">
-            <div className="sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
+            <div className="flex-wrap sm:hidden flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(v => { const n = !v; try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* Retain the fallback when this operation is unavailable. */ } ; return n })}
@@ -611,12 +613,16 @@ const ReportsExchangePage = () => {
                   <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </button>
-              <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Brokerage Data</h1>
-            </div>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-black transform min-w-0 max-sm:text-sm">Brokerage Data</h1><BrokerCreditSummary variant="header" /></div>
+            
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
             <div className="hidden sm:flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Reports · Brokerage Data</h1>
+                <div className="flex min-w-0 items-center justify-between gap-3"><h1 className="text-base sm:text-xl font-bold text-[#1A1A1A] leading-tight">Reports · Brokerage Data</h1><BrokerCreditSummary variant="header" /></div>
               </div>
 
               <div className="hidden sm:flex flex-nowrap items-center gap-2 flex-shrink-0">
@@ -725,7 +731,7 @@ const ReportsExchangePage = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                   </svg>
-                  {exporting ? 'Exporting...' : 'Export Excel'}
+                  {exporting ? 'Exporting...' : 'Export CSV'}
                 </button>
               </div>
             </div>
@@ -804,15 +810,19 @@ const ReportsExchangePage = () => {
                 onClick={exportExcel}
                 disabled={!clients.length || exporting}
                 className="h-8 w-8 shrink-0 rounded-md border border-[#E5E7EB] bg-white text-gray-700 shadow-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Export Excel"
-                title="Export Excel"
+                aria-label="Export CSV"
+                title="Export CSV"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                 </svg>
               </button>
             </div>
-          </div>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           {selectedWeekId && (
             <div className="flex items-center gap-2 px-3 py-4 sm:px-4 sm:py-5">
@@ -911,7 +921,7 @@ const ReportsExchangePage = () => {
 
           {/* Content */}
           <div className="bg-white rounded-none shadow-sm min-w-0 min-h-0 flex-1 overflow-hidden flex flex-col">
-                <div className="report-table-scroll exchange-table-scrollbar flex-1 min-w-0 min-h-0 overflow-auto isolate">
+                <div className="mobile-table-scroll-responsive report-table-scroll exchange-table-scrollbar flex-1 min-w-0 min-h-0 overflow-auto isolate">
                   <table className="min-w-full text-xs border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20">
                     <tr>
@@ -1002,6 +1012,7 @@ const ReportsExchangePage = () => {
                     </tr>
                   </tfoot>}
                   </table>
+                  <div aria-hidden="true" className="mobile-table-end mobile-table-end-responsive" />
                 </div>
           </div>
         </div>

@@ -626,6 +626,19 @@ export const brokerAPI = {
     return response.data
   },
 
+  getCreditSummary: async (options = {}) => {
+    const response = await api.get('/api/broker/credit', options)
+    return response.data
+  },
+  tempCreditIn: async (login, body) => {
+    const response = await api.post(`/api/broker/clients/${login}/temp-credit-in`, body)
+    return response.data
+  },
+  tempCreditOut: async (login, body) => {
+    const response = await api.post(`/api/broker/clients/${login}/temp-credit-out`, body)
+    return response.data
+  },
+
   // Credit in
   creditIn: async (login, amount, comment) => {
     const response = await api.post(`/api/broker/clients/${login}/credit-in`, {

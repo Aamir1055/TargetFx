@@ -1,10 +1,10 @@
-import * as XLSX from 'xlsx-js-style'
+import XLSX from 'xlsx-js-style'
 
 // Generic Excel export helper.
 // columns: [{ label, value }] where value can be a string/number or a function(row) => cellValue
 // rows: array of row objects
 // sheetName / fileName: output naming
-export const exportRowsToExcel = (columns, rows, sheetName = 'Sheet1', fileName = 'export.xlsx') => {
+export const exportRowsToExcel = (columns, rows, sheetName = 'Sheet1', fileName = 'export.csv') => {
   const cols = Array.isArray(columns) ? columns : []
   const data = Array.isArray(rows) ? rows : []
 
@@ -44,5 +44,5 @@ export const exportRowsToExcel = (columns, rows, sheetName = 'Sheet1', fileName 
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31))
-  XLSX.writeFile(workbook, fileName)
+  XLSX.writeFile(workbook, fileName, { bookType: 'csv' })
 }

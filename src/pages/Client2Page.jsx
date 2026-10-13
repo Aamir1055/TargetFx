@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { parseAccountTypePreferences } from '../utils/accountType'
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
@@ -625,6 +626,7 @@ const Client2Page = () => {
       currency: false,
       leverage: false,
       liquidateType: false,
+      country: false,
       phone: false,
       city: false,
       address: false,
@@ -681,6 +683,7 @@ const Client2Page = () => {
     { key: 'phone', label: 'Phone', type: 'text' },
     { key: 'group', label: 'Group', type: 'text' },
     { key: 'liquidateType', label: 'Liquidation Category', type: 'text' },
+    { key: 'country', label: 'Country', type: 'text' },
     { key: 'city', label: 'City', type: 'text' },
     { key: 'address', label: 'Address', type: 'text' },
     { key: 'status', label: 'Status', type: 'text' },
@@ -831,7 +834,7 @@ const Client2Page = () => {
     if (key === 'address' || key === 'comment') return 280
 
     // Country, city, state, company
-    if (key === 'liquidateType' || key === 'city' || key === 'state' || key === 'company') return 150
+    if (key === 'liquidateType' || key === 'country' || key === 'city' || key === 'state' || key === 'company') return 150
 
     // Group
     if (key === 'group') return 170
@@ -1015,6 +1018,7 @@ const Client2Page = () => {
           email: 'email',
           phone: 'phone',
           liquidateType: 'liquidateType',
+          country: 'country',
           currency: 'currency',
           lifetimePnL: 'lifetimePnL',
           thisMonthPnL: 'thisMonthPnL',
@@ -1985,7 +1989,7 @@ const Client2Page = () => {
       // Account metadata
       'group', 'accountType', 'status', 'currency', 'leverage', 'comment',
       // Location
-      'liquidateType', 'city', 'state', 'address', 'zipCode', 'company',
+      'liquidateType', 'country', 'city', 'state', 'address', 'zipCode', 'company',
       // Leads & processing
       'leadSource', 'leadCampaign', 'processorType'
     ]
@@ -2095,7 +2099,7 @@ const Client2Page = () => {
       // Account metadata
       'group', 'accountType', 'status', 'currency', 'leverage', 'comment',
       // Location
-      'liquidateType', 'city', 'state', 'address', 'zipCode', 'company',
+      'liquidateType', 'country', 'city', 'state', 'address', 'zipCode', 'company',
       // Leads & processing
       'leadSource', 'leadCampaign', 'processorType'
     ]
@@ -2811,7 +2815,7 @@ const Client2Page = () => {
   // Gather full dataset for export matching current filters
 
 
-  // Export to Excel handler (CSV for now)
+  // Export to CSV handler (CSV for now)
   const handleExportToExcel = (type) => {
     (async () => {
       try {
@@ -3041,8 +3045,8 @@ const Client2Page = () => {
 
         // Generate and download Excel file
         const suffix = type === 'all' ? 'all_columns' : 'table_columns'
-        const fileName = `clients_${suffix}_${new Date().toISOString().split('T')[0]}.xlsx`
-        XLSX.writeFile(workbook, fileName)
+        const fileName = `clients_${suffix}_${new Date().toISOString().split('T')[0]}.csv`
+        XLSX.writeFile(workbook, fileName, { bookType: 'csv' })
 
         console.log('[Client2Page] Export completed successfully')
       } catch (err) {
@@ -3383,7 +3387,7 @@ const Client2Page = () => {
       {isExporting && (
         <LoadingSpinner
           message="Exporting..."
-          subtitle="Preparing your spreadsheet"
+          subtitle="Preparing your CSV download"
           progress={exportProgress > 0 ? Math.round(exportProgress * 100) : null}
         />
       )}
@@ -3409,7 +3413,7 @@ const Client2Page = () => {
             {/* Title + Actions */}
             <div className="mb-2.5 pb-2.5 flex items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-bold text-[#1A1A1A]">Clients</h1>
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Clients</h1><BrokerCreditSummary variant="header" /></div>
                 <p className="text-xs text-[#6B7280] mt-0.5">Manage and view all client accounts...</p>
               </div>
               {/* Action Buttons Row moved to right of title - keep only Cards toggle */}
@@ -3820,7 +3824,11 @@ const Client2Page = () => {
                 {/* Cards toggle removed as requested */}
               </div>
             </div>
-          </div>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           {/* 6 Face Cards - matching Positions module style */}
           {showFaceCards && (initialLoad || (totals && Object.keys(totals).length > 0) || (totalsPercent && Object.keys(totalsPercent).length > 0)) && (

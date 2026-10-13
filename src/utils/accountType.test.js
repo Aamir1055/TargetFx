@@ -51,7 +51,24 @@ test('preserves client liquidation sorting and usual filter operators', () => {
     }
   }
 })
-test('preserves saved column selection and order after rename', () => {
-  assert.deepEqual(parseAccountTypePreferences('{"country":true,"name":false}'), { liquidateType: true, name: false })
-  assert.deepEqual(parseAccountTypePreferences('["login","country","name"]'), ['login', 'liquidateType', 'name'])
+test('preserves country and liquidation category as separate saved columns', () => {
+  assert.deepEqual(parseAccountTypePreferences('{"country":true,"liquidateType":false,"name":false}'), { country: true, liquidateType: false, name: false })
+  assert.deepEqual(parseAccountTypePreferences('["login","country","liquidateType","name"]'), ['login', 'country', 'liquidateType', 'name'])
+  const preferences = {
+    country: 150,
+    liquidateType: 180,
+    country_text: { operator: 'equal', value: 'India' },
+    liquidateType_checkbox: { values: ['Non-Liquidate'] }
+  }
+  assert.deepEqual(parseAccountTypePreferences(JSON.stringify(preferences)), preferences)
+  assert.deepEqual(parseAccountTypePreferences('{"liquidateType":true}'), { liquidateType: true })
+})
+test('country filters and sorting remain separate from liquidation category', () => {
+  const payload = { sortBy: 'country', sortOrder: 'asc', filters: [
+    { field: 'country', operator: 'equal', value: 'U.A.E.' },
+    { field: 'liquidateType', operator: 'equal', value: 'Liquidate' }
+  ] }
+  assert.deepEqual(accountTypeSearchPayload(payload), payload)
+  const result = normalizeAccountTypes({ country: 'U.A.E.', liquidateType: 'Liquidate' })
+  assert.deepEqual(result, { country: 'U.A.E.', liquidateType: 'Liquidate' })
 })

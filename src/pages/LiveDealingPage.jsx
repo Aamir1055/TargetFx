@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import QuickTimeFilter from '../components/QuickTimeFilter'
 import { getPresetRange } from '../utils/dealTimePresets'
@@ -1658,7 +1659,7 @@ const LiveDealingPage = () => {
             <div className="mb-1.5 pb-1.5 flex items-center justify-between gap-3">
             {/* Title Section */}
             <div>
-              <h1 className="text-xl font-bold text-[#1A1A1A]">Live Dealing</h1>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Live Dealing</h1><BrokerCreditSummary variant="header" /></div>
               <p className="text-xs text-[#6B7280] mt-0.5">Real-time trading activity monitor</p>
             </div>
 
@@ -1772,7 +1773,11 @@ const LiveDealingPage = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           {/* Table with Search Inside */}
           <div className="bg-white rounded-lg shadow-sm border border-[#E5E7EB] overflow-hidden flex flex-col flex-1">

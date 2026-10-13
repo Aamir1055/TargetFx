@@ -1,3 +1,8 @@
+import { withExportLoading } from '../utils/exportLoading'
+import TemporaryCreditFields from './TemporaryCreditFields'
+import BrokerCreditSummary from './BrokerCreditSummary'
+import { useBrokerCredit } from '../contexts/brokerCreditStore'
+import { creditOperations, temporaryCreditBody } from '../utils/brokerCredit'
 import { loadClientRows, paginateClientRows } from '../utils/reportPagination'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { createLatestRequest } from '../utils/latestRequest'
@@ -374,21 +379,20 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
   const [clientData, setClientData] = useState(client)
 
   // Funds management state
-  const [operationType, setOperationType] = useState('deposit')
+  const [operationType, setOperationType] = useState('credit_in')
+  const [expireWeekday, setExpireWeekday] = useState('')
+  const [expireTime, setExpireTime] = useState('')
+  const { credit: brokerCredit, error: creditError, refresh: refreshCredit, updateCredit } = useBrokerCredit()
+  const creditInUnavailable = operationType.endsWith('credit_in') && (brokerCredit?.live_data === false || !!creditError)
   const [amount, setAmount] = useState('')
   const [comment, setComment] = useState('')
   const [operationLoading, setOperationLoading] = useState(false)
   const [operationSuccess, setOperationSuccess] = useState('')
   const [operationError, setOperationError] = useState('')
   const availableOperationTypes = useMemo(() => {
-    const operations = [
-      { value: 'deposit', label: 'Deposit Funds' },
-      { value: 'withdrawal', label: 'Withdraw Funds' },
-      { value: 'credit_in', label: 'Credit In' },
-      { value: 'credit_out', label: 'Credit Out' }
-    ]
+    const operations = creditOperations
     const rights = user?.rights
-    return rights ? operations.filter(op => rights.includes(op.value)) : operations
+    return rights ? operations.filter(op => rights.includes(op.right)) : operations
   }, [user?.rights])
 
   // Date filter state
@@ -602,8 +606,8 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
     return { login, stamp }
   }
 
-  // Export currently-visible Positions columns/rows to Excel
-  const handleExportPositions = () => {
+  // Export currently-visible Positions columns/rows to CSV
+  const handleExportPositions = withExportLoading(() => {
     const rows = filteredPositions
     if (!rows || rows.length === 0) return
     const columnValueMap = {
@@ -625,8 +629,8 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
       .filter(c => positionsVisibleColumns[c.key])
       .map(c => ({ label: c.label, value: columnValueMap[c.key] }))
     const { login, stamp } = exportLoginTag()
-    exportRowsToExcel(cols, rows, 'Positions', `positions_${login}_${stamp}.xlsx`)
-  }
+    exportRowsToExcel(cols, rows, 'Positions', `positions_${login}_${stamp}.csv`)
+  })
 
   // Fetch the entire deals result set for the current filters, in chunks of 500.
   const fetchAllDealsForExport = async () => {
@@ -720,8 +724,8 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
     return all.slice(0, total)
   }
 
-  // Export ALL deals (full result set) matching current filters to Excel
-  const handleExportDeals = async () => {
+  // Export ALL deals (full result set) matching current filters to CSV
+  const handleExportDeals = withExportLoading(async () => {
     if (isExportingDeals) return
     const columnValueMap = {
       time: (r) => formatDate(r.time),
@@ -753,13 +757,13 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
       }
       if (!rows || rows.length === 0) return
       const { login, stamp } = exportLoginTag()
-      exportRowsToExcel(cols, rows, 'Deals', `deals_${login}_${stamp}.xlsx`)
+      exportRowsToExcel(cols, rows, 'Deals', `deals_${login}_${stamp}.csv`)
     } catch {
       setError('Failed to export deals')
     } finally {
       setIsExportingDeals(false)
     }
-  }
+  })
 
   // Prevent duplicate calls in React StrictMode
   const hasLoadedData = useRef(false)
@@ -2185,7 +2189,7 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
   const handleFundsOperation = async (e) => {
     e.preventDefault()
 
-    if (!amount || parseFloat(amount) <= 0) {
+    if (!amount || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
       setOperationError('Please enter a valid amount')
       return
     }
@@ -2203,16 +2207,17 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
         throw new Error('No permitted operation type available')
       }
 
-      const amountValue = parseFloat(amount)
+      if (selectedOperationType.endsWith('credit_in') && (brokerCredit?.live_data === false || creditError)) throw new Error('Credit data is unavailable. Please retry after it refreshes.')
+      const amountValue = Number(amount)
       const commentValue = comment || `${selectedOperationType} operation`
 
       let response
       switch (selectedOperationType) {
-        case 'deposit':
-          response = await brokerAPI.depositFunds(client.login, amountValue, commentValue)
+        case 'temp_credit_in':
+          response = await brokerAPI.tempCreditIn(client.login, temporaryCreditBody(amountValue, commentValue, expireWeekday, expireTime))
           break
-        case 'withdrawal':
-          response = await brokerAPI.withdrawFunds(client.login, amountValue, commentValue)
+        case 'temp_credit_out':
+          response = await brokerAPI.tempCreditOut(client.login, temporaryCreditBody(amountValue, commentValue, expireWeekday, expireTime))
           break
         case 'credit_in':
           response = await brokerAPI.creditIn(client.login, amountValue, commentValue)
@@ -2224,7 +2229,11 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
           throw new Error('Invalid operation type')
       }
 
-      setOperationSuccess(response.message || 'Operation completed successfully')
+      if (response.status === 'error') throw new Error(response.message || 'Operation failed')
+      updateCredit(response.data?.credit)
+      refreshCredit()
+      const reversal = response.data?.temp_credit?.expires_at_text
+      setOperationSuccess(`${response.message || 'Operation completed successfully'}${reversal ? ` - Reverses ${reversal} (UTC+05:30)` : ''}`)
       setAmount('')
       setComment('')
 
@@ -2241,7 +2250,9 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
         await fetchDeals(currentDateFilter.from, currentDateFilter.to, dealsCurrentPage, dealsItemsPerPage)
       }, 1000)
     } catch (error) {
-      setOperationError(error.response?.data?.message || 'Operation failed. Please try again.')
+      updateCredit(error.response?.data?.data?.credit)
+      refreshCredit()
+      setOperationError(error.response?.data?.message || error.message || 'Operation failed. Please try again.')
     } finally {
       setOperationLoading(false)
     }
@@ -2321,7 +2332,7 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
             >
               Deals ({totalDealsCount || deals.length})
             </button>
-            {(user?.rights ? ['deposit','withdrawal','credit_in','credit_out'].some(r => user.rights.includes(r)) : true) && (
+            {(user?.rights ? ['credit_in','credit_out'].some(r => user.rights.includes(r)) : true) && (
             <button
               onClick={() => setActiveTab('funds')}
               className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-3 whitespace-nowrap relative ${
@@ -3008,8 +3019,8 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
                       onClick={handleExportPositions}
                       disabled={filteredPositions.length === 0}
                       className="w-8 h-8 text-gray-600 hover:text-gray-900 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Export to Excel"
-                      aria-label="Export positions to Excel"
+                      title="Export to CSV"
+                      aria-label="Export positions to CSV"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
@@ -3858,12 +3869,12 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
                       </div>
                     )}
                   </div>
-                  {/* Export Deals to Excel (fetches full result set in chunks) */}
+                  {/* Export Deals to CSV (fetches full result set in chunks) */}
                   <button
                     onClick={handleExportDeals}
                     disabled={isExportingDeals || (totalDealsCount === 0 && filteredDealsResult.length === 0)}
                     className="text-gray-600 hover:text-gray-900 px-2 py-2 rounded hover:bg-gray-100 border border-gray-300 transition-colors inline-flex items-center justify-center text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Export all deals to Excel"
+                    title="Export all deals to CSV"
                   >
                     {isExportingDeals ? (
                       <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -4284,6 +4295,10 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
                 )}
 
                 <form onSubmit={handleFundsOperation} className="space-y-3">
+                  <BrokerCreditSummary />
+                  {creditInUnavailable && <p role="status" className="text-xs text-amber-700">Credit In is unavailable while credit data cannot be verified.</p>}
+                  {operationType.startsWith('temp_credit_') && <TemporaryCreditFields weekday={expireWeekday} time={expireTime} onWeekdayChange={setExpireWeekday} onTimeChange={setExpireTime} />}
+
                   {/* Operation Type */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -4351,7 +4366,7 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
                     </button>
                     <button
                       type="submit"
-                      disabled={operationLoading}
+                      disabled={operationLoading || creditInUnavailable || !availableOperationTypes.length}
                       className="px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-md hover:from-blue-700 hover:to-blue-800 disabled:from-blue-400 disabled:to-blue-400 transition-all inline-flex items-center gap-1.5"
                     >
                       {operationLoading ? (
@@ -4809,7 +4824,7 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
               if (!row.length) return null
               return (
                 <div className="space-y-2">
-                  <div className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
+                  <div data-mobile-data-row="body" className="ring-1 ring-gray-300 rounded-sm overflow-hidden bg-white grid divide-x divide-y divide-gray-300" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
                     {row.map((it, idx) => (
                       <div key={`net-r-${it.label}-${idx}`} className={`p-2 bg-gray-50 border-t-2 ${it.accent || 'border-gray-200'}`}>
                         <p className={`text-[10px] sm:text-[11px] font-semibold ${it.labelClass}`}>{it.label}</p>

@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
@@ -225,11 +226,15 @@ const GraphicalAnalyticsPage = () => {
                 </svg>
               </button>
               <div>
-                <h1 className="text-3xl font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-3xl font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent min-w-0 max-sm:text-sm">
                   Advanced Analytics
-                </h1>
+                </h1><BrokerCreditSummary variant="header" /></div>
                 <p className="text-sm text-gray-600 mt-1 font-medium">Comprehensive performance insights for {user?.full_name || user?.username}</p>
-              </div>
+              
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
             </div>
             <button
               onClick={() => navigate('/client2')}

@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { useState, useEffect } from 'react'
 import { brokerAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
@@ -110,9 +111,13 @@ const BrokerRulePage = () => {
                 </svg>
               </button>
               <div>
-                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Broker Rule Management</h1>
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-lg sm:text-xl font-semibold text-gray-900 min-w-0 max-sm:text-sm">Broker Rule Management</h1><BrokerCreditSummary variant="header" /></div>
                 <p className="text-xs text-gray-500 mt-0.5">Manage and apply trading rules to client accounts</p>
-              </div>
+              
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
             </div>
             <div className="flex items-center gap-2">
               <button

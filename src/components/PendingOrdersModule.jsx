@@ -1,3 +1,4 @@
+import BrokerCreditSummary from './BrokerCreditSummary'
 import { createLatestRequest } from '../utils/latestRequest'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
@@ -559,9 +560,9 @@ value = order.type || '-'
   )
 
   return (
-    <div className="h-screen flex flex-col bg-[#F8F8F8] overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="h-screen flex flex-col bg-[#F8F8F8] overflow-hidden" style={{ height: 'var(--app-viewport-height, 100dvh)' }}>
       {/* Header */}
-      <div className="flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
+      <div className="flex-wrap flex items-center px-4 py-4 bg-white border-b border-[#ECECEC] relative">
         <button 
           onClick={() => setIsSidebarOpen(true)}
           className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center"
@@ -571,12 +572,16 @@ value = order.type || '-'
           </svg>
         </button>
 
-        <h1 className="text-xl font-semibold text-black absolute left-1/2 transform -translate-x-1/2">Pending Orders</h1>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-black transform min-w-0 max-sm:text-sm">Pending Orders</h1><BrokerCreditSummary variant="header" /></div>
         {/* Hide profile avatar on mobile widths */}
         <div className="hidden md:flex w-12 h-12 rounded-full bg-blue-600 items-center justify-center ml-auto">
           <span className="text-white text-sm font-semibold">U</span>
         </div>
-      </div>
+      
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
@@ -592,7 +597,7 @@ value = order.type || '-'
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-[#000000]">Broker Eye</div>
-                  <div className="text-xs text-[#404040]">Trading Platform</div>
+                  <div className="text-xs text-[#404040]">Financial Dashboard</div>
                 </div>
               </div>
               <button onClick={() => setIsSidebarOpen(false)}>
@@ -659,10 +664,10 @@ value = order.type || '-'
                       <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                       <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                       <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
-                      <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
-                      <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
-                      <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                       <button type="button" onClick={() => { navigate('/reports/summary'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/summary' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/summary" />Summary</button>
+                      <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit Report</button>
+                      <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                      <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' :  'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />D/W Report</button>
                     </div>
                   )}
                 </div>
@@ -694,7 +699,7 @@ value = order.type || '-'
       )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Action buttons row */}
         <div className="pt-5 pb-4 px-4">
           <div className="flex items-center gap-3">
@@ -874,16 +879,16 @@ value = order.type || '-'
         {/* Table */}
         <div className="">
           <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] border border-[#F2F2F7] overflow-hidden">
-            <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
+            <div className="mobile-table-scroll w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
               WebkitOverflowScrolling: 'touch',
               scrollbarWidth: 'none',
               paddingRight: '8px',
               paddingBottom: '8px',
-              maxHeight: 'calc(100vh - 280px)'
+              maxHeight: 'max(152px, calc(var(--app-viewport-height, 100dvh) - 280px))'
             }}>
               <div className="relative" style={{ minWidth: 'max-content' }}>
                 {/* Table Header */}
-                <div 
+                <div data-mobile-data-row="header" 
                   className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
                   style={{
                     gap: '0px', 
@@ -927,7 +932,7 @@ value = order.type || '-'
                   // YouTube-style skeleton loading
                   <>
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                      <div 
+                      <div data-mobile-data-row="body" 
                         key={`skeleton-row-${i}`}
                         className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1]"
                         style={{
@@ -957,7 +962,7 @@ value = order.type || '-'
                   </>
                 ) : (
                   displayOrders.map((order, idx) => (
-                  <div 
+                  <div data-mobile-data-row="body" 
                     key={idx} 
                     className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors"
                     style={{
@@ -984,6 +989,7 @@ value = order.type || '-'
                     No pending orders found
                   </div>
                 )}
+                <div aria-hidden="true" className="mobile-table-end" />
               </div>
             </div>
           </div>

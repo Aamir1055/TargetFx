@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { createLatestRequest } from '../utils/latestRequest'
 import PositionsSearchInput from '../components/PositionsSearchInput'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
@@ -1611,7 +1612,7 @@ const PositionsPage = () => {
         columns,
         sections: [{ rows: allPositions, totals: { label: 'TOTAL', values: sumColumns(allPositions, columns, ['volume', 'volumePercentage', 'netVolume', 'profit', 'profitPercentage', 'totalProfit', 'storage', 'storagePercentage', 'commission']) } }],
         sheetName: 'Positions',
-        fileName: `positions_${new Date().toISOString().slice(0, 10)}.xlsx`
+        fileName: `positions_${new Date().toISOString().slice(0, 10)}.csv`
       })
     } catch (e) {
       console.error('Export failed:', e)
@@ -1704,7 +1705,7 @@ const PositionsPage = () => {
         columns,
         sections: [{ rows: allRows, totals: { label: 'TOTAL', values: sumColumns(allRows, columns, ['netVolume', 'totalProfit', 'totalStorage', 'totalCommission', 'totalPositions']) } }],
         sheetName: 'NET Position',
-        fileName: `net_positions_${new Date().toISOString().slice(0, 10)}.xlsx`
+        fileName: `net_positions_${new Date().toISOString().slice(0, 10)}.csv`
       })
     } catch (e) {
       console.error('NET Export failed:', e)
@@ -2213,7 +2214,7 @@ const PositionsPage = () => {
             <div className="mb-1.5 pb-1.5 flex items-center justify-between gap-3">
             {/* Title Section */}
             <div>
-              <h1 className="text-xl font-bold text-[#1A1A1A]">Positions</h1>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Positions</h1><BrokerCreditSummary variant="header" /></div>
               <p className="text-xs text-[#6B7280] mt-0.5">Live open positions across all accounts</p>
             </div>
 
@@ -2325,7 +2326,11 @@ const PositionsPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           {/* Stats Summary - Client2 Face Card Design */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 mb-6">

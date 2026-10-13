@@ -2,8 +2,14 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/authContextStore'
 import { useGroups } from '../contexts/groupContextStore'
 import { useIB } from '../contexts/ibContextStore'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
+
+// Routes mount separate sidebars; keep their navigation position for this session.
+const sidebarViewState = {
+  reportsOpen: false,
+  scrollTop: { expanded: 0, collapsed: 0, mobile: 0 }
+}
 
 const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly = false, desktopOnly = false }) => {
   const navigate = useNavigate()
@@ -12,6 +18,9 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
   const { setActiveGroupFilter } = useGroups()
   const { clearIBSelection } = useIB()
   const [storedMarginCount, setStoredMarginCount] = useState(0)
+  const desktopNavRef = useRef(null)
+  const mobileNavRef = useRef(null)
+  const desktopScrollKey = isOpen ? 'expanded' : 'collapsed'
 
   // Read margin count from localStorage on mount and listen for changes
   useEffect(() => {
@@ -76,21 +85,32 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
         { name: 'Brokerage Data', path: '/reports/exchange' },
         { name: 'Historical Positions', path: '/reports/historical-positions' },
         { name: 'Deals', path: '/reports/deals' },
-        { name: 'Credit', path: '/reports/credit' },
+        { name: 'Summary', path: '/reports/summary' },
+        { name: 'Credit Report', path: '/reports/credit' },
         { name: 'Agent Details', path: '/reports/agent-details' },
-        { name: 'Deposit and Withdrawal Report', path: '/reports/deposit-withdrawal' },
-        { name: 'Summary', path: '/reports/summary' }
+        { name: 'D/W Report', path: '/reports/deposit-withdrawal' }
       ]
     },
     { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
   ]
 
   const isReportsActive = location.pathname.startsWith('/reports')
-  const [reportsOpen, setReportsOpen] = useState(isReportsActive)
+  const [reportsOpen, setReportsOpen] = useState(() => isReportsActive || sidebarViewState.reportsOpen)
   useEffect(() => {
     if (isReportsActive) setReportsOpen(true)
   }, [isReportsActive])
   const reportsExpanded = reportsOpen
+  useEffect(() => {
+    sidebarViewState.reportsOpen = reportsOpen
+  }, [reportsOpen])
+  useLayoutEffect(() => {
+    if (desktopNavRef.current?.clientHeight) {
+      desktopNavRef.current.scrollTop = sidebarViewState.scrollTop[desktopScrollKey]
+    }
+    if (mobileNavRef.current?.clientHeight) {
+      mobileNavRef.current.scrollTop = sidebarViewState.scrollTop.mobile
+    }
+  }, [desktopScrollKey, isOpen, reportsExpanded])
 
   const baseUrl = import.meta.env.BASE_URL || '/'
 
@@ -115,6 +135,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
 
   const handleLogout = async () => {
     await logout()
+    sidebarViewState.reportsOpen = false
+    sidebarViewState.scrollTop = { expanded: 0, collapsed: 0, mobile: 0 }
     if (typeof onClose === 'function') {
       onClose()
     }
@@ -136,7 +158,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
               </div>
               <div className="flex-1">
                 <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eye</div>
-                <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
+                <div className="text-[11px] text-[#7A7A7A]">Financial Dashboard</div>
               </div>
               <button
                 type="button"
@@ -150,7 +172,11 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto py-2">
+            <div
+              ref={mobileNavRef}
+              onScroll={event => { if (event.currentTarget.clientHeight) sidebarViewState.scrollTop.mobile = event.currentTarget.scrollTop }}
+              className="flex-1 overflow-auto py-2"
+            >
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
                 <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">
@@ -281,7 +307,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
             {isOpen && (
               <div className="ml-3">
                 <h1 className="text-lg font-bold text-slate-800 tracking-tight">Broker Eye</h1>
-                <p className="text-xs text-slate-500">Trading Platform</p>
+                <p className="text-xs text-slate-500">Financial Dashboard</p>
               </div>
             )}
           </div>
@@ -321,7 +347,11 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
             </div>
           )}
 
-          <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-4">
+          <nav
+            ref={desktopNavRef}
+            onScroll={event => { if (event.currentTarget.clientHeight) sidebarViewState.scrollTop[desktopScrollKey] = event.currentTarget.scrollTop }}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-4"
+          >
             {navigationItems.map((item) => {
               if (item.children) {
                 const anyChildActive = item.children.some(c => isActivePath(c.path))

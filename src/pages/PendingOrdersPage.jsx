@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { createLatestRequest } from '../utils/latestRequest'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { useEffect, useRef, useState, useMemo, Fragment, cloneElement } from 'react'
@@ -1132,7 +1133,7 @@ const PendingOrdersPage = () => {
             <div className="mb-1.5 pb-1.5 flex items-center justify-between gap-3">
             {/* Title Section */}
             <div>
-              <h1 className="text-xl font-bold text-[#1A1A1A]">Pending Orders</h1>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Pending Orders</h1><BrokerCreditSummary variant="header" /></div>
               <p className="text-xs text-[#6B7280] mt-0.5">Live pending orders (ignoring market BUY/SELL)</p>
             </div>
 
@@ -1161,7 +1162,11 @@ const PendingOrdersPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           {/* Summary Cards - Client2 Face Card Design */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

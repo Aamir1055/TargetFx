@@ -1,3 +1,5 @@
+import BrokerCreditSummary from './BrokerCreditSummary'
+import { withExportLoading } from '../utils/exportLoading'
 import { parseAccountTypePreferences } from '../utils/accountType'
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
@@ -186,6 +188,7 @@ export default function Client2Module() {
   const [totals, setTotals] = useState({})
 
   const [totalClients, setTotalClients] = useState(0)
+  const [serverPages, setServerPages] = useState(null)
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now())
   const [isLoading, setIsLoading] = useState(true)
   // Visible columns state (mirrors desktop's 34-column list)
@@ -202,6 +205,7 @@ export default function Client2Module() {
     phone: false,
     group: false,
     liquidateType: false,
+    country: false,
     city: false,
     address: false,
     status: false,
@@ -352,9 +356,9 @@ export default function Client2Module() {
 
       setClients(data.clients || [])
       setTotals(t)
-      setTotalClients(data.total || data.totalClients || data.clients?.length || 0)
+      setTotalClients(data.total ?? data.totalClients ?? data.clients?.length ?? 0)
       // Update total pages from API response if available
-      data.pages ? Number(data.pages) : null;
+      setServerPages(data.pages != null && Number.isFinite(Number(data.pages)) ? Math.max(1, Number(data.pages)) : null)
       setLastUpdateTime(Date.now())
       if (isInitialLoad) {
         setIsLoading(false)
@@ -623,7 +627,7 @@ export default function Client2Module() {
 
   // Pagination - use totalClients from API for accurate page count
   // Sorting is now handled server-side, so use filteredClients directly
-  const totalPages = Math.ceil(totalClients / itemsPerPage)
+  const totalPages = serverPages ?? Math.max(1, Math.ceil(totalClients / itemsPerPage))
   const paginatedClients = filteredClients // API returns sorted and paginated data
 
   // View All handler
@@ -653,7 +657,7 @@ export default function Client2Module() {
   const goToPreviousPage = goToPrevPage
 
   // Export functions - Fetch ALL data with current filters
-  const exportTableColumns = async () => {
+  const exportTableColumns = withExportLoading(async () => {
     try {
       console.log('[Client2Module] Starting table columns export...')
       setIsLoading(true)
@@ -757,9 +761,9 @@ export default function Client2Module() {
       alert('Export failed. Please try again.')
       setIsLoading(false)
     }
-  }
+  })
 
-  const exportAllColumns = async () => {
+  const exportAllColumns = withExportLoading(async () => {
     try {
       console.log('[Client2Module] Starting all columns export...')
       setIsLoading(true)
@@ -864,7 +868,7 @@ export default function Client2Module() {
       alert('Export failed. Please try again.')
       setIsLoading(false)
     }
-  }
+  })
 
   // Table columns configuration
   const columnConfig = [
@@ -879,6 +883,7 @@ export default function Client2Module() {
     { key: 'phone', label: 'Phone', width: '100px' },
     { key: 'group', label: 'Group', width: '80px' },
     { key: 'liquidateType', label: 'Liquidation Category', width: '150px' },
+    { key: 'country', label: 'Country', width: '150px' },
     { key: 'city', label: 'City', width: '80px' },
     { key: 'address', label: 'Address', width: '140px' },
     { key: 'status', label: 'Status', width: '80px' },
@@ -974,7 +979,7 @@ export default function Client2Module() {
   }, [visibleColumnsList])
 
   return (
-    <div className="w-full min-h-screen bg-[#F8FAFC] flex flex-col lg:hidden">
+    <div className="app-viewport-panel w-full min-h-0 overflow-hidden bg-[#F8FAFC] flex flex-col lg:hidden">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-30">
         <div className="px-4 py-4 flex items-center justify-between">
@@ -986,10 +991,14 @@ export default function Client2Module() {
               <path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-black">Clients</h1>
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-black min-w-0 max-sm:text-sm">Clients</h1><BrokerCreditSummary variant="header" /></div>
           <div className="w-9 h-9"></div>
         </div>
-      </div>
+      
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
       {/* Sidebar overlay */}
       {isSidebarOpen && (
@@ -1007,7 +1016,7 @@ export default function Client2Module() {
               </div>
               <div className="flex-1">
                 <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eye</div>
-                <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
+                <div className="text-[11px] text-[#7A7A7A]">Financial Dashboard</div>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -1065,10 +1074,10 @@ export default function Client2Module() {
                         <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                         <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                         <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
-                        <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
-                        <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
-                        <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                         <button type="button" onClick={() => { navigate('/reports/summary'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/summary' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/summary" />Summary</button>
+                        <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit Report</button>
+                        <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                        <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' :  'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />D/W Report</button>
                       </div>
                     )}
                   </div>
@@ -1105,7 +1114,7 @@ export default function Client2Module() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(32px + var(--app-safe-bottom, 0px))' }}>
         {/* Action buttons and View All row */}
         <div className="pt-5 pb-4 px-2 sm:px-4">
           <div className="flex items-center justify-between">
@@ -1451,16 +1460,15 @@ export default function Client2Module() {
 
           {/* Table area */}
           <div className="relative">
-            <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
+            <div className="w-full overflow-auto scrollbar-hide" style={{
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
             paddingRight: '8px',
-            paddingBottom: '8px',
-            maxHeight: 'calc(100vh - 280px)'
+            maxHeight: 'max(152px, calc(var(--app-viewport-height, 100dvh) - 300px))',
           }}>
             <div className="relative" style={{ minWidth: 'max-content' }}>
               {/* Header row */}
-              <div className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
+              <div data-mobile-data-row="header" className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
                 {visibleColumnsList.map((col) => (
                   <div 
                     key={col.key}
@@ -1486,11 +1494,16 @@ export default function Client2Module() {
               </div>
 
               {/* Rows */}
+              <div className="mobile-table-scroll relative scrollbar-hide" style={{
+                paddingBottom: '24px',
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'none',
+              }}>
               {isLoading ? (
                 // Skeleton loading rows — same shimmer as MarginLevelModule
                 <>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
-                    <div key={`skeleton-row-${i}`} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
+                    <div data-mobile-data-row="body" key={`skeleton-row-${i}`} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1]" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
                       {visibleColumnsList.map((col) => (
                         <div 
                           key={col.key}
@@ -1567,7 +1580,7 @@ export default function Client2Module() {
                     });
 
                     return (
-                      <div key={client.login || idx} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
+                      <div data-mobile-data-row="body" key={client.login || idx} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC] transition-colors" style={{gap: '0px', gridGap: '0px', columnGap: '0px', gridTemplateColumns}}>
                         {visibleColumnsList.map((col) => (
                           <div 
                             key={col.key}
@@ -1614,9 +1627,10 @@ export default function Client2Module() {
                     );
                   })}
 
-                  {/* Total Row removed for mobile view */}
+                  <div aria-hidden="true" className="mobile-table-end" />
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
@@ -1817,6 +1831,7 @@ export default function Client2Module() {
                 'Phone': 'phone',
                 'Group': 'group',
                 'Liquidation Category': 'liquidateType',
+                'Country': 'country',
                 'City': 'city',
                 'Address': 'address',
                 'Status': 'status',
@@ -1884,10 +1899,14 @@ export default function Client2Module() {
                   <path d="M15 18L9 12L15 6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-              <h1 className="text-xl font-semibold text-black">Client 2 Matrices</h1>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-black min-w-0 max-sm:text-sm">Client 2 Matrices</h1><BrokerCreditSummary variant="header" /></div>
               <div className="w-9 h-9"></div>
             </div>
-          </div>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           <div className="bg-[#E8EEF5] px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-gray-600">

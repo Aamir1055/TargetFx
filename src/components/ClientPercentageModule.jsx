@@ -1,3 +1,5 @@
+import BrokerCreditSummary from './BrokerCreditSummary'
+import { withExportLoading } from '../utils/exportLoading'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
@@ -286,9 +288,6 @@ export default function ClientPercentageModule() {
         } else if (sortColumn === 'updatedAt') {
           aVal = a.updated_at
           bVal = b.updated_at
-        } else if (sortColumn === 'type') {
-          aVal = getPercentageType(a)
-          bVal = getPercentageType(b)
         } else {
           aVal = a[sortColumn]
           bVal = b[sortColumn]
@@ -318,6 +317,8 @@ export default function ClientPercentageModule() {
   }, [ibFilteredData, searchInput, sortColumn, sortDirection, selectedTypes])
 
   const handleSort = (columnKey) => {
+    // The API does not support sorting by percentage type.
+    if (columnKey === 'type') return
     if (sortColumn === columnKey) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
     } else {
@@ -622,7 +623,7 @@ export default function ClientPercentageModule() {
   }
 
   // Full Export handler (mirrors desktop — fetches all pages from API)
-  const handleExport = async (mode = 'all') => {
+  const handleExport = withExportLoading(async (mode = 'all') => {
     if (exporting) return
     if (mode === 'selected' && selectedRows.size === 0) { alert('No rows selected'); return }
     if (useLocalTypeFiltering) {
@@ -673,9 +674,9 @@ export default function ClientPercentageModule() {
       setExportProgress(0)
       setShowExportMenu(false)
     }
-  }
+  })
 
-  const handleExportToCSV = () => {
+  const handleExportToCSV = withExportLoading(() => {
     if (useLocalTypeFiltering && (loading || error)) {
       alert('Wait for the filtered results to load successfully before exporting.')
       return
@@ -742,7 +743,7 @@ export default function ClientPercentageModule() {
       console.error('[ClientPercentageModule] Export failed:', error)
       alert('Export failed. Please try again.')
     }
-  }
+  })
 
   const toggleColumn = (key) => {
     setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }))
@@ -792,7 +793,7 @@ export default function ClientPercentageModule() {
               <path d="M3 12h18M3 6h18M3 18h18" stroke="#1F2937" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
-          <h1 className="absolute left-1/2 transform -translate-x-1/2 max-w-[62vw] sm:max-w-none truncate whitespace-nowrap text-lg sm:text-xl font-bold text-[#1F2937]">Client Percentage</h1>
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="transform max-w-[62vw] sm:max-w-none truncate whitespace-nowrap text-lg sm:text-xl font-bold text-[#1F2937] min-w-0 max-sm:text-sm">Client Percentage</h1><BrokerCreditSummary variant="header" /></div>
           {!isMobileView && (
             <button 
               onClick={() => navigate('/client2')}
@@ -802,14 +803,18 @@ export default function ClientPercentageModule() {
             </button>
           )}
         </div>
-      </div>
+      
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
         {/* Action Buttons + View All */}
         <div className="px-5 pt-3 pb-2">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <div className="flex max-w-full flex-wrap items-center gap-[8px]">
+            <div className="flex max-w-full flex-wrap items-center gap-1.5">
               <PercentageTypeFilter selectedTypes={selectedTypes} onChange={types => {
                 setSelectedTypes(types)
                 setCurrentPage(1)
@@ -882,6 +887,7 @@ export default function ClientPercentageModule() {
                 Import
               </button>
               )}
+              <div className="flex shrink-0 items-center gap-1.5">
               {/* Export Button with dropdown */}
               <div className="relative" ref={exportMenuRef}>
                 <button
@@ -931,6 +937,7 @@ export default function ClientPercentageModule() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </button>
+              </div>
             </div>
             {/* Bulk Update button — visible when rows are selected */}
             {selectedRows.size > 0 && (
@@ -1084,20 +1091,21 @@ export default function ClientPercentageModule() {
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-hidden" style={{ maxWidth: '100vw' }}>
+        <div className="flex-1 min-h-[180px] overflow-hidden" style={{ maxWidth: '100vw' }}>
           <div className="bg-white shadow-[0_0_12px_rgba(75,75,75,0.05)] h-full">
-            <div className="w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
+            <div className="mobile-table-scroll h-full w-full overflow-x-auto overflow-y-auto scrollbar-hide" style={{
               WebkitOverflowScrolling: 'touch',
               scrollbarWidth: 'none',
               paddingRight: '8px',
               paddingBottom: '8px',
-              maxHeight: 'calc(100vh - 280px)'
+              maxHeight: '100%'
             }}>
               <div className="relative" style={{ minWidth: 'max-content' }}>
                 {/* Table Header */}
-                <div 
-                  className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
+                <div data-mobile-data-row="header" 
+                  className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-40 shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
                   style={{
+                    backgroundColor: '#3B82F6',
                     gap: '0px', 
                     gridGap: '0px', 
                     columnGap: '0px',
@@ -1117,7 +1125,7 @@ export default function ClientPercentageModule() {
                     <div 
                       key={col.key}
                       onClick={() => handleSort(col.key)}
-                      className={`h-[32px] flex items-center justify-start px-1 cursor-pointer select-none ${
+                      className={`h-[32px] flex items-center justify-start px-1 select-none ${col.key === 'type' ? '' : 'cursor-pointer'} ${
                         col.sticky ? 'sticky left-8 z-30 bg-blue-500' : ''
                       }`}
                       style={{
@@ -1143,7 +1151,7 @@ export default function ClientPercentageModule() {
                   /* Loading skeleton */
                   <div className="space-y-0">
                     {[...Array(8)].map((_, idx) => (
-                      <div 
+                      <div data-mobile-data-row="body" 
                         key={idx}
                         className="grid text-[10px] bg-white border-b border-[#E1E1E1]"
                         style={{
@@ -1180,7 +1188,7 @@ export default function ClientPercentageModule() {
                       const rowLogin = item.client_login || item.login
                       const isSelected = selectedRows.has(rowLogin)
                       return (
-                      <div 
+                      <div data-mobile-data-row="body" 
                         key={idx} 
                         className={`grid text-[10px] text-[#4B4B4B] font-outfit border-b border-[#E1E1E1] transition-colors ${isSelected ? 'bg-blue-50' : 'bg-white hover:bg-[#F8FAFC]'}`}
                         style={{
@@ -1218,6 +1226,7 @@ export default function ClientPercentageModule() {
                     )}
                   </>
                 )}
+                <div aria-hidden="true" className="mobile-table-end" />
               </div>
             </div>
           </div>
@@ -1563,7 +1572,7 @@ export default function ClientPercentageModule() {
               </div>
               <div className="flex-1">
                 <div className="text-[14px] font-semibold text-[#1A63BC]">Broker Eye</div>
-                <div className="text-[11px] text-[#7A7A7A]">Trading Platform</div>
+                <div className="text-[11px] text-[#7A7A7A]">Financial Dashboard</div>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -1621,10 +1630,10 @@ export default function ClientPercentageModule() {
                         <button type="button" onClick={() => { navigate('/reports/exchange'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/exchange" />Brokerage Data</button>
                         <button type="button" onClick={() => { navigate('/reports/historical-positions'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/historical-positions" />Historical Positions</button>
                         <button type="button" onClick={() => { navigate('/reports/deals'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deals" />Deals</button>
-                        <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit</button>
-                        <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
-                        <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />Deposit and Withdrawal Report</button>
                         <button type="button" onClick={() => { navigate('/reports/summary'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/summary' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/summary" />Summary</button>
+                        <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit Report</button>
+                        <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
+                        <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' :  'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />D/W Report</button>
                       </div>
                     )}
                   </div>

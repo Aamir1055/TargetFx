@@ -63,7 +63,7 @@ const LoginMobile = () => {
             </div>
             <div className="text-left">
               <div className="text-xl font-semibold leading-6">Broker Eyes</div>
-              <div className="text-[10px] tracking-[0.14em] text-blue-100">Trading Platform</div>
+              <div className="text-[10px] tracking-[0.14em] text-blue-100">Financial Dashboard</div>
             </div>
           </div>
           <h1 className="mobile-login-heading max-w-xs text-[26px] font-bold leading-tight">

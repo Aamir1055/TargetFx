@@ -29,12 +29,7 @@ export function accountTypeSearchPayload(payload) {
   }
 }
 
-// Keep existing visibility, order, widths and filter preferences after the rename.
+// Country and liquidation category now have independent saved preferences.
 export function parseAccountTypePreferences(json) {
-  const migrate = value => {
-    if (Array.isArray(value)) return value.map(migrate)
-    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key.replace(/^country(?=_|$)/, 'liquidateType'), migrate(item)]))
-    return value === 'country' ? 'liquidateType' : value
-  }
-  return migrate(JSON.parse(json))
+  return JSON.parse(json)
 }

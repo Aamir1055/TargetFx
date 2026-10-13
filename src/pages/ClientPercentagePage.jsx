@@ -1,3 +1,5 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
+import { withExportLoading } from '../utils/exportLoading'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { createLatestRequest } from '../utils/latestRequest'
 import { useState, useEffect, useRef, useMemo, Fragment, cloneElement } from 'react'
@@ -419,7 +421,7 @@ const ClientPercentagePage = () => {
     URL.revokeObjectURL(url)
   }
 
-  const handleExport = async (mode = 'all') => {
+  const handleExport = withExportLoading(async (mode = 'all') => {
     if (exporting) return
 
     if (mode === 'selected' && selectedRows.size === 0) {
@@ -622,7 +624,7 @@ const ClientPercentagePage = () => {
       setExporting(false)
       setExportProgress(0)
     }
-  }
+  })
 
   // Bulk update handler
   const handleBulkUpdate = async () => {
@@ -901,13 +903,7 @@ const ClientPercentagePage = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {exporting && (
-        <LoadingSpinner
-          message="Exporting..."
-          subtitle="Preparing your spreadsheet"
-          progress={typeof exportProgress === 'number' ? Math.round(exportProgress * 100) : null}
-        />
-      )}
+      {null}
       {csvImporting && (
         <LoadingSpinner
           message="Importing..."
@@ -929,7 +925,7 @@ const ClientPercentagePage = () => {
             <div className="mb-1.5 pb-1.5 flex flex-wrap items-center justify-between gap-3">
             {/* Title Section */}
             <div>
-              <h1 className="text-xl font-bold text-[#1A1A1A]">Client Percentage</h1>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Client Percentage</h1><BrokerCreditSummary variant="header" /></div>
               <p className="text-xs text-[#6B7280] mt-0.5">Manage custom profit-sharing percentages</p>
             </div>
 
@@ -1051,7 +1047,11 @@ const ClientPercentagePage = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
           {error && (
             <div className="mb-4 bg-red-50 border-l-4 border-red-500 rounded-r p-4 shadow-sm">
               <p className="text-red-700">{error}</p>

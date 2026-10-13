@@ -1,16 +1,17 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import QuickTimeFilter from '../components/QuickTimeFilter'
 import { getPresetRange } from '../utils/dealTimePresets'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { brokerAPI } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/authContextStore'
 import Sidebar from '../components/Sidebar'
 import GroupSelector from '../components/GroupSelector'
 import GroupModal from '../components/GroupModal'
 import CustomizeViewModal from '../components/CustomizeViewModal'
 import LoginGroupsModal from '../components/LoginGroupsModal'
 import LoginGroupModal from '../components/LoginGroupModal'
-import { useGroups } from '../contexts/GroupContext'
+import { useGroups } from '../contexts/groupContextStore'
 import ClientPositionsModal from '../components/ClientPositionsModal'
 import ClientDetailsMobileModal from '../components/ClientDetailsMobileModal'
 import PageSizeSelect from '../components/PageSizeSelect'
@@ -124,10 +125,21 @@ const SummaryReportPage = () => {
   // toolbar above it — rather than a hardcoded guess — so it's always correct.
   const mobileHeaderRef = useRef(null)
   const mobileAboveTableRef = useRef(null)
+  const mobileScrollAreaRef = useRef(null)
+  const mobileCardRef = useRef(null)
   const [mobileTableMaxHeight, setMobileTableMaxHeight] = useState(300)
   useEffect(() => {
     if (!isMobile) return undefined
     const recompute = () => {
+      const area = mobileScrollAreaRef.current
+      const card = mobileCardRef.current
+      if (area && card) {
+        // Position of the table card inside the scroll area (stable while the area is scrolled),
+        // minus the card's 2px border, so the table ends exactly at the bottom of the screen.
+        const cardTop = card.getBoundingClientRect().top - area.getBoundingClientRect().top + area.scrollTop
+        setMobileTableMaxHeight(Math.max(180, Math.round(area.clientHeight - cardTop - 2)))
+        return
+      }
       const headerH = mobileHeaderRef.current?.getBoundingClientRect().height || 0
       const aboveH = mobileAboveTableRef.current?.getBoundingClientRect().height || 0
       setMobileTableMaxHeight(Math.max(180, Math.round(viewportHeight - headerH - aboveH - 2)))
@@ -138,6 +150,7 @@ const SummaryReportPage = () => {
       observer = new ResizeObserver(recompute)
       if (mobileHeaderRef.current) observer.observe(mobileHeaderRef.current)
       if (mobileAboveTableRef.current) observer.observe(mobileAboveTableRef.current)
+      if (mobileScrollAreaRef.current) observer.observe(mobileScrollAreaRef.current)
     }
     window.addEventListener('resize', recompute)
     return () => {
@@ -188,11 +201,11 @@ const SummaryReportPage = () => {
     try {
       const saved = JSON.parse(localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY) || 'null')
       if (saved && typeof saved === 'object') return { ...getDefaultVisibleColumns(), ...saved }
-    } catch {}
+    } catch (error) { console.warn('[SummaryReport] Failed to load column visibility:', error) }
     return getDefaultVisibleColumns()
   })
   useEffect(() => {
-    try { localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns)) } catch {}
+    try { localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns)) } catch (error) { console.warn('[SummaryReport] Failed to save column visibility:', error) }
   }, [visibleColumns])
   const toggleColumn = (key) => setVisibleColumns(value => {
     const next = { ...value, [key]: !value[key] }
@@ -208,7 +221,7 @@ const SummaryReportPage = () => {
     try {
       if (columnOrder) localStorage.setItem(COLUMN_ORDER_STORAGE_KEY, JSON.stringify(columnOrder))
       else localStorage.removeItem(COLUMN_ORDER_STORAGE_KEY)
-    } catch {}
+    } catch (error) { console.warn('[SummaryReport] Failed to save column order:', error) }
   }, [columnOrder])
   const orderedColumns = useMemo(() => {
     if (!Array.isArray(columnOrder) || !columnOrder.length) return COLUMNS
@@ -261,16 +274,12 @@ const SummaryReportPage = () => {
 
   // POST /api/broker/reports/summary: an active login group becomes `mt5Accounts` (groups expand
   // to concrete logins — whether created by picking individual logins or by a login range — via
-  // getGroupLogins, same as the Deals report). A numeric search narrows/replaces that to one login;
-  // a text search is sent as `search` instead.
+  // getGroupLogins, same as the Deals report). Search text (numeric logins included) is always
+  // sent as `search`, which the server matches against login/name.
   const buildExtraBody = () => {
     const body = { sortBy, sortOrder }
-    let logins = activeGroup ? [...new Set(getGroupLogins(activeGroup.name).map(Number).filter(Number.isFinite))] : null
-    if (/^\d+$/.test(search)) {
-      const login = Number(search)
-      logins = logins === null ? [login] : logins.filter(value => value === login)
-    } else if (search) body.search = search
-    if (logins !== null) body.mt5Accounts = logins
+    if (activeGroup) body.mt5Accounts = [...new Set(getGroupLogins(activeGroup.name).map(Number).filter(Number.isFinite))]
+    if (search) body.search = search
     return body
   }
 
@@ -414,7 +423,7 @@ const SummaryReportPage = () => {
         columns: excelColumns,
         sections: [{ rows: all, totals: { label: 'TOTAL', values: totals } }],
         sheetName: 'Summary',
-        fileName: `summary_${stamp}.xlsx`
+        fileName: `summary_${stamp}.csv`
       })
     } catch (exportError) {
       if (controller.signal.aborted) return
@@ -517,7 +526,7 @@ const SummaryReportPage = () => {
         </button>
         {!isMobile && datePickerPopover}
       </div>
-      <button type="button" onClick={handleExport} disabled={exporting || loading} className={iconButton} aria-label="Export summary" title={exporting ? `Exporting ${exportProgress.done} / ${exportProgress.total}...` : 'Export this report to Excel'}>
+      <button type="button" onClick={handleExport} disabled={exporting || loading} className={iconButton} aria-label="Export summary" title={exporting ? `Exporting ${exportProgress.done} / ${exportProgress.total}...` : 'Export this report to CSV'}>
         <svg className={`h-4 w-4 ${exporting ? 'animate-pulse text-blue-600' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>
       </button>
       <button type="button" onClick={refreshData} disabled={loading} className={iconButton} aria-label="Refresh summary" title="Refresh">
@@ -552,24 +561,28 @@ const SummaryReportPage = () => {
   }
 
   return (
-    <div className="h-screen flex bg-[#F8F8F8] md:bg-gradient-to-br md:from-blue-50 md:via-white md:to-blue-50 overflow-hidden">
+    <div className="mobile-responsive-page h-screen flex bg-[#F8F8F8] md:bg-gradient-to-br md:from-blue-50 md:via-white md:to-blue-50 overflow-hidden">
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch {} }}
-        onToggle={() => setSidebarOpen(value => { const next = !value; try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch {}; return next })}
+        onClose={() => { setSidebarOpen(false); try { localStorage.setItem('sidebarOpen', JSON.stringify(false)) } catch (error) { console.warn('[SummaryReport] Failed to save sidebar state:', error) } }}
+        onToggle={() => setSidebarOpen(value => { const next = !value; try { localStorage.setItem('sidebarOpen', JSON.stringify(next)) } catch (error) { console.warn('[SummaryReport] Failed to save sidebar state:', error) }; return next })}
       />
 
       <main className={`flex-1 min-w-0 p-0 md:p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'} flex flex-col overflow-hidden`}>
         {/* ───────── Mobile ───────── */}
         <div className="md:hidden flex flex-1 flex-col overflow-hidden">
-          <div ref={mobileHeaderRef} className="relative flex items-center px-4 py-4 bg-white border-b border-[#ECECEC]">
+          <div ref={mobileHeaderRef} className="flex-wrap relative flex items-center px-4 py-4 bg-white border-b border-[#ECECEC]">
             <button type="button" onClick={() => setSidebarOpen(true)} className="w-12 h-12 rounded-2xl bg-[#F8F8F8] flex items-center justify-center" aria-label="Open menu">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="#000000" strokeWidth="2" strokeLinecap="round" /></svg>
             </button>
-            <h1 className="text-lg font-semibold text-[#000000] absolute left-1/2 -translate-x-1/2">Summary</h1>
-          </div>
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-lg font-semibold text-[#000000] min-w-0 max-sm:text-sm">Summary</h1><BrokerCreditSummary variant="header" /></div>
+          
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
+
+          <div ref={mobileScrollAreaRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             <div ref={mobileAboveTableRef}>
               <div className="pt-3 pb-2 px-2">
                 <div className="flex w-full flex-nowrap items-center gap-1 overflow-x-auto py-1 [&>select]:w-[72px] [&>select]:h-7 [&>select]:px-1 [&>select]:text-[10px] [&>button]:h-7 [&>button]:w-7 [&>div]:shrink-0 [&>div[data-summary-datepicker]>button]:h-7 [&>div[data-summary-datepicker]>button]:w-7">
@@ -609,13 +622,13 @@ const SummaryReportPage = () => {
               </div>
             </div>
 
-            <div className="bg-white shadow-sm border border-blue-100 overflow-hidden mx-1">
+            <div ref={mobileCardRef} className="bg-white shadow-sm border border-blue-100 overflow-hidden mx-1">
               {/* Fixed `height` (not `maxHeight`): the card's white background always fills the
                   remaining screen space down to the bottom, even when a page has few rows, so there's
                   no gray page background showing through below it. */}
-              <div className="w-full overflow-x-auto overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', scrollbarWidth: 'none', height: mobileTableMaxHeight }}>
+              <div className="mobile-table-scroll w-full overflow-x-auto overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y', scrollbarWidth: 'none', height: mobileTableMaxHeight }}>
                 <div className="relative" style={{ minWidth: 'max-content' }}>
-                  <div className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{ gridTemplateColumns: mobileGrid }}>
+                  <div data-mobile-data-row="header" className="grid bg-blue-500 text-white text-[10px] font-semibold font-outfit sticky top-0 z-20 shadow-[0_2px_4px_rgba(0,0,0,0.1)]" style={{ gridTemplateColumns: mobileGrid }}>
                     {shownMobileColumns.map(column => (
                       <div key={column.key} onClick={() => handleSort(column.key)} className={`h-[32px] flex items-center px-1 cursor-pointer select-none ${column.key === 'login' ? 'sticky left-0 z-30 bg-blue-500 px-2' : ''}`}>
                         <span className="truncate">{column.label}</span>
@@ -626,7 +639,7 @@ const SummaryReportPage = () => {
 
                   {loading ? (
                     Array.from({ length: MOBILE_PAGE_SIZE }, (_, row) => (
-                      <div key={`sk-${row}`} className="grid bg-white border-b border-[#E1E1E1]" style={{ gridTemplateColumns: mobileGrid }}>
+                      <div data-mobile-data-row="body" key={`sk-${row}`} className="grid bg-white border-b border-[#E1E1E1]" style={{ gridTemplateColumns: mobileGrid }}>
                         {shownMobileColumns.map(column => (
                           <div key={column.key} className={`h-[38px] flex items-center px-1 ${column.key === 'login' ? 'sticky left-0 bg-white z-10' : ''}`}>
                             <div className="h-3 w-full max-w-[80%] rounded bg-gray-200 animate-pulse" />
@@ -636,7 +649,7 @@ const SummaryReportPage = () => {
                     ))
                   ) : rows.length ? (
                     rows.map((row, index) => (
-                      <div key={`${row.login ?? 'r'}-m-${index}`} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC]" style={{ gridTemplateColumns: mobileGrid }}>
+                      <div data-mobile-data-row="body" key={`${row.login ?? 'r'}-m-${index}`} className="grid text-[10px] text-[#4B4B4B] font-outfit bg-white border-b border-[#E1E1E1] hover:bg-[#F8FAFC]" style={{ gridTemplateColumns: mobileGrid }}>
                         {shownMobileColumns.map(column => (
                           <div
                             key={column.key}
@@ -649,6 +662,7 @@ const SummaryReportPage = () => {
                       </div>
                     ))
                   ) : null}
+                  <div aria-hidden="true" className="mobile-table-end" />
                 </div>
                 {!loading && !rows.length && emptyOrError}
               </div>
@@ -665,7 +679,7 @@ const SummaryReportPage = () => {
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25}><path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
                 </button>
                 <div className="min-w-0">
-                  <h1 className="truncate text-xl font-bold text-[#1A1A1A]">Summary Report</h1>
+                  <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="truncate text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Summary Report</h1><BrokerCreditSummary variant="header" /></div>
                   <p className="text-xs text-[#6B7280] mt-0.5">Client balances, volume and P&amp;L for the selected period</p>
                 </div>
               </div>
@@ -675,7 +689,11 @@ const SummaryReportPage = () => {
               </div>
             </div>
             {exportingNote}
-          </div>
+          
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           <div className="bg-white rounded-lg shadow-sm border border-[#E5E7EB] overflow-hidden flex flex-col flex-1 min-h-0">
             <div className="border-b border-[#E5E7EB] p-4">
@@ -755,8 +773,7 @@ const SummaryReportPage = () => {
             </div>
 
             <div className="overflow-auto flex-1 min-h-0" style={{ scrollbarWidth: 'thin', scrollbarColor: '#9ca3af #e5e7eb' }}>
-              {!loading && !rows.length ? emptyOrError
-                : (
+              {(
                   <table className="min-w-full text-xs border-separate border-spacing-0">
                     <thead className="bg-blue-600 sticky top-0 shadow-md" style={{ zIndex: 10 }}>
                       <tr>
@@ -779,7 +796,13 @@ const SummaryReportPage = () => {
                             </td>
                           ))}
                         </tr>
-                      )) : rows.map((row, index) => (
+                      )) : !rows.length ? (
+                        <tr>
+                          <td colSpan={Math.max(1, shownColumns.length)} className="p-0">
+                            <div className="sticky left-0 w-full">{emptyOrError}</div>
+                          </td>
+                        </tr>
+                      ) : rows.map((row, index) => (
                         <tr key={`${row.login ?? 'r'}-${index}`} className={`${index % 2 ? 'bg-[#F9FAFB]' : 'bg-white'} hover:bg-blue-50`}>
                           {shownColumns.map(column => (
                             <td
@@ -796,8 +819,8 @@ const SummaryReportPage = () => {
                       <tfoot>
                         <tr className="bg-slate-100 font-semibold sticky bottom-0">
                           {shownColumns.map((column, i) => (
-                            <td key={column.key} className="px-3 py-2 border-t-2 border-slate-300 text-gray-700 whitespace-nowrap">
-                              {i === 0 ? 'Page totals' : column.numeric ? formatNumber(pageTotals[column.key]) : ''}
+                            <td key={column.key} className="px-3 py-2 border-t-2 border-slate-300 whitespace-nowrap text-gray-700" style={column.numeric && pageTotals[column.key] < 0 ? { color: '#dc2626' } : undefined}>
+                              {i === 0 ? 'Total' : column.numeric ? formatNumber(pageTotals[column.key]) : ''}
                             </td>
                           ))}
                         </tr>

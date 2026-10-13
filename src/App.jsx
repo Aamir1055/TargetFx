@@ -1,3 +1,5 @@
+import GlobalExportLoading from './components/GlobalExportLoading'
+import BrokerCreditProvider from './contexts/BrokerCreditProvider'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { AuthProvider } from './contexts/AuthContext'
@@ -284,13 +286,16 @@ function App() {
   return (
     <Router basename={getBasename()}>
       <AuthProvider>
+        <BrokerCreditProvider>
         <DataProvider>
           <GroupProvider>
             <IBProvider>
               <AppContent />
+              <GlobalExportLoading />
             </IBProvider>
           </GroupProvider>
         </DataProvider>
+        </BrokerCreditProvider>
       </AuthProvider>
     </Router>
   )

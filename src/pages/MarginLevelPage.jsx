@@ -1,3 +1,4 @@
+import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { useEffect, useRef, useState, useMemo, Fragment, cloneElement } from 'react'
 import { useGroups } from '../contexts/groupContextStore'
 import { useAuth } from '../contexts/authContextStore'
@@ -60,14 +61,12 @@ const MarginLevelPage = () => {
   // Fetch margin-call clients from REST API. Used both for initial load and 2s polling.
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc')
-  const [accountTypeFilter, setAccountTypeFilter] = useState('')
   const marginRequestRef = useRef(0)
-  const accountTypeControl = <label className="inline-flex items-center gap-2 text-xs text-slate-600">Account Type<select aria-label="Filter by account type" value={accountTypeFilter} onChange={event => { setAccountTypeFilter(event.target.value); setCurrentPage(1) }} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">All types</option><option value="Liquidate">Liquidate</option><option value="Non-Liquidate">Non-Liquidate</option></select></label>
   const fetchMarginCallClients = async () => {
     const requestId = ++marginRequestRef.current
     try {
       setMarginCallLoading(true)
-      const res = await brokerAPI.getMarginCallClients({ ...(accountTypeFilter ? { liquidateType: accountTypeFilter } : {}), ...(sortColumn ? { sortBy: sortColumn, sortOrder: sortDirection } : {}) })
+      const res = await brokerAPI.getMarginCallClients({ ...(sortColumn ? { sortBy: sortColumn, sortOrder: sortDirection } : {}) })
       if (requestId !== marginRequestRef.current) return
       const data = res?.data ?? res
       const list = Array.isArray(data)
@@ -124,7 +123,7 @@ const MarginLevelPage = () => {
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [isAuthenticated, isMobile, accountTypeFilter, sortColumn, sortDirection])
+  }, [isAuthenticated, isMobile, sortColumn, sortDirection])
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -144,7 +143,6 @@ const MarginLevelPage = () => {
   const [visibleColumns, setVisibleColumns] = useState({
     login: true,
     name: true,
-    liquidateType: true,
     equity: true,
     margin: true,
     marginFree: true,
@@ -155,7 +153,6 @@ const MarginLevelPage = () => {
   const allColumns = [
     { key: 'login', label: 'Login', sticky: true },
     { key: 'name', label: 'Name' },
-    { key: 'liquidateType', label: 'Account Type' },
     { key: 'equity', label: 'Equity' },
     { key: 'margin', label: 'Margin' },
     { key: 'marginFree', label: 'Margin Free' },
@@ -360,7 +357,7 @@ const MarginLevelPage = () => {
       const name = String(account.name || '').toLowerCase()
       const group = String(account.group || '').toLowerCase()
 
-      return login.includes(query) || name.includes(query) || group.includes(query) || String(account.liquidateType || '').toLowerCase().includes(query)
+      return login.includes(query) || name.includes(query) || group.includes(query)
     })
   }
 
@@ -370,7 +367,7 @@ const MarginLevelPage = () => {
 
   // Sorting function with type detection
   const sortAccounts = (accountsToSort) => {
-    if (!sortColumn || sortColumn === 'liquidateType') return accountsToSort
+    if (!sortColumn) return accountsToSort
 
     const sorted = [...accountsToSort].sort((a, b) => {
       const aVal = a[sortColumn]
@@ -552,7 +549,7 @@ const MarginLevelPage = () => {
             <div className="mb-1.5 pb-1.5 flex items-center justify-between gap-3">
             {/* Title Section */}
             <div>
-              <h1 className="text-xl font-bold text-[#1A1A1A]">Margin Level</h1>
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-bold text-[#1A1A1A] min-w-0 max-sm:text-sm">Margin Level</h1><BrokerCreditSummary variant="header" /></div>
               <p className="text-xs text-[#6B7280] mt-0.5">show accounts in margin level </p>
             </div>
 
@@ -586,14 +583,17 @@ const MarginLevelPage = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            
+
+
+<BrokerCreditSummary variant="desktop-header" />
+</div>
 
           {/* Table - Show skeleton while loading */}
           <div className="bg-white rounded-lg shadow-sm border border-blue-100 overflow-hidden flex flex-col flex-1">
             {/* Search and Controls Bar - Inside table container */}
             <div className="border-b border-[#E5E7EB] p-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  {accountTypeControl}
                   {/* Left: Columns */}
                   <div className="flex items-center gap-2 flex-1">
                     {/* Columns Button (icon only) */}
@@ -733,7 +733,6 @@ const MarginLevelPage = () => {
                         switch (col.key) {
                           case 'login': cell = renderHeaderCell('login', 'Login'); break
                           case 'name': cell = renderHeaderCell('name', 'Name'); break
-                          case 'liquidateType': cell = renderHeaderCell('liquidateType', 'Account Type'); break
                           case 'equity': cell = renderHeaderCell('equity', 'Equity'); break
                           case 'margin': cell = renderHeaderCell('margin', 'Margin'); break
                           case 'marginFree': cell = renderHeaderCell('marginFree', 'Margin Free'); break
@@ -767,7 +766,6 @@ const MarginLevelPage = () => {
                                   {a.login}
                                 </td>
                               ); break
-                              case 'liquidateType': cell = <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{a.liquidateType || '-'}</td>; break
                               case 'name': cell = (
                                 <td className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">{a.name || '-'}</td>
                               ); break
