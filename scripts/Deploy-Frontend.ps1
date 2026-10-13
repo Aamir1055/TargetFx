@@ -7,6 +7,19 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+function Get-Sha256([string]$Path) {
+    # Use .NET directly: runner shells may not expose Get-FileHash.
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = $null
+    try {
+        $stream = [IO.File]::OpenRead($Path)
+        return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '')
+    } finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+        $algorithm.Dispose()
+    }
+}
+
 function Assert-NoLink([string]$Path) {
     $current = [IO.Path]::GetFullPath($Path)
     while ($current) {
@@ -67,7 +80,7 @@ try {
         $changed.Add([pscustomobject]@{ Path = $relative; Existed = $existed })
         New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($target)) -Force | Out-Null
         Copy-Item -LiteralPath $inputFile -Destination $target -Force
-        if ((Get-FileHash -LiteralPath $inputFile).Hash -ne (Get-FileHash -LiteralPath $target).Hash) { throw "Verification failed: $relative" }
+        if ((Get-Sha256 $inputFile) -ne (Get-Sha256 $target)) { throw "Verification failed: $relative" }
     }
     $changed | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'deployment.json') -Encoding UTF8
     Write-Output "Deployed $($files.Count) selected files. Backup: $backup"
