@@ -19,6 +19,7 @@ import { useGroups } from '../contexts/groupContextStore'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
+import useSearchAsYouType from '../hooks/useSearchAsYouType'
 import { formatTime as apiFormatTime, serverNowEpoch } from '../utils/dateFormatter'
 
 const formatNum = (n, decimals = 2) => {
@@ -50,6 +51,9 @@ export default function LiveDealingModule() {
   const [numericMode, setNumericMode] = useState(() => { try { const s = localStorage.getItem('globalDisplayMode'); return s === 'full' ? 'full' : 'compact' } catch { return 'compact' } })
 
   const [searchInput, setSearchInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  // Only hit the API once the user pauses typing.
+  useSearchAsYouType(searchInput, appliedSearch, setAppliedSearch)
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false)
@@ -112,6 +116,7 @@ export default function LiveDealingModule() {
     setFilters({ hasFloating: false, hasCredit: false, noDeposit: false })
     setActiveGroupFilter('livedealing', null)
     setSearchInput('')
+    setAppliedSearch('')
     setTimeFilter('today')
     setModuleFilter('both')
     setCustomFromDate('')
@@ -191,11 +196,9 @@ export default function LiveDealingModule() {
   // Fetch deals from API — server-side pagination (100 per page)
   const fetchDeals = async (page = currentPage) => {
     try {
-      if (deals.length > 0) {
-        setLoading(false)
-      } else {
-        setLoading(true)
-      }
+      // Every fetchDeals call follows a user action (search, filter, sort, page). Live WebSocket
+      // arrivals update `deals` directly, so showing the skeleton here never interrupts them.
+      setLoading(true)
 
       let from, to
       const presetRange = getPresetRange(timeFilter)
@@ -228,13 +231,16 @@ export default function LiveDealingModule() {
         apiFilters.push({ field: 'action', operator: 'not_equal', value: 'BUY' })
         apiFilters.push({ field: 'action', operator: 'not_equal', value: 'SELL' })
       }
-      const trimmedSearch = searchInput.trim()
+      const trimmedSearch = appliedSearch
 
       const extraBody = {
         sortBy: sortColumn || 'time',
         sortOrder: sortDirection || 'desc',
       }
-      if (trimmedSearch) {
+      if (/^\d+$/.test(trimmedSearch)) {
+        // The API search parameter matches symbol/comment; logins require a field filter.
+        apiFilters.push({ field: 'login', operator: 'equal', value: Number(trimmedSearch) })
+      } else if (trimmedSearch) {
         extraBody.search = trimmedSearch
       }
       if (apiFilters.length > 0) extraBody.filters = apiFilters
@@ -282,7 +288,7 @@ export default function LiveDealingModule() {
     }
     setCurrentPage(1)
     fetchDeals(1)
-  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter, sortColumn, sortDirection, searchInput])
+  }, [timeFilter, appliedFromDate, appliedToDate, moduleFilter, sortColumn, sortDirection, appliedSearch])
 
   // Re-fetch when page changes (server-side pagination — same as desktop)
   const isFirstPageEffect = useRef(true)
