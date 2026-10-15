@@ -20,6 +20,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
   const [storedMarginCount, setStoredMarginCount] = useState(0)
   const desktopNavRef = useRef(null)
   const mobileNavRef = useRef(null)
+  // Current touch on the mobile drawer list, used to tell a tap from a scroll.
+  const touchGesture = useRef({ active: false, moved: false, x: 0, y: 0, scrollTop: 0, lastScrollAt: 0 })
   const desktopScrollKey = isOpen ? 'expanded' : 'collapsed'
 
   // Read margin count from localStorage on mount and listen for changes
@@ -174,7 +176,32 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
 
             <div
               ref={mobileNavRef}
-              onScroll={event => { if (event.currentTarget.clientHeight) sidebarViewState.scrollTop.mobile = event.currentTarget.scrollTop }}
+              onScroll={event => {
+                touchGesture.current.lastScrollAt = Date.now()
+                if (event.currentTarget.clientHeight) sidebarViewState.scrollTop.mobile = event.currentTarget.scrollTop
+              }}
+              onPointerDown={event => {
+                if (event.pointerType === 'mouse') return
+                touchGesture.current = { ...touchGesture.current, x: event.clientX, y: event.clientY, scrollTop: event.currentTarget.scrollTop, moved: false, active: true }
+              }}
+              onPointerMove={event => {
+                const gesture = touchGesture.current
+                if (gesture.active && (Math.abs(event.clientX - gesture.x) > 6 || Math.abs(event.clientY - gesture.y) > 6)) gesture.moved = true
+              }}
+              // The browser took the gesture over for scrolling.
+              onPointerCancel={() => { touchGesture.current.moved = true }}
+              onClickCapture={event => {
+                const gesture = touchGesture.current
+                if (!gesture.active) return
+                gesture.active = false
+                // A drag, a list that scrolled, or a tap that only stopped a momentum scroll
+                // must never open a module.
+                const scrolled = Math.abs(event.currentTarget.scrollTop - gesture.scrollTop) > 1 || Date.now() - gesture.lastScrollAt < 350
+                if (gesture.moved || scrolled) {
+                  event.preventDefault()
+                  event.stopPropagation()
+                }
+              }}
               className="flex-1 overflow-auto py-2"
             >
               <div className="px-3 pb-3 pt-1">
