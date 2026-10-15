@@ -127,7 +127,7 @@ export default function LiveDealingModule() {
 
   // Sync numericMode with global display mode events
   useEffect(() => {
-    const onChange = (e) => {
+    const onChange = (e) => { 
       const v = (e && e.detail) || localStorage.getItem('globalDisplayMode')
       if (v === 'full' || v === 'compact') setNumericMode(v)
     }

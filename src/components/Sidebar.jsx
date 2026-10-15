@@ -20,6 +20,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
   const [storedMarginCount, setStoredMarginCount] = useState(0)
   const desktopNavRef = useRef(null)
   const mobileNavRef = useRef(null)
+  // Where a touch on a mobile nav item began, so a scroll drag is not treated as a tap.
+  const touchStartRef = useRef(null)
   const desktopScrollKey = isOpen ? 'expanded' : 'collapsed'
 
   // Read margin count from localStorage on mount and listen for changes
@@ -234,7 +236,20 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                       key={item.path}
                       type="button"
                       onClick={() => handleNavigate(item.path)}
+                      onTouchStart={(event) => {
+                        const touch = event.touches[0]
+                        touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
+                      }}
                       onTouchEnd={(event) => {
+                        const start = touchStartRef.current
+                        touchStartRef.current = null
+                        if (!start) return
+                        // Navigate only on a real tap: a drag that scrolled the drawer, or a long
+                        // press, also ends with touchend on this button and must be ignored.
+                        const touch = event.changedTouches[0]
+                        if (Math.abs(touch.clientX - start.x) > 10 || Math.abs(touch.clientY - start.y) > 10) return
+                        if (Date.now() - start.time > 700) return
+                        // Suppress the synthetic click so handleNavigate does not run twice.
                         event.preventDefault()
                         event.stopPropagation()
                         handleNavigate(item.path)
