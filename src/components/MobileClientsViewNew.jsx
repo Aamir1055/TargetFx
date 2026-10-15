@@ -1,3 +1,4 @@
+import { drawerTapGuard } from '../utils/drawerTapGuard'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/authContextStore'
@@ -1029,7 +1030,7 @@ const MobileClientsViewNew = ({ clients = [] }) => {
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto py-2">
+            <div className="flex-1 overflow-auto py-2" {...drawerTapGuard}>
               <nav className="flex flex-col">
                 {[
                   {label:'Clients', path:'/client2', icon:(

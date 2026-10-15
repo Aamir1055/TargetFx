@@ -1,3 +1,4 @@
+import { drawerTapGuard } from '../utils/drawerTapGuard'
 import BrokerCreditSummary from './BrokerCreditSummary'
 import { createLatestRequest } from '../utils/latestRequest'
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue, startTransition } from 'react'
@@ -1077,7 +1078,7 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto py-2">
+            <div className="flex-1 overflow-auto py-2" {...drawerTapGuard}>
               {/* Compact / Full numeric display mode toggle — same as desktop sidebar */}
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>

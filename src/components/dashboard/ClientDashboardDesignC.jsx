@@ -1,3 +1,4 @@
+import { drawerTapGuard } from '../../utils/drawerTapGuard'
 import BrokerCreditSummary from '../BrokerCreditSummary'
 import { withExportLoading } from '../../utils/exportLoading'
 import { parseAccountTypePreferences } from '../../utils/accountType'
@@ -1093,7 +1094,7 @@ export default function ClientDashboardDesignC() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto py-2">
+            <div className="flex-1 overflow-auto py-2" {...drawerTapGuard}>
               <nav className="flex flex-col">
                 {[
                   {label:'Clients', path:'/client2', icon:(

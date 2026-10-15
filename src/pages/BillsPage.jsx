@@ -1,3 +1,4 @@
+import { drawerTapGuard } from '../utils/drawerTapGuard'
 import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment, cloneElement } from 'react'
 import { ReportsIcon, ReportSubIcon } from '../components/ReportIcons'
@@ -1745,7 +1746,7 @@ const BillsPage = () => {
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto py-2">
+            <div className="flex-1 overflow-auto py-2" {...drawerTapGuard}>
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
                 <div className="flex items-center bg-[#F3F4F6] p-0.5 w-full rounded">

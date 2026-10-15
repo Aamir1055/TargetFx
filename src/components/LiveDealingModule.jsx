@@ -1,3 +1,4 @@
+import { drawerTapGuard } from '../utils/drawerTapGuard'
 import BrokerCreditSummary from './BrokerCreditSummary'
 import { withExportLoading } from '../utils/exportLoading'
 import QuickTimeFilter from './QuickTimeFilter'
@@ -791,7 +792,7 @@ const profit = deal.rawData?.profit || 0
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto py-2">
+            <div className="flex-1 overflow-auto py-2" {...drawerTapGuard}>
               {/* Compact / Full display mode toggle */}
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5 px-1">Display Mode</p>
