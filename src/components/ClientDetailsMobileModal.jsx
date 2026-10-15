@@ -2,6 +2,7 @@ import { withExportLoading } from '../utils/exportLoading'
 import TemporaryCreditFields from './TemporaryCreditFields'
 import BrokerCreditSummary from './BrokerCreditSummary'
 import { useBrokerCredit } from '../contexts/brokerCreditStore'
+import useBackToClose from '../hooks/useBackToClose'
 import { creditOperations, temporaryCreditBody } from '../utils/brokerCredit'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import api, { brokerAPI } from '../services/api'
@@ -192,6 +193,7 @@ const PasswordSection = ({ title, type, login }) => {
 }
 
 const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrdersCache = [] }) => {
+  useBackToClose(onClose)
   const [activeTab, setActiveTab] = useState('overview')
   const [securityTab, setSecurityTab] = useState('trading')
   const [positions, setPositions] = useState([])

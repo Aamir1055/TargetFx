@@ -11,6 +11,7 @@ import { IBProvider } from './contexts/IBContext'
 import LoginPage from './pages/LoginPage'
 import LoginMobile from './pages/LoginMobile'
 import LoadingSpinner from './components/LoadingSpinner'
+import BackNavigationGuard from './components/BackNavigationGuard'
 
 // Full-page skeleton shown during auth check or lazy-load — no dark overlay
 const PageSkeleton = () => (
@@ -215,6 +216,7 @@ const AppContent = () => {
     <Suspense fallback={<PageSkeleton />}>
       {/* Preload other routes in the background to speed up navigation */}
       <PreloadRoutes />
+      <BackNavigationGuard />
       <Routes>
         <Route path="/" element={<Navigate to="/client2" replace />} />
         <Route path="/login" element={<Navigate to="/client2" replace />} />

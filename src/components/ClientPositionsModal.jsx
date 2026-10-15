@@ -5,6 +5,7 @@ import { useBrokerCredit } from '../contexts/brokerCreditStore'
 import { creditOperations, temporaryCreditBody } from '../utils/brokerCredit'
 import { loadClientRows, paginateClientRows } from '../utils/reportPagination'
 import useSearchAsYouType from '../hooks/useSearchAsYouType'
+import useBackToClose from '../hooks/useBackToClose'
 import { createLatestRequest } from '../utils/latestRequest'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { brokerAPI } from '../services/api'
@@ -274,6 +275,7 @@ const SvgDonut = ({ segments, size, sw, centerLine1, centerLine2 }) => {
 }
 
 const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCache = [], onCacheUpdate }) => {
+  useBackToClose(onClose)
   const { user } = useAuth()
   // Global Compact / Full numeric display mode (synced with Sidebar via 'globalDisplayMode')
   const [numericMode, setNumericMode] = useState(() => {
