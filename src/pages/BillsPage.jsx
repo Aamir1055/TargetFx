@@ -1739,11 +1739,6 @@ const BillsPage = () => {
               </div>
               <button
                 onClick={closeMobileSidebar}
-                onTouchEnd={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  closeMobileSidebar()
-                }}
                 className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#404040" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -1797,11 +1792,6 @@ const BillsPage = () => {
                         <button
                           type="button"
                           onClick={() => setMobileReportsOpen(value => !value)}
-                          onTouchEnd={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setMobileReportsOpen(value => !value)
-                          }}
                           className={`flex items-center gap-3 px-4 h-11 w-full text-left text-[13px] ${mobileReportsOpen || location.pathname.startsWith('/reports') ? 'text-[#404040]' : 'text-[#404040]'}`}
                           style={{ touchAction: 'manipulation' }}
                         >
@@ -1818,11 +1808,6 @@ const BillsPage = () => {
                             <button
                               type="button"
                               onClick={() => handleMobileNavSelect('/reports/exchange')}
-                              onTouchEnd={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleMobileNavSelect('/reports/exchange')
-                              }}
                               className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/exchange' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
@@ -1832,11 +1817,6 @@ const BillsPage = () => {
                             <button
                               type="button"
                               onClick={() => handleMobileNavSelect('/reports/historical-positions')}
-                              onTouchEnd={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleMobileNavSelect('/reports/historical-positions')
-                              }}
                               className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/historical-positions' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
@@ -1846,11 +1826,6 @@ const BillsPage = () => {
                             <button
                               type="button"
                               onClick={() => handleMobileNavSelect('/reports/deals')}
-                              onTouchEnd={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleMobileNavSelect('/reports/deals')
-                              }}
                               className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deals' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
@@ -1860,11 +1835,6 @@ const BillsPage = () => {
                             <button
                               type="button"
                               onClick={() => handleMobileNavSelect('/reports/credit')}
-                              onTouchEnd={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleMobileNavSelect('/reports/credit')
-                              }}
                               className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
@@ -1874,11 +1844,6 @@ const BillsPage = () => {
                             <button
                               type="button"
                               onClick={() => handleMobileNavSelect('/reports/agent-details')}
-                              onTouchEnd={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleMobileNavSelect('/reports/agent-details')
-                              }}
                               className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
@@ -1888,11 +1853,6 @@ const BillsPage = () => {
                             <button
                               type="button"
                               onClick={() => handleMobileNavSelect('/reports/deposit-withdrawal')}
-                              onTouchEnd={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleMobileNavSelect('/reports/deposit-withdrawal')
-                              }}
                               className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                               style={{ touchAction: 'manipulation' }}
                             >
@@ -1909,11 +1869,6 @@ const BillsPage = () => {
                     <button
                       key={item.path}
                       onClick={() => handleMobileNavSelect(item.path)}
-                      onTouchEnd={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        handleMobileNavSelect(item.path)
-                      }}
                       className={`flex items-center gap-3 px-4 h-11 text-[13px] ${location.pathname === item.path ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                       style={{ touchAction: 'manipulation' }}
                     >
@@ -1944,12 +1899,6 @@ const BillsPage = () => {
             <div className="p-4 mt-auto border-t border-[#ECECEC]">
               <button
                 onClick={async () => {
-                  await logout()
-                  closeMobileSidebar()
-                }}
-                onTouchEnd={async (e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
                   await logout()
                   closeMobileSidebar()
                 }}

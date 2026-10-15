@@ -758,10 +758,6 @@ const handleLoginClick = () => {
             className={`h-[38px] flex items-center justify-start px-2 text-[#1A63BC] font-semibold ${stickyClass} cursor-pointer hover:underline`} 
             style={stickyStyle}
             onClick={handleLoginClick}
-            onTouchEnd={(e) => {
-              e.preventDefault()
-              handleLoginClick()
-            }}
           >
             {pos.login || '-'}
           </div>
@@ -1464,11 +1460,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                           e.stopPropagation()
                           handleSort(col.key)
                         }}
-                        onTouchEnd={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleSort(col.key)
-                        }}
                         className={`h-[28px] flex items-center justify-start px-1 cursor-pointer ${col.sticky ? 'sticky left-0 bg-blue-500 z-30' : ''}`}
                         style={{
                           border: 'none', 
@@ -1690,7 +1681,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer sticky left-0 z-50 bg-blue-500"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('symbol'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('symbol'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto', boxShadow: '2px 0 4px rgba(0,0,0,0.08)' }}
                       >
                         Symbol
@@ -1705,7 +1695,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('netType'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('netType'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Type
@@ -1720,7 +1709,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('netVolume'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('netVolume'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         NET Vol
@@ -1735,7 +1723,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('avgPrice'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('avgPrice'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Avg Price
@@ -1750,7 +1737,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('currentPrice'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('currentPrice'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Current Price
@@ -1765,7 +1751,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalProfit'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalProfit'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Total Profit
@@ -1780,7 +1765,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalStorage'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalStorage'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Swap
@@ -1795,7 +1779,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalCommission'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalCommission'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Comm
@@ -1810,7 +1793,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('loginCount'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('loginCount'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Logins
@@ -1825,7 +1807,6 @@ const formattedTime = apiFormatTime(pos.timeUpdate || pos.timeCreate || pos.time
                       <div
                         className="flex items-center justify-start px-1 cursor-pointer bg-blue-500 text-white"
                         onClick={(e) => { e.stopPropagation(); handleClientNetSort('totalPositions'); }}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleClientNetSort('totalPositions'); }}
                         style={{ userSelect: 'none', touchAction: 'manipulation', pointerEvents: 'auto' }}
                       >
                         Positions
