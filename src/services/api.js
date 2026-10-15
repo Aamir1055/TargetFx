@@ -96,7 +96,7 @@ const doLogout = () => {
   localStorage.removeItem('user_data')
   if (typeof window !== 'undefined') {
     try { window.dispatchEvent(new CustomEvent('auth:logout')) } catch { /* Retain the fallback when this operation is unavailable. */ }
-    window.location.href = '/login'
+    window.location.replace('/login')
   }
 }
 

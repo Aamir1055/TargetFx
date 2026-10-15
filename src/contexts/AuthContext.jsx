@@ -199,7 +199,8 @@ export const AuthProvider = ({ children }) => {
           console.error('Failed to close Telegram app:', error)
         }
       } else {
-        window.location.href = window.location.origin + '/login'
+        // Replace, not push: the signed-out page must not stay in history for Back to restore.
+        window.location.replace(window.location.origin + '/login')
       }
       logoutInProgress.current = false
       setInitializing(false)

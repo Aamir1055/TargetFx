@@ -23,7 +23,16 @@ export default function BackNavigationGuard() {
 
     // The first entry of the session is a stand-in: land on it and step forward again.
     if (index === 0) {
-      navigate(target + location.hash, { state: location.state })
+      const stepForward = () => navigate(target + location.hash, { state: location.state })
+      // Browsers skip history entries a page adds before the user has touched it, so wait for that.
+      if (window.navigator.userActivation && !window.navigator.userActivation.hasBeenActive) {
+        const events = ['click', 'keydown', 'touchend']
+        const stop = () => events.forEach(name => window.removeEventListener(name, onActivate, true))
+        const onActivate = () => { stop(); stepForward() }
+        events.forEach(name => window.addEventListener(name, onActivate, true))
+        return stop
+      }
+      stepForward()
       return
     }
     // Same page pushed again. When the entry before it is the first one, this copy acts as the stand-in.

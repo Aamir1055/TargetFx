@@ -95,6 +95,17 @@ const AppContent = () => {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // A page restored from the back/forward cache keeps its old sign-in state. If that no longer
+  // matches the stored session (e.g. Back to a page from before a logout/login), reload it.
+  useEffect(() => {
+    const onPageShow = (event) => {
+      if (!event.persisted) return
+      if (Boolean(localStorage.getItem('access_token')) !== isAuthenticated) window.location.reload()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [isAuthenticated])
+
   // Mobile auto-reload when tab/app becomes active after inactivity.
   // Skip this logic in Telegram WebApp to prevent interference
   useEffect(() => {

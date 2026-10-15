@@ -1500,7 +1500,15 @@ const BillsPage = () => {
                             switch (col.key) {
                               case 'login':
                                 return (
-                                  <div key={col.key} className={`h-[38px] flex items-center px-2 text-[#1A63BC] font-semibold ${stickyClass}`} style={stickyStyle}>
+                                  <div
+                                    key={col.key}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => setSelectedClient({ login: r.Login, name: r.Name, ...r })}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedClient({ login: r.Login, name: r.Name, ...r }) } }}
+                                    className={`h-[38px] flex items-center px-2 text-[#1A63BC] font-semibold cursor-pointer ${stickyClass}`}
+                                    style={stickyStyle}
+                                  >
                                     {r.Login}
                                   </div>
                                 )
