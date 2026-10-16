@@ -19,15 +19,10 @@ test('temporary credit uses existing directional permissions, with no removed ba
   assert.equal(creditOperations.some(op => ['deposit', 'withdrawal'].includes(op.value)), false)
 })
 
-test('temporary credit sends server wall-clock schedule without timezone conversion', () => {
-  assert.deepEqual(temporaryCreditBody(5000, 'Weekend credit', 'monday', '09:00'), {
-    amount: 5000, comment: 'Weekend credit', expire_weekday: 'monday', expire_time: '09:00'
-  })
-  assert.equal(temporaryCreditBody(1, '', 'sunday', '00:00').expire_time, '00:00')
+test('temporary credit sends only amount and comment; the backend schedules the reversal', () => {
+  assert.deepEqual(temporaryCreditBody(5000, 'Weekend credit'), { amount: 5000, comment: 'Weekend credit' })
 })
 
-test('temporary credit rejects invalid amounts and schedules before posting', () => {
-  for (const amount of [0, -1, NaN, Infinity]) assert.throws(() => temporaryCreditBody(amount, '', 'monday', '09:00'), /amount/)
-  assert.throws(() => temporaryCreditBody(5, '', '', '09:00'), /weekday/)
-  for (const time of ['', '24:00', '09:60', '9:00', '12:30:00']) assert.throws(() => temporaryCreditBody(5, '', 'monday', time), /time/)
+test('temporary credit rejects invalid amounts before posting', () => {
+  for (const amount of [0, -1, NaN, Infinity]) assert.throws(() => temporaryCreditBody(amount, ''), /amount/)
 })

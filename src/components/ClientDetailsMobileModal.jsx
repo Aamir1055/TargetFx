@@ -1,5 +1,4 @@
 import { withExportLoading } from '../utils/exportLoading'
-import TemporaryCreditFields from './TemporaryCreditFields'
 import BrokerCreditSummary from './BrokerCreditSummary'
 import { useBrokerCredit } from '../contexts/brokerCreditStore'
 import useBackToClose from '../hooks/useBackToClose'
@@ -217,8 +216,6 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
 
   // Funds management state
   const [operationType, setOperationType] = useState('credit_in')
-  const [expireWeekday, setExpireWeekday] = useState('')
-  const [expireTime, setExpireTime] = useState('')
   const { credit: brokerCredit, error: creditError, refresh: refreshCredit, updateCredit } = useBrokerCredit()
   const creditInUnavailable = operationType.endsWith('credit_in') && (brokerCredit?.live_data === false || !!creditError)
   const [amount, setAmount] = useState('')
@@ -1066,10 +1063,10 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       let response
       switch (selectedOperationType) {
         case 'temp_credit_in':
-          response = await brokerAPI.tempCreditIn(client.login, temporaryCreditBody(amountValue, commentValue, expireWeekday, expireTime))
+          response = await brokerAPI.tempCreditIn(client.login, temporaryCreditBody(amountValue, commentValue))
           break
         case 'temp_credit_out':
-          response = await brokerAPI.tempCreditOut(client.login, temporaryCreditBody(amountValue, commentValue, expireWeekday, expireTime))
+          response = await brokerAPI.tempCreditOut(client.login, temporaryCreditBody(amountValue, commentValue))
           break
         case 'credit_in':
           response = await brokerAPI.creditIn(client.login, amountValue, commentValue)
@@ -2559,7 +2556,6 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                     <form onSubmit={handleFundsOperation} className="space-y-3">
                   <BrokerCreditSummary />
                   {creditInUnavailable && <p role="status" className="text-xs text-amber-700">Credit In is unavailable while credit data cannot be verified.</p>}
-                  {operationType.startsWith('temp_credit_') && <TemporaryCreditFields weekday={expireWeekday} time={expireTime} onWeekdayChange={setExpireWeekday} onTimeChange={setExpireTime} />}
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Operation Type</label>
