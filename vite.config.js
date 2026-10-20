@@ -85,6 +85,16 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3001,
     proxy: {
+      '/ai': {
+        target: 'http://57.129.87.192:8090',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/health': {
+        target: 'http://57.129.87.192:8090',
+        changeOrigin: true,
+        secure: false,
+      },
       // IB endpoints use the same API domain as other broker endpoints
       '/api/amari/ib': {
         target: 'https://api.brokereye.app',

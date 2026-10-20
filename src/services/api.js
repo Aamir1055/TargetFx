@@ -946,6 +946,158 @@ export const brokerAPI = {
   },
 }
 
+// Keep browser requests same-origin by default so HTTPS deployments do not trigger mixed-content
+// blocking. Set VITE_AI_API_BASE_URL only when the AI service has its own HTTPS origin.
+export const AI_BASE_URL = (import.meta?.env?.VITE_AI_API_BASE_URL || '').replace(/\/+$/, '')
+
+// "Use a token instead" (the AI page's own Broker token dialog) stores its pasted JWT under a
+// dedicated key — never the main app's own `access_token` — so pasting a token here only
+// affects AI requests and can't desync or log the rest of Broker Eye out of its own session.
+const AI_TOKEN_OVERRIDE_KEY = 'ai_broker_token_override'
+export const getAiTokenOverride = () => localStorage.getItem(AI_TOKEN_OVERRIDE_KEY) || ''
+export const setAiTokenOverride = (token) => {
+  const trimmed = (token || '').trim()
+  if (trimmed) localStorage.setItem(AI_TOKEN_OVERRIDE_KEY, trimmed)
+  else localStorage.removeItem(AI_TOKEN_OVERRIDE_KEY)
+}
+
+const aiHeaders = () => {
+  const token = getAiTokenOverride() || localStorage.getItem('access_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+const aiRequest = async (path, options = {}) => {
+  const response = await fetch(`${AI_BASE_URL}${path}`, {
+    ...options,
+    headers: { ...aiHeaders(), ...(options.headers || {}) }
+  })
+  if (!response.ok) {
+    let detail = `AI service request failed (${response.status})`
+    try {
+      const body = await response.json()
+      detail = body.detail || detail
+    } catch { /* Keep the useful status fallback for non-JSON errors. */ }
+    throw new Error(detail)
+  }
+  return response
+}
+
+// GET with query params, or POST/PUT/DELETE with a JSON body — the shared shape behind
+// every simple (non-streaming, non-file) /ai/* call added below.
+const aiJson = async (path, { method = 'GET', body, params } = {}) => {
+  let url = path
+  if (params) {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString()
+    if (qs) url += `?${qs}`
+  }
+  const response = await aiRequest(url, {
+    method,
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined
+  })
+  return response.json()
+}
+
+export const aiAPI = {
+  getConversations: async () => (await aiRequest('/ai/conversations')).json(),
+  getMessages: async (conversationId) => (await aiRequest(`/ai/conversations/${encodeURIComponent(conversationId)}/messages`)).json(),
+  getStatus: async () => (await aiRequest('/ai/status')).json(),
+  // Unauthenticated: the header's "Connected · <model>" pill, same as the reference app's.
+  getHealth: async () => (await aiRequest('/health')).json(),
+  getMe: async () => (await aiRequest('/ai/me')).json(),
+  archiveConversation: async (conversationId) => aiRequest(`/ai/conversations/${encodeURIComponent(conversationId)}`, { method: 'DELETE' }),
+  sendFeedback: async (payload) => (await aiRequest('/ai/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })).json(),
+  confirmAction: async (actionId, body = {}) => (await aiRequest(`/ai/actions/${encodeURIComponent(actionId)}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(),
+  cancelAction: async (actionId) => (await aiRequest(`/ai/actions/${encodeURIComponent(actionId)}/cancel`, { method: 'POST' })).json(),
+
+  // Uploads (CSV/Excel/text attachments for the next message)
+  uploadFile: async (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return (await aiRequest('/ai/uploads', { method: 'POST', body: form })).json()
+  },
+
+  // Voice input: raw audio bytes as the body, Content-Type set to the recording's actual mime type.
+  // /ai/transcribe/status says whether this server can transcribe at all (the mic is hidden otherwise).
+  getTranscribeStatus: async () => (await aiRequest('/ai/transcribe/status')).json(),
+  transcribeAudio: async (blob) => (await aiRequest('/ai/transcribe', { method: 'POST', headers: { 'Content-Type': blob.type || 'application/octet-stream' }, body: blob })).json(),
+
+  // Rendered chart images and other generated files — served unauthenticated via an unguessable,
+  // short-lived token, so a plain <img>/<a href> works with no Authorization header.
+  fileUrl: (id, filename) => `${AI_BASE_URL}/ai/files/${encodeURIComponent(id)}${filename ? `?filename=${encodeURIComponent(filename)}` : ''}`,
+
+  // Settlement bill statement: unlike chart files this route IS authenticated, so it can't be a
+  // plain <a href> — fetch it as a blob with the Bearer token and trigger the save ourselves.
+  downloadBill: async (weekId, login, fmt, filename) => {
+    const response = await aiRequest(`/ai/bills/${encodeURIComponent(weekId)}/${encodeURIComponent(login)}.${encodeURIComponent(fmt)}`)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename || `bill_${weekId}_${login}.${fmt}`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 4000)
+  },
+
+  // Client quick-look panel (opened from a login mentioned in the chat)
+  getClientPanel: async (login) => (await aiRequest(`/ai/clients/${encodeURIComponent(login)}/panel`)).json(),
+
+  // Alerts: rules (the dialog) + events (the bell)
+  getAlerts: async () => aiJson('/ai/alerts'),
+  createAlert: async (payload) => aiJson('/ai/alerts', { method: 'POST', body: payload }),
+  updateAlert: async (alertId, payload) => aiJson(`/ai/alerts/${encodeURIComponent(alertId)}`, { method: 'PUT', body: payload }),
+  deleteAlert: async (alertId) => aiJson(`/ai/alerts/${encodeURIComponent(alertId)}`, { method: 'DELETE' }),
+  getAlertEvents: async (params) => aiJson('/ai/alerts/events', { params }),
+  markAlertEventsSeen: async (upToId) => aiJson('/ai/alerts/events/seen', { method: 'POST', body: { up_to_id: upToId ?? null } }),
+
+  // Preferences ("what the assistant remembers" / Memory dialog)
+  getPreferences: async () => aiJson('/ai/preferences'),
+  addPreference: async (note) => aiJson('/ai/preferences', { method: 'POST', body: { note } }),
+  deletePreference: async (prefId) => aiJson(`/ai/preferences/${encodeURIComponent(prefId)}`, { method: 'DELETE' }),
+
+  // Scheduled digests (recurring automated summaries)
+  getDigests: async () => aiJson('/ai/digests'),
+  createDigest: async (payload) => aiJson('/ai/digests', { method: 'POST', body: payload }),
+  updateDigest: async (digestId, payload) => aiJson(`/ai/digests/${encodeURIComponent(digestId)}`, { method: 'PUT', body: payload }),
+  deleteDigest: async (digestId) => aiJson(`/ai/digests/${encodeURIComponent(digestId)}`, { method: 'DELETE' }),
+  runDigest: async (digestId) => aiJson(`/ai/digests/${encodeURIComponent(digestId)}/run`, { method: 'POST' }),
+
+  // Saved questions (reusable prompts) and pinned answers (a live tile on Home)
+  getSaved: async () => aiJson('/ai/saved'),
+  addSaved: async (title, question) => aiJson('/ai/saved', { method: 'POST', body: { title, question } }),
+  deleteSaved: async (savedId) => aiJson(`/ai/saved/${encodeURIComponent(savedId)}`, { method: 'DELETE' }),
+  getPins: async () => aiJson('/ai/pins'),
+  addPin: async (title, question, text) => aiJson('/ai/pins', { method: 'POST', body: { title, question, text } }),
+  deletePin: async (pinId) => aiJson(`/ai/pins/${encodeURIComponent(pinId)}`, { method: 'DELETE' }),
+  refreshPin: async (pinId) => aiJson(`/ai/pins/${encodeURIComponent(pinId)}/refresh`, { method: 'POST' }),
+
+  streamChat: async (payload, onEvent, signal) => {
+    const response = await aiRequest('/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify(payload),
+      signal
+    })
+    if (!response.body) throw new Error('AI service returned an empty stream')
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { value, done } = await reader.read()
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+      for (const raw of events) {
+        const data = raw.split('\n').find(line => line.startsWith('data:'))?.slice(5).trim()
+        if (data) onEvent(JSON.parse(data))
+      }
+      if (done) break
+    }
+  }
+}
+
 // Also export these methods on default api for backwards compatibility
 api.getIBEmails = brokerAPI.getIBEmails
 api.getIBMT5Accounts = brokerAPI.getIBMT5Accounts

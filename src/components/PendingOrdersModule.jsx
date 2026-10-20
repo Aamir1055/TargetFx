@@ -2,7 +2,7 @@ import { drawerTapGuard } from '../utils/drawerTapGuard'
 import BrokerCreditSummary from './BrokerCreditSummary'
 import { createLatestRequest } from '../utils/latestRequest'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { ReportsIcon, ReportSubIcon } from './ReportIcons'
+import { AskAiIcon, ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/dataContextStore'
 import { useAuth } from '../contexts/authContextStore'
@@ -682,6 +682,14 @@ value = order.type || '-'
                 >
                   <span className="w-5 h-5 flex items-center justify-center"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/Settings.svg`} alt="Settings" style={{filter:'brightness(0)'}} className="w-5 h-5"/></span>
                   <span>Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { navigate('/ai'); setIsSidebarOpen(false) }}
+                  className={`mt-1 flex items-center gap-3 px-4 h-11 rounded-lg text-[13px] font-semibold ${location.pathname === '/ai' ? 'bg-blue-600 text-white' : 'bg-blue-50/70 text-blue-700'}`}
+                >
+                  <span className="w-5 h-5 flex items-center justify-center"><AskAiIcon className="w-5 h-5" /></span>
+                  <span>Ask AI</span>
                 </button>
               </nav>
             </div>

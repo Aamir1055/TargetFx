@@ -2,6 +2,15 @@
   RewriteEngine On
   RewriteBase /
 
+  # Forward the AI assistant's API calls to its backend, server-to-server, before anything else
+  # touches the request — keeps them out of the SPA fallback below, and keeps the browser on
+  # this same https origin so it never makes a blocked mixed-content call to a plain-http
+  # backend directly. ProxyPass itself isn't allowed in .htaccess (server/vhost context only),
+  # so this uses mod_rewrite's proxy [P] flag instead, which is.
+  RewriteCond %{REQUEST_URI} ^/ai/ [OR]
+  RewriteCond %{REQUEST_URI} ^/health$
+  RewriteRule ^(.*)$ http://127.0.0.1:8090/$1 [P,L]
+
   # Skip rewrite for static assets (js, css, images, fonts, etc)
   RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|map)$ [NC]
   RewriteRule ^ - [L]

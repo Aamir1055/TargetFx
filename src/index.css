@@ -72,6 +72,175 @@
 .mobile-login-content {
   padding: 24px max(20px, var(--app-safe-right)) calc(24px + var(--app-safe-bottom)) max(20px, var(--app-safe-left));
 }
+
+@media (max-width: 767px) {
+  .ask-ai-page {
+    position: fixed;
+    top: var(--app-viewport-top, 0px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    height: var(--app-viewport-height, 100dvh);
+    min-height: var(--app-viewport-height);
+    max-height: var(--app-viewport-height, 100dvh);
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior-x: none;
+    background: #ffffff;
+  }
+
+  .ask-ai-mobile-header {
+    min-height: 56px;
+    padding-top: max(10px, var(--app-safe-top));
+    box-shadow: 0 1px 10px rgba(15, 23, 42, 0.04);
+  }
+
+  .ask-ai-page section {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .ask-ai-mobile-header > button {
+    min-height: 36px;
+  }
+
+  .ask-ai-mobile-header > button:nth-child(2) {
+    min-width: 0;
+  }
+
+  .ask-ai-mobile-scroll {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    padding: 18px 14px 24px;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    background: #ffffff;
+  }
+
+  .ask-ai-mobile-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ask-ai-mobile-scroll > .mx-auto {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .ask-ai-mobile-scroll .ai-md,
+  .ask-ai-mobile-scroll .ai-table-card,
+  .ask-ai-mobile-scroll figure,
+  .ask-ai-mobile-scroll canvas {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .ask-ai-mobile-scroll .ai-md,
+  .ask-ai-mobile-scroll .ai-table-card {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .ask-ai-mobile-scroll .space-y-6 {
+    gap: 22px;
+  }
+
+  .ask-ai-mobile-drawer {
+    padding-top: max(18px, calc(14px + var(--app-safe-top)));
+    padding-bottom: calc(18px + var(--app-safe-bottom));
+    animation: ask-ai-drawer-in 180ms ease-out both;
+  }
+
+  .ask-ai-composer {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    z-index: 50;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    display: block;
+    flex-shrink: 0;
+    padding-top: 4px;
+    padding-right: max(12px, var(--app-safe-right));
+    padding-bottom: max(6px, var(--app-safe-bottom));
+    padding-left: max(12px, var(--app-safe-left));
+    background: #ffffff;
+    border-top: 0;
+    box-shadow: none;
+  }
+
+  .ask-ai-composer::after {
+    display: none;
+  }
+
+  .ask-ai-composer form {
+    display: flex;
+    visibility: visible;
+    position: relative;
+    z-index: 1;
+    order: 1;
+    min-height: 52px;
+    height: auto;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #ffffff;
+  }
+
+  .ask-ai-composer > div {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ask-ai-composer > div > p:first-of-type {
+    display: block;
+    order: 2;
+    margin-top: 1px;
+    margin-bottom: 0;
+    font-size: 10px;
+    line-height: 12px;
+  }
+
+  .ask-ai-composer textarea {
+    min-height: 36px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+    font-size: 14px;
+  }
+
+  .ask-ai-composer form > button:last-child {
+    width: 36px;
+    height: 36px;
+  }
+
+  .ask-ai-composer > div > p:last-child {
+    display: none;
+  }
+}
+
+@keyframes ask-ai-drawer-in {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.ask-ai-composer form {
+  border-color: #93c5fd;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.ask-ai-composer form:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+}
+
 /* Short screens and open keyboards compact the hero instead of hiding it; the page scrolls. */
 @media (max-height: 600px) {
   .mobile-login-hero { padding-top: calc(12px + var(--app-safe-top)); padding-bottom: 16px; }
@@ -465,6 +634,300 @@ body {
   scrollbar-color: #94a3b8 #f1f5f9;
 }
 
+/* Slim scrollbars for chat panels */
+.compact-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.compact-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.compact-scrollbar::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 999px;
+}
+
+.compact-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+.compact-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af transparent;
+}
+
+/* Rich tables inside AI answers */
+.ai-table-card {
+  width: min(950px, 100%);
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ai-table-toolbar,
+.ai-table-chart-header {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px 12px 8px 16px;
+}
+
+.ai-table-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ai-table-heading strong,
+.ai-table-chart-header strong {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-table-heading span {
+  color: #64748b;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ai-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-table-action {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  padding: 0 12px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ai-table-action:hover,
+.ai-table-action.is-active {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.ai-table-action svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.ai-table-scroll {
+  max-height: min(420px, 60vh);
+  max-width: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.ai-table-card table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ai-table-card th,
+.ai-table-card td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 11px 16px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ai-table-card th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  color: #334155;
+  font-weight: 700;
+}
+
+.ai-table-card th:first-child,
+.ai-table-card td:first-child,
+.ai-table-card th:nth-child(2),
+.ai-table-card td:nth-child(2) {
+  text-align: left;
+}
+
+.ai-table-card tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ai-table-card tbody tr:hover {
+  background: #f8fafc;
+}
+
+.ai-table-card .ai-login-cell {
+  color: #1d4ed8;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.ai-table-card .ai-login-cell:hover {
+  text-decoration: underline;
+}
+
+.ai-table-card .ai-login-cell:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -3px;
+}
+
+.ai-login-actions {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.ai-table-card tbody tr:hover .ai-login-actions,
+.ai-table-card .ai-login-actions:focus-within {
+  display: inline-flex;
+}
+
+.ai-login-actions button {
+  height: 22px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #fff;
+  padding: 0 7px;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.ai-login-actions button:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.ai-table-chart {
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.ai-table-chart-header {
+  border-bottom: 0;
+}
+
+.ai-table-chart-header strong {
+  flex: 1;
+}
+
+.ai-table-canvas {
+  height: 340px;
+  padding: 0 16px 16px;
+}
+
+@media (max-width: 767px) {
+  .ai-table-toolbar {
+    min-height: 44px;
+    padding: 6px 8px 6px 10px;
+  }
+
+  .ai-table-actions {
+    flex-shrink: 0;
+    gap: 4px;
+  }
+
+  .ai-table-action {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+  }
+
+  .ai-table-action span {
+    display: none;
+  }
+
+  .ai-table-heading {
+    gap: 6px;
+  }
+
+  .ai-table-heading strong {
+    font-size: 12px;
+  }
+
+  .ai-table-heading span {
+    font-size: 11px;
+  }
+
+  .ai-table-card table {
+    min-width: 560px;
+    font-size: 11px;
+  }
+
+  .ai-table-card th,
+  .ai-table-card td {
+    padding: 7px 8px;
+  }
+
+  .ai-table-scroll {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+  }
+
+  .ai-table-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ai-login-actions {
+    display: none !important;
+  }
+
+  .ai-table-canvas {
+    height: 260px;
+    padding: 0 8px 10px;
+  }
+}
+
+.history-edge-scrollbar {
+  margin-right: -16px;
+  padding-right: 16px;
+}
+
 /* Hide scrollbar but keep functionality */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* IE and Edge */
@@ -720,3 +1183,27 @@ input[type="date"]::-webkit-datetime-edit-year-field {
     transform-origin: left center;
   }
 }
+
+/* Ask AI: markdown rendering for assistant answers (tables, code blocks, lists).
+   Matches the reference Ask AI app's typography; scoped to .ai-md so it never
+   leaks into the rest of the dashboard. */
+.ai-md > :first-child { margin-top: 0; }
+.ai-md > :last-child { margin-bottom: 0; }
+.ai-md p { margin: 8px 0; }
+.ai-md h1, .ai-md h2, .ai-md h3, .ai-md h4 { font-weight: 600; line-height: 1.35; margin: 16px 0 6px; color: #0f172a; }
+.ai-md h1 { font-size: 16px; } .ai-md h2 { font-size: 15px; } .ai-md h3, .ai-md h4 { font-size: 14px; }
+.ai-md ul, .ai-md ol { padding-left: 22px; margin: 6px 0; }
+.ai-md li { margin: 2px 0; }
+.ai-md blockquote { border-left: 3px solid #cbd5e1; margin: 8px 0; padding: 2px 12px; color: #475569; }
+.ai-md hr { border: 0; border-top: 1px solid #e2e8f0; margin: 14px 0; }
+.ai-md a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
+.ai-md code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12.5px; background: #eef2f7; color: #0f172a; padding: 1px 5px; border-radius: 4px; }
+.ai-md pre { position: relative; background: #f8fafc; border: 1px solid #e2e8f0; color: #0f172a; padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: 10px 0; font-size: 12.5px; line-height: 1.5; }
+.ai-md pre code { background: transparent; padding: 0; }
+.ai-md strong { font-weight: 600; }
+.ai-md table { border-collapse: collapse; font-size: 13px; width: 100%; min-width: max-content; font-variant-numeric: tabular-nums; margin: 10px 0; }
+.ai-md th, .ai-md td { padding: 7px 12px; text-align: right; border-bottom: 1px solid #eef0f4; white-space: nowrap; }
+.ai-md th { color: #475569; font-weight: 600; font-size: 12px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; position: sticky; top: 0; }
+.ai-md th:first-child, .ai-md td:first-child { text-align: left; }
+.ai-md tbody tr:hover td { background: #f8fafc; }
+.ai-md { overflow-x: auto; }

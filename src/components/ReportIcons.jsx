@@ -7,6 +7,10 @@ const Svg = ({ className = 'w-5 h-5', children }) => (
   </svg>
 )
 
+export const AskAiIcon = ({ className = 'w-5 h-5' }) => (
+  <img src="/ai-icon.png" alt="" aria-hidden="true" className={`${className} flex-shrink-0 object-contain`} />
+)
+
 // Reports: clipboard with a bar chart (distinct from the Bills document icon)
 export const ReportsIcon = ({ className }) => (
   <Svg className={className}>

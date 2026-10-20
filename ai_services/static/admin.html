@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask AI · Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --canvas: #f5f6f8; --surface: #fff; --surface-2: #eef1f8; --border: #d9dde5; --border-soft: #e6e9ef; --ink: #171b26; --ink-2: #4b5363; --muted: #737b8c; --accent: #3451b2; --accent-hover: #273c8a; --pos: #1f7a4d; --warn: #b25e09; --neg: #b42318; --warn-soft: #fff7ed; --warn-line: #e9c9a3; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 13px; line-height: 1.5; color: var(--ink); background: var(--canvas); }
+  header { height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  header .mark { width: 22px; height: 22px; border-radius: 5px; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
+  header h1 { font-size: 13px; font-weight: 600; margin: 0; }
+  header .crumb { color: var(--muted); }
+  header .sp { flex: 1; }
+  header input { width: 320px; height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; font: inherit; background: var(--surface); color: var(--ink); outline: 0; }
+  header input:focus { border-color: var(--accent); }
+  .who { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 24px 60px; }
+  nav { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  nav button { height: 36px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; font: inherit; color: var(--ink-2); margin-bottom: -1px; }
+  nav button:hover { color: var(--ink); }
+  nav button.active { color: var(--ink); font-weight: 500; border-bottom-color: var(--accent); }
+  section { display: none; } section.active { display: block; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1; min-width: 200px; }
+  label { color: var(--ink-2); font-size: 12.5px; }
+  input, select, textarea { font: inherit; height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); outline: 0; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { width: 100%; height: auto; min-height: 70px; padding: 7px 10px; resize: vertical; }
+  button.btn, a.btn { height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; font-size: 12.5px; display: inline-flex; align-items: center; text-decoration: none; }
+  button.btn:hover, a.btn:hover { border-color: #c9ced9; background: var(--canvas); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 500; }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.danger { color: var(--neg); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; line-height: 17px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--ink-2); margin-right: 4px; }
+  .tag.active { color: var(--pos); border-color: #bfe3cf; } .tag.pending { color: var(--warn); border-color: var(--warn-line); } .tag.disabled { color: var(--muted); }
+  .title { font-weight: 600; margin: 6px 0 4px; }
+  .content { white-space: pre-wrap; color: var(--ink-2); }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .qa { background: var(--canvas); border: 1px solid var(--border-soft); border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 12.5px; }
+  .qa b { color: var(--ink); }
+  .proposal { border: 1px solid var(--warn-line); border-left: 3px solid var(--warn); padding: 8px 12px; margin: 8px 0; background: var(--warn-soft); border-radius: 6px; }
+  .empty { color: var(--muted); padding: 30px; text-align: center; }
+  h2 { font-size: 15px; margin: 18px 0 10px; }
+  table.m { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  table.m th, table.m td { padding: 7px 8px; border-bottom: 1px solid #eef0f4; text-align: right; white-space: nowrap; }
+  table.m th:first-child, table.m td:first-child { text-align: left; }
+  table.m th { color: var(--ink-2); font-weight: 600; font-size: 12px; border-bottom-color: var(--border-soft); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .kpi b { display: block; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; } .kpi small { color: var(--muted); font-size: 12px; }
+  .bad { color: var(--neg); font-weight: 600; } .warn { color: var(--warn); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <span class="mark">BE</span><h1>Broker Eye</h1><span class="crumb">/ Ask AI / Admin</span>
+  <span class="sp"></span>
+  <span class="who" id="who">not signed in</span>
+  <input id="token" type="password" placeholder="Admin JWT (POST /api/auth/login)">
+</header>
+<main>
+  <nav>
+    <button class="active" data-tab="feedback">Feedback & proposals <span id="fbCount"></span></button>
+    <button data-tab="rules">Rules</button>
+    <button data-tab="metrics">Metrics</button>
+  </nav>
+
+  <section id="feedback" class="active">
+    <div class="row" style="margin-bottom:10px"><label>Show <select id="fbStatus"><option value="new">new</option><option value="promoted">promoted</option><option value="dismissed">dismissed</option><option value="">all</option></select></label></div>
+    <div id="fbList"></div>
+  </section>
+
+  <section id="rules">
+    <div class="card">
+      <div class="title">Add a rule</div>
+      <div class="row">
+        <select id="nScope"><option value="global">global (all brokers)</option><option value="broker">one broker</option></select>
+        <input id="nBroker" type="number" placeholder="broker id" style="width:110px">
+        <select id="nKind"><option>rule</option><option>fact</option><option>glossary</option><option>example</option></select>
+        <input id="nTitle" class="grow" placeholder="Title, e.g. Indian number format for INR">
+      </div>
+      <textarea id="nContent" placeholder="What the assistant must do, in one or two imperative sentences. Example: Amounts in INR are written as lakh/crore (₹12.5 L, ₹2.8 Cr), never million."></textarea>
+      <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn primary" id="nSave">Save rule</button></div>
+    </div>
+    <div class="row" style="margin:14px 0 8px"><label>Show <select id="ruleStatus"><option value="">all</option><option value="active">active</option><option value="pending">pending</option><option value="disabled">disabled</option></select></label></div>
+    <div id="ruleList"></div>
+  </section>
+
+  <section id="metrics">
+    <div class="row" style="margin-bottom:10px"><label>Last <select id="mDays"><option value="1">24 hours</option><option value="7" selected>7 days</option><option value="30">30 days</option><option value="90">90 days</option></select></label>
+      <span class="grow"></span><a class="btn" id="evalDl" href="#" download="eval_candidates.jsonl">Download eval candidates (.jsonl)</a></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card"><div class="title">Tools</div><div id="mTools"></div></div>
+    <div class="card"><div class="title">Errors</div><div id="mErrors"></div></div>
+    <div class="card"><div class="title">Per day</div><div id="mDaily"></div></div>
+    <div class="card"><div class="title">Slowest calls</div><div id="mSlow"></div></div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+let token = ''; try { token = localStorage.getItem('brokereye_admin_token') || ''; } catch {}
+$('#token').value = token;
+$('#token').addEventListener('change', () => { token = $('#token').value.trim(); try { localStorage.setItem('brokereye_admin_token', token); } catch {} boot(); });
+const H = () => ({ 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' });
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: H() });
+  if (!r.ok) { let d = r.status + ' ' + r.statusText; try { d = (await r.json()).detail || d; } catch {} throw new Error(d); }
+  return r.json();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('active', s.id === b.dataset.tab));
+});
+
+/* ---- feedback ---- */
+async function loadFeedback() {
+  const st = $('#fbStatus').value;
+  let j; try { j = await api('/ai/admin/feedback' + (st ? '?status=' + st : '')); } catch (e) { $('#fbList').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const items = j.feedback;
+  $('#fbCount').textContent = st === 'new' && items.length ? `(${items.length})` : '';
+  if (!items.length) { $('#fbList').innerHTML = '<div class="empty">Nothing here.</div>'; return; }
+  $('#fbList').innerHTML = items.map(f => `
+    <div class="card">
+      <div class="row">
+        <span class="tag">${f.rating > 0 ? 'good' : 'bad'}</span>
+        <span class="tag">broker ${f.broker_id}</span><span class="tag">${esc(f.channel || '')}</span>
+        <span class="tag ${f.status === 'new' ? 'pending' : f.status === 'promoted' ? 'active' : 'disabled'}">${esc(f.status)}</span>
+        <span class="meta" style="margin:0 0 0 auto">${new Date(f.created_at).toLocaleString()}</span>
+      </div>
+      ${f.comment ? `<div class="title">“${esc(f.comment)}”</div>` : ''}
+      <div class="qa"><b>Q:</b> ${esc((f.question || '').slice(0, 400))}<br><b>A:</b> ${esc((f.answer || '').slice(0, 500))}${(f.answer || '').length > 500 ? '…' : ''}</div>
+      ${f.knowledge_id ? `<div class="proposal"><div class="title">Proposed rule <span class="tag ${esc(f.proposed_status)}">${esc(f.proposed_status)}</span></div>
+          <input id="pt${f.id}" class="grow" style="width:100%;margin-bottom:6px" value="${esc(f.proposed_title)}">
+          <textarea id="pc${f.id}">${esc(f.proposed_content)}</textarea></div>` : ''}
+      ${f.status === 'new' ? `<div class="row" style="justify-content:flex-end;margin-top:8px">
+          <button class="btn" data-dismiss="${f.id}">Dismiss</button>
+          <button class="btn primary" data-promote="${f.id}" data-k="${f.knowledge_id || ''}">${f.knowledge_id ? 'Approve rule' : 'Write a rule & approve'}</button></div>` : ''}
+    </div>`).join('');
+  $('#fbList').querySelectorAll('[data-dismiss]').forEach(b => b.onclick = async () => { await api('/ai/admin/feedback/' + b.dataset.dismiss + '/dismiss', { method: 'POST' }); loadFeedback(); loadRules(); });
+  $('#fbList').querySelectorAll('[data-promote]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.promote; let body = null;
+    if (b.dataset.k) body = { scope: 'global', kind: 'rule', title: $('#pt' + id).value, content: $('#pc' + id).value, status: 'active' };
+    else { const title = prompt('Rule title'); if (!title) return; const content = prompt('Rule text (imperative, 1–2 sentences)'); if (!content) return; body = { scope: 'global', kind: 'rule', title, content, status: 'active' }; }
+    try { await api('/ai/admin/feedback/' + id + '/promote', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { alert(e.message); }
+    loadFeedback(); loadRules();
+  });
+}
+$('#fbStatus').onchange = loadFeedback;
+
+/* ---- rules ---- */
+async function loadRules() {
+  const st = $('#ruleStatus').value;
+  let j; try { j = await api('/ai/admin/knowledge' + (st ? '?status=' + st : '')); } catch (e) { $('#ruleList').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (!j.rules.length) { $('#ruleList').innerHTML = '<div class="empty">No rules yet.</div>'; return; }
+  $('#ruleList').innerHTML = j.rules.map(r => `
+    <div class="card" data-id="${r.id}">
+      <div class="row">
+        <span class="tag ${esc(r.status)}">${esc(r.status)}</span><span class="tag">${esc(r.kind)}</span>
+        <span class="tag">${r.scope === 'broker' ? 'broker ' + r.broker_id : 'global'}</span><span class="tag">${esc(r.source)}</span>
+        <span class="meta" style="margin:0 0 0 auto">#${r.id} · ${esc(r.created_by || '')} · ${new Date(r.updated_at).toLocaleDateString()}</span>
+      </div>
+      <input class="grow t" style="width:100%;margin:8px 0 6px;font-weight:600" value="${esc(r.title)}">
+      <textarea class="c">${esc(r.content)}</textarea>
+      <div class="row" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn danger" data-act="delete">Delete</button>
+        ${r.status === 'active' ? '<button class="btn" data-act="disable">Disable</button>' : '<button class="btn" data-act="activate">Activate</button>'}
+        <button class="btn primary" data-act="save">Save</button>
+      </div>
+    </div>`).join('');
+  $('#ruleList').querySelectorAll('button[data-act]').forEach(b => b.onclick = async () => {
+    const card = b.closest('.card'), id = card.dataset.id, act = b.dataset.act;
+    try {
+      if (act === 'delete') { if (!confirm('Delete this rule?')) return; await api('/ai/admin/knowledge/' + id, { method: 'DELETE' }); }
+      else if (act === 'save') await api('/ai/admin/knowledge/' + id, { method: 'PUT', body: JSON.stringify({ title: card.querySelector('.t').value, content: card.querySelector('.c').value }) });
+      else await api('/ai/admin/knowledge/' + id, { method: 'PUT', body: JSON.stringify({ status: act === 'disable' ? 'disabled' : 'active' }) });
+    } catch (e) { alert(e.message); }
+    loadRules();
+  });
+}
+$('#ruleStatus').onchange = loadRules;
+$('#nScope').onchange = () => $('#nBroker').style.display = $('#nScope').value === 'broker' ? '' : 'none';
+$('#nScope').onchange();
+$('#nSave').onclick = async () => {
+  const body = { scope: $('#nScope').value, broker_id: +$('#nBroker').value || null, kind: $('#nKind').value, title: $('#nTitle').value.trim(), content: $('#nContent').value.trim(), status: 'active' };
+  if (!body.title || !body.content) return alert('Title and text are required');
+  try { await api('/ai/admin/knowledge', { method: 'POST', body: JSON.stringify(body) }); $('#nTitle').value = ''; $('#nContent').value = ''; loadRules(); } catch (e) { alert(e.message); }
+};
+
+/* ---- metrics ---- */
+const n = v => (v == null ? '–' : Number(v).toLocaleString());
+const ms = v => (v == null ? '–' : Number(v) >= 1000 ? (Number(v) / 1000).toFixed(1) + ' s' : Math.round(Number(v)) + ' ms');
+const table = (cols, rows) => rows.length ? `<table class="m"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<div class="empty">Nothing in this period.</div>';
+async function loadMetrics() {
+  let j; try { j = await api('/ai/admin/metrics?days=' + $('#mDays').value); } catch (e) { $('#kpis').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const t = j.totals || {}, fb = j.feedback || {};
+  const tokIn = j.daily.reduce((a, d) => a + Number(d.input_tokens), 0), tokOut = j.daily.reduce((a, d) => a + Number(d.output_tokens), 0), cached = j.daily.reduce((a, d) => a + Number(d.cache_read), 0);
+  const calls = j.tools.reduce((a, x) => a + Number(x.calls), 0), errs = j.tools.reduce((a, x) => a + Number(x.errors), 0);
+  const kpi = (v, l, cls) => `<div class="kpi"><b class="${cls || ''}">${v}</b><small>${l}</small></div>`;
+  $('#kpis').innerHTML = kpi(n(j.daily.reduce((a, d) => a + Number(d.questions), 0)), 'questions') + kpi(n(t.active_brokers), 'active brokers') + kpi(n(t.conversations), 'conversations')
+    + kpi(n(calls), 'tool calls') + kpi(calls ? (errs / calls * 100).toFixed(1) + '%' : '–', 'tool error rate', errs / Math.max(1, calls) > 0.05 ? 'bad' : '')
+    + kpi(n(tokIn) + ' / ' + n(tokOut), 'tokens in / out') + kpi(tokIn ? Math.round(cached / tokIn * 100) + '%' : '–', 'input served from cache', tokIn && cached / tokIn < 0.5 ? 'warn' : '')
+    + kpi(`${n(fb.good)} good · ${n(fb.bad)} bad`, `feedback (${n(fb.open)} open)`, Number(fb.bad) > Number(fb.good) ? 'warn' : '')
+    + kpi(`${n(t.actions_executed)} / ${n(t.actions_proposed)}`, 'credit actions confirmed / proposed') + kpi(`${n(t.digests_enabled)} · ${n(t.alerts_enabled)}`, 'digests · alerts enabled') + kpi(n(t.alert_events), 'alert hits') + kpi(n(t.rules_active), 'active rules');
+  $('#mTools').innerHTML = table(['Tool', 'Calls', 'Errors', 'Error %', 'Avg', 'p95', 'Avg result', 'Last used'], j.tools.map(x => { const rate = x.calls ? x.errors / x.calls * 100 : 0; return [esc(x.tool_name), n(x.calls), `<span class="${x.errors > 0 ? 'bad' : ''}">${n(x.errors)}</span>`, `<span class="${rate > 5 ? 'bad' : rate > 1 ? 'warn' : ''}">${rate.toFixed(1)}%</span>`, ms(x.avg_ms), ms(x.p95_ms), x.avg_bytes != null ? (Number(x.avg_bytes) / 1024).toFixed(1) + ' KB' : '–', x.last_used ? new Date(x.last_used).toLocaleString() : '–']; }));
+  $('#mErrors').innerHTML = table(['Tool', 'Error', 'Count', 'Last'], j.errors.map(e => [esc(e.tool_name), `<span style="white-space:normal">${esc(e.error || '')}</span>`, n(e.n), new Date(e.last_at).toLocaleString()]));
+  $('#mDaily').innerHTML = table(['Day', 'Questions', 'Brokers', 'Input', 'Cached', 'Cache %', 'Output', 'Cache writes'], j.daily.map(d => [esc(d.day), n(d.questions), n(d.brokers), n(d.input_tokens), n(d.cache_read), d.input_tokens > 0 ? Math.round(d.cache_read / d.input_tokens * 100) + '%' : '–', n(d.output_tokens), n(d.cache_write)]));
+  $('#mSlow').innerHTML = table(['Tool', 'Duration', 'Broker', 'When'], j.slowest.map(s => [esc(s.tool_name), ms(s.duration_ms), n(s.broker_id), new Date(s.created_at).toLocaleString()]));
+}
+$('#mDays').onchange = loadMetrics;
+$('#evalDl').onclick = async e => {
+  e.preventDefault();
+  try { const r = await fetch('/ai/admin/eval/candidates?limit=500', { headers: H() }); if (!r.ok) throw new Error(r.status + ' ' + r.statusText); const blob = await r.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'eval_candidates.jsonl'; a.click(); URL.revokeObjectURL(a.href); }
+  catch (err) { alert('Download failed: ' + err.message); }
+};
+
+async function boot() {
+  if (!token) { $('#who').textContent = 'paste an admin token'; return; }
+  try { const me = await api('/ai/admin/me'); $('#who').textContent = 'signed in as ' + me.username; } catch (e) { $('#who').textContent = e.message; return; }
+  loadFeedback(); loadRules(); loadMetrics();
+}
+boot();
+</script>
+</body>
+</html>

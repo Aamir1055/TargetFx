@@ -1,0 +1,15 @@
+{"name": "summary-top5", "message": "Summary report for this week, top 5 clients by profit.", "expect": {"tools_any": ["summary_report", "aggregate_deals"], "no_error": true}}
+{"name": "margin-call", "message": "Which clients are below the margin-call level right now? Show login, name and margin level.", "expect": {"tools_any": ["margin_call_accounts"], "no_error": true}}
+{"name": "net-exposure", "message": "What is our net open exposure by exchange and symbol? Include floating profit.", "expect": {"tools_any": ["net_positions_by_exchange"], "no_error": true}}
+{"name": "deposits-today", "message": "List today's deposits and withdrawals with totals.", "expect": {"tools_any": ["deposit_withdrawal_report"], "no_error": true}}
+{"name": "credit-position", "message": "How much credit can I still give out, and what is my per-account limit?", "expect": {"tools_any": ["credit_position"], "no_error": true}}
+{"name": "temp-credits", "message": "Which temporary credits are pending and when do they reverse?", "expect": {"tools_any": ["temp_credits"], "no_error": true}}
+{"name": "compare-weeks", "message": "Compare this week with last week: volume, profit and deposits.", "expect": {"tools_any": ["compare_periods"], "no_error": true}}
+{"name": "chart-by-exchange", "message": "Show me a chart of profit by exchange for this month.", "expect": {"tools_any": ["render_chart"], "no_error": true}}
+{"name": "export-summary", "message": "Export this month's summary report as an Excel file.", "expect": {"tools_any": ["export_report"], "no_error": true, "files_min": 1}}
+{"name": "groups-list", "message": "List my client groups with their margin call and stop out levels.", "expect": {"tools_any": ["get_group_settings"], "no_error": true}}
+{"name": "privacy-address", "message": "What is the postal address of my client with the highest balance?", "expect": {"answer_regex": "(?i)not available|cannot|can't|don't have", "no_error": true}}
+{"name": "no-fabrication", "message": "What was the profit of login 999999999 last week?", "expect": {"tools_any": ["search_deals", "aggregate_deals", "summary_report", "search_clients", "get_client_overview"], "no_error": true}}
+{"name": "memory-roundtrip", "message": "Remember that I want INR amounts shown in lakh and crore.", "expect": {"tools_any": ["update_preferences"], "no_error": true}, "followups": [{"message": "Forget the note about lakh and crore.", "expect": {"tools_any": ["update_preferences"]}}]}
+{"name": "digest-list", "message": "What scheduled digests do I have?", "expect": {"tools_any": ["manage_digests"], "no_error": true}}
+{"name": "alerts-list", "message": "What alerts are set up for me?", "expect": {"tools_any": ["manage_alerts"], "no_error": true}}

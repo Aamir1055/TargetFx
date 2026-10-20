@@ -2,7 +2,7 @@ import { drawerTapGuard } from '../utils/drawerTapGuard'
 import BrokerCreditSummary from './BrokerCreditSummary'
 import { withExportLoading } from '../utils/exportLoading'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { ReportsIcon, ReportSubIcon } from './ReportIcons'
+import { AskAiIcon, ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/dataContextStore'
 import { brokerAPI } from '../services/api'
@@ -1619,7 +1619,18 @@ export default function ClientPercentageModule() {
                   {label:'Settings', path:'/settings', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" stroke="#404040"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2" stroke="#404040"/></svg>
                   )},
-                ].map((item, idx) => item.path === '/reports/exchange' ? (
+                  {label:'Ask AI', path:'/ai'},
+                ].map((item, idx) => item.path === '/ai' ? (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => { navigate('/ai'); setIsSidebarOpen(false) }}
+                    className={`mt-1 flex items-center gap-3 px-4 h-11 rounded-lg text-[13px] font-semibold ${location.pathname === '/ai' ? 'bg-blue-600 text-white' : 'bg-blue-50/70 text-blue-700'}`}
+                  >
+                    <span className="w-5 h-5 flex items-center justify-center"><AskAiIcon className="w-5 h-5" /></span>
+                    <span>Ask AI</span>
+                  </button>
+                ) : item.path === '/reports/exchange' ? (
                   <div key={idx}>
                     <button type="button" onClick={() => setMobileReportsOpen(value => !value)} className="flex items-center gap-3 px-4 h-11 w-full text-left text-[13px] text-[#404040]">
                       <span className="w-5 h-5 flex items-center justify-center"><ReportsIcon className="w-5 h-5 text-black" /></span>

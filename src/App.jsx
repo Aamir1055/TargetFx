@@ -74,6 +74,7 @@ const BrokerRulePage = lazy(() => import('./pages/BrokerRulePage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const GraphicalAnalyticsPage = lazy(() => import('./pages/GraphicalAnalyticsPage'))
 const ClientDashboardDesignCPage = lazy(() => import('./pages/ClientDashboardDesignC'))
+const AskAIPage = lazy(() => import('./pages/AskAIPage'))
 
 // Main App Content Component
 const AppContent = () => {
@@ -233,6 +234,7 @@ const AppContent = () => {
         <Route path="/login" element={<Navigate to="/client2" replace />} />
         <Route path="/dashboard" element={<Navigate to="/client2" replace />} />
         <Route path="/client2" element={<Client2Page />} />
+        <Route path="/ai" element={<AskAIPage />} />
         <Route path="/positions" element={<PositionsPage />} />
         <Route path="/pending-orders" element={<PendingOrdersPage />} />
         <Route path="/margin-level" element={<MarginLevelPage />} />
@@ -263,6 +265,7 @@ function PreloadRoutes() {
       try {
         // Preload commonly navigated pages
         import('./pages/Client2Page')
+        import('./pages/AskAIPage')
         import('./pages/PendingOrdersPage')
         import('./pages/MarginLevelPage')
         import('./pages/LiveDealingPage')

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/authContextStore'
 import { useGroups } from '../contexts/groupContextStore'
 import { useIB } from '../contexts/ibContextStore'
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
-import { ReportsIcon, ReportSubIcon } from './ReportIcons'
+import { AskAiIcon, ReportsIcon, ReportSubIcon } from './ReportIcons'
 import { drawerTapGuard } from '../utils/drawerTapGuard'
 
 // Routes mount separate sidebars; keep their navigation position for this session.
@@ -92,7 +92,8 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
         { name: 'D/W Report', path: '/reports/deposit-withdrawal' }
       ]
     },
-    { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
+    { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' },
+    { name: 'Ask AI', path: '/ai', icon: 'ai' }
   ]
 
   const isReportsActive = location.pathname.startsWith('/reports')
@@ -147,7 +148,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
     <>
       {/* Mobile navigation drawer */}
       {!desktopOnly && isOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className="fixed inset-0 z-[80] lg:hidden">
           <div
             className="absolute inset-0 bg-black/10"
             onClick={() => typeof onClose === 'function' && onClose()}
@@ -244,12 +245,16 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                       onClick={() => handleNavigate(item.path)}
                       className={`flex items-center gap-3 px-4 h-11 w-full text-[13px] ${isActivePath(item.path) ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                     >
-                      <img
-                        src={`${baseUrl}sidebar-icons/${item.img}`}
-                        alt={item.name}
-                        className="w-5 h-5"
-                        style={{ filter: isActivePath(item.path) ? undefined : 'brightness(0)' }}
-                      />
+                      {item.icon === 'ai' ? (
+                        <AskAiIcon className="w-5 h-5 text-blue-600" />
+                      ) : (
+                        <img
+                          src={`${baseUrl}sidebar-icons/${item.img}`}
+                          alt={item.name}
+                          className="w-5 h-5"
+                          style={{ filter: isActivePath(item.path) ? undefined : 'brightness(0)' }}
+                        />
+                      )}
                       <span>{item.name}</span>
                       {item.icon === 'margin' && displayCount > 0 && <span className="ml-auto rounded-full bg-red-400 px-2 py-0.5 text-[11px] font-bold text-white">{displayCount}</span>}
                     </button>
@@ -416,20 +421,29 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                 key={item.name}
                 onClick={() => handleNavigate(item.path)}
                 className={`
-                  group w-full text-left flex items-center ${isOpen ? 'px-4' : 'px-2 justify-center'} py-3 rounded-xl text-sm font-medium
+                  group relative w-full text-left flex items-center ${isOpen ? 'px-4' : 'px-2 justify-center'} py-3 rounded-xl text-sm font-medium
                   transition-all duration-200 transform hover:scale-[1.02]
+                  ${item.icon === 'ai' ? 'mb-2 border border-blue-100' : ''}
                   ${
                   isActivePath(item.path)
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                    ? item.icon === 'ai'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 ring-1 ring-blue-300'
+                      : 'bg-blue-600 text-white shadow-md'
+                    : item.icon === 'ai'
+                      ? 'bg-blue-50/70 text-blue-700 hover:bg-blue-100 hover:text-blue-800'
+                      : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <img
-                  src={`${baseUrl}sidebar-icons/${item.img}`}
-                  alt={item.name}
-                  className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${isActivePath(item.path) ? '' : 'group-hover:scale-110'}`}
-                  style={{ filter: isActivePath(item.path) ? 'brightness(0) invert(1)' : 'brightness(0)' }}
-                />
+                {item.icon === 'ai' ? (
+                  <AskAiIcon className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${isActivePath(item.path) ? 'text-white' : 'text-blue-600 group-hover:scale-110'}`} />
+                ) : (
+                  <img
+                    src={`${baseUrl}sidebar-icons/${item.img}`}
+                    alt={item.name}
+                    className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${isActivePath(item.path) ? '' : 'group-hover:scale-110'}`}
+                    style={{ filter: isActivePath(item.path) ? 'brightness(0) invert(1)' : 'brightness(0)' }}
+                  />
+                )}
                 {item.icon === 'rebate' && (
                   <svg className={`w-5 h-5 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${isActivePath(item.path) ? '' : 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-3.866 0-7 1.79-7 4s3.134 4 7 4 7-1.79 7-4-3.134-4-7-4zm0 0V5m0 11v3m-5-6h10" />
