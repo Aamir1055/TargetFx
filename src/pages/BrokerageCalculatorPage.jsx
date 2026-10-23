@@ -330,30 +330,32 @@ export default function BrokerageCalculatorPage() {
     <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={toggleSidebar} desktopOnly />
     <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} mobileOnly />
     <div className={`flex min-w-0 flex-1 flex-col overflow-y-auto ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
-      <header className="m-3 rounded-xl bg-white p-4 shadow-sm sm:m-5">
+      <header className="m-3 rounded-xl bg-white p-3 shadow-sm sm:m-5 sm:p-4">
         <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
-          <div className="w-full shrink-0 lg:w-auto lg:max-w-64"><div className="flex items-center gap-2">
-            <button type="button" className={`${buttonCls} lg:hidden`} onClick={() => setMobileSidebarOpen(true)} aria-label="Open navigation">Menu</button>
-            <h1 className="text-xl font-bold text-[#1A1A1A]">Brokerage Calculator</h1>
+          <div className="w-full shrink-0 lg:w-auto lg:max-w-64"><div className="flex items-center gap-3">
+            <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F1F5FB] text-[#4B4B4B] shadow-inner lg:hidden" onClick={() => setMobileSidebarOpen(true)} aria-label="Open navigation">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect y="3.75" width="20" height="2.5" rx="1.25" fill="currentColor"/><rect y="8.75" width="20" height="2.5" rx="1.25" fill="currentColor"/><rect y="13.75" width="20" height="2.5" rx="1.25" fill="currentColor"/></svg>
+            </button>
+            <h1 className="min-w-0 truncate text-center text-lg font-semibold text-[#4B4B4B] sm:text-left sm:text-xl sm:font-bold sm:text-[#1A1A1A]">Brokerage Calculator</h1>
           </div></div>
-        <div aria-label="Calculator controls" className="grid min-w-0 flex-1 basis-full grid-cols-[repeat(auto-fit,minmax(110px,1fr))] items-center gap-2 lg:basis-0">
-          <select aria-label="Settlement week" title="Settlement week" className={`${headerButtonCls} w-full truncate`} value={query.week_id ?? ''} disabled={savingUsd} onChange={event => { setQuery(current => ({ ...current, week_id: Number(event.target.value), page: 1 })); setPendingIssue('') }}>
+        <div aria-label="Calculator controls" className="grid min-w-0 flex-1 basis-full grid-cols-2 items-center gap-1.5 sm:grid-cols-[repeat(auto-fit,minmax(110px,1fr))] sm:gap-2 lg:basis-0">
+          <select aria-label="Settlement week" title="Settlement week" className={`${headerButtonCls} !h-9 w-full truncate px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} value={query.week_id ?? ''} disabled={savingUsd} onChange={event => { setQuery(current => ({ ...current, week_id: Number(event.target.value), page: 1 })); setPendingIssue('') }}>
             {!weeks.length && <option value="">No weeks available</option>}{weeks.map(week => <option key={week.id} value={week.id}>{week.name || `Week ${week.id}`}</option>)}
           </select>
-          <select aria-label="Status" title="Status" className={`${headerButtonCls} w-full`} value={query.status} onChange={event => setQuery(current => ({ ...current, status: event.target.value, page: 1 }))}>
+          <select aria-label="Status" title="Status" className={`${headerButtonCls} !h-9 w-full px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} value={query.status} onChange={event => setQuery(current => ({ ...current, status: event.target.value, page: 1 }))}>
             <option value="all">All</option><option value="ready">Ready</option><option value="pending">Pending</option>
           </select>
-          <button type="button" className={headerButtonCls} onClick={refresh} disabled={busy}>Recalculate</button>
-          <button type="button" className={headerButtonCls} onClick={() => setSettings({ client: false })}>Exchange Rates</button>
-          <button type="button" className={headerButtonCls} onClick={() => setSettings({ client: true })}>Client Rates</button>
-          <Link className={headerButtonCls} to="/client-percentage">Manage LD%</Link>
-          <button type="button" className={`${headerControlCls} ${usd?.source === 'none' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'}`} disabled={busy || !report} onClick={openUsd} aria-label="Edit USD-INR rate" aria-haspopup="dialog" aria-expanded={editingUsd} title="Edit USD-INR rate">
+          <button type="button" className={`${headerButtonCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} onClick={refresh} disabled={busy}>Recalculate</button>
+          <button type="button" className={`${headerButtonCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} onClick={() => setSettings({ client: false })}>Exchange Rates</button>
+          <button type="button" className={`${headerButtonCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} onClick={() => setSettings({ client: true })}>Client Rates</button>
+          <Link className={`${headerButtonCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} to="/client-percentage">Manage LD%</Link>
+          <button type="button" className={`${headerControlCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs ${usd?.source === 'none' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'}`} disabled={busy || !report} onClick={openUsd} aria-label="Edit USD-INR rate" aria-haspopup="dialog" aria-expanded={editingUsd} title="Edit USD-INR rate">
             <span>USD-INR</span><span className="tabular-nums">{usd?.rate == null ? 'Set rate' : format(usd.rate)}</span>
           </button>
         </div>
-          <div className="ml-auto flex shrink-0 items-center gap-3">
+          <div className="ml-auto flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto sm:gap-3">
             <BrokerCreditSummary variant="header" />
-            <button type="button" className={`${headerPrimaryCls} min-w-[110px] shrink-0`} disabled={busy || !report || !!exporting || search !== query.search} onClick={doExport} title="Export matching records as CSV">
+            <button type="button" className={`${headerPrimaryCls} !h-9 min-w-[92px] px-2 text-[11px] sm:!h-10 sm:min-w-[110px] sm:px-2 sm:text-xs`} disabled={busy || !report || !!exporting || search !== query.search} onClick={doExport} title="Export matching records as CSV">
               <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4" /></svg>
               {exporting ? 'Exporting...' : 'Export'}
             </button>

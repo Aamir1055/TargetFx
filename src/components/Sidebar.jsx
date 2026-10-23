@@ -79,6 +79,7 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
     { name: 'Live Dealing', path: '/live-dealing', icon: 'live-dealing', img: 'Live-Dealing.svg' },
     { name: 'Client Percentage', path: '/client-percentage', icon: 'percentage', img: 'Client-Percentage.svg' },
     { name: 'Bills', path: '/bills', icon: 'bills', img: 'Bills.svg' },
+    { name: 'Brokerage Calculator', path: '/brokerage-calculator', icon: 'brokerage' },
     {
       name: 'Reports',
       icon: 'reports',

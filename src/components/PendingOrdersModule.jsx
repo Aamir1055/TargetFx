@@ -641,6 +641,7 @@ value = order.type || '-'
                   {label:'Bills', path:'/bills', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="#404040"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#404040" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   )},
+                  {label:'Brokerage Calculator', path:'/brokerage-calculator'},
                   {label:'Tutorials', path:'/tutorials', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="3" stroke="#404040"/><path d="M10 9.2v5.6l5-2.8-5-2.8z" fill="#404040"/></svg>
                   )},
