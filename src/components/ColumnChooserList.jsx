@@ -154,7 +154,7 @@ const ColumnChooserList = ({
             <div className="relative group">
               <button
                 type="button"
-                onClick={onResetOrder}
+                onClick={onResetOrder}  
                 className={`p-1 rounded ${theme.closeText}`}
                 aria-label="Reset column order"
               >
