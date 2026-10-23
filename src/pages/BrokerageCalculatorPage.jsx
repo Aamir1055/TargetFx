@@ -1,526 +1,485 @@
-import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
+import { Link } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import BrokerCreditSummary from '../components/BrokerCreditSummary'
+import PageSizeSelect from '../components/PageSizeSelect'
 import { brokerAPI, brokerageCalcAPI } from '../services/api'
+import {
+  calculatorNumber, calculatorData, calculatorReport, changedCalculatorRates,
+  calculatorUsdRate, calculatorExportView,
+} from '../utils/brokerageCalculator'
 
-// ---------- helpers ----------
-const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null }
-const fmtMoney = (v) => { const n = num(v); return n == null ? (v ?? '—') : n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
-const fmtNum = (v) => { const n = num(v); return n == null ? (v ?? '—') : n.toLocaleString('en-IN') }
-const titleCase = (k) => String(k).replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-const SYM = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'د.إ' }
-const sym = (c) => SYM[String(c || '').toUpperCase()] || (c ? `${c} ` : '')
-const money = (v, cur) => { const n = num(v); return n == null ? '—' : `${sym(cur)}${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
-const ISSUE_LABEL = { method_missing: 'method', rate_missing: 'rate', usd_inr_missing: 'USD–INR', lots_missing: 'lots', turnover_missing: 'turnover', client_rate_missing: 'client rate' }
+const format = (value, decimals = 2) => {
+  const number = calculatorNumber(value)
+  return number == null ? '—' : number.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+}
+const errorMessage = error => error?.response?.data?.message || error.message || 'Request failed. Please retry.'
+const inputCls = 'w-full rounded-lg border border-[#E5E7EB] bg-white px-2.5 py-2 font-outfit text-sm text-[#1F2937] placeholder:text-[#9CA3AF] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+const buttonBaseCls = 'rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50'
+const buttonCls = `${buttonBaseCls} border-[#E5E7EB] bg-white text-[#374151] hover:bg-blue-50`
+const primaryCls = `${buttonBaseCls} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`
+const headerControlCls = 'flex h-10 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2 font-outfit text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50'
+const headerButtonCls = `${headerControlCls} border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50`
+const headerPrimaryCls = `${headerControlCls} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`
+const rateInputCls = `${inputCls} h-10 min-w-0 font-medium`
+const rateButtonCls = `${buttonCls} inline-flex h-10 items-center justify-center whitespace-nowrap`
+const ratePrimaryCls = `${primaryCls} inline-flex h-10 items-center justify-center whitespace-nowrap`
+const cellCls = 'whitespace-nowrap px-3 py-2.5 text-right text-sm tabular-nums'
+const TABS = [
+  { id: 'logins', label: 'Final Report' },
+  { id: 'exchanges', label: 'Exchange Detail' },
+  { id: 'pivot', label: 'Exchange View' },
+  { id: 'pending', label: 'Pending' },
+]
+const ISSUE_LABELS = {
+  method_missing: 'Method missing',
+  rate_missing: 'Rate missing',
+  usd_inr_missing: 'USD-INR missing',
+  account_currency_unsupported: 'Unsupported account currency',
+}
 
 function StatusBadge({ status }) {
-  const s = String(status || '').toLowerCase()
-  const cls = s === 'pending' ? 'bg-amber-50 text-amber-700'
-    : (s === 'done' || s === 'paid' || s === 'charged' || s === 'ok' || s === 'complete') ? 'bg-emerald-50 text-emerald-700'
-    : 'bg-slate-100 text-slate-500'
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold capitalize ${cls}`}>{status || '—'}</span>
+  return <span className={`rounded-full px-2 py-1 text-xs font-semibold uppercase ${status === 'pending' ? 'bg-amber-50 text-amber-700' : status === 'ready' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{status || '—'}</span>
 }
 
-function StatTile({ label, value, tone }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-1 text-[16px] font-bold tabular-nums ${tone === 'amber' ? 'text-amber-600' : 'text-slate-900'}`}>{value}</p>
-    </div>
-  )
+function Flags({ row }) {
+  return <>{(row.flags || []).map(flag => <span key={flag} className="ml-1 inline-block rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-700" title={flag === 'commission_refund' ? 'MT5 paid commission back on some deals; check before paying.' : flag.replace(/_/g, ' ')}>
+    {flag === 'commission_refund' ? 'Commission refund' : flag.replace(/_/g, ' ')}
+  </span>)}</>
 }
 
-const Missing = () => <span className="text-[11px] font-medium text-amber-600">missing</span>
-
-// Pull the array of rows out of whatever envelope the calculate endpoint returns.
-const extractRows = (data) => {
-  if (Array.isArray(data)) return data
-  for (const k of ['rows', 'data', 'results', 'items', 'records', 'clients', 'logins']) {
-    if (Array.isArray(data?.[k])) return data[k]
-  }
-  if (data?.data && typeof data.data === 'object') return extractRows(data.data)
-  return []
+function Amount({ row, field }) {
+  const warning = ['our_brokerage_inr', 'balance_inr'].includes(field) && row.flags?.includes('our_brokerage_exceeds_charged')
+  return <td className={`${cellCls} ${warning ? 'bg-red-50 text-red-700' : 'text-[#374151]'}`}>{format(row[field])}</td>
 }
-const extractTotal = (data) => num(data?.total ?? data?.total_count ?? data?.data?.total ?? data?.pagination?.total) ?? null
-const extractSummary = (data) => data?.summary || data?.totals || data?.data?.summary || null
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'paid', label: 'Paid' },
-]
+function Table({ headers, children, label, columnWidths }) {
+  return <div className="overflow-x-auto">
+    <table aria-label={label} className={`w-full border-collapse bg-white font-outfit text-sm text-[#374151] [&_tbody]:text-[#374151] [&_tfoot]:text-[#374151] ${columnWidths ? 'min-w-[800px] table-fixed' : ''}`}>
+      {columnWidths && <colgroup>{columnWidths.map((width, index) => <col key={headers[index]} style={{ width }} />)}</colgroup>}
+      <thead><tr className="bg-blue-600 text-left">{headers.map(header => <th key={header} className="whitespace-nowrap px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-white">{header}</th>)}</tr></thead>
+      {children}
+    </table>
+  </div>
+}
 
-function Modal({ title, subtitle, onClose, children, footer, wide }) {
+function RateSettings({ client = false, selection = {}, onClose, onSaved }) {
+  const [rows, setRows] = useState(null)
+  const [original, setOriginal] = useState([])
+  const [exchanges, setExchanges] = useState([])
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [reload, setReload] = useState(0)
+  const [loginFilter, setLoginFilter] = useState(String(selection.login || ''))
+  const [exchangeFilter, setExchangeFilter] = useState(selection.exchange || '')
+  const [filters, setFilters] = useState(selection)
+
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey); document.body.style.overflow = 'hidden'
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
-  }, [onClose])
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 p-3 backdrop-blur-sm sm:p-6" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ${wide ? 'max-w-3xl' : 'max-w-xl'}`}>
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
-          <div className="min-w-0">
-            <h3 className="text-[15px] font-bold text-slate-900">{title}</h3>
-            {subtitle && <p className="mt-0.5 text-[12px] text-slate-500">{subtitle}</p>}
-          </div>
-          <button type="button" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Close">
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-          </button>
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = event => { if (event.key === 'Escape' && !saving) onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = previous; document.removeEventListener('keydown', onKey) }
+  }, [onClose, saving])
+
+  useEffect(() => {
+    let active = true
+    setRows(null); setError('')
+    const load = async () => {
+      try {
+        const [exchangeResponse, clientResponse] = await Promise.all([
+          brokerageCalcAPI.getExchanges(),
+          client ? brokerageCalcAPI.getClientRates(filters) : Promise.resolve(null),
+        ])
+        const exchangeRows = calculatorData(exchangeResponse).exchanges
+        const saved = client ? calculatorData(clientResponse).client_rates : exchangeRows
+        if (!Array.isArray(exchangeRows) || !Array.isArray(saved)) throw new Error('Invalid rate settings response. Please retry.')
+        const editable = saved.map(row => ({ ...row, method: row.method ?? '', rate: row.rate ?? '' }))
+        if (client && filters.login && filters.exchange && !editable.some(row => String(row.login) === String(filters.login) && row.exchange === filters.exchange)) {
+          editable.push({ login: filters.login, exchange: filters.exchange, method: '', rate: '' })
+        }
+        if (active) { setExchanges(exchangeRows); setOriginal(saved); setRows(editable) }
+      } catch (failure) { if (active) setError(errorMessage(failure)) }
+    }
+    load()
+    return () => { active = false }
+  }, [client, filters, reload])
+
+  const update = (index, key, value) => setRows(current => current.map((row, i) => i === index ? { ...row, [key]: value } : row))
+  const resetRow = index => setRows(current => current.map((row, i) => i === index ? { ...row, method: '', rate: '', ...(!client ? { currency: 'INR' } : {}) } : row))
+  const save = async () => {
+    setError('')
+    try {
+      const changes = changedCalculatorRates(rows, original, client)
+      if (!changes.length) { onClose(); return }
+      setSaving(true)
+      calculatorData(await (client ? brokerageCalcAPI.setClientRates(changes) : brokerageCalcAPI.setExchanges(changes)))
+      onSaved(client ? 'Client rates saved' : 'Exchange rates saved')
+      onClose()
+    } catch (failure) { setError(errorMessage(failure)) } finally { setSaving(false) }
+  }
+  const applyFilters = () => {
+    try {
+      if (rows && changedCalculatorRates(rows, original, true).length) throw new Error('Save your changes before changing the rate filters.')
+      if (loginFilter && (!Number.isSafeInteger(Number(loginFilter)) || Number(loginFilter) <= 0)) throw new Error('Enter a valid client login to filter.')
+      setFilters({ ...(loginFilter ? { login: Number(loginFilter) } : {}), ...(exchangeFilter ? { exchange: exchangeFilter } : {}) })
+    } catch (failure) { setError(errorMessage(failure)) }
+  }
+
+  return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 p-3">
+    <section role="dialog" aria-modal="true" aria-labelledby="rate-settings-title" className="flex max-h-[90dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white font-outfit text-sm text-[#374151] shadow-xl [color-scheme:light]">
+      <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#E5E7EB] p-4 sm:px-6 sm:py-5">
+        <div><h2 id="rate-settings-title" className="text-lg font-semibold text-[#1A1A1A]">{client ? 'Client Rates' : 'Exchange Rates'}</h2>
+          <p className="mt-1 text-xs text-slate-600">{client ? 'Leave blank to use broker defaults.' : 'Set rates by exchange. Zero is valid.'}</p>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">{footer}</div>}
+        <button type="button" disabled={saving} onClick={onClose} className={`${rateButtonCls} w-10 shrink-0 !p-0`} aria-label="Close rate settings" title="Close">
+          <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+      </header>
+      <div className="min-h-0 overflow-auto p-4 sm:p-6">
+        {client && <div className="mb-5 grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px]">
+          <label className="grid min-w-0 gap-1.5 text-xs font-medium text-[#4B5563]">Login filter<input aria-label="Login filter" className={rateInputCls} value={loginFilter} onChange={event => setLoginFilter(event.target.value)} /></label>
+          <label className="grid min-w-0 gap-1.5 text-xs font-medium text-[#4B5563]">Exchange filter<select aria-label="Exchange filter" className={rateInputCls} value={exchangeFilter} onChange={event => setExchangeFilter(event.target.value)}>
+            <option value="">All exchanges</option>{exchanges.map(row => <option key={row.exchange}>{row.exchange}</option>)}
+          </select></label>
+          <button type="button" className={rateButtonCls} disabled={saving || !rows} onClick={applyFilters}>Apply filters</button>
+        </div>}
+        {error && <p role="alert" className="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">{error} {!rows && <button type="button" className={buttonCls} onClick={() => setReload(value => value + 1)}>Retry</button>}</p>}
+        {!rows ? !error && <p role="status">Loading rates...</p> : <>
+          <div className="overflow-hidden rounded-lg border border-[#E5E7EB]">
+          <Table label={client ? 'Client rate settings' : 'Exchange rate settings'} columnWidths={client ? ['14%', '17%', '22%', '14%', '11%', '22%'] : ['20%', '20%', '14%', '12%', '16%', '18%']} headers={[...(client ? ['Login'] : []), 'Exchange', 'Method', 'Rate', 'Currency', ...(client ? [] : ['Status']), 'Actions']}>
+            <tbody>{rows.map((row, index) => {
+              const persisted = original.some(item => item.exchange === row.exchange && (!client || String(item.login) === String(row.login)))
+              const currency = client ? exchanges.find(item => item.exchange === row.exchange)?.currency : row.currency
+              return <tr key={index} className={`border-b border-[#E5E7EB] last:border-b-0 ${selection.exchange === row.exchange ? 'bg-blue-50' : ''}`}>
+                {client && <td className="px-3 py-3"><input aria-label={`Login ${index + 1}`} readOnly={persisted} disabled={saving} inputMode="numeric" className={`${rateInputCls} tabular-nums read-only:bg-[#F9FAFB]`} value={row.login} onChange={event => update(index, 'login', event.target.value)} /></td>}
+                <td className="px-3 py-3">{client && !persisted ? <select aria-label={`Exchange ${index + 1}`} disabled={saving} className={rateInputCls} value={row.exchange} onChange={event => update(index, 'exchange', event.target.value)}>
+                  <option value="">Choose exchange</option>{exchanges.map(item => <option key={item.exchange}>{item.exchange}</option>)}
+                </select> : row.exchange}</td>
+                <td className="px-3 py-3"><select aria-label={`Method ${index + 1}`} disabled={saving} className={rateInputCls} value={row.method} onChange={event => update(index, 'method', event.target.value)}>
+                  <option value="">{client ? 'Use broker value' : 'Not set'}</option><option value="lot">Per Lot</option><option value="crore">Per Crore</option>
+                </select></td>
+                <td className="px-3 py-3"><input aria-label={`Rate ${index + 1}`} disabled={saving} inputMode="decimal" className={`${rateInputCls} tabular-nums`} placeholder={client ? 'Inherit' : 'Not set'} value={row.rate} onChange={event => update(index, 'rate', event.target.value)} /></td>
+                <td className="px-3 py-3">{client ? <span className="inline-flex h-10 items-center font-medium">{currency || '—'}</span> : <select aria-label={`Currency ${index + 1}`} disabled={saving} className={rateInputCls} value={row.currency} onChange={event => update(index, 'currency', event.target.value)}><option>INR</option><option>USD</option></select>}</td>
+                {!client && <td className="whitespace-nowrap px-3 py-3 text-xs">{row.configured ? 'Set (saved)' : 'Not set (saved)'}</td>}
+                <td className="px-3 py-3"><button type="button" disabled={saving} className={`${rateButtonCls} w-full`} onClick={() => client && !persisted ? setRows(current => current.filter((_, i) => i !== index)) : resetRow(index)}>{client ? persisted ? 'Use broker defaults' : 'Remove' : 'Clear setting'}</button></td>
+              </tr>
+            })}</tbody>
+          </Table>
+          </div>
+          {!rows.length && <p className="py-4 text-sm text-slate-500">No {client ? 'client overrides' : 'exchanges'} found.</p>}
+        </>}
       </div>
-    </div>
-  )
+      <footer className="flex shrink-0 flex-wrap items-center gap-3 border-t border-[#E5E7EB] bg-[#F9FAFB] p-4 sm:px-6">
+        {client && <button type="button" disabled={saving || !rows} className={`${rateButtonCls} min-w-28`} onClick={() => setRows(current => [...current, { login: filters.login || '', exchange: filters.exchange || '', method: '', rate: '' }])}>Add override</button>}
+        <div className="ml-auto flex gap-3">
+          <button type="button" className={`${rateButtonCls} min-w-28`} disabled={saving} onClick={onClose}>Cancel</button>
+          <button type="button" className={`${ratePrimaryCls} min-w-28`} disabled={saving || !rows} onClick={save}>{saving ? 'Saving...' : 'Save rates'}</button>
+        </div>
+      </footer>
+    </section>
+  </div>
 }
 
-const inputCls = 'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[13px] text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
-
-// ---------- Exchange rates editor ----------
-function ExchangeRatesModal({ onClose, onSaved }) {
-  const [rows, setRows] = useState(null)
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-  useEffect(() => {
-    let active = true
-    brokerageCalcAPI.getExchanges()
-      .then(r => { if (active) setRows((r?.exchanges || r?.data?.exchanges || []).map(x => ({ exchange: x.exchange || '', method: x.method || 'lot', rate: x.rate ?? '', currency: x.currency || 'INR' }))) })
-      .catch(e => active && setError(e?.response?.data?.message || e.message))
-    return () => { active = false }
-  }, [])
-  const update = (i, k, v) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, [k]: v } : r))
-  const addRow = () => setRows(rs => [...(rs || []), { exchange: '', method: 'lot', rate: '', currency: 'INR' }])
-  const removeRow = (i) => setRows(rs => rs.filter((_, idx) => idx !== i))
-  const save = async () => {
-    setSaving(true); setError('')
-    try {
-      const payload = rows.filter(r => r.exchange.trim()).map(r => ({ exchange: r.exchange.trim(), method: r.method, rate: num(r.rate) ?? 0, currency: r.currency }))
-      await brokerageCalcAPI.setExchanges(payload)
-      onSaved?.('Exchange rates saved'); onClose()
-    } catch (e) { setError(e?.response?.data?.message || e.message) } finally { setSaving(false) }
-  }
-  return (
-    <Modal title="Exchange Rates" subtitle="Brokerage rate per exchange — applied to every client unless overridden." onClose={onClose} wide
-      footer={<>
-        <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3.5 py-2 text-[13px] font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
-        <button type="button" onClick={save} disabled={saving || !rows} className="rounded-lg bg-blue-600 px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{saving ? 'Saving…' : 'Save rates'}</button>
-      </>}>
-      {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-700">{error}</p>}
-      {!rows ? <p className="py-8 text-center text-[13px] text-slate-400">Loading…</p> : (
-        <div className="space-y-2">
-          <div className="grid grid-cols-[1.4fr_1fr_1fr_0.9fr_auto] gap-2 px-1 text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">
-            <span>Exchange</span><span>Method</span><span>Rate</span><span>Currency</span><span />
-          </div>
-          {rows.map((r, i) => (
-            <div key={i} className="grid grid-cols-[1.4fr_1fr_1fr_0.9fr_auto] items-center gap-2">
-              <input value={r.exchange} onChange={e => update(i, 'exchange', e.target.value.toUpperCase())} placeholder="NSE" className={inputCls} />
-              <select value={r.method} onChange={e => update(i, 'method', e.target.value)} className={inputCls}>
-                <option value="lot">lot</option><option value="crore">crore</option><option value="percentage">percentage</option>
-              </select>
-              <input value={r.rate} onChange={e => update(i, 'rate', e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder="0" className={`${inputCls} text-right tabular-nums`} />
-              <select value={r.currency} onChange={e => update(i, 'currency', e.target.value)} className={inputCls}>
-                <option value="INR">INR</option><option value="USD">USD</option>
-              </select>
-              <button type="button" onClick={() => removeRow(i)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600" aria-label="Remove"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="M6 7h12M9 7V5h6v2M8 7l1 13h6l1-13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
-            </div>
-          ))}
-          <button type="button" onClick={addRow} className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-700"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>Add exchange</button>
-        </div>
-      )}
-    </Modal>
-  )
-}
-
-// ---------- Client rate overrides editor ----------
-function ClientRatesModal({ onClose, onSaved }) {
-  const [rows, setRows] = useState(null)
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-  useEffect(() => {
-    let active = true
-    brokerageCalcAPI.getClientRates()
-      .then(r => { if (active) setRows((r?.rates || r?.data?.rates || []).map(x => ({ login: x.login ?? '', exchange: x.exchange || '', method: x.method ?? '', rate: x.rate ?? '' }))) })
-      .catch(e => active && setError(e?.response?.data?.message || e.message))
-    return () => { active = false }
-  }, [])
-  const update = (i, k, v) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, [k]: v } : r))
-  const addRow = () => setRows(rs => [...(rs || []), { login: '', exchange: '', method: '', rate: '' }])
-  const removeRow = (i) => setRows(rs => rs.filter((_, idx) => idx !== i))
-  const save = async () => {
-    setSaving(true); setError('')
-    try {
-      const payload = rows.filter(r => String(r.login).trim() && r.exchange.trim()).map(r => ({
-        login: num(r.login), exchange: r.exchange.trim(),
-        method: r.method ? r.method : null, rate: num(r.rate) ?? 0,
-      }))
-      await brokerageCalcAPI.setClientRates(payload)
-      onSaved?.('Client rates saved'); onClose()
-    } catch (e) { setError(e?.response?.data?.message || e.message) } finally { setSaving(false) }
-  }
-  return (
-    <Modal title="Client Rate Overrides" subtitle="Per-client rate for an exchange. Leave method empty to inherit the exchange default." onClose={onClose} wide
-      footer={<>
-        <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3.5 py-2 text-[13px] font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
-        <button type="button" onClick={save} disabled={saving || !rows} className="rounded-lg bg-blue-600 px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{saving ? 'Saving…' : 'Save overrides'}</button>
-      </>}>
-      {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-700">{error}</p>}
-      {!rows ? <p className="py-8 text-center text-[13px] text-slate-400">Loading…</p> : (
-        <div className="space-y-2">
-          <div className="grid grid-cols-[1.1fr_1.2fr_1fr_1fr_auto] gap-2 px-1 text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">
-            <span>Login</span><span>Exchange</span><span>Method</span><span>Rate</span><span />
-          </div>
-          {rows.map((r, i) => (
-            <div key={i} className="grid grid-cols-[1.1fr_1.2fr_1fr_1fr_auto] items-center gap-2">
-              <input value={r.login} onChange={e => update(i, 'login', e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="543602" className={`${inputCls} tabular-nums`} />
-              <input value={r.exchange} onChange={e => update(i, 'exchange', e.target.value.toUpperCase())} placeholder="NSE" className={inputCls} />
-              <select value={r.method} onChange={e => update(i, 'method', e.target.value)} className={inputCls}>
-                <option value="">inherit</option><option value="lot">lot</option><option value="crore">crore</option><option value="percentage">percentage</option>
-              </select>
-              <input value={r.rate} onChange={e => update(i, 'rate', e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder="0" className={`${inputCls} text-right tabular-nums`} />
-              <button type="button" onClick={() => removeRow(i)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600" aria-label="Remove"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="M6 7h12M9 7V5h6v2M8 7l1 13h6l1-13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
-            </div>
-          ))}
-          <button type="button" onClick={addRow} className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-700"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>Add override</button>
-        </div>
-      )}
-    </Modal>
-  )
+function ExchangeDetail({ entries }) {
+  return <Table label="Exchange Detail" headers={['Login', 'Client', 'Exchange', 'Lots', 'Turnover', 'Charged (source)', 'Method', 'Rate', 'Rate currency', 'Rate source', 'Charged INR', 'Our INR', 'Balance INR', 'Rebate INR', 'Status', 'Issues / flags']}>
+    <tbody>{entries.map(({ login, name, exchange: row }, index) => <tr key={`${login}:${row.exchange}:${index}`} className="border-b">
+      <td className="px-3 py-2">{login}</td><td className="px-3 py-2">{name}</td><td className="whitespace-nowrap px-3 py-2">{row.exchange}</td>
+      <td className={cellCls}>{format(row.lots, 4)}</td><td className={cellCls}>{format(row.turnover)}</td><td className={cellCls}>{format(row.charged)} {row.charged_currency}</td>
+      <td className="whitespace-nowrap px-3 py-2">{row.method === 'lot' ? 'Per Lot' : row.method === 'crore' ? 'Per Crore' : '—'}</td>
+      <td className={cellCls}>{format(row.rate)}</td><td className="px-3 py-2">{row.rate_currency}</td><td className="px-3 py-2">{row.rate_source || '—'}</td>
+      {['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={row} field={field} />)}
+      <td className="px-3 py-2"><StatusBadge status={row.status} /></td><td className="min-w-[160px] px-3 py-2 text-xs text-amber-700">{(row.issues || []).map(issue => ISSUE_LABELS[issue] || issue).join(', ')}<Flags row={row} /></td>
+    </tr>)}</tbody>
+  </Table>
 }
 
 export default function BrokerageCalculatorPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(() => { try { const v = localStorage.getItem('sidebarOpen'); return v !== null ? JSON.parse(v) : true } catch { return true } })
-  const [isMobile, setIsMobile] = useState(() => { try { return window.innerWidth < 1024 } catch { return false } })
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
-  useEffect(() => { const r = () => setIsMobile(window.innerWidth < 1024); r(); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r) }, [])
-  const persist = (n) => { try { localStorage.setItem('sidebarOpen', JSON.stringify(n)) } catch { /* ignore */ } return n }
-  const toggleSidebar = () => setSidebarOpen(v => persist(!v))
-  const closeSidebar = () => setSidebarOpen(() => persist(false))
-
+  const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem('sidebarOpen') !== 'false')
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [weeks, setWeeks] = useState([])
-  const [weekId, setWeekId] = useState(null)
+  const [weeksError, setWeeksError] = useState('')
+  const [weeksReload, setWeeksReload] = useState(0)
+  const [query, setQuery] = useState({ week_id: null, search: '', status: 'all', page: 1, limit: 100 })
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
-  const [page, setPage] = useState(1)
-  const limit = 100
-
-  const [rows, setRows] = useState([])
-  const [total, setTotal] = useState(null)
-  const [summary, setSummary] = useState(null)
+  const [report, setReport] = useState(null)
+  const [usd, setUsd] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [toast, setToast] = useState('')
-  const toastTimer = useRef(null)
-  const showToast = (m) => { setToast(m); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 2400) }
-
-  const [usdInr, setUsdInr] = useState(null)
+  const [reload, setReload] = useState(0)
+  const [tab, setTab] = useState('logins')
+  const [expanded, setExpanded] = useState(() => new Set())
+  const [settings, setSettings] = useState(null)
   const [usdDraft, setUsdDraft] = useState('')
+  const [usdError, setUsdError] = useState('')
   const [editingUsd, setEditingUsd] = useState(false)
   const [savingUsd, setSavingUsd] = useState(false)
   const [exporting, setExporting] = useState('')
-  const [showExchanges, setShowExchanges] = useState(false)
-  const [showClientRates, setShowClientRates] = useState(false)
+  const [toast, setToast] = useState('')
+  const [pendingIssue, setPendingIssue] = useState('')
+  const [pendingPage, setPendingPage] = useState(1)
+  const usdInput = useRef(null)
+  const refresh = () => setReload(value => value + 1)
 
-  // Load settlement weeks once.
   useEffect(() => {
     let active = true
-    brokerAPI.getSettlementWeeks({ page: 1, limit: 100 })
-      .then(res => { const list = res?.data?.weeks ?? res?.weeks ?? []; if (active) { setWeeks(list); if (list.length && weekId == null) setWeekId(list[0].id) } })
-      .catch(e => active && setError(e?.response?.data?.message || e.message))
+    setWeeksError('')
+    brokerAPI.getSettlementWeeks({ page: 1, limit: 100 }).then(response => {
+      const list = response?.data?.weeks ?? response?.weeks
+      if (!Array.isArray(list)) throw new Error('Invalid settlement weeks response.')
+      if (active) {
+        setWeeks(list)
+        setQuery(current => ({ ...current, week_id: current.week_id ?? list[0]?.id ?? null }))
+      }
+    }).catch(failure => { if (active) setWeeksError(errorMessage(failure)) })
     return () => { active = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [weeksReload])
 
-  const selectedWeek = useMemo(() => weeks.find(w => w.id === weekId) || null, [weeks, weekId])
-
-  // Load the USD→INR rate for the selected week.
   useEffect(() => {
-    if (weekId == null) return
-    let active = true
-    brokerageCalcAPI.getUsdInr(weekId)
-      .then(r => { if (active) setUsdInr(num(r?.rate ?? r?.data?.rate ?? r?.usd_inr)) })
-      .catch(() => active && setUsdInr(null))
-    return () => { active = false }
-  }, [weekId])
+    const timer = setTimeout(() => setQuery(current => current.search === search ? current : { ...current, search, page: 1 }), 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  const load = useCallback(async () => {
-    if (weekId == null) return
-    setLoading(true); setError('')
-    try {
-      const data = await brokerageCalcAPI.calculate({ week_id: weekId, search, status, page, limit })
-      setRows(extractRows(data)); setTotal(extractTotal(data)); setSummary(extractSummary(data))
-    } catch (e) { setError(e?.response?.data?.message || e.message || 'Could not calculate brokerage'); setRows([]) }
-    finally { setLoading(false) }
-  }, [weekId, search, status, page])
+  useEffect(() => {
+    if (query.week_id == null) return
+    const controller = new AbortController()
+    setLoading(true); setError(''); setReport(null); setUsd(null); setExpanded(new Set()); setEditingUsd(false); setPendingPage(1)
+    Promise.all([
+      brokerageCalcAPI.calculate(query, { signal: controller.signal }),
+      brokerageCalcAPI.getUsdInr(query.week_id, { signal: controller.signal }),
+    ]).then(([response, usdResponse]) => {
+      const data = calculatorReport(response)
+      const weeklyUsd = calculatorData(usdResponse)
+      if (!controller.signal.aborted) {
+        setReport(data)
+        setUsd(weeklyUsd)
+        setUsdDraft(weeklyUsd.rate == null ? '' : String(weeklyUsd.rate))
+      }
+    }).catch(failure => { if (!controller.signal.aborted) setError(errorMessage(failure)) })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [query, reload])
 
-  useEffect(() => { load() }, [load])
-  useEffect(() => { setPage(1) }, [weekId, status])
-  useEffect(() => () => clearTimeout(toastTimer.current), [])
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(''), 4000)
+    return () => clearTimeout(timer)
+  }, [toast])
 
-  // Debounced search.
-  const searchTimer = useRef(null)
-  const onSearchChange = (v) => { setSearch(v); clearTimeout(searchTimer.current); searchTimer.current = setTimeout(() => setPage(1), 400) }
+  useEffect(() => {
+    if (!editingUsd) return
+    const previousFocus = document.activeElement
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    usdInput.current?.focus()
+    return () => {
+      document.body.style.overflow = previousOverflow
+      if (previousFocus?.isConnected) previousFocus.focus()
+    }
+  }, [editingUsd])
 
   const saveUsd = async () => {
-    const r = num(usdDraft)
-    if (r == null) { setEditingUsd(false); return }
-    setSavingUsd(true)
-    try { await brokerageCalcAPI.setUsdInr(weekId, r); setUsdInr(r); setEditingUsd(false); showToast('USD–INR rate saved'); load() }
-    catch (e) { setError(e?.response?.data?.message || e.message) } finally { setSavingUsd(false) }
-  }
-
-  const doExport = async (kind) => {
-    if (weekId == null) return
-    setExporting(kind)
-    const wk = (selectedWeek?.name || `week-${weekId}`).replace(/[^a-z0-9\-_ ]/gi, '_').trim()
+    setUsdError('')
     try {
-      if (kind === 'xlsx') await brokerageCalcAPI.exportFile({ week_id: weekId, format: 'xlsx', view: 'logins' }, `brokerage_${wk}.xlsx`)
-      else await brokerageCalcAPI.exportFile({ week_id: weekId, format: 'csv', view: 'pending' }, `brokerage_pending_${wk}.csv`)
-      showToast(kind === 'xlsx' ? 'Final report downloaded' : 'Pending list downloaded')
-    } catch (e) { setError(e?.response?.data?.message || e.message || 'Export failed') } finally { setExporting('') }
+      const rate = calculatorUsdRate(usdDraft)
+      setSavingUsd(true)
+      calculatorData(await brokerageCalcAPI.setUsdInr(query.week_id, rate))
+      setEditingUsd(false); setToast(rate == null ? 'Weekly rate removed; the previous week may now apply.' : 'Weekly USD-INR saved'); refresh()
+    } catch (failure) { setUsdError(errorMessage(failure)) } finally { setSavingUsd(false) }
   }
 
-  const [expanded, setExpanded] = useState(() => new Set())
-  const toggleRow = (id) => setExpanded(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const doExport = async () => {
+    const view = calculatorExportView(tab)
+    setExporting('csv'); setError('')
+    try {
+      await brokerageCalcAPI.exportFile({ ...query, format: 'csv', view }, `brokerage_${query.week_id}_${view}.csv`)
+      setToast('All matching records downloaded')
+    } catch (failure) { setError(errorMessage(failure)) } finally { setExporting('') }
+  }
 
-  // Totals for the current page (the API returns no summary block of its own).
-  const totals = useMemo(() => rows.reduce((a, r) => ({
-    charged: a.charged + (num(r?.charged_inr) || 0),
-    brokerage: a.brokerage + (num(r?.our_brokerage_inr) || 0),
-    rebate: a.rebate + (num(r?.rebate_inr) || 0),
-    pending: a.pending + (String(r?.status).toLowerCase() === 'pending' ? 1 : 0),
-  }), { charged: 0, brokerage: 0, rebate: 0, pending: 0 }), [rows])
+  const openUsd = () => { setUsdDraft(usd?.rate == null ? '' : String(usd.rate)); setUsdError(''); setEditingUsd(true) }
+  const fix = row => {
+    if (row.issue === 'usd_inr_missing') { openUsd(); return }
+    setSettings({ client: true, selection: { login: row.login, exchange: row.exchange } })
+  }
+  const toggleRow = login => setExpanded(current => {
+    const next = new Set(current)
+    if (next.has(login)) next.delete(login); else next.add(login)
+    return next
+  })
+  const toggleSidebar = () => setSidebarOpen(current => {
+    localStorage.setItem('sidebarOpen', String(!current))
+    return !current
+  })
+  const rows = report?.logins || []
+  const summary = report?.summary
+  const pages = report?.pagination.total_pages || 1
+  const pending = (report?.pending || []).filter(row => !pendingIssue || row.issue === pendingIssue)
+  const pendingPages = Math.max(1, Math.ceil(pending.length / 250))
+  const entries = rows.flatMap(row => (row.exchanges || []).map(exchange => ({ login: row.login, name: row.name, exchange })))
+  const busy = loading || savingUsd || query.week_id == null
+  const switchTab = value => { setTab(value); setPendingPage(1) }
+  const tablePage = tab === 'pending' ? pendingPage : query.page
+  const tablePages = tab === 'pending' ? pendingPages : pages
+  const changeTablePage = value => {
+    if (tab === 'pending') setPendingPage(value)
+    else setQuery(current => ({ ...current, page: value }))
+  }
 
-  const pages = total != null ? Math.max(1, Math.ceil(total / limit)) : (rows.length < limit ? page : page + 1)
-
-  // ---------- toolbar controls (inside the header card) ----------
-  const toolbarControls = (
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-        {/* Week */}
-        <div className="relative">
-          <select value={weekId ?? ''} onChange={e => setWeekId(num(e.target.value))} className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-9 text-[13px] font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-400">
-            {weeks.length === 0 && <option value="">No weeks</option>}
-            {weeks.map(w => <option key={w.id} value={w.id}>{w.name || w.label || `Week ${w.id}`}</option>)}
+  return <div className="flex h-[100dvh] overflow-hidden bg-[#F8FAFC] font-outfit text-sm text-[#374151] [color-scheme:light]">
+    <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={toggleSidebar} desktopOnly />
+    <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} mobileOnly />
+    <div className={`flex min-w-0 flex-1 flex-col overflow-y-auto ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
+      <header className="m-3 rounded-xl bg-white p-4 shadow-sm sm:m-5">
+        <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
+          <div className="w-full shrink-0 lg:w-auto lg:max-w-64"><div className="flex items-center gap-2">
+            <button type="button" className={`${buttonCls} lg:hidden`} onClick={() => setMobileSidebarOpen(true)} aria-label="Open navigation">Menu</button>
+            <h1 className="text-xl font-bold text-[#1A1A1A]">Brokerage Calculator</h1>
+          </div></div>
+        <div aria-label="Calculator controls" className="grid min-w-0 flex-1 basis-full grid-cols-[repeat(auto-fit,minmax(110px,1fr))] items-center gap-2 lg:basis-0">
+          <select aria-label="Settlement week" title="Settlement week" className={`${headerButtonCls} w-full truncate`} value={query.week_id ?? ''} disabled={savingUsd} onChange={event => { setQuery(current => ({ ...current, week_id: Number(event.target.value), page: 1 })); setPendingIssue('') }}>
+            {!weeks.length && <option value="">No weeks available</option>}{weeks.map(week => <option key={week.id} value={week.id}>{week.name || `Week ${week.id}`}</option>)}
           </select>
-          <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none"><path d="m7 9 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <select aria-label="Status" title="Status" className={`${headerButtonCls} w-full`} value={query.status} onChange={event => setQuery(current => ({ ...current, status: event.target.value, page: 1 }))}>
+            <option value="all">All</option><option value="ready">Ready</option><option value="pending">Pending</option>
+          </select>
+          <button type="button" className={headerButtonCls} onClick={refresh} disabled={busy}>Recalculate</button>
+          <button type="button" className={headerButtonCls} onClick={() => setSettings({ client: false })}>Exchange Rates</button>
+          <button type="button" className={headerButtonCls} onClick={() => setSettings({ client: true })}>Client Rates</button>
+          <Link className={headerButtonCls} to="/client-percentage">Manage LD%</Link>
+          <button type="button" className={`${headerControlCls} ${usd?.source === 'none' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'}`} disabled={busy || !report} onClick={openUsd} aria-label="Edit USD-INR rate" aria-haspopup="dialog" aria-expanded={editingUsd} title="Edit USD-INR rate">
+            <span>USD-INR</span><span className="tabular-nums">{usd?.rate == null ? 'Set rate' : format(usd.rate)}</span>
+          </button>
         </div>
-
-        {/* USD-INR */}
-        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">USD–INR</span>
-          {editingUsd ? (
-            <>
-              <input autoFocus value={usdDraft} onChange={e => setUsdDraft(e.target.value.replace(/[^\d.]/g, ''))} onKeyDown={e => { if (e.key === 'Enter') saveUsd(); if (e.key === 'Escape') setEditingUsd(false) }} inputMode="decimal" className="w-16 rounded border border-slate-200 px-1.5 py-0.5 text-[13px] tabular-nums outline-none focus:border-blue-400" />
-              <button type="button" onClick={saveUsd} disabled={savingUsd} className="rounded bg-blue-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{savingUsd ? '…' : 'Save'}</button>
-            </>
-          ) : (
-            <button type="button" onClick={() => { setUsdDraft(usdInr != null ? String(usdInr) : ''); setEditingUsd(true) }} className="flex items-center gap-1 text-[13px] font-bold tabular-nums text-slate-800 hover:text-blue-700">
-              {usdInr != null ? usdInr.toFixed(2) : 'set'}
-              <svg className="h-3 w-3 text-slate-400" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <BrokerCreditSummary variant="header" />
+            <button type="button" className={`${headerPrimaryCls} min-w-[110px] shrink-0`} disabled={busy || !report || !!exporting || search !== query.search} onClick={doExport} title="Export matching records as CSV">
+              <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4" /></svg>
+              {exporting ? 'Exporting...' : 'Export'}
             </button>
-          )}
+          </div>
         </div>
-
-        {/* Search */}
-        <div className="relative min-w-[180px] flex-1 sm:max-w-xs">
-          <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" strokeWidth="1.8" /><path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
-          <input value={search} onChange={e => onSearchChange(e.target.value)} placeholder="Search login or name" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-[13px] text-slate-700 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
-        </div>
-
-        {/* Status */}
-        <div className="relative">
-          <select value={status} onChange={e => setStatus(e.target.value)} className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-9 text-[13px] font-medium text-slate-700 shadow-sm outline-none focus:border-blue-400">
-            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none"><path d="m7 9 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => setShowExchanges(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-blue-300 hover:text-blue-700"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="M3 7h13M3 7l3-3M3 7l3 3M21 17H8M21 17l-3-3M21 17l-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>Exchange Rates</button>
-          <button type="button" onClick={() => setShowClientRates(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-blue-300 hover:text-blue-700"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 11l2 2 3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>Client Rates</button>
-          <button type="button" onClick={() => doExport('csv')} disabled={!!exporting || weekId == null} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-slate-700 shadow-sm hover:border-blue-300 hover:text-blue-700 disabled:opacity-50"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>{exporting === 'csv' ? 'Exporting…' : 'Pending (CSV)'}</button>
-          <button type="button" onClick={() => doExport('xlsx')} disabled={!!exporting || weekId == null} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-[12.5px] font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>{exporting === 'xlsx' ? 'Exporting…' : 'Final Report (XLSX)'}</button>
-        </div>
-      </div>
-  )
-
-  // ---------- header card (fixed) — title + credit summary + the toolbar controls ----------
-  const headerBar = (
-    <div className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6">
-      <div className="rounded-2xl bg-white px-5 py-3.5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              {isMobile && (
-                <button onClick={() => setIsMobileSidebarOpen(true)} className="-ml-1 flex h-9 w-9 items-center justify-center rounded-lg" aria-label="Open navigation">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="#000" strokeWidth="2" strokeLinecap="round" /></svg>
+        {usd?.source === 'previous_week' && <p className="mt-2 text-xs text-amber-700">From {usd.source_week_name || `week ${usd.source_week_id}`}: confirm or change.</p>}
+        {usd?.source === 'none' && <p className="mt-2 text-xs text-amber-700">Missing: USD/USC calculations remain pending.</p>}
+        {tab === 'pivot' && <p className="mt-2 text-xs text-slate-500">Exchange View exports use Exchange Detail: the API does not offer a pivot export.</p>}
+        {tab === 'pending' && pendingIssue && <p className="mt-2 text-xs text-slate-500">Export includes all matching pending issue types, not just the local issue filter.</p>}
+      </header>
+      <main className="min-w-0 px-3 pb-8 sm:px-5">
+        {weeksError && <div role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-red-700">{weeksError} <button type="button" className={buttonCls} onClick={() => setWeeksReload(value => value + 1)}>Retry weeks</button></div>}
+        {error && <div role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-red-700">{error} <button type="button" className={buttonCls} onClick={refresh}>Retry report</button></div>}
+        {report?.skipped_logins?.length > 0 && <p role="alert" className="mb-3 bg-amber-50 p-3 text-amber-800">Logins outside your client scope were skipped: {report.skipped_logins.join(', ')}.</p>}
+        {summary && <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-6">
+          {[
+            ['Charged 100% · INR', format(summary.charged_inr)],
+            ['Our brokerage · INR', format(summary.our_brokerage_inr)],
+            ['Balance 100% · INR', format(summary.balance_inr)],
+            ['Rebate at LD% · INR', format(summary.rebate_inr)],
+            ['Average login %', summary.average_login_percent == null ? '—' : `${format(summary.average_login_percent)}%`],
+          ].map(([label, value]) => <div key={label} className="rounded-xl border bg-white p-3"><p className="text-xs text-[#4B5563]">{label}</p><p className="mt-1 text-base font-semibold tabular-nums text-[#1A1A1A]">{value}</p></div>)}
+          <button type="button" onClick={() => { setPendingIssue(''); switchTab('pending') }} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-amber-800"><span className="block text-xs">Pending</span><span className="mt-1 block text-base font-semibold tabular-nums">{format(summary.pending_logins, 0)} clients · {format(summary.pending_issues, 0)} issues</span></button>
+        </div>}
+        <p className="mb-3 text-xs text-slate-600">Charged − Our brokerage = Balance (100%); Balance × LD% / 100 = Rebate. Pending rows are excluded from totals. Verify all amounts before settlement or payment.</p>
+        <div className="overflow-hidden rounded-xl border bg-white">
+          <div role="tablist" aria-label="Calculator reports" className="flex overflow-x-auto border-b">
+            {TABS.map(item => <button key={item.id} id={`calculator-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="calculator-panel" type="button" className={`whitespace-nowrap px-4 py-3 text-sm font-semibold ${tab === item.id ? 'border-b-2 border-blue-600 text-blue-700' : 'text-[#4B5563]'}`} onClick={() => switchTab(item.id)}>{item.label}</button>)}
+          </div>
+          <div id="calculator-panel" role="tabpanel" aria-labelledby={`calculator-tab-${tab}`} aria-busy={loading}>
+            <div aria-label="Table controls" className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] p-4">
+              <form className="relative min-w-[180px] flex-1 sm:max-w-md" role="search" onSubmit={event => { event.preventDefault(); setQuery(current => ({ ...current, search, page: 1 })) }}>
+                <input aria-label="Search login or name" placeholder="Search login or name" className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] pl-4 pr-12 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={event => setSearch(event.target.value)} />
+                <button type="submit" aria-label="Search calculator report" className="absolute right-1 top-1/2 flex h-8 w-9 -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700">
+                  <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                 </button>
-              )}
-              <h1 className="text-xl font-bold text-[#1A1A1A]">Brokerage Calculator</h1>
+              </form>
+              <div className="ml-auto flex items-center gap-3">
+                {tab !== 'pending' && <PageSizeSelect value={query.limit} onChange={limit => setQuery(current => ({ ...current, limit, page: 1 }))} options={[25, 50, 100]} />}
+                <button type="button" aria-label="Previous page" className={`${buttonCls} !p-2`} disabled={busy || !report || tablePage <= 1} onClick={() => changeTablePage(tablePage - 1)}>
+                  <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+                <span className="flex items-center gap-2 text-sm text-[#374151]"><span className="min-w-8 rounded-lg border border-[#E5E7EB] px-2 py-1 text-center font-semibold">{tablePage}</span><span className="text-[#6B7280]">/ {tablePages}</span></span>
+                <button type="button" aria-label="Next page" className={`${buttonCls} !p-2`} disabled={busy || !report || tablePage >= tablePages} onClick={() => changeTablePage(tablePage + 1)}>
+                  <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              </div>
             </div>
-            <p className="mt-0.5 text-xs text-[#6B7280]">Per-client brokerage for a settlement week, from your exchange & client rates.</p>
-          </div>
-          <BrokerCreditSummary variant="header" />
-        </div>
-        {toolbarControls}
-      </div>
-    </div>
-  )
-
-  const body = (
-    <>
-      {error && (
-        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-          <span className="text-[13px] font-medium text-red-700">{error}</span>
-          <button type="button" onClick={load} className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-red-700">Retry</button>
-        </div>
-      )}
-
-      {rows.length > 0 && (
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile label="Logins" value={fmtNum(total ?? rows.length)} />
-          <StatTile label="Pending" value={fmtNum(totals.pending)} tone="amber" />
-          <StatTile label="Charged (INR)" value={`₹${fmtMoney(totals.charged)}`} />
-          <StatTile label="Our Brokerage (INR)" value={`₹${fmtMoney(totals.brokerage)}`} />
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-[13px]">
-            <thead>
-              <tr className="bg-blue-600 text-left text-white">
-                <th className="w-9 px-2 py-2.5" />
-                <th className="px-3.5 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide">Login</th>
-                <th className="px-3.5 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide">Name</th>
-                <th className="px-3.5 py-2.5 text-center text-[11.5px] font-semibold uppercase tracking-wide">LD %</th>
-                <th className="px-3.5 py-2.5 text-center text-[11.5px] font-semibold uppercase tracking-wide">Exchanges</th>
-                <th className="px-3.5 py-2.5 text-right text-[11.5px] font-semibold uppercase tracking-wide">Charged (INR)</th>
-                <th className="px-3.5 py-2.5 text-right text-[11.5px] font-semibold uppercase tracking-wide">Our Brokerage</th>
-                <th className="px-3.5 py-2.5 text-right text-[11.5px] font-semibold uppercase tracking-wide">Rebate (INR)</th>
-                <th className="px-3.5 py-2.5 text-center text-[11.5px] font-semibold uppercase tracking-wide">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-t border-slate-100">{Array.from({ length: 9 }).map((_, j) => <td key={j} className="px-3.5 py-3"><div className="h-3.5 w-full max-w-[110px] animate-pulse rounded bg-slate-100" /></td>)}</tr>
-                ))
-              ) : rows.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-16 text-center text-[13px] text-slate-400">No brokerage data for this week{search ? ' matching your search' : ''}.</td></tr>
-              ) : (
-                rows.map((r) => {
-                  const open = expanded.has(r.login)
-                  const exs = Array.isArray(r.exchanges) ? r.exchanges : []
-                  return (
-                    <Fragment key={r.login}>
-                      <tr onClick={() => toggleRow(r.login)} className="cursor-pointer border-t border-slate-100 hover:bg-slate-50/70">
-                        <td className="px-2 py-2.5 text-center text-slate-400">
-                          <svg className={`mx-auto h-4 w-4 transition-transform ${open ? 'rotate-90' : ''}`} viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        </td>
-                        <td className="whitespace-nowrap px-3.5 py-2.5 font-semibold text-[#1A63BC]">{r.login}</td>
-                        <td className="px-3.5 py-2.5 text-slate-700">{r.name?.trim() || '—'}</td>
-                        <td className="whitespace-nowrap px-3.5 py-2.5 text-center text-slate-700">
-                          {r.ld_percent != null ? `${r.ld_percent}%` : '—'}
-                          {r.ld_is_custom && <span className="ml-1 rounded bg-blue-50 px-1 py-px text-[9px] font-bold uppercase text-blue-600">custom</span>}
-                        </td>
-                        <td className="whitespace-nowrap px-3.5 py-2.5 text-center text-slate-600">
-                          {exs.length}
-                          {num(r.pending_exchanges) > 0 && <span className="ml-1 text-[11px] font-semibold text-amber-600">· {r.pending_exchanges} pending</span>}
-                        </td>
-                        <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums text-slate-800">{fmtMoney(r.charged_inr)}</td>
-                        <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums">{r.our_brokerage_inr != null ? <span className="font-semibold text-slate-900">{fmtMoney(r.our_brokerage_inr)}</span> : <Missing />}</td>
-                        <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums text-emerald-700">{r.rebate_inr != null ? fmtMoney(r.rebate_inr) : '—'}</td>
-                        <td className="px-3.5 py-2.5 text-center"><StatusBadge status={r.status} /></td>
-                      </tr>
-                      {open && (
-                        <tr className="border-t border-slate-100 bg-slate-50/60">
-                          <td colSpan={9} className="px-3 py-2.5">
-                            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-                              <table className="w-full min-w-[720px] border-collapse text-[12px]">
-                                <thead>
-                                  <tr className="bg-slate-100 text-left text-[10px] uppercase tracking-wide text-slate-500">
-                                    <th className="px-3 py-2">Exchange</th>
-                                    <th className="px-3 py-2 text-right">Lots</th>
-                                    <th className="px-3 py-2 text-right">Turnover</th>
-                                    <th className="px-3 py-2 text-right">Charged</th>
-                                    <th className="px-3 py-2">Method</th>
-                                    <th className="px-3 py-2 text-right">Rate</th>
-                                    <th className="px-3 py-2">Source</th>
-                                    <th className="px-3 py-2 text-right">Our Brokerage</th>
-                                    <th className="px-3 py-2 text-center">Status</th>
-                                    <th className="px-3 py-2">Issues</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {exs.map((e, i) => (
-                                    <tr key={i} className="border-t border-slate-100">
-                                      <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-700">{e.exchange}</td>
-                                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-600">{fmtNum(e.lots)}</td>
-                                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-600">{fmtNum(e.turnover)}</td>
-                                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-700">{money(e.charged, e.charged_currency)}</td>
-                                      <td className="whitespace-nowrap px-3 py-2 text-slate-600">{e.method || <Missing />}</td>
-                                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-600">{e.rate != null ? money(e.rate, e.rate_currency) : <Missing />}</td>
-                                      <td className="whitespace-nowrap px-3 py-2 text-slate-400">{e.rate_source && e.rate_source !== 'none' ? e.rate_source : '—'}</td>
-                                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{e.our_brokerage_inr != null ? <span className="font-semibold text-slate-900">{fmtMoney(e.our_brokerage_inr)}</span> : <Missing />}</td>
-                                      <td className="px-3 py-2 text-center"><StatusBadge status={e.status} /></td>
-                                      <td className="px-3 py-2">
-                                        <div className="flex flex-wrap gap-1">
-                                          {(e.issues || []).map((is, k) => <span key={k} className="rounded bg-amber-50 px-1.5 py-px text-[9.5px] font-semibold text-amber-700" title={is}>{ISSUE_LABEL[is] || is.replace(/_/g, ' ')}</span>)}
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-2.5">
-          <span className="text-[12px] text-slate-500">{total != null ? `${total.toLocaleString('en-IN')} rows` : `${rows.length} rows`}{total != null && ` · page ${page} of ${pages}`}</span>
-          <div className="flex items-center gap-1.5">
-            <button type="button" disabled={page <= 1 || loading} onClick={() => setPage(p => Math.max(1, p - 1))} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 hover:enabled:bg-slate-50"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
-            <span className="min-w-[2rem] text-center text-[12.5px] font-semibold text-slate-700">{page}</span>
-            <button type="button" disabled={loading || (total != null ? page >= pages : rows.length < limit)} onClick={() => setPage(p => p + 1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40 hover:enabled:bg-slate-50"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+            {loading ? <p role="status" className="p-10 text-center text-slate-500">Calculating brokerage...</p> : !report ? <p className="p-10 text-center text-slate-500">{error ? 'The report could not be loaded.' : 'Select a settlement week to calculate.'}</p> : <>
+              {tab === 'logins' && <Table label="Final Report" headers={['Details', 'Login', 'Client', 'LD%', 'Charged INR', 'Our INR', 'Balance INR', 'Rebate INR', 'Status / flags', 'Actions']}>
+                <tbody>{rows.map(row => <Fragment key={row.login}>
+                  <tr className="border-b hover:bg-slate-50" onClick={() => toggleRow(row.login)}>
+                    <td className="px-3 py-2"><button type="button" aria-label={`Exchange details for ${row.login}`} aria-expanded={expanded.has(row.login)} className={buttonCls} onClick={event => { event.stopPropagation(); toggleRow(row.login) }}>{expanded.has(row.login) ? '−' : '+'}</button></td>
+                    <td className="px-3 py-2 font-semibold text-[#1A63BC]">{row.login}</td><td className="px-3 py-2 text-[#1F2937]">{row.name || '—'}</td>
+                    <td className={cellCls}>{row.ld_percent == null ? '—' : `${format(row.ld_percent)}%`}{row.ld_is_custom && <span className="ml-1 text-xs text-blue-600">custom</span>}</td>
+                    {['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={row} field={field} />)}
+                    <td className="px-3 py-2"><StatusBadge status={row.status} /><Flags row={row} /></td>
+                    <td className="px-3 py-2"><button type="button" className={`${buttonCls} whitespace-nowrap`} onClick={event => { event.stopPropagation(); setSettings({ client: true, selection: { login: row.login } }) }}>Client rates</button></td>
+                  </tr>
+                  {expanded.has(row.login) && <tr><td colSpan={10} className="bg-slate-50 p-3"><ExchangeDetail entries={(row.exchanges || []).map(exchange => ({ login: row.login, name: row.name, exchange }))} /></td></tr>}
+                </Fragment>)}</tbody>
+                <tfoot><tr className="bg-blue-50 font-semibold"><td colSpan={4} className="p-3">TOTAL · all matching logins</td>{['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={summary} field={field} />)}<td colSpan={2} /></tr></tfoot>
+              </Table>}
+              {tab === 'exchanges' && <ExchangeDetail entries={entries} />}
+              {tab === 'pivot' && <Table label="Exchange View" headers={['Login', 'Client', ...report.exchanges, 'Total rebate INR', 'Status']}>
+                <tbody>{rows.map(row => <tr key={row.login} className="border-b">
+                  <td className="px-3 py-2">{row.login}</td><td className="px-3 py-2">{row.name}</td>
+                  {report.exchanges.map(exchange => <td key={exchange} className={cellCls}>{format(row.exchanges?.find(item => item.exchange === exchange)?.rebate_inr)}</td>)}
+                  <Amount row={row} field="rebate_inr" /><td className="px-3 py-2"><StatusBadge status={row.status} /></td>
+                </tr>)}</tbody>
+              </Table>}
+              {tab === 'pending' && <>
+                <div className="flex flex-wrap items-center gap-2 p-3">
+                  <label className="text-xs">Issue<select aria-label="Pending issue" className={inputCls} value={pendingIssue} onChange={event => { setPendingIssue(event.target.value); setPendingPage(1) }}>
+                    <option value="">All issues</option>{[...new Set(report.pending.map(row => row.issue))].map(issue => <option key={issue} value={issue}>{ISSUE_LABELS[issue] || issue}</option>)}
+                  </select></label>
+                  <span className="text-xs text-slate-500">All matching logins, not just the report page.</span>
+                </div>
+                {report.pending_truncated && <p role="alert" className="mx-3 mb-3 rounded bg-amber-50 p-3 text-sm text-amber-800">Only the first 1,000 issues are shown. Use Export in the header to download every matching pending issue.</p>}
+                <Table label="Pending issues" headers={['Login', 'Client', 'Exchange', 'Issue', 'Detail', 'Action']}>
+                  <tbody>{pending.slice((pendingPage - 1) * 250, pendingPage * 250).map((row, index) => <tr key={`${row.login}:${row.exchange}:${row.issue}:${index}`} className="border-b">
+                    <td className="p-3">{row.login}</td><td className="p-3">{row.name}</td><td className="whitespace-nowrap p-3">{row.exchange}</td>
+                    <td className="p-3 text-amber-700">{ISSUE_LABELS[row.issue] || row.issue}</td><td className="min-w-[200px] p-3">{row.detail}</td>
+                    <td className="p-3">{['method_missing', 'rate_missing', 'usd_inr_missing'].includes(row.issue) ? <button type="button" className={buttonCls} onClick={() => fix(row)}>Fix</button> : <span className="text-xs text-slate-600">Contact support with this login, exchange and detail.</span>}</td>
+                  </tr>)}</tbody>
+                </Table>
+                {!pending.length && <p className="p-8 text-center text-slate-500">No matching pending issues.</p>}
+                <div className="border-t p-3 text-xs">{pending.length} issues · page {pendingPage} of {pendingPages}</div>
+              </>}
+              {tab !== 'pending' && !rows.length && <p className="p-8 text-center text-slate-500">No brokerage data matches this week and filters.</p>}
+            </>}
           </div>
         </div>
-      </div>
-    </>
-  )
-
-  return (
-    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
-      {isMobile ? (
-        <Sidebar isOpen={isMobileSidebarOpen} onClose={() => setIsMobileSidebarOpen(false)} onToggle={() => setIsMobileSidebarOpen(v => !v)} mobileOnly />
-      ) : (
-        <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} onToggle={toggleSidebar} />
-      )}
-
-      <div className={`flex min-w-0 flex-1 flex-col overflow-hidden ${isMobile ? '' : `transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}`}>
-        {headerBar}
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4 sm:px-6 sm:pt-5" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(28px + var(--app-safe-bottom, 0px))' }}>
-          {body}
-        </main>
-      </div>
-
-      {showExchanges && <ExchangeRatesModal onClose={() => setShowExchanges(false)} onSaved={(m) => { showToast(m); load() }} />}
-      {showClientRates && <ClientRatesModal onClose={() => setShowClientRates(false)} onSaved={(m) => { showToast(m); load() }} />}
-
-      {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[110] flex justify-center">
-          <div className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">{toast}</div>
-        </div>
-      )}
+      </main>
     </div>
-  )
+    {settings && <RateSettings {...settings} onClose={() => setSettings(null)} onSaved={message => { setToast(message); refresh() }} />}
+    {editingUsd && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 p-3">
+      <form role="dialog" aria-modal="true" aria-labelledby="usd-rate-title" aria-describedby="usd-rate-help" className="w-full max-w-sm overflow-hidden rounded-xl bg-white font-outfit text-sm text-[#374151] shadow-xl"
+        onSubmit={event => { event.preventDefault(); if (!busy) saveUsd() }}
+        onKeyDown={event => {
+          if (event.key === 'Escape' && !savingUsd) { event.preventDefault(); setEditingUsd(false) }
+          if (event.key === 'Tab') {
+            const controls = Array.from(event.currentTarget.querySelectorAll('input:not(:disabled), button:not(:disabled)'))
+            const first = controls[0]
+            const last = controls[controls.length - 1]
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+          }
+        }}>
+        <div className="border-b border-[#E5E7EB] px-6 py-4">
+          <h2 id="usd-rate-title" className="text-lg font-semibold text-[#1A1A1A]">Edit USD-INR rate</h2>
+          <p className="mt-1 text-xs text-[#6B7280]">{weeks.find(week => week.id === query.week_id)?.name || `Week ${query.week_id}`}</p>
+        </div>
+        <div className="space-y-3 p-6">
+          <label className="grid gap-1.5 text-xs font-medium">1 USD in INR
+            <input ref={usdInput} aria-label="USD-INR rate" aria-invalid={!!usdError} aria-describedby={usdError ? 'usd-rate-help usd-rate-error' : 'usd-rate-help'} className={`${rateInputCls} tabular-nums`} value={usdDraft} disabled={savingUsd} inputMode="decimal" onChange={event => setUsdDraft(event.target.value)} />
+          </label>
+          <p id="usd-rate-help" className="text-xs text-[#6B7280]">Enter a positive rate. Leave blank to remove this week's saved rate; a previous week's rate may then apply.</p>
+          {usdError && <p id="usd-rate-error" role="alert" className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{usdError}</p>}
+        </div>
+        <div className="flex justify-end gap-3 border-t border-[#E5E7EB] bg-[#F9FAFB] px-6 py-4">
+          <button type="button" className={`${rateButtonCls} min-w-28`} disabled={savingUsd} onClick={() => setEditingUsd(false)}>Cancel</button>
+          <button type="submit" className={`${ratePrimaryCls} min-w-28`} disabled={busy}>{savingUsd ? 'Saving...' : 'Save USD-INR'}</button>
+        </div>
+      </form>
+    </div>}
+    {toast && <div role="status" className="pointer-events-none fixed inset-x-3 bottom-5 z-[100] mx-auto w-fit rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg">{toast}</div>}
+  </div>
 }

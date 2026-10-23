@@ -1166,19 +1166,20 @@ export const settlementReportAPI = {
   get: async (body, options = {}) => (await api.post('/api/broker/settlement-report', body, options)).data,
 }
 
+// Broker Calculator OpenAPI: financial results and export files come from these broker endpoints.
 export const brokerageCalcAPI = {
   calculate: async ({ week_id, search = '', status = 'all', page = 1, limit = 100 } = {}, options = {}) => {
     const response = await api.post('/api/broker/brokerage-calculator', { week_id, search, status, page, limit }, options)
     return response.data
   },
-  // Export the final report (xlsx) or the pending list (csv). The same POST endpoint returns a
+  // Export all matching rows (not just the page) as XLSX or CSV. The same POST endpoint returns a
   // file when `format` is set, so we fetch it as a blob (with the Bearer token) and save it.
-  exportFile: ({ week_id, format, view }, filename) => postForFile('/api/broker/brokerage-calculator', { week_id, format, view }, filename),
+  exportFile: ({ week_id, search = '', status = 'all', format, view }, filename) => postForFile('/api/broker/brokerage-calculator', { week_id, search, status, format, view }, filename),
   getExchanges: async () => (await api.get('/api/broker/brokerage-calculator/exchanges')).data,
   setExchanges: async (exchanges) => (await api.put('/api/broker/brokerage-calculator/exchanges', { exchanges })).data,
-  getClientRates: async () => (await api.get('/api/broker/brokerage-calculator/client-rates')).data,
+  getClientRates: async (params = {}) => (await api.get('/api/broker/brokerage-calculator/client-rates', { params })).data,
   setClientRates: async (rates) => (await api.put('/api/broker/brokerage-calculator/client-rates', { rates })).data,
-  getUsdInr: async (week_id) => (await api.get('/api/broker/brokerage-calculator/usd-inr', { params: week_id ? { week_id } : {} })).data,
+  getUsdInr: async (week_id, options = {}) => (await api.get('/api/broker/brokerage-calculator/usd-inr', { ...options, params: { week_id } })).data,
   setUsdInr: async (week_id, rate) => (await api.put('/api/broker/brokerage-calculator/usd-inr', { week_id, rate })).data,
 }
 
