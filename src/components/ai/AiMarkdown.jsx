@@ -60,10 +60,10 @@ const makeButton = (label, iconSvg) => {
   return button
 }
 
-const AiMarkdown = ({ text, className = '', onOpenClient, onAsk }) => {
+const AiMarkdown = ({ text, className = '', onOpenClient, onAsk, onPrefill }) => {
   const ref = useRef(null)
-  const actionsRef = useRef({ onOpenClient, onAsk })
-  actionsRef.current = { onOpenClient, onAsk }
+  const actionsRef = useRef({ onOpenClient, onAsk, onPrefill })
+  actionsRef.current = { onOpenClient, onAsk, onPrefill }
   const html = useMemo(() => {
     const raw = marked.parse(text || '')
     return DOMPurify.sanitize(raw, { ADD_ATTR: ['target'] })
@@ -132,11 +132,15 @@ const AiMarkdown = ({ text, className = '', onOpenClient, onAsk }) => {
           cell.title = 'Open the client panel'
           const actions = document.createElement('span')
           actions.className = 'ai-login-actions'
+          // Match the reference app: Panel opens the client panel; Credit/Rule/Watch prefill the
+          // composer (so the broker can edit the amount — note the double space in "Give  credit")
+          // and then send it themselves. Falls back to onAsk (send) if no prefill handler is wired.
+          const prefill = (t) => (actionsRef.current.onPrefill || actionsRef.current.onAsk)?.(t)
           const choices = [
             ['Panel', 'Open the client panel', () => actionsRef.current.onOpenClient?.(login)],
-            ['Credit', 'Credit in / out', () => actionsRef.current.onAsk?.(`Give credit to ${login}`)],
-            ['Rule', 'Apply a rule', () => actionsRef.current.onAsk?.(`Put ${login} on close only`)],
-            ['Watch', 'Alert on this account', () => actionsRef.current.onAsk?.(`Alert me when ${login}'s margin level drops below 120%`)]
+            ['Credit', 'Credit in / out', () => prefill(`Give  credit to ${login}`)],
+            ['Rule', 'Apply a rule', () => prefill(`Put ${login} on close only`)],
+            ['Watch', 'Alert on this account', () => prefill(`Alert me when ${login}'s margin level drops below 120%`)]
           ]
           choices.forEach(([label, title, handler]) => {
             const button = document.createElement('button')

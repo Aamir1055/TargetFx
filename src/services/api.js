@@ -1098,6 +1098,90 @@ export const aiAPI = {
   }
 }
 
+// Public tutorials (video help library). These endpoints are public — the
+// thumbnail/video URLs are plain GETs so a bare <img>/<video src> works (in dev
+// they go through the Vite /api proxy; in prod they hit VITE_API_BASE_URL).
+export const tutorialsAPI = {
+  // Anonymous visitors: public videos only (no auth needed).
+  list: async (params = {}) => {
+    const query = {}
+    if (params.language) query.language = params.language
+    if (params.category) query.category = params.category
+    const response = await api.get('/api/public/tutorials', { params: query })
+    return response.data
+  },
+  // Logged-in brokers: every video they can see (public + restricted). Needs the auth token,
+  // which the `api` instance attaches automatically.
+  listBroker: async (params = {}) => {
+    const query = {}
+    if (params.language) query.language = params.language
+    if (params.category) query.category = params.category
+    const response = await api.get('/api/tutorials', { params: query })
+    return response.data
+  },
+  // Turn a relative media path from the API (video_url / thumbnail_url) into an absolute URL
+  // a bare <video>/<img> can load (dev: through the Vite proxy; prod: VITE_API_BASE_URL).
+  mediaUrl: (path) => (path ? `${BASE_URL}${path}` : ''),
+  // Fallbacks when the record has no explicit media path.
+  thumbnailUrl: (id) => `${BASE_URL}/api/public/tutorials/${encodeURIComponent(id)}/thumbnail`,
+  videoUrl: (id) => `${BASE_URL}/api/public/tutorials/${encodeURIComponent(id)}/video`,
+}
+
+// Brokerage Calculator — per-login brokerage for a settlement week, plus the rate config
+// (exchange rates, per-client overrides, weekly USD→INR) that feeds the calculation.
+const saveBlobFile = (blob, filename) => {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+// POST a body and save the file the server returns. We ask for a blob (so the Bearer token is
+// attached, unlike a plain <a href>), which means an error reply also arrives as a Blob — read it
+// back as JSON so the caller gets the server's real message instead of "[object Blob]".
+const postForFile = async (url, body, filename) => {
+  const failure = async (blob, fallback) => {
+    try { return new Error(JSON.parse(await blob.text())?.message || fallback) } catch { return new Error(fallback) }
+  }
+  let response
+  try {
+    response = await api.post(url, body, { responseType: 'blob' })
+  } catch (error) {
+    if (error?.response?.data instanceof Blob) throw await failure(error.response.data, 'Export failed')
+    throw error
+  }
+  if (response.data?.type?.includes('application/json')) throw await failure(response.data, 'Export failed')
+  saveBlobFile(response.data, filename)
+}
+
+// Settlement Report — week-based report of settlements. Like the Bills endpoints, a group is sent as
+// `mt5Accounts` (the list of logins). The Excel download is built in the browser from these rows
+// (see exportStyledExcel), so the endpoint's own `format: "xlsx"` file is not used.
+export const settlementReportAPI = {
+  get: async (body, options = {}) => (await api.post('/api/broker/settlement-report', body, options)).data,
+}
+
+export const brokerageCalcAPI = {
+  calculate: async ({ week_id, search = '', status = 'all', page = 1, limit = 100 } = {}, options = {}) => {
+    const response = await api.post('/api/broker/brokerage-calculator', { week_id, search, status, page, limit }, options)
+    return response.data
+  },
+  // Export the final report (xlsx) or the pending list (csv). The same POST endpoint returns a
+  // file when `format` is set, so we fetch it as a blob (with the Bearer token) and save it.
+  exportFile: ({ week_id, format, view }, filename) => postForFile('/api/broker/brokerage-calculator', { week_id, format, view }, filename),
+  getExchanges: async () => (await api.get('/api/broker/brokerage-calculator/exchanges')).data,
+  setExchanges: async (exchanges) => (await api.put('/api/broker/brokerage-calculator/exchanges', { exchanges })).data,
+  getClientRates: async () => (await api.get('/api/broker/brokerage-calculator/client-rates')).data,
+  setClientRates: async (rates) => (await api.put('/api/broker/brokerage-calculator/client-rates', { rates })).data,
+  getUsdInr: async (week_id) => (await api.get('/api/broker/brokerage-calculator/usd-inr', { params: week_id ? { week_id } : {} })).data,
+  setUsdInr: async (week_id, rate) => (await api.put('/api/broker/brokerage-calculator/usd-inr', { week_id, rate })).data,
+}
+
 // Also export these methods on default api for backwards compatibility
 api.getIBEmails = brokerAPI.getIBEmails
 api.getIBMT5Accounts = brokerAPI.getIBMT5Accounts

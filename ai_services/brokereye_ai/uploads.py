@@ -8,6 +8,7 @@ the rows on demand — so a 5,000-row statement costs nothing until asked for.
 """
 from __future__ import annotations
 
+import base64
 import csv
 import io
 import json
@@ -21,10 +22,28 @@ from .charts import FILES_DIR
 
 TTL_SECONDS = 24 * 3600
 MAX_BYTES = 8 * 1024 * 1024
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # Anthropic rejects base64 images larger than ~5 MB
 MAX_ROWS = 20000
 MAX_COLS = 40
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{10,40}$")
 _LOGIN_RE = re.compile(r"^\d{3,12}$")
+
+# Image types the model can see directly (sent as an image content block, not parsed into a table).
+IMAGE_EXTS = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif", "webp": "image/webp"}
+
+
+def _sniff_image(data: bytes) -> str | None:
+    """Best-effort media type from the file's magic bytes, for pasted screenshots
+    that may arrive without a reliable extension."""
+    if data[:8].startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 class UploadError(ValueError):
@@ -102,12 +121,30 @@ def _parse_text(data: bytes) -> tuple[list[str], list[list[Any]]]:
     return ["text"], [[ln[:500]] for ln in lines]
 
 
+def _save_image(broker_id: int, name: str, data: bytes, media_type: str) -> dict[str, Any]:
+    """Store an image upload. The raw bytes are kept (base64) so the agent can
+    hand them to the model as an image block; images are never parsed into tables."""
+    if len(data) > MAX_IMAGE_BYTES:
+        raise UploadError(f"Image too large (max {MAX_IMAGE_BYTES // (1024 * 1024)} MB)")
+    upload_id = secrets.token_urlsafe(18)
+    doc = {"id": upload_id, "broker_id": broker_id, "filename": name, "kind": "image",
+           "media_type": media_type, "data_b64": base64.b64encode(data).decode("ascii"),
+           "created_at": int(time.time())}
+    _cleanup()
+    (FILES_DIR / f"{upload_id}.upload.json").write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    return summary(doc)
+
+
 def save_upload(broker_id: int, filename: str, data: bytes) -> dict[str, Any]:
     """Parse and store; returns the summary the UI and the model see."""
     if len(data) > MAX_BYTES:
         raise UploadError(f"File too large (max {MAX_BYTES // (1024 * 1024)} MB)")
     name = (filename or "upload").strip()[:120]
     ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    # Images (incl. pasted screenshots): recognised by extension or by magic bytes.
+    img_type = IMAGE_EXTS.get(ext) or _sniff_image(data)
+    if img_type:
+        return _save_image(broker_id, name, data, img_type)
     if ext in ("xlsx", "xlsm"):
         columns, rows = _parse_xlsx(data)
     elif ext in ("csv", "tsv"):
@@ -140,6 +177,9 @@ def save_upload(broker_id: int, filename: str, data: bytes) -> dict[str, Any]:
 
 
 def summary(doc: dict[str, Any]) -> dict[str, Any]:
+    if doc.get("kind") == "image":
+        return {"id": doc["id"], "filename": doc["filename"], "kind": "image", "media_type": doc.get("media_type"),
+                "columns": [], "row_count": 0, "truncated": False, "login_column": None, "login_count": 0, "preview": []}
     return {"id": doc["id"], "filename": doc["filename"], "columns": doc["columns"], "row_count": doc["row_count"],
             "truncated": doc["truncated"], "login_column": doc.get("login_column"), "login_count": len(doc.get("logins") or []),
             "preview": doc["rows"][:5]}
@@ -162,6 +202,8 @@ def load_upload(broker_id: int, upload_id: str) -> dict[str, Any] | None:
 
 def describe_for_model(doc: dict[str, Any]) -> str:
     """The text block added to the user turn when a file is attached."""
+    if doc.get("kind") == "image":
+        return f'[Attached image "{doc["filename"]}" (upload_id {doc["id"]}). The image itself is included below.]'
     s = summary(doc)
     head = " | ".join(s["columns"])
     lines = [" | ".join("" if c is None else str(c) for c in r) for r in s["preview"]]

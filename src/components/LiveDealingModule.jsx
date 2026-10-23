@@ -4,7 +4,7 @@ import { withExportLoading } from '../utils/exportLoading'
 import QuickTimeFilter from './QuickTimeFilter'
 import { getPresetRange, QUICK_FILTERS } from '../utils/dealTimePresets'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { AskAiIcon, ReportsIcon, ReportSubIcon } from './ReportIcons'
+import { AskAiIcon, ReportsIcon, ReportSubIcon, TutorialIcon, BrokerageCalcIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/dataContextStore'
 import { useAuth } from '../contexts/authContextStore'
@@ -825,6 +825,9 @@ const profit = deal.rawData?.profit || 0
                   {label:'Bills', path:'/bills', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="#404040"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#404040" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   )},
+                  {label:'Tutorials', path:'/tutorials', icon:(
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="3" stroke="#404040"/><path d="M10 9.2v5.6l5-2.8-5-2.8z" fill="#404040"/></svg>
+                  )},
                 ].map((item, idx) => (
                   <button 
                     key={idx} 
@@ -838,7 +841,7 @@ const profit = deal.rawData?.profit || 0
                         : 'hover:bg-[#F8F8F8]'
                     }`}
                   >
-                    <div className="flex-shrink-0"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/${{'/dashboard':'Dashboard','/client2':'Clients','/positions':'Positions','/pending-orders':'Pending-Orders','/margin-level':'Margin-Level','/live-dealing':'Live-Dealing','/client-percentage':'Client-Percentage','/bills':'Bills','/settings':'Settings'}[item.path]}.svg`} alt={item.label} style={{filter:'brightness(0)'}} className="w-5 h-5"/></div>
+                    <div className="flex-shrink-0">{item.path === "/tutorials" ? <TutorialIcon className="w-5 h-5 text-[#404040]" /> : item.path === "/brokerage-calculator" ? <BrokerageCalcIcon className="w-5 h-5 text-[#404040]" /> : <img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/${{'/dashboard':'Dashboard','/client2':'Clients','/positions':'Positions','/pending-orders':'Pending-Orders','/margin-level':'Margin-Level','/live-dealing':'Live-Dealing','/client-percentage':'Client-Percentage','/bills':'Bills','/tutorials':'Tutorials','/settings':'Settings'}[item.path]}.svg`} alt={item.label} style={{filter:'brightness(0)'}} className="w-5 h-5"/>}</div>
                     <span className={`text-[13px] ${
                       item.active ? 'text-[#1A63BC] font-semibold' : 'text-[#404040]'
                     }`}>
@@ -861,6 +864,7 @@ const profit = deal.rawData?.profit || 0
                       <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit Report</button>
                       <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
                       <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' :  'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />D/W Report</button>
+                      <button type="button" onClick={() => { navigate('/reports/settlement'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/settlement' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' :  'text-[#404040]'}`}><ReportSubIcon path="/reports/settlement" />Settlement Report</button>
                     </div>
                   )}
                 </div>
@@ -874,14 +878,6 @@ const profit = deal.rawData?.profit || 0
                 >
                   <span className="w-5 h-5 flex items-center justify-center"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/Settings.svg`} alt="Settings" style={{filter:'brightness(0)'}} className="w-5 h-5"/></span>
                   <span>Settings</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { navigate('/ai'); setIsSidebarOpen(false) }}
-                  className={`mt-1 flex items-center gap-3 px-4 h-11 rounded-lg text-[13px] font-semibold ${location.pathname === '/ai' ? 'bg-blue-600 text-white' : 'bg-blue-50/70 text-blue-700'}`}
-                >
-                  <span className="w-5 h-5 flex items-center justify-center"><AskAiIcon className="w-5 h-5" /></span>
-                  <span>Ask AI</span>
                 </button>
               </nav>
             </div>

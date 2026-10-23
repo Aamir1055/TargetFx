@@ -127,7 +127,7 @@ const AiDashboard = ({ data }) => {
         <span className="ml-auto text-xs text-slate-500">{data.positionCount ?? 0} positions · {data.orderCount ?? 0} orders</span>
       </div>
 
-      <div className="grid grid-cols-12 gap-2 bg-slate-50 p-2">
+      <div className="grid grid-cols-12 gap-2 bg-white p-2">
         <Card title="Account" span={5}>
           <div className="grid grid-cols-3 gap-x-3 gap-y-2.5">
             <div><small className="block text-xs text-slate-500">Name</small><b className="block text-sm font-semibold text-slate-900">{data.name || '–'}</b></div>

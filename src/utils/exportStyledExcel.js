@@ -18,7 +18,8 @@ import XLSX from 'xlsx-js-style'
 //   }],
 //   columns: [{ label, value: key | row => v, type: 'text'|'number'|'integer', digits: 2, signed: true, width }],
 //   sheetName: 'Deals',
-//   fileName: 'deals.csv'
+//   fileName: 'deals.csv',
+//   bookType: 'csv'                            // optional; 'xlsx' keeps the styling
 // })
 
 const NAVY = '1F3864'
@@ -54,7 +55,10 @@ export const exportStyledExcel = ({
   sections = [],
   columns = [],
   sheetName = 'Sheet1',
-  fileName = 'export.csv'
+  fileName = 'export.csv',
+  // 'csv' (the default, what the other reports use) drops all styling. Pass 'xlsx' for a real
+  // Excel workbook that keeps the colours, bands, borders and number formats built below.
+  bookType = 'csv'
 }) => {
   const cols = columns.filter(Boolean)
   const colCount = Math.max(cols.length, 2)
@@ -182,7 +186,7 @@ export const exportStyledExcel = ({
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, String(sheetName).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31))
-  XLSX.writeFile(wb, fileName, { bookType: 'csv' })
+  XLSX.writeFile(wb, fileName, { bookType })
 }
 
 // Buy / Sell style text colouring for action / type columns

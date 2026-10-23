@@ -150,8 +150,13 @@ def _user_turn(user_text: str, session: brokereye.Session, channel: str, convers
     blocks: list[dict[str, Any]] = [{"type": "text", "text": context}]
     for upload_id in attachments or []:
         doc = uploads.load_upload(session.broker_id, upload_id)
-        if doc:
-            blocks.append({"type": "text", "text": uploads.describe_for_model(doc)})
+        if not doc:
+            continue
+        blocks.append({"type": "text", "text": uploads.describe_for_model(doc)})
+        if doc.get("kind") == "image" and doc.get("data_b64"):
+            blocks.append({"type": "image", "source": {"type": "base64",
+                                                        "media_type": doc.get("media_type", "image/png"),
+                                                        "data": doc["data_b64"]}})
     blocks.append({"type": "text", "text": user_text})
     return blocks
 
@@ -202,7 +207,8 @@ def run_turn(session: brokereye.Session, conversation_id: str, user_text: str,
     for upload_id in attachments or []:
         doc = uploads.load_upload(session.broker_id, upload_id)
         if doc:
-            shown += f"\n\n📎 {doc['filename']} ({doc['row_count']} rows)"
+            shown += (f"\n\n📎 {doc['filename']}" if doc.get("kind") == "image"
+                      else f"\n\n📎 {doc['filename']} ({doc['row_count']} rows)")
     store.append_message(conversation_id, role="user", kind="text", content=user_content, display_text=shown)
     history.append({"role": "user", "content": user_content})
     system_blocks = _system_blocks(session.broker_id)

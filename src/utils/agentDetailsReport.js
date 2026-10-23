@@ -6,7 +6,17 @@ export function buildAgentDetailsRequest({ from, to, agent = '', search = '', ty
     if (!/^\d+$/.test(agent.trim()) || !Number.isSafeInteger(Number(agent)) || Number(agent) <= 0) throw new Error('Enter a valid agent login.')
     filters.push({ field: 'agent_login', operator: 'equal', value: Number(agent) })
   }
-  if (search.trim()) filters.push({ field: 'symbol', operator: 'equal', value: search.trim() })
+  const term = search.trim()
+  if (term) {
+    // A numeric search is a client login (e.g. 90077); anything else is an exact symbol (e.g. XAUUSD).
+    // The login filter uses `in` + an array on purpose: applyReportGroupFilter intersects it with the
+    // active group's logins and calls .includes() on its value, same shape as the Credit report.
+    if (/^\d+$/.test(term) && Number.isSafeInteger(Number(term)) && Number(term) > 0) {
+      filters.push({ field: 'login', operator: 'in', value: [Number(term)] })
+    } else {
+      filters.push({ field: 'symbol', operator: 'equal', value: term })
+    }
+  }
   if (type !== 'all') {
     if (!['AGENT', 'AGENT_DAILY', 'both'].includes(type)) throw new Error('Choose a valid agent type.')
     filters.push({ field: 'type', operator: 'in', value: type === 'both' ? ['AGENT', 'AGENT_DAILY'] : [type] })

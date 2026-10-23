@@ -2,7 +2,7 @@ import { drawerTapGuard } from '../utils/drawerTapGuard'
 import BrokerCreditSummary from './BrokerCreditSummary'
 import { withExportLoading } from '../utils/exportLoading'
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import { AskAiIcon, ReportsIcon, ReportSubIcon } from './ReportIcons'
+import { AskAiIcon, ReportsIcon, ReportSubIcon, TutorialIcon, BrokerageCalcIcon } from './ReportIcons'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/dataContextStore'
 import { brokerAPI } from '../services/api'
@@ -1613,18 +1613,20 @@ export default function ClientPercentageModule() {
                   {label:'Bills', path:'/bills', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="#404040"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#404040" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   )},
+                  {label:'Tutorials', path:'/tutorials', icon:(
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="3" stroke="#404040"/><path d="M10 9.2v5.6l5-2.8-5-2.8z" fill="#404040"/></svg>
+                  )},
                   {label:'Reports', path:'/reports/exchange', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" stroke="#404040"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#404040" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   )},
                   {label:'Settings', path:'/settings', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" stroke="#404040"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2" stroke="#404040"/></svg>
                   )},
-                  {label:'Ask AI', path:'/ai'},
                 ].map((item, idx) => item.path === '/ai' ? (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => { navigate('/ai'); setIsSidebarOpen(false) }}
+                    onClick={() => { navigate('/ai', { state: { newChat: Date.now() } }); setIsSidebarOpen(false) }}
                     className={`mt-1 flex items-center gap-3 px-4 h-11 rounded-lg text-[13px] font-semibold ${location.pathname === '/ai' ? 'bg-blue-600 text-white' : 'bg-blue-50/70 text-blue-700'}`}
                   >
                     <span className="w-5 h-5 flex items-center justify-center"><AskAiIcon className="w-5 h-5" /></span>
@@ -1646,6 +1648,7 @@ export default function ClientPercentageModule() {
                         <button type="button" onClick={() => { navigate('/reports/credit'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/credit' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/credit" />Credit Report</button>
                         <button type="button" onClick={() => { navigate('/reports/agent-details'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/agent-details' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}><ReportSubIcon path="/reports/agent-details" />Agent Details</button>
                         <button type="button" onClick={() => { navigate('/reports/deposit-withdrawal'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/deposit-withdrawal' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' :  'text-[#404040]'}`}><ReportSubIcon path="/reports/deposit-withdrawal" />D/W Report</button>
+                        <button type="button" onClick={() => { navigate('/reports/settlement'); setIsSidebarOpen(false) }} className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/settlement' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' :  'text-[#404040]'}`}><ReportSubIcon path="/reports/settlement" />Settlement Report</button>
                       </div>
                     )}
                   </div>
@@ -1658,7 +1661,7 @@ export default function ClientPercentageModule() {
                     }}
                     className={`flex items-center gap-3 px-4 h-11 text-[13px] ${item.active ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                   >
-                    <span className="w-5 h-5 flex items-center justify-center"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/${{'/dashboard':'Dashboard','/client2':'Clients','/positions':'Positions','/pending-orders':'Pending-Orders','/margin-level':'Margin-Level','/live-dealing':'Live-Dealing','/client-percentage':'Client-Percentage','/bills':'Bills','/settings':'Settings'}[item.path]}.svg`} alt={item.label} style={{filter:'brightness(0)'}} className="w-5 h-5"/></span>
+                    <span className="w-5 h-5 flex items-center justify-center">{item.path === "/tutorials" ? <TutorialIcon className="w-5 h-5 text-[#404040]" /> : item.path === "/brokerage-calculator" ? <BrokerageCalcIcon className="w-5 h-5 text-[#404040]" /> : <img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/${{'/dashboard':'Dashboard','/client2':'Clients','/positions':'Positions','/pending-orders':'Pending-Orders','/margin-level':'Margin-Level','/live-dealing':'Live-Dealing','/client-percentage':'Client-Percentage','/bills':'Bills','/tutorials':'Tutorials','/settings':'Settings'}[item.path]}.svg`} alt={item.label} style={{filter:'brightness(0)'}} className="w-5 h-5"/>}</span>
                     <span>{item.label}</span>
                   </button>
                 ))}

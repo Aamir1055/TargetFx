@@ -11,6 +11,27 @@ test('agent and symbol produce the documented equality filters', () => {
     { field: 'symbol', operator: 'equal', value: 'XAUUSD' }
   ])
 })
+test('a numeric search filters by client login, not symbol', () => {
+  assert.deepEqual(buildAgentDetailsRequest({ from: 100, to: 200, search: ' 90077 ' }).filters, [
+    { field: 'login', operator: 'in', value: [90077] }
+  ])
+})
+test('a text search still filters by exact symbol', () => {
+  assert.deepEqual(buildAgentDetailsRequest({ from: 100, to: 200, search: 'XAUUSD' }).filters, [
+    { field: 'symbol', operator: 'equal', value: 'XAUUSD' }
+  ])
+})
+test('a login search combines with the agent filter and an active group', async () => {
+  const { applyReportGroupFilter } = await import('./reportGroupFilter.js')
+  const body = buildAgentDetailsRequest({ from: 100, to: 200, agent: '800001', search: '90077' })
+  assert.deepEqual(body.filters, [
+    { field: 'agent_login', operator: 'equal', value: 800001 },
+    { field: 'login', operator: 'in', value: [90077] }
+  ])
+  // searched login is inside the group -> kept; outside the group -> request is refused (no leak to all accounts)
+  assert.equal(applyReportGroupFilter(structuredClone(body), { loginIds: [90077, 90078] }), true)
+  assert.equal(applyReportGroupFilter(structuredClone(body), { loginIds: [90001] }), false)
+})
 test('combined types and commission sorting match the collection', () => {
   const body = buildAgentDetailsRequest({ from: 100, to: 200, type: 'both', sortBy: 'commission', sortOrder: 'desc' }, 2, 25)
   assert.deepEqual(body.filters, [{ field: 'type', operator: 'in', value: ['AGENT', 'AGENT_DAILY'] }])

@@ -1331,6 +1331,8 @@ def read_upload(
         doc = uploads.load_upload(brokereye.current_session.get().broker_id, upload_id)
         if not doc:
             raise ValueError("That attachment is no longer available (uploads are kept for 24 hours); ask the user to attach it again")
+        if doc.get("kind") == "image":
+            raise ValueError("That attachment is an image, not a table — look at the image directly; it was included with the user's message.")
         if logins_only:
             logins = doc.get("logins") or []
             return _result({"filename": doc["filename"], "login_column": doc.get("login_column"), "logins": logins[:5000],

@@ -67,6 +67,7 @@ const ReportsExchangePage = lazy(() => import('./pages/ReportsExchangePage'))
 const HistoricalPositionsPage = lazy(() => import('./pages/HistoricalPositionsPage'))
 const DealsReportPage = lazy(() => import('./pages/DealsReportPage'))
 const AgentDetailsReportPage = lazy(() => import('./pages/AgentDetailsReportPage'))
+const SettlementReportPage = lazy(() => import('./pages/SettlementReportPage'))
 const CreditReportPage = lazy(() => import('./pages/CreditReportPage'))
 const DepositWithdrawalReportPage = lazy(() => import('./pages/DepositWithdrawalReportPage'))
 const SummaryReportPage = lazy(() => import('./pages/SummaryReportPage'))
@@ -75,6 +76,9 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const GraphicalAnalyticsPage = lazy(() => import('./pages/GraphicalAnalyticsPage'))
 const ClientDashboardDesignCPage = lazy(() => import('./pages/ClientDashboardDesignC'))
 const AskAIPage = lazy(() => import('./pages/AskAIPage'))
+const TutorialsPage = lazy(() => import('./pages/TutorialsPage'))
+const BrokerageCalculatorPage = lazy(() => import('./pages/BrokerageCalculatorPage'))
+import AskAiFab from './components/AskAiFab'
 
 // Main App Content Component
 const AppContent = () => {
@@ -214,13 +218,18 @@ const AppContent = () => {
 
   if (!isAuthenticated) {
     return (
-      <Routes>
-        <Route path="/" element={isMobile ? <LoginMobile /> : <LoginPage />} />
-        <Route path="/login" element={isMobile ? <LoginMobile /> : <LoginPage />} />
-        <Route path="/m/login" element={<LoginMobile />} />
-        <Route path="/d/login" element={<LoginPage />} />
-        <Route path="*" element={isMobile ? <LoginMobile /> : <LoginPage />} />
-      </Routes>
+      <Suspense fallback={<PageSkeleton />}>
+        <Routes>
+          <Route path="/" element={isMobile ? <LoginMobile /> : <LoginPage />} />
+          <Route path="/login" element={isMobile ? <LoginMobile /> : <LoginPage />} />
+          <Route path="/m/login" element={<LoginMobile />} />
+          <Route path="/d/login" element={<LoginPage />} />
+          {/* Public tutorials: reachable without login. Shows public videos only, in a
+              standalone page (no sidebar / other modules). */}
+          <Route path="/tutorials" element={<TutorialsPage />} />
+          <Route path="*" element={isMobile ? <LoginMobile /> : <LoginPage />} />
+        </Routes>
+      </Suspense>
     )
   }
 
@@ -245,15 +254,19 @@ const AppContent = () => {
         <Route path="/reports/historical-positions" element={<HistoricalPositionsPage />} />
         <Route path="/reports/deals" element={<DealsReportPage />} />
         <Route path="/reports/agent-details" element={<AgentDetailsReportPage />} />
+        <Route path="/reports/settlement" element={<SettlementReportPage />} />
         <Route path="/reports/credit" element={<CreditReportPage />} />
         <Route path="/reports/deposit-withdrawal" element={<DepositWithdrawalReportPage />} />
         <Route path="/reports/summary" element={<SummaryReportPage />} />
         <Route path="/broker-rules" element={<BrokerRulePage />} />
   <Route path="/analytics" element={<GraphicalAnalyticsPage />} />
           <Route path="/client-dashboard-c" element={<ClientDashboardDesignCPage />} />
+        <Route path="/tutorials" element={<TutorialsPage />} />
+        <Route path="/brokerage-calculator" element={<BrokerageCalculatorPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/client2" replace />} />
       </Routes>
+      <AskAiFab />
     </Suspense>
   )
 }
@@ -277,6 +290,8 @@ function PreloadRoutes() {
         import('./pages/SummaryReportPage')
         import('./pages/BrokerRulePage')
         import('./pages/SettingsPage')
+        import('./pages/TutorialsPage')
+        import('./pages/BrokerageCalculatorPage')
         import('./pages/GraphicalAnalyticsPage')
         import('./pages/ClientDashboardDesignC')
       } catch { /* Retain the fallback when this operation is unavailable. */ }

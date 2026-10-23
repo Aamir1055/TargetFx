@@ -20,7 +20,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: process.env.NODE_ENV === 'production' ? 'auto' : null,
+      // Registered manually in main.jsx via virtual:pwa-register, so a new deploy reloads the
+      // page itself instead of leaving a stale cached index.html/JS bundle until a manual refresh.
+      injectRegister: false,
       devOptions: {
         enabled: false // Disable PWA in development
       },
@@ -32,10 +34,13 @@ export default defineConfig({
         navigateFallback: null, // Prevent service worker from intercepting navigation
         manifestTransforms: [
           async (entries) => {
-            // Filter out assets with problematic encoded characters
+            // Filter out assets whose filenames contain spaces or '%'. These
+            // produce malformed precache URLs (e.g. a bare '%' not followed by
+            // two hex digits) that the server rejects with 400, which aborts
+            // the whole service-worker install (bad-precaching-response).
             const filtered = entries.filter((e) => {
               const url = e.url || ''
-              if (url.includes('%25')) return false
+              if (/%| /.test(url)) return false
               return true
             })
             return { manifest: filtered }
@@ -47,6 +52,7 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
+              networkTimeoutSeconds: 8,
               expiration: {
                 maxEntries: 50,
                 maxAgeSeconds: 300 // 5 minutes
@@ -89,6 +95,13 @@ export default defineConfig({
         target: 'http://57.129.87.192:8090',
         changeOrigin: true,
         secure: false,
+        // '/ai' is both the React Router page route and the API prefix (/ai/me, /ai/conversations,
+        // ...). A direct page load of /ai sends Accept: text/html — bypass the proxy for that so
+        // Vite serves the SPA instead of forwarding the page request itself to the AI backend,
+        // which has no route literally called "/ai" and would 404.
+        bypass(req) {
+          if (req.headers.accept?.includes('text/html')) return '/index.html'
+        },
       },
       '/health': {
         target: 'http://57.129.87.192:8090',

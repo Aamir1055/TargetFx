@@ -1,4 +1,5 @@
 import { drawerTapGuard } from '../../utils/drawerTapGuard'
+import { TutorialIcon, BrokerageCalcIcon } from '../ReportIcons'
 import BrokerCreditSummary from '../BrokerCreditSummary'
 import { withExportLoading } from '../../utils/exportLoading'
 import { parseAccountTypePreferences } from '../../utils/accountType'
@@ -1118,6 +1119,9 @@ export default function ClientDashboardDesignC() {
                   {label:'Bills', path:'/bills', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="#404040"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#404040" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   )},
+                  {label:'Tutorials', path:'/tutorials', icon:(
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="4.5" width="19" height="15" rx="3" stroke="#404040"/><path d="M10 9.2v5.6l5-2.8-5-2.8z" fill="#404040"/></svg>
+                  )},
                   {label:'Settings', path:'/settings', icon:(
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" stroke="#404040"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2" stroke="#404040"/></svg>
                   )},
@@ -1130,7 +1134,7 @@ export default function ClientDashboardDesignC() {
                     }}
                     className={`flex items-center gap-3 px-4 h-11 text-[13px] ${item.active ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
                   >
-                    <span className="w-5 h-5 flex items-center justify-center"><img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/${{'/dashboard':'Dashboard','/client2':'Clients','/positions':'Positions','/pending-orders':'Pending-Orders','/margin-level':'Margin-Level','/live-dealing':'Live-Dealing','/client-percentage':'Client-Percentage','/bills':'Bills','/settings':'Settings'}[item.path]}.svg`} alt={item.label} style={{filter:'brightness(0)'}} className="w-5 h-5"/></span>
+                    <span className="w-5 h-5 flex items-center justify-center">{item.path === "/tutorials" ? <TutorialIcon className="w-5 h-5 text-[#404040]" /> : item.path === "/brokerage-calculator" ? <BrokerageCalcIcon className="w-5 h-5 text-[#404040]" /> : <img src={`${import.meta.env.BASE_URL||'/'}sidebar-icons/${{'/dashboard':'Dashboard','/client2':'Clients','/positions':'Positions','/pending-orders':'Pending-Orders','/margin-level':'Margin-Level','/live-dealing':'Live-Dealing','/client-percentage':'Client-Percentage','/bills':'Bills','/tutorials':'Tutorials','/settings':'Settings'}[item.path]}.svg`} alt={item.label} style={{filter:'brightness(0)'}} className="w-5 h-5"/>}</span>
                     <span>{item.label}</span>
                   </button>
                 ))}

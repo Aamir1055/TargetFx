@@ -1868,6 +1868,15 @@ const BillsPage = () => {
                               <ReportSubIcon path="/reports/deposit-withdrawal" />
                               D/W Report
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMobileNavSelect('/reports/settlement')}
+                              className={`flex items-center gap-2.5 w-full h-10 pl-12 pr-4 text-left text-[13px] ${location.pathname === '/reports/settlement' ? 'text-[#1A63BC] bg-[#EFF4FB] rounded-lg font-semibold' : 'text-[#404040]'}`}
+                              style={{ touchAction: 'manipulation' }}
+                            >
+                              <ReportSubIcon path="/reports/settlement" />
+                              Settlement Report
+                            </button>
                           </div>
                         )}
                       </div>

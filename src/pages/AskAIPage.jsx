@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import { AskAiIcon } from '../components/ReportIcons'
 import { aiAPI } from '../services/api'
@@ -75,7 +75,7 @@ const stripQuote = (text) => {
   return m ? m[2] : (text || '')
 }
 
-function MessageBubble({ message, isLast, question, onFeedback, onConfirm, onCancel, actionBusy, onReply, onPin, onRetry, onAsk, onOpenClient, onCopy, onEditResend, onSave, onSchedule }) {
+function MessageBubble({ message, isLast, question, onFeedback, onConfirm, onCancel, actionBusy, onReply, onPin, onRetry, onAsk, onPrefill, onOpenClient, onCopy, onEditResend, onSave, onSchedule }) {
   const isUser = message.role === 'user'
   if (isUser) {
     return (
@@ -113,7 +113,7 @@ function MessageBubble({ message, isLast, question, onFeedback, onConfirm, onCan
       <div className="flex min-w-0 max-w-[88%] flex-col items-start gap-3 max-md:w-full max-md:max-w-full">
         {message.status === 'streaming' && <AiWorkingSteps steps={message.steps} stage={message.stage} />}
         {(message.parts || []).map((part, i) => {
-          if (part.kind === 'text') return part.text ? <AiMarkdown key={i} text={part.text} className={message.status === 'error' ? 'text-red-700' : ''} onOpenClient={onOpenClient} onAsk={onAsk} /> : null
+          if (part.kind === 'text') return part.text ? <AiMarkdown key={i} text={part.text} className={message.status === 'error' ? 'text-red-700' : ''} onOpenClient={onOpenClient} onAsk={onAsk} onPrefill={onPrefill} /> : null
           if (part.kind === 'chart') return <AiChart key={i} id={part.id} title={part.title} url={part.url} />
           if (part.kind === 'historicalChart') return <AiHistoricalChart key={i} spec={part.spec} />
           if (part.kind === 'file') return <AiFileCard key={i} {...part} />
@@ -143,7 +143,7 @@ function MessageBubble({ message, isLast, question, onFeedback, onConfirm, onCan
               </button>
             )}
             {!!question && !!plainTextOf(message) && (
-              <button type="button" onClick={() => onPin(message, question)} title="Pin this answer to Home; it refreshes itself" className="ml-1 h-7 rounded-md border border-slate-200 px-2 text-[11px] font-medium text-slate-600 hover:bg-slate-50">Pin</button>
+              <button type="button" disabled={!!message.pinned} onClick={() => onPin(message, question)} title={message.pinned ? 'Pinned to Home' : 'Pin this answer to Home; it refreshes itself'} className="ml-1 h-7 rounded-md border border-slate-200 px-2 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent">{message.pinned ? 'Pinned' : 'Pin'}</button>
             )}
           </div>
         )}
@@ -161,6 +161,7 @@ function MessageBubble({ message, isLast, question, onFeedback, onConfirm, onCan
 
 export default function AskAIPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [appMenuOpen, setAppMenuOpen] = useState(false)
   const [conversationsOpen, setConversationsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(true)
@@ -240,13 +241,17 @@ export default function AskAIPage() {
 
   useEffect(() => {
     let active = true
+    // Captured once at mount: if this page load came from the "Ask AI" nav's forced-new-chat
+    // signal, don't let the just-loaded conversation list auto-select and override that reset
+    // once this fetch resolves (it used to win the race, silently restoring the last chat).
+    const skipAutoSelect = !!location.state?.newChat
     aiAPI.getMe().then(m => active && setMe(m)).catch(() => {})
     Promise.all([aiAPI.getConversations(), aiAPI.getPins().catch(() => ({ pins: [] })), aiAPI.getSaved().catch(() => ({ saved: [] }))])
       .then(([conversationResult, pinsResult, savedResult]) => {
         if (!active) return
         const list = conversationResult.conversations || []
         setConversations(list)
-        setConversationId(list[0]?.id || null)
+        if (!skipAutoSelect) setConversationId(list[0]?.id || null)
         const usage = conversationResult.usage_today
         if (usage) setTokensToday((usage.input_tokens || 0) + (usage.output_tokens || 0))
         setPins(pinsResult.pins || [])
@@ -255,6 +260,7 @@ export default function AskAIPage() {
       .catch(err => active && setError(err.message))
       .finally(() => active && setLoading(false))
     return () => { active = false; abortRef.current?.abort() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Converts stored transcript messages (reload of a past conversation) into the same
@@ -285,12 +291,22 @@ export default function AskAIPage() {
       setMessages([])
       return undefined
     }
+    // A brand-new chat's first reply assigns conversationId mid-stream (the SSE 'meta' event),
+    // while the live, actively-streaming messages array is still the only authoritative copy —
+    // it hasn't been persisted with all its parts yet. Re-fetching here would race the stream and
+    // overwrite that in-progress assistant message with an incomplete/hydrated one lacking the
+    // `steps` field updateLast() depends on, crashing the next tool_start/tool_end event.
+    if (sending) return undefined
     let active = true
     setError('')
     aiAPI.getMessages(conversationId)
       .then(result => active && setMessages((result.messages || []).filter(m => m.role === 'user' || m.role === 'assistant').map(hydrateMessage)))
       .catch(err => active && setError(err.message))
     return () => { active = false }
+    // Deliberately conversationId-only: this must react to switching conversations, not to
+    // `sending` toggling back to false once a stream finishes (that would re-fetch right as the
+    // live message finishes rendering and risk swapping it for a slightly different hydrated copy).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId])
 
   useEffect(() => {
@@ -372,7 +388,17 @@ export default function AskAIPage() {
             }
             break
           case 'error':
+            // The backend never follows an error event with 'done' (agent.py returns right after
+            // yielding it) — without this, the message stays status:'streaming' forever: the
+            // working-steps spinner never stops and the Copy/Retry/Pin row never appears, even
+            // though sending has already flipped back to false and the rest of the chat works fine.
             setError(eventData.message || 'The assistant could not complete this request.')
+            updateLast(item => ({
+              ...item,
+              status: 'error',
+              stage: '',
+              parts: item.parts.length ? item.parts : [{ kind: 'text', text: eventData.message || 'The assistant could not complete this request.' }],
+            }))
             break
           case 'done':
             updateLast(item => ({
@@ -390,7 +416,9 @@ export default function AskAIPage() {
         }
       }, controller.signal)
       setAttachments([])
-      await loadConversations(false)
+      // Refreshing the sidebar's conversation list is a non-critical follow-up — its own failure
+      // shouldn't recolor an otherwise-successful reply red and relabel it as an error.
+      loadConversations(false).catch(() => {})
     } catch (err) {
       if (err.name !== 'AbortError') setError(err.message)
       updateLast(item => ({ ...item, status: 'error', parts: item.parts.length ? item.parts : [{ kind: 'text', text: 'I could not reach the AI service.' }] }))
@@ -398,6 +426,26 @@ export default function AskAIPage() {
       setSending(false)
       abortRef.current = null
     }
+  }
+
+  // Stop an in-flight generation. The abort surfaces as an AbortError in sendMessage's
+  // catch, which keeps whatever was streamed so far and marks the message "stopped".
+  const stopGenerating = () => abortRef.current?.abort()
+
+  // Put a command into the composer (without sending) and focus it, placing the cursor at
+  // the first double-space gap so the broker can type the amount/minutes — e.g. "Give  credit
+  // to 90023". Used by the client panel and the per-row Panel/Credit/Rule/Watch actions.
+  const prefillComposer = (text) => {
+    setClientLogin(null)
+    setDraft(text)
+    requestAnimationFrame(() => {
+      const el = composerRef.current
+      if (!el) return
+      el.focus()
+      const gap = text.indexOf('  ')
+      const pos = gap >= 0 ? gap + 1 : text.length
+      try { el.selectionStart = el.selectionEnd = pos } catch { /* ignore */ }
+    })
   }
 
   const chooseConversation = (id) => {
@@ -414,6 +462,13 @@ export default function AskAIPage() {
     setReplyTarget(null)
     setConversationsOpen(false)
   }
+
+  // The sidebar's "Ask AI" link always means "start a new chat" — including when you're already
+  // on this page, where a plain route navigation wouldn't remount or reset anything by itself.
+  useEffect(() => {
+    if (location.state?.newChat) newConversation()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.newChat])
 
   const visibleConversations = conversations.filter(item => (item.title || 'Untitled conversation').toLowerCase().includes(conversationSearch.trim().toLowerCase()))
   const visibleSaved = saved.filter(item => `${item.title} ${item.question}`.toLowerCase().includes(conversationSearch.trim().toLowerCase()))
@@ -437,18 +492,42 @@ export default function AskAIPage() {
   const attachOne = async (file) => {
     if (attachments.length >= MAX_ATTACHMENTS) return
     const tempId = `pending-${Date.now()}-${file.name}`
-    setAttachments(prev => [...prev, { id: tempId, filename: file.name, pending: true }])
+    const isImage = (file.type || '').startsWith('image/')
+    const previewUrl = isImage ? URL.createObjectURL(file) : null
+    setAttachments(prev => [...prev, { id: tempId, filename: file.name, pending: true, isImage, previewUrl }])
     try {
       const uploaded = await aiAPI.uploadFile(file)
-      setAttachments(prev => prev.map(a => a.id === tempId ? uploaded : a))
+      setAttachments(prev => prev.map(a => a.id === tempId ? { ...uploaded, isImage, previewUrl } : a))
     } catch (err) {
       setError(err.message)
       setAttachments(prev => prev.filter(a => a.id !== tempId))
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }
   const attachFiles = (fileList) => Array.from(fileList || []).slice(0, MAX_ATTACHMENTS - attachments.length).forEach(attachOne)
   const onFileInputChange = (event) => { attachFiles(event.target.files); event.target.value = '' }
-  const removeAttachment = (id) => setAttachments(prev => prev.filter(a => a.id !== id))
+  const removeAttachment = (id) => setAttachments(prev => {
+    const gone = prev.find(a => a.id === id)
+    if (gone?.previewUrl) URL.revokeObjectURL(gone.previewUrl)
+    return prev.filter(a => a.id !== id)
+  })
+
+  // Paste images/screenshots straight into the composer (Ctrl/Cmd+V from a screenshot
+  // tool or a copied image). Non-image clipboard content falls through to normal paste.
+  const onComposerPaste = (event) => {
+    const items = Array.from(event.clipboardData?.items || [])
+    const images = items.filter(it => it.kind === 'file' && (it.type || '').startsWith('image/'))
+    if (!images.length) return
+    event.preventDefault()
+    const files = images.map(it => {
+      const blob = it.getAsFile()
+      if (!blob) return null
+      const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg')
+      const named = blob.name && blob.name !== 'image.png' ? blob.name : `screenshot-${Date.now()}.${ext}`
+      return new File([blob], named, { type: blob.type })
+    }).filter(Boolean)
+    if (files.length) attachFiles(files)
+  }
 
   const feedback = async (message, rating, comment = '') => {
     if (rating < 0 && !comment) { setFeedbackTarget(message); return }
@@ -485,8 +564,10 @@ export default function AskAIPage() {
     const q = question || lastUserQuestion
     try {
       const r = await aiAPI.addPin(q.slice(0, 80), q, text)
-      setPins(prev => [r.item, ...prev])
-    } catch (err) { setError(err.message) }
+      setPins(r.pins || [])
+      setMessages(current => current.map(m => (m === message ? { ...m, pinned: true } : m)))
+      showToast(r.item?.existing ? 'Already pinned' : 'Pinned to Home')
+    } catch (err) { showToast(`Could not pin: ${err.message}`) }
   }
 
   const askFromPalette = (question) => { setPaletteOpen(false); sendMessage(null, question) }
@@ -514,20 +595,24 @@ export default function AskAIPage() {
       <Sidebar mobileOnly isOpen={appMenuOpen} onClose={() => setAppMenuOpen(false)} onToggle={() => setAppMenuOpen(value => !value)} />
       <main className="min-w-0 flex-1 flex flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1">
-          <aside className={`${historyOpen ? 'w-64 px-4' : 'w-11 px-1'} hidden shrink-0 overflow-hidden border-r border-slate-200 bg-white py-5 transition-all duration-200 md:flex md:flex-col`}>
+          <aside className={`${historyOpen ? 'w-72 px-4' : 'w-11 px-1'} hidden shrink-0 overflow-hidden border-r border-slate-200 bg-white py-5 transition-all duration-200 md:flex md:flex-col`}>
+            {historyOpen && (
+              <button type="button" onClick={() => navigate('/client2')} className="group mb-3 flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12.5px] font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700" title="Back to BrokerEye App">
+                <svg className="h-[18px] w-[18px] shrink-0 transition-transform group-hover:-translate-x-0.5" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <span className="truncate">Back to BrokerEye App</span>
+              </button>
+            )}
             <div className={`${historyOpen ? '' : 'relative h-full justify-center'} flex items-center justify-between gap-2 px-1`}>
-              <div className={`${historyOpen ? 'flex' : 'hidden'} min-w-0 items-center gap-2`}>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
-                  <AskAiIcon className="h-6 w-6" />
-                </span>
+              <div className={`${historyOpen ? 'flex' : 'hidden'} min-w-0 flex-1 items-center gap-2`}>
+                <AskAiIcon className="h-7 w-7 shrink-0" />
                 <p className="truncate text-[15px] font-bold tracking-tight text-slate-900">BrokerEye AI</p>
               </div>
-              <div className={`${historyOpen ? 'flex' : 'absolute left-1/2 top-0 -translate-x-1/2'} items-center gap-0.5`}>
-                <button type="button" onClick={() => setSearchOpen(true)} className={`${historyOpen ? 'block' : 'hidden'} rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-blue-600`} aria-label="Search conversations" title="Search conversations">
-                  <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" strokeWidth="1.8" /><path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+              <div className={`${historyOpen ? 'flex shrink-0' : 'absolute left-1/2 top-0 -translate-x-1/2'} items-center gap-1`}>
+                <button type="button" onClick={() => setSearchOpen(true)} className={`${historyOpen ? 'flex' : 'hidden'} h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-blue-50 hover:text-blue-600`} aria-label="Search conversations" title="Search conversations">
+                  <svg className="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" strokeWidth="2" /><path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                 </button>
-                <button type="button" onClick={() => setHistoryOpen(value => !value)} className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-blue-600" aria-label={historyOpen ? 'Close conversation history' : 'Open conversation history'} title={historyOpen ? 'Close conversation history' : 'Open conversation history'}>
-                  <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" /><path d="M9 4v16" stroke="currentColor" strokeWidth="1.8" /></svg>
+                <button type="button" onClick={() => setHistoryOpen(value => !value)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-blue-50 hover:text-blue-600" aria-label={historyOpen ? 'Close conversation history' : 'Open conversation history'} title={historyOpen ? 'Close conversation history' : 'Open conversation history'}>
+                  <svg className="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" /><path d="M9 4v16" stroke="currentColor" strokeWidth="2" /></svg>
                 </button>
               </div>
             </div>
@@ -538,24 +623,32 @@ export default function AskAIPage() {
             <div className="history-edge-scrollbar compact-scrollbar mt-3 min-h-0 flex-1 overflow-y-auto">
               {!loading && <AiConversationList conversations={visibleConversations} saved={visibleSaved} activeId={conversationId} searchActive={!!conversationSearch.trim()} onSelect={chooseConversation} onDelete={deleteConversation} onAskSaved={text => sendMessage(null, text)} onDeleteSaved={deleteSaved} />}
             </div>
-            <div className="mt-3 flex items-center gap-2.5 border-t border-slate-100 pt-3">
-              <button type="button" onClick={() => navigate('/client2')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-blue-600" aria-label="Back to Broker Eye" title="Back to Broker Eye">
-                <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </button>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white shadow-sm shadow-blue-200">{me ? initialsOf(me.display_name || me.username || `Broker ${me.broker_id}`) : '?'}</span>
-              <div className="min-w-0 flex-1">
-                <b className="block truncate text-[13px] font-medium text-slate-800">{me ? (me.display_name || me.username || `Broker ${me.broker_id}`) : 'Not signed in'}</b>
-                <small className="block truncate text-[11px] text-slate-400">{me ? `Broker${tokensToday ? ` · ${fmtTok(tokensToday)} tokens today` : ''}` : 'Click to sign in'}</small>
+            <div className="mt-3 shrink-0 border-t border-slate-100 pt-3">
+              <div className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-3 py-2.5 shadow-sm">
+                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-[13px] font-semibold text-white shadow-sm shadow-blue-200">
+                  {me ? initialsOf(me.display_name || me.username || `Broker ${me.broker_id}`) : '?'}
+                  {me && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" aria-hidden="true" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <b className="block truncate text-[13.5px] font-semibold text-slate-800">{me ? (me.display_name || me.username || `Broker ${me.broker_id}`) : 'Not signed in'}</b>
+                  <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                    <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3Z" /></svg>
+                    {me ? 'Broker' : 'Click to sign in'}
+                  </span>
+                </div>
               </div>
             </div>
             </>}
           </aside>
           <section className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="ask-ai-mobile-header flex shrink-0 items-center gap-2 border-b border-slate-100 bg-white px-3 py-2.5 md:hidden">
+            <div className="ask-ai-mobile-backbar ask-ai-mobile-header flex shrink-0 items-center gap-1 border-b border-slate-100 bg-white px-3 pb-2.5 md:hidden">
+              <button type="button" onClick={() => navigate('/client2')} className="group mr-auto flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-blue-600 transition hover:bg-blue-50 hover:text-blue-700" title="Back to BrokerEye App" aria-label="Back to BrokerEye App">
+                <svg className="h-[17px] w-[17px] shrink-0 transition-transform group-hover:-translate-x-0.5" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <span>Back to <span className="font-bold">BrokerEye</span></span>
+              </button>
               <button type="button" onClick={() => setConversationsOpen(true)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Open conversation history" title="Open conversation history">
                 <svg className="h-[19px] w-[19px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" /><path d="M9 4v16" stroke="currentColor" strokeWidth="1.8" /></svg>
               </button>
-              <div className="min-w-0 flex-1" />
               <button type="button" onClick={() => setPaletteOpen(true)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Search" title="Search">
                 <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" strokeWidth="1.8" /><path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
               </button>
@@ -571,7 +664,6 @@ export default function AskAIPage() {
                       ['Alerts', <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />, () => setAlertsOpen(true)],
                       ['Digests', <><rect x="3" y="4" width="18" height="17" rx="3" /><path d="M8 2v4M16 2v4M3 10h18" /><path d="m9 15 2 2 4-4" /></>, () => setDigestsOpen(true)],
                       ['Memory', <path d="M12 3a4 4 0 0 0-4 4v1.2A4 4 0 0 0 5 12a4 4 0 0 0 2 3.5V17a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-1.5A4 4 0 0 0 19 12a4 4 0 0 0-3-3.8V7a4 4 0 0 0-4-4ZM12 3v17" />, () => setMemoryOpen(true)],
-                      ['Use a token instead', <><circle cx="8" cy="15" r="4" /><path d="m10.8 12.2 9.2-9.2" /><path d="m15 5 3 3" /></>, () => setTokenOpen(true)],
                     ].map(([label, icon, run]) => (
                       <button key={label} type="button" onClick={() => { setMoreOpen(false); run() }} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] text-slate-700 hover:bg-slate-50">
                         <svg className="h-4 w-4 shrink-0 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
@@ -599,7 +691,6 @@ export default function AskAIPage() {
                       ['Alerts', <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />, () => setAlertsOpen(true)],
                       ['Digests', <><rect x="3" y="4" width="18" height="17" rx="3" /><path d="M8 2v4M16 2v4M3 10h18" /><path d="m9 15 2 2 4-4" /></>, () => setDigestsOpen(true)],
                       ['Memory', <path d="M12 3a4 4 0 0 0-4 4v1.2A4 4 0 0 0 5 12a4 4 0 0 0 2 3.5V17a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-1.5A4 4 0 0 0 19 12a4 4 0 0 0-3-3.8V7a4 4 0 0 0-4-4ZM12 3v17" />, () => setMemoryOpen(true)],
-                      ['Use a token instead', <><circle cx="8" cy="15" r="4" /><path d="m10.8 12.2 9.2-9.2" /><path d="m15 5 3 3" /></>, () => setTokenOpen(true)],
                     ].map(([label, icon, run]) => (
                       <button key={label} type="button" onClick={() => { setMoreOpen(false); run() }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-slate-700 hover:bg-slate-50">
                         <svg className="h-4 w-4 shrink-0 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
@@ -624,15 +715,18 @@ export default function AskAIPage() {
                   <div className="history-edge-scrollbar compact-scrollbar mt-3 min-h-0 flex-1 overflow-y-auto">
                     {!loading && <AiConversationList conversations={visibleConversations} saved={visibleSaved} activeId={conversationId} searchActive={!!conversationSearch.trim()} onSelect={chooseConversation} onDelete={deleteConversation} onAskSaved={text => sendMessage(null, text)} onDeleteSaved={deleteSaved} />}
                   </div>
-                  <div className="flex shrink-0 items-center gap-3 border-t border-slate-100 bg-white pt-2.5">
-                    <button type="button" onClick={() => navigate('/client2')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-blue-600" aria-label="Back to Broker Eye" title="Back to Broker Eye">
-                      <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
-                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white shadow-sm shadow-blue-200">{me ? initialsOf(me.display_name || me.username || `Broker ${me.broker_id}`) : '?'}</span>
-                      <div className="min-w-0">
-                        <b className="block truncate text-[13px] font-medium text-slate-800">{me ? (me.display_name || me.username || `Broker ${me.broker_id}`) : 'Not signed in'}</b>
-                        <small className="block truncate text-[11px] text-slate-400">{me ? `Broker${tokensToday ? ` · ${fmtTok(tokensToday)} tokens today` : ''}` : 'Click to sign in'}</small>
+                  <div className="mt-2.5 shrink-0 border-t border-slate-100 pt-2.5">
+                    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-3 py-2.5 shadow-sm">
+                      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-[13px] font-semibold text-white shadow-sm shadow-blue-200">
+                        {me ? initialsOf(me.display_name || me.username || `Broker ${me.broker_id}`) : '?'}
+                        {me && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" aria-hidden="true" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <b className="block truncate text-[13.5px] font-semibold text-slate-800">{me ? (me.display_name || me.username || `Broker ${me.broker_id}`) : 'Not signed in'}</b>
+                        <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                          <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3Z" /></svg>
+                          {me ? 'Broker' : 'Click to sign in'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -651,7 +745,7 @@ export default function AskAIPage() {
                 {!messages.length ? (
                   <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center">
                     <div className="mb-8">
-                      <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-xl font-bold text-white shadow-lg shadow-blue-200">AI</div>
+                      <div className="mb-4 inline-flex h-12 w-12 items-center justify-center"><AskAiIcon className="h-11 w-11" /></div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Live broker intelligence</p>
                       <h2 className="text-3xl font-bold tracking-tight text-slate-900">A sharper view of your trading desk.</h2>
                       <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">Ask about clients, positions, margin, deals, credits, or reports. The assistant uses your existing Broker Eye permissions and live data.</p>
@@ -677,6 +771,7 @@ export default function AskAIPage() {
                         onPin={pinMessage}
                         onRetry={retryMessage}
                         onAsk={text => sendMessage(null, text)}
+                        onPrefill={prefillComposer}
                         onOpenClient={setClientLogin}
                         onCopy={copyMessage}
                         onEditResend={editAndResend}
@@ -688,7 +783,7 @@ export default function AskAIPage() {
                 )}
                 {dragOver && <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center bg-blue-50/80"><p className="rounded-xl border-2 border-dashed border-blue-400 bg-white px-6 py-4 text-sm font-semibold text-blue-700">Drop to attach</p></div>}
               </div>
-              {clientLogin && <AiClientPanel login={clientLogin} onClose={() => setClientLogin(null)} />}
+              {clientLogin && <AiClientPanel login={clientLogin} onClose={() => setClientLogin(null)} onAsk={text => { setClientLogin(null); sendMessage(null, text) }} onPrefill={prefillComposer} />}
             </div>
 
             <div className={`ask-ai-composer bg-white px-3 pb-4 pt-2 sm:px-8 sm:pb-5 sm:pt-3 ${clientLogin ? 'max-md:hidden' : ''}`}>
@@ -702,16 +797,22 @@ export default function AskAIPage() {
                   </div>
                 )}
                 <form onSubmit={sendMessage} className="flex min-h-[52px] flex-col rounded-[20px] border border-blue-300 bg-white px-3 py-2 shadow-sm transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 sm:px-4">
-                  <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" multiple onChange={onFileInputChange} className="hidden" />
-                  {attachments.length > 0 && <div className="mb-2 flex flex-wrap gap-2">{attachments.map(a => <div key={a.id} className={`flex max-w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${a.pending ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-blue-100 bg-blue-50 text-blue-700'}`}><span className="max-w-[220px] truncate font-medium">{a.filename}</span><button type="button" onClick={() => removeAttachment(a.id)} aria-label="Remove attachment" className="shrink-0 font-semibold hover:text-blue-900">✕</button></div>)}</div>}
+                  <input ref={fileRef} type="file" accept="image/*,.csv,.xlsx,.xls,.xlsm,.tsv,.txt,.log" multiple onChange={onFileInputChange} className="hidden" />
+                  {attachments.length > 0 && <div className="mb-2 flex flex-wrap gap-2">{attachments.map(a => <div key={a.id} className={`flex max-w-full items-center gap-2 rounded-lg border py-1.5 pl-1.5 pr-2.5 text-xs ${a.pending ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-blue-100 bg-blue-50 text-blue-700'}`}>{a.isImage && a.previewUrl ? <img src={a.previewUrl} alt="" className={`h-7 w-7 shrink-0 rounded object-cover ${a.pending ? 'opacity-60' : ''}`} /> : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-white/70"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3v5h5M8 3h7l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg></span>}<span className="max-w-[180px] truncate font-medium">{a.filename}</span>{a.pending && <svg className="h-3.5 w-3.5 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" strokeOpacity=".35" strokeWidth="2" /><path d="M20 12a8 8 0 0 1-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>}<button type="button" onClick={() => removeAttachment(a.id)} aria-label="Remove attachment" className="shrink-0 font-semibold hover:text-blue-900">✕</button></div>)}</div>}
                   <div className="flex min-w-0 items-end gap-2">
                     <button type="button" onClick={() => fileRef.current?.click()} disabled={attachments.length >= MAX_ATTACHMENTS} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-blue-600 disabled:opacity-40" aria-label="Attach file" title="Attach file">
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                     </button>
-                    <textarea ref={composerRef} value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(event) } }} rows={1} placeholder="Ask Broker Eye" className="max-h-32 min-h-[30px] flex-1 resize-none border-0 bg-transparent px-1 py-1.5 text-[15px] leading-6 text-slate-800 outline-none placeholder:text-slate-400" />
-                    <button type="submit" disabled={!draft.trim() || sending} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400" aria-label={sending ? 'Sending message' : 'Send message'} title={sending ? 'Sending' : 'Send'}>
-                      {sending ? <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" strokeOpacity=".35" strokeWidth="2" /><path d="M20 12a8 8 0 0 1-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg> : <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                    </button>
+                    <textarea ref={composerRef} value={draft} onChange={event => setDraft(event.target.value)} onPaste={onComposerPaste} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(event) } else if (event.key === 'Escape' && sending) { event.preventDefault(); stopGenerating() } }} rows={1} placeholder="Ask Broker Eye" className="max-h-32 min-h-[30px] flex-1 resize-none border-0 bg-transparent px-1 py-1.5 text-[15px] leading-6 text-slate-800 outline-none placeholder:text-slate-400" />
+                    {sending ? (
+                      <button type="button" onClick={stopGenerating} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm transition hover:bg-slate-700" aria-label="Stop generating" title="Stop generating">
+                        <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" /></svg>
+                      </button>
+                    ) : (
+                      <button type="submit" disabled={!draft.trim()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400" aria-label="Send message" title="Send">
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -729,13 +830,13 @@ export default function AskAIPage() {
           // fetched under the old one instead of leaving stale data on screen.
           newConversation()
           aiAPI.getMe().then(setMe).catch(() => setMe(null))
-          loadConversations(false)
+          loadConversations(false).catch(() => {})
           showToast('Token saved')
         }}
       />
       <AiFeedbackDialog open={!!feedbackTarget} onClose={() => setFeedbackTarget(null)} onSend={sendFeedbackComment} />
       <AiAlertsDialog open={alertsOpen} onClose={() => setAlertsOpen(false)} />
-      <AiDigestsDialog open={digestsOpen} onClose={() => { setDigestsOpen(false); setDigestPrefill('') }} onRan={id => { setConversationId(id); loadConversations(false) }} initialPrompt={digestPrefill} />
+      <AiDigestsDialog open={digestsOpen} onClose={() => { setDigestsOpen(false); setDigestPrefill('') }} onRan={id => { setConversationId(id); loadConversations(false).catch(() => {}) }} initialPrompt={digestPrefill} />
       <AiCommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}

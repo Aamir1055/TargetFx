@@ -1,7 +1,7 @@
 import BrokerCreditSummary from '../components/BrokerCreditSummary'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/authContextStore'
-import { authAPI } from '../services/api'
+import { authAPI, brokerAPI } from '../services/api'
 import Sidebar from '../components/Sidebar'
 import QRCodeSetup from '../components/QRCodeSetup'
 import BackupCodesModal from '../components/BackupCodesModal'
@@ -40,6 +40,61 @@ const SettingsPage = () => {
   const [showBackupCodes, setShowBackupCodes] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  // Change-password form
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [showPasswords, setShowPasswords] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
+
+  const handleChangePassword = async (e) => {
+    e?.preventDefault?.()
+    setError(''); setSuccess('')
+    if (!currentPassword || !newPassword) { setError('Enter your current and new password'); return }
+    if (newPassword.length < 6) { setError('New password must be at least 6 characters'); return }
+    if (newPassword === currentPassword) { setError('New password must be different from the current one'); return }
+    setChangingPassword(true)
+    try {
+      await brokerAPI.changeAuthPassword({ current_password: currentPassword, new_password: newPassword })
+      setSuccess('Password changed successfully')
+      setCurrentPassword(''); setNewPassword('')
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Could not change password')
+    } finally { setChangingPassword(false) }
+  }
+
+  // Reusable Change Password card (used in both desktop and mobile layouts).
+  const changePasswordCard = (
+    <div className="mb-4 overflow-hidden rounded-lg border border-blue-100 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+          <svg className="h-4 w-4 text-blue-600" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.8" /><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+        </span>
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900">Change Password</h2>
+          <p className="text-[11px] text-gray-400">Update your Broker Eye login password</p>
+        </div>
+      </div>
+      <form onSubmit={handleChangePassword} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {[
+          { label: 'Current password', value: currentPassword, set: setCurrentPassword, auto: 'current-password' },
+          { label: 'New password', value: newPassword, set: setNewPassword, auto: 'new-password' },
+        ].map(f => (
+          <label key={f.label} className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-500">{f.label}</span>
+            <input type={showPasswords ? 'text' : 'password'} autoComplete={f.auto} value={f.value} onChange={e => f.set(e.target.value)} placeholder="••••••••" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+          </label>
+        ))}
+        <div className="flex items-center justify-between gap-3 sm:col-span-2">
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-gray-500">
+            <input type="checkbox" checked={showPasswords} onChange={e => setShowPasswords(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400" />
+            Show passwords
+          </label>
+          <button type="submit" disabled={changingPassword} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50">{changingPassword ? 'Updating…' : 'Update password'}</button>
+        </div>
+      </form>
+    </div>
+  )
 
   // Fetch 2FA status on component mount
   useEffect(() => {
@@ -227,7 +282,7 @@ const SettingsPage = () => {
   // ── Mobile layout ──────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50">
+      <div className="flex h-screen flex-col overflow-hidden bg-[#F8FAFC]">
         <Sidebar
           isOpen={isMobileSidebarOpen}
           onClose={() => setIsMobileSidebarOpen(false)}
@@ -235,8 +290,8 @@ const SettingsPage = () => {
           mobileOnly
         />
 
-        {/* Sticky header */}
-        <div className="sticky top-0 bg-white shadow-md z-30 px-4 py-5">
+        {/* Fixed header (the content below is the scroll area) */}
+        <div className="shrink-0 bg-white shadow-md z-30 px-4 py-5">
           <div className="flex items-center justify-between">
             <button aria-label="Open navigation" onClick={() => setIsMobileSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -252,7 +307,7 @@ const SettingsPage = () => {
 <BrokerCreditSummary variant="desktop-header" />
 </div>
 
-        <div className="p-4 space-y-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 space-y-4" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(28px + var(--app-safe-bottom, 0px))' }}>
 
           {/* Alert messages */}
           {error && (
@@ -311,6 +366,9 @@ const SettingsPage = () => {
               </span>
             </div>
           </div>
+
+          {/* Change Password */}
+          {changePasswordCard}
 
           {/* Two-Factor Authentication */}
           <div className="bg-white rounded-xl border-2 border-gray-100 shadow-sm overflow-hidden">
@@ -407,7 +465,7 @@ const SettingsPage = () => {
   // ── End mobile layout ──────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-blue-50 via-white to-blue-50">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
       {/* Sidebar */}
       {!isMobile && (
         <Sidebar
@@ -418,20 +476,22 @@ const SettingsPage = () => {
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
-        <div className="max-w-4xl mx-auto">
-          {/* Header Section */}
-          <div className="mb-5">
-            {/* Hide sidebar toggle on mobile for settings page */}
-            {null}
-            <div className="flex min-w-0 flex-1 items-center justify-between gap-3"><h1 className="text-xl font-semibold text-gray-900 min-w-0 max-sm:text-sm">Settings</h1><BrokerCreditSummary variant="header" /></div>
-            <p className="text-sm text-gray-500 mt-0.5">Manage your account security</p>
-          
+      <main className={`flex min-w-0 flex-1 flex-col overflow-hidden p-4 lg:p-6 transition-all duration-300 ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
+        <div className="flex min-h-0 w-full flex-1 flex-col">
+          {/* Header card — matches the other modules' white rounded header (stays fixed) */}
+          <div className="mb-6 shrink-0 rounded-2xl bg-white px-6 py-3 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-[#1A1A1A] max-sm:text-base">Settings</h1>
+                <p className="mt-0.5 text-xs text-[#6B7280]">Manage your account security</p>
+              </div>
+              <BrokerCreditSummary variant="header" />
+            </div>
+            <BrokerCreditSummary variant="desktop-header" />
+          </div>
 
-
-<BrokerCreditSummary variant="desktop-header" />
-</div>
-
+          {/* Scrollable content area */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1" style={{ paddingBottom: '24px' }}>
             {/* Alert Messages */}
             {error && (
               <div className="mb-3 bg-red-50 border-l-4 border-red-500 rounded-r p-3 shadow-sm">
@@ -497,6 +557,9 @@ const SettingsPage = () => {
                 </div>
               </div>
             </div>
+
+            {/* Change Password */}
+            {changePasswordCard}
 
             {/* Two-Factor Authentication */}
             <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-4">
@@ -610,6 +673,7 @@ const SettingsPage = () => {
                 />
               )}
             </div>
+          </div>
         </div>
       </main>
 

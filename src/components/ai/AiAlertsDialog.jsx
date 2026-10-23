@@ -16,7 +16,9 @@ const AiAlertsDialog = ({ open, onClose }) => {
   const conditionMenuRef = useRef(null)
 
   const load = () => aiAPI.getAlerts().then(setData).catch(e => setError(e.message))
-  useEffect(() => { if (open) load() }, [open])
+  // This dialog stays mounted (just hidden) between opens, so its draft state would otherwise
+  // leak a partially-filled, never-saved form across close/reopen cycles.
+  useEffect(() => { if (open) { setDraft(emptyDraft); setError(''); load() } }, [open])
 
   if (!open) return null
   const kinds = data?.kinds || {}
@@ -35,7 +37,7 @@ const AiAlertsDialog = ({ open, onClose }) => {
       if (has('liquidate_type') && draft.liquidate_type) params.liquidate_type = draft.liquidate_type
       setData(await aiAPI.createAlert({
         name: draft.name.trim(), kind: draft.kind, params,
-        check_interval_minutes: draft.check_interval_minutes, cooldown_minutes: draft.cooldown_minutes,
+        check_interval_minutes: Number(draft.check_interval_minutes) || 5, cooldown_minutes: Number(draft.cooldown_minutes) || 240,
         deliver_telegram: draft.deliver_telegram,
       }))
       setDraft(emptyDraft)
@@ -52,7 +54,7 @@ const AiAlertsDialog = ({ open, onClose }) => {
           <div className="flex items-baseline gap-2"><h2 className="text-[15px] font-semibold text-slate-900">Alerts</h2><span className="text-xs text-slate-400">{data?.alerts?.length ?? 0} of {data?.max ?? 10}</span></div>
           <button type="button" onClick={onClose} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></button>
         </div>
-        <div className="min-h-0 overflow-y-auto px-4 py-3 sm:px-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
           <p className="mb-2 text-xs leading-5 text-slate-500">Conditions checked every few minutes. Hits are sent to your Telegram and shown under the bell.</p>
           {error && <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
@@ -111,10 +113,10 @@ const AiAlertsDialog = ({ open, onClose }) => {
                   </label>
                 )}
                 <label className="text-xs font-medium text-slate-600">Check every (min)
-                  <input type="number" min="1" value={draft.check_interval_minutes} onChange={e => setDraft(d => ({ ...d, check_interval_minutes: Number(e.target.value) }))} className={`mt-1 ${fieldClass}`} />
+                  <input type="number" min="1" inputMode="numeric" value={draft.check_interval_minutes} onChange={e => setDraft(d => ({ ...d, check_interval_minutes: e.target.value.replace(/^0+(?=\d)/, '') }))} className={`mt-1 ${fieldClass}`} />
                 </label>
                 <label className="text-xs font-medium text-slate-600">Repeat after (min)
-                  <input type="number" min="1" value={draft.cooldown_minutes} onChange={e => setDraft(d => ({ ...d, cooldown_minutes: Number(e.target.value) }))} className={`mt-1 ${fieldClass}`} />
+                  <input type="number" min="1" inputMode="numeric" value={draft.cooldown_minutes} onChange={e => setDraft(d => ({ ...d, cooldown_minutes: e.target.value.replace(/^0+(?=\d)/, '') }))} className={`mt-1 ${fieldClass}`} />
                 </label>
               </div>
 
@@ -137,13 +139,12 @@ const AiAlertsDialog = ({ open, onClose }) => {
                 <input type="checkbox" checked={draft.deliver_telegram} onChange={e => setDraft(d => ({ ...d, deliver_telegram: e.target.checked }))} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 Send to Telegram when linked
               </label>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={onClose} className="h-9 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-                <button type="button" disabled={saving || !draft.kind} onClick={save} className="h-9 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:opacity-50">{saving ? 'Saving…' : 'Add alert'}</button>
-              </div>
             </div>
           </div>
+        </div>
+        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 bg-white px-4 py-2.5 sm:px-5 sm:py-3">
+          <button type="button" onClick={onClose} className="h-9 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button type="button" disabled={saving || !draft.kind} onClick={save} className="h-9 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:opacity-50">{saving ? 'Saving…' : 'Add alert'}</button>
         </div>
       </div>
     </div>

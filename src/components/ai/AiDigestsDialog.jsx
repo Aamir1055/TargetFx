@@ -22,10 +22,16 @@ const AiDigestsDialog = ({ open, onClose, onRan, initialPrompt = '' }) => {
   // it's easy to immediately replace — same as the reference app's openDigestsWith().
   useEffect(() => {
     if (!open) return
+    setError('')
     aiAPI.getDigests().then(setData).catch(e => setError(e.message))
+    // Reset first — this dialog stays mounted between opens, so without this a partially-filled,
+    // never-saved form (or a stale prefill from an earlier "Schedule" click) would leak into the
+    // next time it's opened normally.
     if (initialPrompt) {
-      setDraft(d => ({ ...d, name: initialPrompt.replace(/\s+/g, ' ').slice(0, 40), prompt: initialPrompt }))
+      setDraft({ ...emptyDraft, name: initialPrompt.replace(/\s+/g, ' ').slice(0, 40), prompt: initialPrompt })
       requestAnimationFrame(() => { nameRef.current?.focus(); nameRef.current?.select() })
+    } else {
+      setDraft(emptyDraft)
     }
   }, [open, initialPrompt])
   if (!open) return null
@@ -52,13 +58,13 @@ const AiDigestsDialog = ({ open, onClose, onRan, initialPrompt = '' }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/30 p-4" onClick={onClose}>
-      <div className="flex max-h-[94vh] w-full max-w-[660px] flex-col overflow-hidden rounded-[10px] border border-slate-300 bg-white shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <div className="flex items-baseline gap-2"><h2 className="text-[15px] font-semibold text-slate-900">Scheduled digests</h2><span className="text-xs text-slate-400">{data?.digests?.length ?? 0} of 5</span></div>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/30 p-2 sm:p-4" onClick={onClose}>
+      <div className="flex max-h-[calc(100dvh-16px)] w-full max-w-[340px] flex-col overflow-hidden rounded-[10px] border border-slate-300 bg-white shadow-xl sm:max-h-[calc(100dvh-32px)] sm:max-w-[660px]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 sm:px-5 sm:py-3">
+          <div className="flex items-baseline gap-2"><h2 className="text-[15px] font-semibold text-slate-900">Scheduled digests</h2><span className="text-xs text-slate-400">{data?.digests?.length ?? 0} of {data?.max ?? 5}</span></div>
           <button type="button" onClick={onClose} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4">
           <p className="mb-3 text-xs leading-5 text-slate-500">Summaries the assistant prepares by itself at a set time. They are sent to your Telegram and kept in your conversation list.</p>
           {error && <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
@@ -108,13 +114,12 @@ const AiDigestsDialog = ({ open, onClose, onRan, initialPrompt = '' }) => {
                 <input type="checkbox" checked={draft.deliver_telegram} onChange={e => setDraft(d => ({ ...d, deliver_telegram: e.target.checked }))} className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 Send to Telegram when linked
               </label>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={onClose} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-                <button type="button" disabled={saving} onClick={save} className="h-10 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:opacity-50">{saving ? 'Saving…' : 'Add digest'}</button>
-              </div>
             </div>
           </div>
+        </div>
+        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 bg-white px-4 py-2.5 sm:px-5 sm:py-3">
+          <button type="button" onClick={onClose} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button type="button" disabled={saving} onClick={save} className="h-10 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:opacity-50">{saving ? 'Saving…' : 'Add digest'}</button>
         </div>
       </div>
     </div>

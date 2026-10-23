@@ -9,7 +9,7 @@ const AiPinnedHome = ({ pins, onChange, onAsk }) => {
 
   const refresh = async (id) => {
     setBusyId(id)
-    try { const r = await aiAPI.refreshPin(id); onChange(prev => prev.map(p => p.id === id ? r.item : p)) }
+    try { const r = await aiAPI.refreshPin(id); onChange(prev => prev.map(p => (p.id === id && r.item) ? r.item : p)) }
     catch { /* The stale tile just stays as-is; the user can try again. */ }
     finally { setBusyId(null) }
   }

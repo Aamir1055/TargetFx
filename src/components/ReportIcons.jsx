@@ -1,6 +1,11 @@
 // Icons for the Reports menu and its sub modules (desktop sidebar + mobile menus).
 // Stroke uses currentColor so they follow the text colour of the menu item.
 
+// `?inline` forces Vite to embed the logo as a base64 data URI inside the JS bundle, so it
+// always loads with the app (no separate /assets request that could 404 on a partial deploy
+// or load slowly on mobile). The PNG is small (~8 KB) so the bundle cost is negligible.
+import askAiIcon from '../assets/brokereye-ai-icon.png?inline'
+
 const Svg = ({ className = 'w-5 h-5', children }) => (
   <svg className={`${className} flex-shrink-0`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {children}
@@ -8,7 +13,25 @@ const Svg = ({ className = 'w-5 h-5', children }) => (
 )
 
 export const AskAiIcon = ({ className = 'w-5 h-5' }) => (
-  <img src="/ai-icon.png" alt="" aria-hidden="true" className={`${className} flex-shrink-0 object-contain`} />
+  <img src={askAiIcon} alt="" aria-hidden="true" className={`${className} flex-shrink-0 object-contain`} />
+)
+
+// Tutorials: a video frame with a play triangle. Inline (currentColor) so it ships in the
+// JS bundle and follows the menu item's text colour — no external /sidebar-icons file to deploy.
+export const TutorialIcon = ({ className = 'w-5 h-5' }) => (
+  <svg className={`${className} flex-shrink-0`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="2.5" y="4.5" width="19" height="15" rx="3" />
+    <path d="M10 9.2v5.6l5-2.8-5-2.8z" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+// Brokerage Calculator: a calculator. Inline (currentColor), like the Tutorials icon.
+export const BrokerageCalcIcon = ({ className = 'w-5 h-5' }) => (
+  <svg className={`${className} flex-shrink-0`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="4" y="3" width="16" height="18" rx="2" />
+    <path d="M8 7h8" />
+    <path d="M8 11h.01M12 11h.01M16 11h.01M8 14.5h.01M12 14.5h.01M16 14.5h.01M8 18h.01M12 18h.01M16 18h.01" />
+  </svg>
 )
 
 // Reports: clipboard with a bar chart (distinct from the Bills document icon)
@@ -82,7 +105,17 @@ const SummaryIcon = ({ className }) => (
   </Svg>
 )
 
+// Settlement: a statement page with a check mark — "settled / reconciled for the week".
+const SettlementIcon = ({ className }) => (
+  <Svg className={className}>
+    <path d="M6 3h8.5L19 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+    <path d="M14 3v5h5" />
+    <path d="m8.5 14.5 2.2 2.2 4.3-4.4" />
+  </Svg>
+)
+
 const SUB_ICONS = {
+  '/reports/settlement': SettlementIcon,
   '/reports/exchange': BrokerageIcon,
   '/reports/historical-positions': HistoryIcon,
   '/reports/deals': DealsIcon,

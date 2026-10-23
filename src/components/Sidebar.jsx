@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/authContextStore'
 import { useGroups } from '../contexts/groupContextStore'
 import { useIB } from '../contexts/ibContextStore'
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
-import { AskAiIcon, ReportsIcon, ReportSubIcon } from './ReportIcons'
+import { AskAiIcon, ReportsIcon, ReportSubIcon, TutorialIcon, BrokerageCalcIcon } from './ReportIcons'
 import { drawerTapGuard } from '../utils/drawerTapGuard'
 
 // Routes mount separate sidebars; keep their navigation position for this session.
@@ -89,11 +89,12 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
         { name: 'Summary', path: '/reports/summary' },
         { name: 'Credit Report', path: '/reports/credit' },
         { name: 'Agent Details', path: '/reports/agent-details' },
-        { name: 'D/W Report', path: '/reports/deposit-withdrawal' }
+        { name: 'D/W Report', path: '/reports/deposit-withdrawal' },
+        { name: 'Settlement Report', path: '/reports/settlement' }
       ]
     },
-    { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' },
-    { name: 'Ask AI', path: '/ai', icon: 'ai' }
+    { name: 'Tutorials', path: '/tutorials', icon: 'tutorials', img: 'Tutorials.svg' },
+    { name: 'Settings', path: '/settings', icon: 'settings', img: 'Settings.svg' }
   ]
 
   const isReportsActive = location.pathname.startsWith('/reports')
@@ -127,6 +128,13 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
     // Close the current mobile drawer before switching routes.
     if (typeof onClose === 'function' && window.innerWidth < 1024) {
       onClose()
+    }
+    // "Ask AI" always starts a fresh conversation, even if you're already on /ai (where a plain
+    // navigate() wouldn't remount the page or reset it). The timestamp makes this state object
+    // unique on every click, so the page's effect fires even for repeated clicks to the same route.
+    if (path === '/ai') {
+      navigate(path, { state: { newChat: Date.now() } })
+      return
     }
     navigate(path)
   }
@@ -247,6 +255,10 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
                     >
                       {item.icon === 'ai' ? (
                         <AskAiIcon className="w-5 h-5 text-blue-600" />
+                      ) : item.icon === 'tutorials' ? (
+                        <TutorialIcon className={`w-5 h-5 ${isActivePath(item.path) ? 'text-[#1A63BC]' : 'text-[#404040]'}`} />
+                      ) : item.icon === 'brokerage' ? (
+                        <BrokerageCalcIcon className={`w-5 h-5 ${isActivePath(item.path) ? 'text-[#1A63BC]' : 'text-[#404040]'}`} />
                       ) : (
                         <img
                           src={`${baseUrl}sidebar-icons/${item.img}`}
@@ -436,6 +448,10 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
               >
                 {item.icon === 'ai' ? (
                   <AskAiIcon className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${isActivePath(item.path) ? 'text-white' : 'text-blue-600 group-hover:scale-110'}`} />
+                ) : item.icon === 'tutorials' ? (
+                  <TutorialIcon className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${isActivePath(item.path) ? 'text-white' : 'text-[#404040] group-hover:scale-110'}`} />
+                ) : item.icon === 'brokerage' ? (
+                  <BrokerageCalcIcon className={`w-5 h-5 flex-shrink-0 ${isOpen ? 'mr-3' : ''} transition-transform duration-200 ${isActivePath(item.path) ? 'text-white' : 'text-[#404040] group-hover:scale-110'}`} />
                 ) : (
                   <img
                     src={`${baseUrl}sidebar-icons/${item.img}`}

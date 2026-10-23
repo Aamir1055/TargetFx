@@ -258,13 +258,14 @@ export const GroupProvider = ({ children }) => {
       'credit-report': groupName,
       'agent-details-report': groupName,
       'deposit-withdrawal-report': groupName,
+      'settlement-report': groupName,
       bills: groupName,
       exchange: groupName, 'reports-exchange': groupName,
       [moduleName]: groupName
     }))
   }
 
-  const getActiveGroupFilter = (moduleName) => activeGroupFilters[moduleName] || null
+  const getActiveGroupFilter = useCallback((moduleName) => activeGroupFilters[moduleName] || null, [activeGroupFilters])
 
   const getGroupLogins = (groupName) => {
     const group = groups.find(g => g.name === groupName)
