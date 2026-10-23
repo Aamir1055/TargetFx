@@ -351,6 +351,38 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
   const [accountActionLoading, setAccountActionLoading] = useState(false)
   const [tradingActionLoading, setTradingActionLoading] = useState(false)
 
+  const toggleAccountAccess = async () => {
+    if (accountActionLoading) return
+    const enable = !isAccountEnabled
+    try {
+      setAccountActionLoading(true)
+      setTradingMsg({ type: '', text: '' })
+      await (enable ? brokerAPI.enableAccount(client.login) : brokerAPI.disableAccount(client.login))
+      setIsAccountEnabled(enable)
+      setTradingMsg({ type: 'success', text: `Account ${enable ? 'enabled' : 'disabled'}.` })
+    } catch (err) {
+      setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' })
+    } finally {
+      setAccountActionLoading(false)
+    }
+  }
+
+  const toggleTradingAccess = async () => {
+    if (tradingActionLoading) return
+    const enable = !isTradingEnabled
+    try {
+      setTradingActionLoading(true)
+      setTradingMsg({ type: '', text: '' })
+      await (enable ? brokerAPI.enableTrading(client.login) : brokerAPI.disableTrading(client.login))
+      setIsTradingEnabled(enable)
+      setTradingMsg({ type: 'success', text: `Trading ${enable ? 'enabled' : 'disabled'}.` })
+    } catch (err) {
+      setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' })
+    } finally {
+      setTradingActionLoading(false)
+    }
+  }
+
   const [showTradingSuggest, setShowTradingSuggest] = useState(false)
   const [tradingSuggestedPwd, setTradingSuggestedPwd] = useState('')
   const [showInvestorSuggest, setShowInvestorSuggest] = useState(false)
@@ -4409,33 +4441,19 @@ const ClientPositionsModal = ({ client, onClose, allPositionsCache, allOrdersCac
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-end gap-3">
                     <span className="text-xs font-medium text-gray-600 w-32 text-right">Account Permissions</span>
-                    <div className={`inline-flex rounded-md border border-gray-200 overflow-hidden text-[11px] font-semibold ${accountActionLoading ? 'opacity-60 pointer-events-none' : ''}`}>
-                      <button
-                        type="button"
-                        onClick={async () => { if (isAccountEnabled) return; try { setAccountActionLoading(true); setTradingMsg({ type: '', text: '' }); await brokerAPI.enableAccount(client.login); setIsAccountEnabled(true); setTradingMsg({ type: 'success', text: 'Account enabled.' }) } catch (err) { setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' }) } finally { setAccountActionLoading(false) } }}
-                        className={`px-3 py-1 transition-colors ${isAccountEnabled ? 'bg-green-50 text-green-700' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-                      >ENABLE</button>
-                      <button
-                        type="button"
-                        onClick={async () => { if (!isAccountEnabled) return; try { setAccountActionLoading(true); setTradingMsg({ type: '', text: '' }); await brokerAPI.disableAccount(client.login); setIsAccountEnabled(false); setTradingMsg({ type: 'success', text: 'Account disabled.' }) } catch (err) { setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' }) } finally { setAccountActionLoading(false) } }}
-                        className={`px-3 py-1 border-l border-gray-200 transition-colors ${!isAccountEnabled ? 'bg-red-50 text-red-600' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-                      >DISABLE</button>
-                    </div>
+                    <button type="button" role="switch" aria-checked={isAccountEnabled} aria-label={`Account Permissions: ${isAccountEnabled ? 'enabled' : 'disabled'}`} title={isAccountEnabled ? 'Enabled' : 'Disabled'} onClick={toggleAccountAccess} disabled={accountActionLoading} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${isAccountEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                      <span className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-transform duration-200 ${isAccountEnabled ? 'translate-x-5' : 'translate-x-0'}`}>
+                        {accountActionLoading && <svg className="h-3 w-3 animate-spin text-gray-500" viewBox="0 0 24 24" aria-hidden="true"><circle className="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
+                      </span>
+                    </button>
                   </div>
                   <div className="flex items-center justify-end gap-3">
                     <span className="text-xs font-medium text-gray-600 w-32 text-right">Trading Access</span>
-                    <div className={`inline-flex rounded-md border border-gray-200 overflow-hidden text-[11px] font-semibold ${tradingActionLoading ? 'opacity-60 pointer-events-none' : ''}`}>
-                      <button
-                        type="button"
-                        onClick={async () => { if (isTradingEnabled) return; try { setTradingActionLoading(true); setTradingMsg({ type: '', text: '' }); await brokerAPI.enableTrading(client.login); setIsTradingEnabled(true); setTradingMsg({ type: 'success', text: 'Trading enabled.' }) } catch (err) { setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' }) } finally { setTradingActionLoading(false) } }}
-                        className={`px-3 py-1 transition-colors ${isTradingEnabled ? 'bg-green-50 text-green-700' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-                      >ENABLE</button>
-                      <button
-                        type="button"
-                        onClick={async () => { if (!isTradingEnabled) return; try { setTradingActionLoading(true); setTradingMsg({ type: '', text: '' }); await brokerAPI.disableTrading(client.login); setIsTradingEnabled(false); setTradingMsg({ type: 'success', text: 'Trading disabled.' }) } catch (err) { setTradingMsg({ type: 'error', text: err?.response?.data?.message || 'Action failed.' }) } finally { setTradingActionLoading(false) } }}
-                        className={`px-3 py-1 border-l border-gray-200 transition-colors ${!isTradingEnabled ? 'bg-red-50 text-red-600' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-                      >DISABLE</button>
-                    </div>
+                    <button type="button" role="switch" aria-checked={isTradingEnabled} aria-label={`Trading Access: ${isTradingEnabled ? 'enabled' : 'disabled'}`} title={isTradingEnabled ? 'Enabled' : 'Disabled'} onClick={toggleTradingAccess} disabled={tradingActionLoading} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${isTradingEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                      <span className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-transform duration-200 ${isTradingEnabled ? 'translate-x-5' : 'translate-x-0'}`}>
+                        {tradingActionLoading && <svg className="h-3 w-3 animate-spin text-gray-500" viewBox="0 0 24 24" aria-hidden="true"><circle className="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>

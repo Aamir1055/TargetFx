@@ -17,11 +17,11 @@ import { brokerAPI, settlementReportAPI } from '../services/api'
 import { withExportLoading } from '../utils/exportLoading'
 import {
   buildSettlementRequest, extractRows, extractPagination,
-  scopeRowsToLogins, deriveColumns, applyColumnPrefs, collectAllRows, buildSettlementExcelSpec,
+  scopeRowsToLogins, deriveColumns, deriveSettlementColumns, applyColumnPrefs, collectAllRows, buildSettlementExcelSpec,
 } from '../utils/settlementReport'
 
 const GROUP_MODULE = 'settlement-report'
-const COLUMN_PREFS_KEY = 'settlementReportColumns'
+const COLUMN_PREFS_KEY = 'settlementReportColumnsV2'
 const PAGE_SIZE_OPTIONS = [25, 50, 100]
 
 // Same button chrome the Deals report uses for its header actions.
@@ -167,7 +167,7 @@ export default function SettlementReportPage() {
 
   // ---------- columns (derived from the rows, then shown/hidden/ordered by the user) ----------
   useEffect(() => { setSelectedRow(null) }, [weekId, page, search, limit, groupKey])
-  const derivedColumns = useMemo(() => deriveColumns(rows), [rows])
+  const derivedColumns = useMemo(() => deriveSettlementColumns(rows), [rows])
   // Keep the last known columns so the header and column chooser survive a loading or empty page.
   const [columns, setColumns] = useState([])
   useEffect(() => { if (derivedColumns.length) setColumns(derivedColumns) }, [derivedColumns])
@@ -208,8 +208,7 @@ export default function SettlementReportPage() {
     )
     const { rows: scoped } = scopeRowsToLogins(all, groupLogins)
     if (!scoped.length) throw new Error('There is no settlement data to export for this week.')
-    const { ordered, shown } = applyColumnPrefs(deriveColumns(scoped), columnPrefs)
-    const spec = buildSettlementExcelSpec(scoped, shown.length ? shown : ordered, weekLabel)
+    const spec = buildSettlementExcelSpec(scoped, deriveColumns(scoped), weekLabel)
     const { exportStyledExcel } = await import('../utils/exportStyledExcel')
     const safeWeek = (weekLabel || `week-${weekId}`).replace(/[^a-z0-9\-_ ]/gi, '_').trim()
     exportStyledExcel({ showTitle: false, sections: spec.sections, columns: spec.columns, sheetName: weekLabel || 'Settlement report', fileName: `settlement_report_${safeWeek}.xlsx`, bookType: 'xlsx' })

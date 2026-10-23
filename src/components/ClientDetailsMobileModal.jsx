@@ -51,6 +51,26 @@ const _EyeIcon = ({ show, onToggle }) => (
   </button>
 )
 
+const AccessSwitch = ({ label, enabled, loading, onToggle }) => (
+  <div className="flex items-center justify-between gap-4">
+    <span className="text-[13px] font-semibold text-gray-700">{label}</span>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={`${label}: ${enabled ? 'enabled' : 'disabled'}`}
+      title={enabled ? 'Enabled' : 'Disabled'}
+      onClick={() => onToggle(!enabled)}
+      disabled={loading}
+      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${enabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+    >
+      <span className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm transition-transform duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`}>
+        {loading && <svg className="h-3 w-3 animate-spin text-gray-500" viewBox="0 0 24 24" aria-hidden="true"><circle className="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
+      </span>
+    </button>
+  </div>
+)
+
 const PasswordSection = ({ title, type, login }) => {
   const [pwd, setPwd] = useState('')
   const [showPwd, setShowPwd] = useState(false)
@@ -283,9 +303,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
   const [accountEnabled, setAccountEnabled] = useState(() => client.enable !== false && client.account_enabled !== false)
   const [tradingEnabled, setTradingEnabled] = useState(() => client.trade_allowed !== false && client.trading_enabled !== false)
   const [accountToggleLoading, setAccountToggleLoading] = useState(false)
-  const [accountToggleTarget, setAccountToggleTarget] = useState(null) // true=enable, false=disable
   const [tradingToggleLoading, setTradingToggleLoading] = useState(false)
-  const [tradingToggleTarget, setTradingToggleTarget] = useState(null)
   const [toggleMsg, setToggleMsg] = useState(null) // { ok, text }
 
   const handleAccountToggle = async (enable) => {
@@ -293,7 +311,6 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const login = clientData.login ?? client.login
     console.log('[Security] Account toggle:', enable ? 'ENABLE' : 'DISABLE', 'login:', login)
     setAccountToggleLoading(true)
-    setAccountToggleTarget(enable)
     setToggleMsg(null)
     const prev = accountEnabled
     setAccountEnabled(enable)
@@ -309,7 +326,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       console.error('[Security] Account toggle error:', e)
       setAccountEnabled(prev)
       setToggleMsg({ ok: false, text: e?.response?.data?.message || `Failed to ${enable ? 'enable' : 'disable'} account` })
-    } finally { setAccountToggleLoading(false); setAccountToggleTarget(null) }
+    } finally { setAccountToggleLoading(false) }
   }
 
   const handleTradingToggle = async (enable) => {
@@ -317,7 +334,6 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
     const login = clientData.login ?? client.login
     console.log('[Security] Trading toggle:', enable ? 'ENABLE' : 'DISABLE', 'login:', login)
     setTradingToggleLoading(true)
-    setTradingToggleTarget(enable)
     setToggleMsg(null)
     const prev = tradingEnabled
     setTradingEnabled(enable)
@@ -333,7 +349,7 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
       console.error('[Security] Trading toggle error:', e)
       setTradingEnabled(prev)
       setToggleMsg({ ok: false, text: e?.response?.data?.message || `Failed to ${enable ? 'enable' : 'disable'} trading` })
-    } finally { setTradingToggleLoading(false); setTradingToggleTarget(null) }
+    } finally { setTradingToggleLoading(false) }
   }
 
   // Deal stats from API
@@ -2722,74 +2738,8 @@ const ClientDetailsMobileModal = ({ client, onClose, allPositionsCache, allOrder
                       <p className="text-[11px] font-bold text-[#1A63BC] uppercase tracking-wider">Account Access</p>
                     </div>
                     <div className="px-4 py-3 space-y-3">
-                      {/* Account Permissions row */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] font-semibold text-gray-700">Account Permissions</span>
-                        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleAccountToggle(true)}
-                            disabled={accountToggleLoading}
-                            className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-all ${
-                              accountEnabled
-                                ? 'bg-white text-[#1A63BC] shadow-sm border border-[#1A63BC]'
-                                : 'text-gray-400 hover:text-gray-600'
-                            } disabled:opacity-50`}
-                          >
-                            {accountToggleLoading && accountToggleTarget === true ? (
-                              <span className="flex items-center gap-1"><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>ENABLE</span>
-                            ) : 'ENABLE'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAccountToggle(false)}
-                            disabled={accountToggleLoading}
-                            className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-all ${
-                              !accountEnabled
-                                ? 'bg-white text-red-500 shadow-sm border border-red-300'
-                                : 'text-gray-400 hover:text-gray-600'
-                            } disabled:opacity-50`}
-                          >
-                            {accountToggleLoading && accountToggleTarget === false ? (
-                              <span className="flex items-center gap-1"><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>DISABLE</span>
-                            ) : 'DISABLE'}
-                          </button>
-                        </div>
-                      </div>
-                      {/* Trading Access row */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] font-semibold text-gray-700">Trading Access</span>
-                        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleTradingToggle(true)}
-                            disabled={tradingToggleLoading}
-                            className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-all ${
-                              tradingEnabled
-                                ? 'bg-white text-[#1A63BC] shadow-sm border border-[#1A63BC]'
-                                : 'text-gray-400 hover:text-gray-600'
-                            } disabled:opacity-50`}
-                          >
-                            {tradingToggleLoading && tradingToggleTarget === true ? (
-                              <span className="flex items-center gap-1"><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>ENABLE</span>
-                            ) : 'ENABLE'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleTradingToggle(false)}
-                            disabled={tradingToggleLoading}
-                            className={`px-3 py-1.5 rounded-md text-[12px] font-bold transition-all ${
-                              !tradingEnabled
-                                ? 'bg-white text-red-500 shadow-sm border border-red-300'
-                                : 'text-gray-400 hover:text-gray-600'
-                            } disabled:opacity-50`}
-                          >
-                            {tradingToggleLoading && tradingToggleTarget === false ? (
-                              <span className="flex items-center gap-1"><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>DISABLE</span>
-                            ) : 'DISABLE'}
-                          </button>
-                        </div>
-                      </div>
+                      <AccessSwitch label="Account Permissions" enabled={accountEnabled} loading={accountToggleLoading} onToggle={handleAccountToggle} />
+                      <AccessSwitch label="Trading Access" enabled={tradingEnabled} loading={tradingToggleLoading} onToggle={handleTradingToggle} />
                       {/* Toggle status message */}
                       {toggleMsg && (
                         <div className={`flex items-center gap-1.5 text-[12px] font-semibold ${toggleMsg.ok ? 'text-green-600' : 'text-red-500'}`}>

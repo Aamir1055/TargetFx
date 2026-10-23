@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildSettlementRequest, extractRows, extractPagination, loginOf, scopeRowsToLogins,
-  deriveColumns, humanize, buildRowDetail, isSummable, fmtMoney, fmtNumber,
+  deriveColumns, deriveSettlementColumns, humanize, buildRowDetail, isSummable, fmtMoney, fmtNumber,
   applyColumnPrefs, collectAllRows, buildSettlementExcelSpec, statusColor,
 } from './settlementReport.js'
 
@@ -32,6 +32,20 @@ test('columns are derived from rows: login first, name second, nested breakdowns
   assert.equal(kind('settled_at'), 'date')
   assert.equal(kind('note'), 'text')
   assert.deepEqual(deriveColumns([]), [])
+})
+
+test('settlement columns use the fixed report order and omit deals, currency, and status', () => {
+  const rows = [{
+    status: 'ready', rate: 1, deals: 2, net_amount: 146, currency: 'INR', ratio: 20,
+    amount_inr: 730, amount: 730, comment: 'Deposit', name: 'DEMO', login: 90074,
+  }]
+  const columns = deriveSettlementColumns(rows)
+  assert.deepEqual(columns.map(column => column.key), [
+    'login', 'name', 'comment', 'amount', 'amount_inr', 'ratio', 'net_amount', 'rate',
+  ])
+  assert.deepEqual(columns.map(column => column.label), [
+    'Login', 'Name', 'Comment', 'Amount', 'Amount INR', 'Ratio', 'Net Amount', 'Rate',
+  ])
 })
 
 test('request carries week, search, paging and json format', () => {

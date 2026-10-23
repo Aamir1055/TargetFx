@@ -4129,7 +4129,6 @@ const Client2Page = () => {
                       onReorder={(newOrder) => setColumnOrder(newOrder)}
                       accent="blue"
                       title={null}
-                      groupVisibleFirst
                       pinnedColumns={pinnedColumns}
                       onPinToggle={togglePinColumn}
                     />

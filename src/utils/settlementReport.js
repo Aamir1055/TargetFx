@@ -139,6 +139,29 @@ export function deriveColumns(rows, sampleSize = 50) {
   return columns.map((column, index) => ({ column, index })).sort((a, b) => rank(a.column) - rank(b.column) || a.index - b.index).map(item => item.column)
 }
 
+const SETTLEMENT_COLUMNS = [
+  { label: 'Login', aliases: ['login', 'mt5login', 'account', 'accountlogin', 'clientlogin'] },
+  { label: 'Name', aliases: ['name', 'fullname', 'clientname', 'accountname'] },
+  { label: 'Comment', aliases: ['comment'] },
+  { label: 'Amount', aliases: ['amount'] },
+  { label: 'Amount INR', aliases: ['amountinr'] },
+  { label: 'Ratio', aliases: ['ratio'] },
+  { label: 'Net Amount', aliases: ['netamount'] },
+  { label: 'Rate', aliases: ['rate'] },
+]
+
+const normalizedKey = key => String(key).toLowerCase().replace(/[^a-z0-9]/g, '')
+
+// The main settlement grid has a fixed business-facing schema. Keep generic derivation for nested
+// detail tables, but only expose these fields in this exact order on the report and its export.
+export function deriveSettlementColumns(rows, sampleSize = 50) {
+  const columns = deriveColumns(rows, sampleSize)
+  return SETTLEMENT_COLUMNS.flatMap(spec => {
+    const column = columns.find(candidate => spec.aliases.includes(normalizedKey(candidate.key)))
+    return column ? [{ ...column, label: spec.label }] : []
+  })
+}
+
 // Safety net for a group: if the server ignored the account list, drop rows outside the group so
 // the table can never show accounts the group excludes. `removed` > 0 means the server did not
 // filter (so the page's totals/pages describe the unfiltered set). Rows without a recognisable
