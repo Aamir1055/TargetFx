@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import BrokerCreditSummary from '../components/BrokerCreditSummary'
-import PageSizeSelect from '../components/PageSizeSelect'
 import { brokerAPI, brokerageCalcAPI } from '../services/api'
 import {
   calculatorNumber, calculatorData, calculatorReport, changedCalculatorRates,
@@ -21,10 +20,15 @@ const primaryCls = `${buttonBaseCls} border-blue-600 bg-blue-600 text-white hove
 const headerControlCls = 'flex h-10 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2 font-outfit text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50'
 const headerButtonCls = `${headerControlCls} border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50`
 const headerPrimaryCls = `${headerControlCls} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`
+const mobileIconCls = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50'
+const mobileIconButtonCls = `${mobileIconCls} border-[#E5E7EB] bg-white text-[#374151] hover:bg-blue-50`
+const mobileIconPrimaryCls = `${mobileIconCls} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`
 const rateInputCls = `${inputCls} h-10 min-w-0 font-medium`
 const rateButtonCls = `${buttonCls} inline-flex h-10 items-center justify-center whitespace-nowrap`
 const ratePrimaryCls = `${primaryCls} inline-flex h-10 items-center justify-center whitespace-nowrap`
-const cellCls = 'whitespace-nowrap px-3 py-2.5 text-right text-sm tabular-nums'
+const cellCls = 'whitespace-nowrap px-2 py-2 text-right text-xs tabular-nums sm:px-3 sm:py-2.5 sm:text-sm'
+const tdCls = 'px-2 py-1.5 align-middle text-xs sm:px-3 sm:py-2 sm:text-sm'
+const compactButtonCls = '!px-2 !py-1 !text-[10px] sm:!px-3 sm:!py-2 sm:!text-xs'
 const TABS = [
   { id: 'logins', label: 'Final Report' },
   { id: 'exchanges', label: 'Exchange Detail' },
@@ -39,11 +43,11 @@ const ISSUE_LABELS = {
 }
 
 function StatusBadge({ status }) {
-  return <span className={`rounded-full px-2 py-1 text-xs font-semibold uppercase ${status === 'pending' ? 'bg-amber-50 text-amber-700' : status === 'ready' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{status || '—'}</span>
+  return <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase sm:px-2 sm:py-1 sm:text-xs ${status === 'pending' ? 'bg-amber-50 text-amber-700' : status === 'ready' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{status || '—'}</span>
 }
 
 function Flags({ row }) {
-  return <>{(row.flags || []).map(flag => <span key={flag} className="ml-1 inline-block rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-700" title={flag === 'commission_refund' ? 'MT5 paid commission back on some deals; check before paying.' : flag.replace(/_/g, ' ')}>
+  return <>{(row.flags || []).map(flag => <span key={flag} className="ml-1 inline-block rounded bg-red-50 px-1 py-0.5 text-[9px] text-red-700 sm:px-1.5 sm:text-xs" title={flag === 'commission_refund' ? 'MT5 paid commission back on some deals; check before paying.' : flag.replace(/_/g, ' ')}>
     {flag === 'commission_refund' ? 'Commission refund' : flag.replace(/_/g, ' ')}
   </span>)}</>
 }
@@ -54,10 +58,10 @@ function Amount({ row, field }) {
 }
 
 function Table({ headers, children, label, columnWidths }) {
-  return <div className="overflow-x-auto">
+  return <div className="max-h-[60vh] overflow-auto sm:max-h-[65vh]">
     <table aria-label={label} className={`w-full border-collapse bg-white font-outfit text-sm text-[#374151] [&_tbody]:text-[#374151] [&_tfoot]:text-[#374151] ${columnWidths ? 'min-w-[800px] table-fixed' : ''}`}>
       {columnWidths && <colgroup>{columnWidths.map((width, index) => <col key={headers[index]} style={{ width }} />)}</colgroup>}
-      <thead><tr className="bg-blue-600 text-left">{headers.map(header => <th key={header} className="whitespace-nowrap px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-white">{header}</th>)}</tr></thead>
+      <thead className="sticky top-0 z-10 shadow-[0_1px_0_#E5E7EB]"><tr className="bg-blue-600 text-left">{headers.map(header => <th key={header} className="whitespace-nowrap bg-blue-600 px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-white sm:px-3 sm:py-2.5 sm:text-[11px]">{header}</th>)}</tr></thead>
       {children}
     </table>
   </div>
@@ -184,12 +188,12 @@ function RateSettings({ client = false, selection = {}, onClose, onSaved }) {
 function ExchangeDetail({ entries }) {
   return <Table label="Exchange Detail" headers={['Login', 'Client', 'Exchange', 'Lots', 'Turnover', 'Charged (source)', 'Method', 'Rate', 'Rate currency', 'Rate source', 'Charged INR', 'Our INR', 'Balance INR', 'Rebate INR', 'Status', 'Issues / flags']}>
     <tbody>{entries.map(({ login, name, exchange: row }, index) => <tr key={`${login}:${row.exchange}:${index}`} className="border-b">
-      <td className="px-3 py-2">{login}</td><td className="px-3 py-2">{name}</td><td className="whitespace-nowrap px-3 py-2">{row.exchange}</td>
+      <td className={tdCls}>{login}</td><td className={tdCls}>{name}</td><td className={`${tdCls} whitespace-nowrap`}>{row.exchange}</td>
       <td className={cellCls}>{format(row.lots, 4)}</td><td className={cellCls}>{format(row.turnover)}</td><td className={cellCls}>{format(row.charged)} {row.charged_currency}</td>
-      <td className="whitespace-nowrap px-3 py-2">{row.method === 'lot' ? 'Per Lot' : row.method === 'crore' ? 'Per Crore' : '—'}</td>
-      <td className={cellCls}>{format(row.rate)}</td><td className="px-3 py-2">{row.rate_currency}</td><td className="px-3 py-2">{row.rate_source || '—'}</td>
+      <td className={`${tdCls} whitespace-nowrap`}>{row.method === 'lot' ? 'Per Lot' : row.method === 'crore' ? 'Per Crore' : '—'}</td>
+      <td className={cellCls}>{format(row.rate)}</td><td className={tdCls}>{row.rate_currency}</td><td className={tdCls}>{row.rate_source || '—'}</td>
       {['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={row} field={field} />)}
-      <td className="px-3 py-2"><StatusBadge status={row.status} /></td><td className="min-w-[160px] px-3 py-2 text-xs text-amber-700">{(row.issues || []).map(issue => ISSUE_LABELS[issue] || issue).join(', ')}<Flags row={row} /></td>
+      <td className={tdCls}><StatusBadge status={row.status} /></td><td className={`${tdCls} min-w-[140px] !text-[10px] text-amber-700 sm:min-w-[160px] sm:!text-xs`}>{(row.issues || []).map(issue => ISSUE_LABELS[issue] || issue).join(', ')}<Flags row={row} /></td>
     </tr>)}</tbody>
   </Table>
 }
@@ -330,32 +334,33 @@ export default function BrokerageCalculatorPage() {
     <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={toggleSidebar} desktopOnly />
     <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} mobileOnly />
     <div className={`flex min-w-0 flex-1 flex-col overflow-y-auto ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
-      <header className="m-3 rounded-xl bg-white p-3 shadow-sm sm:m-5 sm:p-4">
+      <header className="mx-3 mb-4 mt-3 rounded-xl bg-white px-3 py-3 shadow-sm sm:m-5 sm:p-4">
         <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
           <div className="w-full shrink-0 lg:w-auto lg:max-w-64"><div className="flex items-center gap-3">
             <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F1F5FB] text-[#4B4B4B] shadow-inner lg:hidden" onClick={() => setMobileSidebarOpen(true)} aria-label="Open navigation">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect y="3.75" width="20" height="2.5" rx="1.25" fill="currentColor"/><rect y="8.75" width="20" height="2.5" rx="1.25" fill="currentColor"/><rect y="13.75" width="20" height="2.5" rx="1.25" fill="currentColor"/></svg>
             </button>
-            <h1 className="min-w-0 truncate text-center text-lg font-semibold text-[#4B4B4B] sm:text-left sm:text-xl sm:font-bold sm:text-[#1A1A1A]">Brokerage Calculator</h1>
+            <h1 className="min-w-0 flex-1 truncate text-left text-base font-semibold text-[#4B4B4B] sm:flex-none sm:text-xl sm:font-bold sm:text-[#1A1A1A]">Brokerage Calculator</h1>
           </div></div>
-        <div aria-label="Calculator controls" className="grid min-w-0 flex-1 basis-full grid-cols-2 items-center gap-1.5 sm:grid-cols-[repeat(auto-fit,minmax(110px,1fr))] sm:gap-2 lg:basis-0">
-          <select aria-label="Settlement week" title="Settlement week" className={`${headerButtonCls} !h-9 w-full truncate px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} value={query.week_id ?? ''} disabled={savingUsd} onChange={event => { setQuery(current => ({ ...current, week_id: Number(event.target.value), page: 1 })); setPendingIssue('') }}>
+
+          {/* Desktop controls */}
+        <div aria-label="Calculator controls" className="hidden min-w-0 flex-1 basis-full grid-cols-[repeat(auto-fit,minmax(110px,1fr))] items-center gap-2 sm:grid lg:basis-0">
+          <select aria-label="Settlement week" title="Settlement week" className={`${headerButtonCls} w-full truncate`} value={query.week_id ?? ''} disabled={savingUsd} onChange={event => { setQuery(current => ({ ...current, week_id: Number(event.target.value), page: 1 })); setPendingIssue('') }}>
             {!weeks.length && <option value="">No weeks available</option>}{weeks.map(week => <option key={week.id} value={week.id}>{week.name || `Week ${week.id}`}</option>)}
           </select>
-          <select aria-label="Status" title="Status" className={`${headerButtonCls} !h-9 w-full px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} value={query.status} onChange={event => setQuery(current => ({ ...current, status: event.target.value, page: 1 }))}>
+          <select aria-label="Status" title="Status" className={`${headerButtonCls} w-full`} value={query.status} onChange={event => setQuery(current => ({ ...current, status: event.target.value, page: 1 }))}>
             <option value="all">All</option><option value="ready">Ready</option><option value="pending">Pending</option>
           </select>
-          <button type="button" className={`${headerButtonCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} onClick={refresh} disabled={busy}>Recalculate</button>
-          <button type="button" className={`${headerButtonCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} onClick={() => setSettings({ client: false })}>Exchange Rates</button>
-          <button type="button" className={`${headerButtonCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} onClick={() => setSettings({ client: true })}>Client Rates</button>
-          <Link className={`${headerButtonCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs`} to="/client-percentage">Manage LD%</Link>
-          <button type="button" className={`${headerControlCls} !h-9 px-2 text-[11px] sm:!h-10 sm:px-2 sm:text-xs ${usd?.source === 'none' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'}`} disabled={busy || !report} onClick={openUsd} aria-label="Edit USD-INR rate" aria-haspopup="dialog" aria-expanded={editingUsd} title="Edit USD-INR rate">
+          <button type="button" className={headerButtonCls} onClick={refresh} disabled={busy}>Recalculate</button>
+          <button type="button" className={headerButtonCls} onClick={() => setSettings({ client: false })}>Exchange Rates</button>
+          <button type="button" className={headerButtonCls} onClick={() => setSettings({ client: true })}>Client Rates</button>
+          <Link className={headerButtonCls} to="/client-percentage">Manage LD%</Link>
+          <button type="button" className={`${headerControlCls} ${usd?.source === 'none' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'}`} disabled={busy || !report} onClick={openUsd} aria-label="Edit USD-INR rate" aria-haspopup="dialog" aria-expanded={editingUsd} title="Edit USD-INR rate">
             <span>USD-INR</span><span className="tabular-nums">{usd?.rate == null ? 'Set rate' : format(usd.rate)}</span>
           </button>
         </div>
-          <div className="ml-auto flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto sm:gap-3">
-            <BrokerCreditSummary variant="header" />
-            <button type="button" className={`${headerPrimaryCls} !h-9 min-w-[92px] px-2 text-[11px] sm:!h-10 sm:min-w-[110px] sm:px-2 sm:text-xs`} disabled={busy || !report || !!exporting || search !== query.search} onClick={doExport} title="Export matching records as CSV">
+          <div className="ml-auto hidden shrink-0 items-center gap-3 sm:flex">
+            <button type="button" className={`${headerPrimaryCls} min-w-[110px] shrink-0`} disabled={busy || !report || !!exporting || search !== query.search} onClick={doExport} title="Export matching records as CSV">
               <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4" /></svg>
               {exporting ? 'Exporting...' : 'Export'}
             </button>
@@ -363,89 +368,110 @@ export default function BrokerageCalculatorPage() {
         </div>
         {usd?.source === 'previous_week' && <p className="mt-2 text-xs text-amber-700">From {usd.source_week_name || `week ${usd.source_week_id}`}: confirm or change.</p>}
         {usd?.source === 'none' && <p className="mt-2 text-xs text-amber-700">Missing: USD/USC calculations remain pending.</p>}
-        {tab === 'pivot' && <p className="mt-2 text-xs text-slate-500">Exchange View exports use Exchange Detail: the API does not offer a pivot export.</p>}
-        {tab === 'pending' && pendingIssue && <p className="mt-2 text-xs text-slate-500">Export includes all matching pending issue types, not just the local issue filter.</p>}
       </header>
       <main className="min-w-0 px-3 pb-8 sm:px-5">
+        {/* Mobile: controls sit in their own row below the header bar, like the Clients module */}
+        <div aria-label="Calculator controls" className="scrollbar-hide mb-3 flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:hidden">
+          <select aria-label="Settlement week" title="Settlement week" className="h-9 min-w-[128px] flex-1 truncate rounded-lg border border-[#E5E7EB] bg-white px-2 font-outfit text-[11px] font-medium text-[#374151] outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50" value={query.week_id ?? ''} disabled={savingUsd} onChange={event => { setQuery(current => ({ ...current, week_id: Number(event.target.value), page: 1 })); setPendingIssue('') }}>
+            {!weeks.length && <option value="">No weeks available</option>}{weeks.map(week => <option key={week.id} value={week.id}>{week.name || `Week ${week.id}`}</option>)}
+          </select>
+          <select aria-label="Status" title="Status" className="h-9 w-[72px] shrink-0 rounded-lg border border-[#E5E7EB] bg-white px-1.5 font-outfit text-[11px] font-medium text-[#374151] outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50" value={query.status} onChange={event => setQuery(current => ({ ...current, status: event.target.value, page: 1 }))}>
+            <option value="all">All</option><option value="ready">Ready</option><option value="pending">Pending</option>
+          </select>
+          <button type="button" className={mobileIconButtonCls} onClick={refresh} disabled={busy} title="Recalculate" aria-label="Recalculate">
+            <svg aria-hidden="true" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          </button>
+          <button type="button" className={mobileIconButtonCls} onClick={() => setSettings({ client: false })} title="Exchange Rates" aria-label="Exchange Rates">
+            <svg aria-hidden="true" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18"/><path d="M5 21v-8M9.5 21v-8M14.5 21v-8M19 21v-8"/><path d="M12 3l9 6H3l9-6z"/></svg>
+          </button>
+          <button type="button" className={mobileIconButtonCls} onClick={() => setSettings({ client: true })} title="Client Rates" aria-label="Client Rates">
+            <svg aria-hidden="true" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg>
+          </button>
+          <Link className={mobileIconButtonCls} to="/client-percentage" title="Manage LD%" aria-label="Manage LD%">
+            <svg aria-hidden="true" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg>
+          </Link>
+          <button type="button" className={`${mobileIconButtonCls} ${usd?.source === 'none' ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : ''}`} disabled={busy || !report} onClick={openUsd} title={usd?.rate == null ? 'Set USD-INR rate' : `USD-INR: ${format(usd.rate)}`} aria-label="Edit USD-INR rate" aria-haspopup="dialog" aria-expanded={editingUsd}>
+            <svg aria-hidden="true" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </button>
+          <button type="button" className={mobileIconPrimaryCls} disabled={busy || !report || !!exporting || search !== query.search} onClick={doExport} title="Export matching records as CSV" aria-label="Export">
+            {exporting ? <svg aria-hidden="true" className="h-[18px] w-[18px] animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> : <svg aria-hidden="true" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></svg>}
+          </button>
+          <BrokerCreditSummary variant="header" className="ml-auto shrink-0" />
+        </div>
         {weeksError && <div role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-red-700">{weeksError} <button type="button" className={buttonCls} onClick={() => setWeeksReload(value => value + 1)}>Retry weeks</button></div>}
         {error && <div role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-red-700">{error} <button type="button" className={buttonCls} onClick={refresh}>Retry report</button></div>}
         {report?.skipped_logins?.length > 0 && <p role="alert" className="mb-3 bg-amber-50 p-3 text-amber-800">Logins outside your client scope were skipped: {report.skipped_logins.join(', ')}.</p>}
-        {summary && <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-6">
+        {summary && <div className="scrollbar-hide mb-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 lg:grid lg:snap-none lg:grid-cols-6 lg:overflow-visible lg:pb-0">
           {[
             ['Charged 100% · INR', format(summary.charged_inr)],
             ['Our brokerage · INR', format(summary.our_brokerage_inr)],
             ['Balance 100% · INR', format(summary.balance_inr)],
             ['Rebate at LD% · INR', format(summary.rebate_inr)],
             ['Average login %', summary.average_login_percent == null ? '—' : `${format(summary.average_login_percent)}%`],
-          ].map(([label, value]) => <div key={label} className="rounded-xl border bg-white p-3"><p className="text-xs text-[#4B5563]">{label}</p><p className="mt-1 text-base font-semibold tabular-nums text-[#1A1A1A]">{value}</p></div>)}
-          <button type="button" onClick={() => { setPendingIssue(''); switchTab('pending') }} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-amber-800"><span className="block text-xs">Pending</span><span className="mt-1 block text-base font-semibold tabular-nums">{format(summary.pending_logins, 0)} clients · {format(summary.pending_issues, 0)} issues</span></button>
+          ].map(([label, value]) => <div key={label} className="w-[168px] shrink-0 snap-start rounded-xl border bg-white p-3 lg:w-auto lg:shrink"><p className="text-[10px] text-[#4B5563] sm:text-xs">{label}</p><p className="mt-1 text-sm font-semibold tabular-nums text-[#1A1A1A] sm:text-base">{value}</p></div>)}
+          <button type="button" onClick={() => { setPendingIssue(''); switchTab('pending') }} className="w-[168px] shrink-0 snap-start rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-amber-800 lg:w-auto lg:shrink"><span className="block text-[10px] sm:text-xs">Pending</span><span className="mt-1 block text-sm font-semibold tabular-nums sm:text-base">{format(summary.pending_logins, 0)} clients · {format(summary.pending_issues, 0)} issues</span></button>
         </div>}
-        <p className="mb-3 text-xs text-slate-600">Charged − Our brokerage = Balance (100%); Balance × LD% / 100 = Rebate. Pending rows are excluded from totals. Verify all amounts before settlement or payment.</p>
         <div className="overflow-hidden rounded-xl border bg-white">
-          <div role="tablist" aria-label="Calculator reports" className="flex overflow-x-auto border-b">
-            {TABS.map(item => <button key={item.id} id={`calculator-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="calculator-panel" type="button" className={`whitespace-nowrap px-4 py-3 text-sm font-semibold ${tab === item.id ? 'border-b-2 border-blue-600 text-blue-700' : 'text-[#4B5563]'}`} onClick={() => switchTab(item.id)}>{item.label}</button>)}
+          <div role="tablist" aria-label="Calculator reports" className="scrollbar-hide flex overflow-x-auto border-b">
+            {TABS.map(item => <button key={item.id} id={`calculator-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="calculator-panel" type="button" className={`whitespace-nowrap px-3 py-2.5 text-xs font-semibold sm:px-4 sm:py-3 sm:text-sm ${tab === item.id ? 'border-b-2 border-blue-600 text-blue-700' : 'text-[#4B5563]'}`} onClick={() => switchTab(item.id)}>{item.label}</button>)}
           </div>
           <div id="calculator-panel" role="tabpanel" aria-labelledby={`calculator-tab-${tab}`} aria-busy={loading}>
-            <div aria-label="Table controls" className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] p-4">
-              <form className="relative min-w-[180px] flex-1 sm:max-w-md" role="search" onSubmit={event => { event.preventDefault(); setQuery(current => ({ ...current, search, page: 1 })) }}>
-                <input aria-label="Search login or name" placeholder="Search login or name" className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] pl-4 pr-12 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={event => setSearch(event.target.value)} />
-                <button type="submit" aria-label="Search calculator report" className="absolute right-1 top-1/2 flex h-8 w-9 -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700">
-                  <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+            <div aria-label="Table controls" className="flex items-center gap-1.5 border-b border-[#E5E7EB] p-2.5 sm:gap-3 sm:p-4">
+              <form className="relative min-w-0 flex-1 sm:max-w-md" role="search" onSubmit={event => { event.preventDefault(); setQuery(current => ({ ...current, search, page: 1 })) }}>
+                <input aria-label="Search login or name" placeholder="Search login or name" className="h-9 w-full rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] pl-3 pr-10 text-xs text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:h-10 sm:pl-4 sm:pr-12 sm:text-sm" value={search} onChange={event => setSearch(event.target.value)} />
+                <button type="submit" aria-label="Search calculator report" className="absolute right-1 top-1/2 flex h-7 w-8 -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700 sm:h-8 sm:w-9">
+                  <svg aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                 </button>
               </form>
-              <div className="ml-auto flex items-center gap-3">
-                {tab !== 'pending' && <PageSizeSelect value={query.limit} onChange={limit => setQuery(current => ({ ...current, limit, page: 1 }))} options={[25, 50, 100]} />}
-                <button type="button" aria-label="Previous page" className={`${buttonCls} !p-2`} disabled={busy || !report || tablePage <= 1} onClick={() => changeTablePage(tablePage - 1)}>
-                  <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              {tab === 'pending' && report && <select aria-label="Pending issue" title="All matching logins, not just this page" className="h-9 w-[86px] shrink-0 rounded-lg border border-[#E5E7EB] bg-white px-1.5 font-outfit text-[11px] text-[#1F2937] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:h-10 sm:w-36 sm:px-2 sm:text-xs" value={pendingIssue} onChange={event => { setPendingIssue(event.target.value); setPendingPage(1) }}>
+                <option value="">All issues</option>{[...new Set(report.pending.map(row => row.issue))].map(issue => <option key={issue} value={issue}>{ISSUE_LABELS[issue] || issue}</option>)}
+              </select>}
+              <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
+                <button type="button" aria-label="Previous page" className={`${buttonCls} !p-1.5 sm:!p-2`} disabled={busy || !report || tablePage <= 1} onClick={() => changeTablePage(tablePage - 1)}>
+                  <svg aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
-                <span className="flex items-center gap-2 text-sm text-[#374151]"><span className="min-w-8 rounded-lg border border-[#E5E7EB] px-2 py-1 text-center font-semibold">{tablePage}</span><span className="text-[#6B7280]">/ {tablePages}</span></span>
-                <button type="button" aria-label="Next page" className={`${buttonCls} !p-2`} disabled={busy || !report || tablePage >= tablePages} onClick={() => changeTablePage(tablePage + 1)}>
-                  <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <span className="flex items-center gap-1 whitespace-nowrap text-xs text-[#374151] sm:gap-2 sm:text-sm"><span className="min-w-7 rounded-lg border border-[#E5E7EB] px-1.5 py-0.5 text-center font-semibold sm:min-w-8 sm:px-2 sm:py-1">{tablePage}</span><span className="text-[#6B7280]">/ {tablePages}</span></span>
+                <button type="button" aria-label="Next page" className={`${buttonCls} !p-1.5 sm:!p-2`} disabled={busy || !report || tablePage >= tablePages} onClick={() => changeTablePage(tablePage + 1)}>
+                  <svg aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
               </div>
             </div>
-            {loading ? <p role="status" className="p-10 text-center text-slate-500">Calculating brokerage...</p> : !report ? <p className="p-10 text-center text-slate-500">{error ? 'The report could not be loaded.' : 'Select a settlement week to calculate.'}</p> : <>
+            {loading ? <p role="status" className="p-6 text-center text-xs text-slate-500 sm:p-10 sm:text-sm">Calculating brokerage...</p> : !report ? <p className="p-6 text-center text-xs text-slate-500 sm:p-10 sm:text-sm">{error ? 'The report could not be loaded.' : 'Select a settlement week to calculate.'}</p> : <>
               {tab === 'logins' && <Table label="Final Report" headers={['Details', 'Login', 'Client', 'LD%', 'Charged INR', 'Our INR', 'Balance INR', 'Rebate INR', 'Status / flags', 'Actions']}>
                 <tbody>{rows.map(row => <Fragment key={row.login}>
                   <tr className="border-b hover:bg-slate-50" onClick={() => toggleRow(row.login)}>
-                    <td className="px-3 py-2"><button type="button" aria-label={`Exchange details for ${row.login}`} aria-expanded={expanded.has(row.login)} className={buttonCls} onClick={event => { event.stopPropagation(); toggleRow(row.login) }}>{expanded.has(row.login) ? '−' : '+'}</button></td>
-                    <td className="px-3 py-2 font-semibold text-[#1A63BC]">{row.login}</td><td className="px-3 py-2 text-[#1F2937]">{row.name || '—'}</td>
-                    <td className={cellCls}>{row.ld_percent == null ? '—' : `${format(row.ld_percent)}%`}{row.ld_is_custom && <span className="ml-1 text-xs text-blue-600">custom</span>}</td>
+                    <td className={tdCls}><button type="button" aria-label={`Exchange details for ${row.login}`} aria-expanded={expanded.has(row.login)} className={`${buttonCls} !p-1.5 sm:!p-2`} onClick={event => { event.stopPropagation(); toggleRow(row.login) }}>{expanded.has(row.login) ? '−' : '+'}</button></td>
+                    <td className={`${tdCls} font-semibold text-[#1A63BC]`}>{row.login}</td><td className={`${tdCls} text-[#1F2937]`}>{row.name || '—'}</td>
+                    <td className={cellCls}>{row.ld_percent == null ? '—' : `${format(row.ld_percent)}%`}{row.ld_is_custom && <span className="ml-1 text-[9px] text-blue-600 sm:text-xs">custom</span>}</td>
                     {['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={row} field={field} />)}
-                    <td className="px-3 py-2"><StatusBadge status={row.status} /><Flags row={row} /></td>
-                    <td className="px-3 py-2"><button type="button" className={`${buttonCls} whitespace-nowrap`} onClick={event => { event.stopPropagation(); setSettings({ client: true, selection: { login: row.login } }) }}>Client rates</button></td>
+                    <td className={tdCls}><StatusBadge status={row.status} /><Flags row={row} /></td>
+                    <td className={tdCls}><button type="button" className={`${buttonCls} whitespace-nowrap ${compactButtonCls}`} onClick={event => { event.stopPropagation(); setSettings({ client: true, selection: { login: row.login } }) }}>Client rates</button></td>
                   </tr>
-                  {expanded.has(row.login) && <tr><td colSpan={10} className="bg-slate-50 p-3"><ExchangeDetail entries={(row.exchanges || []).map(exchange => ({ login: row.login, name: row.name, exchange }))} /></td></tr>}
+                  {expanded.has(row.login) && <tr><td colSpan={10} className="bg-slate-50 p-2 sm:p-3"><ExchangeDetail entries={(row.exchanges || []).map(exchange => ({ login: row.login, name: row.name, exchange }))} /></td></tr>}
                 </Fragment>)}</tbody>
-                <tfoot><tr className="bg-blue-50 font-semibold"><td colSpan={4} className="p-3">TOTAL · all matching logins</td>{['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={summary} field={field} />)}<td colSpan={2} /></tr></tfoot>
+                <tfoot><tr className="bg-blue-50 font-semibold"><td colSpan={4} className="p-2 text-xs sm:p-3 sm:text-sm">TOTAL · all matching logins</td>{['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={summary} field={field} />)}<td colSpan={2} /></tr></tfoot>
               </Table>}
               {tab === 'exchanges' && <ExchangeDetail entries={entries} />}
               {tab === 'pivot' && <Table label="Exchange View" headers={['Login', 'Client', ...report.exchanges, 'Total rebate INR', 'Status']}>
                 <tbody>{rows.map(row => <tr key={row.login} className="border-b">
-                  <td className="px-3 py-2">{row.login}</td><td className="px-3 py-2">{row.name}</td>
+                  <td className={tdCls}>{row.login}</td><td className={tdCls}>{row.name}</td>
                   {report.exchanges.map(exchange => <td key={exchange} className={cellCls}>{format(row.exchanges?.find(item => item.exchange === exchange)?.rebate_inr)}</td>)}
-                  <Amount row={row} field="rebate_inr" /><td className="px-3 py-2"><StatusBadge status={row.status} /></td>
+                  <Amount row={row} field="rebate_inr" /><td className={tdCls}><StatusBadge status={row.status} /></td>
                 </tr>)}</tbody>
               </Table>}
               {tab === 'pending' && <>
-                <div className="flex flex-wrap items-center gap-2 p-3">
-                  <label className="text-xs">Issue<select aria-label="Pending issue" className={inputCls} value={pendingIssue} onChange={event => { setPendingIssue(event.target.value); setPendingPage(1) }}>
-                    <option value="">All issues</option>{[...new Set(report.pending.map(row => row.issue))].map(issue => <option key={issue} value={issue}>{ISSUE_LABELS[issue] || issue}</option>)}
-                  </select></label>
-                  <span className="text-xs text-slate-500">All matching logins, not just the report page.</span>
-                </div>
-                {report.pending_truncated && <p role="alert" className="mx-3 mb-3 rounded bg-amber-50 p-3 text-sm text-amber-800">Only the first 1,000 issues are shown. Use Export in the header to download every matching pending issue.</p>}
+                {report.pending_truncated && <p role="alert" className="mx-2 mb-2 rounded bg-amber-50 p-2 text-xs text-amber-800 sm:mx-3 sm:mb-3 sm:p-3 sm:text-sm">Only the first 1,000 issues are shown. Use Export in the header to download every matching pending issue.</p>}
                 <Table label="Pending issues" headers={['Login', 'Client', 'Exchange', 'Issue', 'Detail', 'Action']}>
                   <tbody>{pending.slice((pendingPage - 1) * 250, pendingPage * 250).map((row, index) => <tr key={`${row.login}:${row.exchange}:${row.issue}:${index}`} className="border-b">
-                    <td className="p-3">{row.login}</td><td className="p-3">{row.name}</td><td className="whitespace-nowrap p-3">{row.exchange}</td>
-                    <td className="p-3 text-amber-700">{ISSUE_LABELS[row.issue] || row.issue}</td><td className="min-w-[200px] p-3">{row.detail}</td>
-                    <td className="p-3">{['method_missing', 'rate_missing', 'usd_inr_missing'].includes(row.issue) ? <button type="button" className={buttonCls} onClick={() => fix(row)}>Fix</button> : <span className="text-xs text-slate-600">Contact support with this login, exchange and detail.</span>}</td>
+                    <td className={tdCls}>{row.login}</td><td className={tdCls}>{row.name}</td><td className={`${tdCls} whitespace-nowrap`}>{row.exchange}</td>
+                    <td className={`${tdCls} text-amber-700`}>{ISSUE_LABELS[row.issue] || row.issue}</td><td className={`${tdCls} min-w-[160px] sm:min-w-[200px]`}>{row.detail}</td>
+                    <td className={tdCls}>{['method_missing', 'rate_missing', 'usd_inr_missing'].includes(row.issue) ? <button type="button" className={`${buttonCls} ${compactButtonCls}`} onClick={() => fix(row)}>Fix</button> : <span className="text-[10px] text-slate-600 sm:text-xs">Contact support with this login, exchange and detail.</span>}</td>
                   </tr>)}</tbody>
                 </Table>
-                {!pending.length && <p className="p-8 text-center text-slate-500">No matching pending issues.</p>}
-                <div className="border-t p-3 text-xs">{pending.length} issues · page {pendingPage} of {pendingPages}</div>
+                {!pending.length && <p className="p-6 text-center text-xs text-slate-500 sm:p-8 sm:text-sm">No matching pending issues.</p>}
+                <div className="border-t p-2 text-[10px] sm:p-3 sm:text-xs">{pending.length} issues · page {pendingPage} of {pendingPages}</div>
               </>}
-              {tab !== 'pending' && !rows.length && <p className="p-8 text-center text-slate-500">No brokerage data matches this week and filters.</p>}
+              {tab !== 'pending' && !rows.length && <p className="p-6 text-center text-xs text-slate-500 sm:p-8 sm:text-sm">No brokerage data matches this week and filters.</p>}
             </>}
           </div>
         </div>

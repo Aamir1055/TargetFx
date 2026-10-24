@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 
 const DEFAULT_OPTIONS = [25, 50, 100, 500]
 
-const PageSizeSelect = ({ value, onChange, options = DEFAULT_OPTIONS, label = 'Rows', menuZIndex = 9999 }) => {
+const PageSizeSelect = ({ value, onChange, options = DEFAULT_OPTIONS, label = '', menuZIndex = 9999 }) => {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
   const wrapRef = useRef(null)
@@ -46,7 +46,7 @@ const PageSizeSelect = ({ value, onChange, options = DEFAULT_OPTIONS, label = 'R
 
   return (
     <div className="flex items-center gap-1.5" ref={wrapRef}>
-      {label && <span className="text-xs text-[#6B7280]">{label}</span>}
+      {label && <span className="whitespace-nowrap text-[10px] text-[#6B7280] sm:text-xs">{label}</span>}
       <div className="relative">
         <button
           ref={btnRef}
