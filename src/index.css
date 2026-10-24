@@ -539,6 +539,16 @@ body {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* No blue focus highlight anywhere: keep a subtle dark border so the active control is still readable */
+:focus,
+:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+:focus-visible {
+  border-color: #94A3B8 !important;
+}
+
 /* Custom Animations */
 @keyframes fade-in {
   from {

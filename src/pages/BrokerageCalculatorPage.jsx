@@ -23,12 +23,17 @@ const headerPrimaryCls = `${headerControlCls} border-blue-600 bg-blue-600 text-w
 const mobileIconCls = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50'
 const mobileIconButtonCls = `${mobileIconCls} border-[#E5E7EB] bg-white text-[#374151] hover:bg-blue-50`
 const mobileIconPrimaryCls = `${mobileIconCls} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`
-const rateInputCls = `${inputCls} h-10 min-w-0 font-medium`
-const rateButtonCls = `${buttonCls} inline-flex h-10 items-center justify-center whitespace-nowrap`
-const ratePrimaryCls = `${primaryCls} inline-flex h-10 items-center justify-center whitespace-nowrap`
+const stickyRateTdCls = 'sticky left-0 z-[5] bg-white shadow-[2px_0_0_#ECECEC]'
+const rateInputCls = `${inputCls} !h-9 min-w-0 !px-2 text-xs font-medium sm:!h-10 sm:!px-2.5 sm:text-sm`
+const rateButtonCls = `${buttonCls} inline-flex h-9 items-center justify-center whitespace-nowrap !px-2 text-[11px] sm:h-10 sm:!px-3 sm:text-xs`
+const ratePrimaryCls = `${primaryCls} inline-flex h-9 items-center justify-center whitespace-nowrap !px-2 text-[11px] sm:h-10 sm:!px-3 sm:text-xs`
 const cellCls = 'whitespace-nowrap px-2 py-2 text-right text-xs tabular-nums sm:px-3 sm:py-2.5 sm:text-sm'
 const tdCls = 'px-2 py-1.5 align-middle text-xs sm:px-3 sm:py-2 sm:text-sm'
 const compactButtonCls = '!px-2 !py-1 !text-[10px] sm:!px-3 sm:!py-2 sm:!text-xs'
+const stickyThCls = 'sticky left-0 z-[5] bg-blue-600'
+const stickyTdCls = 'sticky left-0 z-[5] bg-white font-semibold text-[#1A63BC] shadow-[2px_0_0_#ECECEC]'
+const stickySecondThCls = 'sticky left-[41px] z-[5] bg-blue-600'
+const stickySecondTdCls = 'sticky left-[41px] z-[5] bg-white font-semibold text-[#1A63BC] shadow-[2px_0_0_#ECECEC]'
 const TABS = [
   { id: 'logins', label: 'Final Report' },
   { id: 'exchanges', label: 'Exchange Detail' },
@@ -57,11 +62,11 @@ function Amount({ row, field }) {
   return <td className={`${cellCls} ${warning ? 'bg-red-50 text-red-700' : 'text-[#374151]'}`}>{format(row[field])}</td>
 }
 
-function Table({ headers, children, label, columnWidths }) {
-  return <div className="max-h-[60vh] overflow-auto sm:max-h-[65vh]">
+function Table({ headers, children, label, columnWidths, stickySecond = false, stickySecondTh = stickySecondThCls }) {
+  return <div className="scrollbar-hide max-h-[60vh] overflow-auto sm:max-h-[65vh]">
     <table aria-label={label} className={`w-full border-collapse bg-white font-outfit text-sm text-[#374151] [&_tbody]:text-[#374151] [&_tfoot]:text-[#374151] ${columnWidths ? 'min-w-[800px] table-fixed' : ''}`}>
       {columnWidths && <colgroup>{columnWidths.map((width, index) => <col key={headers[index]} style={{ width }} />)}</colgroup>}
-      <thead className="sticky top-0 z-10 shadow-[0_1px_0_#E5E7EB]"><tr className="bg-blue-600 text-left">{headers.map(header => <th key={header} className="whitespace-nowrap bg-blue-600 px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-white sm:px-3 sm:py-2.5 sm:text-[11px]">{header}</th>)}</tr></thead>
+      <thead className="sticky top-0 z-10 shadow-[0_1px_0_#E5E7EB]"><tr className="bg-blue-600 text-left">{headers.map((header, index) => <th key={header} className={`whitespace-nowrap bg-blue-600 px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-white sm:px-3 sm:py-2.5 sm:text-[11px] ${index === 0 ? stickyThCls : ''} ${index === 1 && stickySecond ? stickySecondTh : ''}`}>{header}</th>)}</tr></thead>
       {children}
     </table>
   </div>
@@ -130,55 +135,55 @@ function RateSettings({ client = false, selection = {}, onClose, onSaved }) {
     } catch (failure) { setError(errorMessage(failure)) }
   }
 
-  return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 p-3">
-    <section role="dialog" aria-modal="true" aria-labelledby="rate-settings-title" className="flex max-h-[90dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white font-outfit text-sm text-[#374151] shadow-xl [color-scheme:light]">
-      <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#E5E7EB] p-4 sm:px-6 sm:py-5">
-        <div><h2 id="rate-settings-title" className="text-lg font-semibold text-[#1A1A1A]">{client ? 'Client Rates' : 'Exchange Rates'}</h2>
-          <p className="mt-1 text-xs text-slate-600">{client ? 'Leave blank to use broker defaults.' : 'Set rates by exchange. Zero is valid.'}</p>
+  return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 p-2 sm:p-3">
+    <section role="dialog" aria-modal="true" aria-labelledby="rate-settings-title" className="flex max-h-[85dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white font-outfit text-sm text-[#374151] shadow-xl [color-scheme:light] sm:max-h-[92dvh]">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#E5E7EB] p-3 sm:gap-4 sm:px-6 sm:py-5">
+        <div><h2 id="rate-settings-title" className="text-base font-semibold text-[#1A1A1A] sm:text-lg">{client ? 'Client Rates' : 'Exchange Rates'}</h2>
+          <p className="mt-0.5 text-[10px] text-slate-600 sm:mt-1 sm:text-xs">{client ? 'Leave blank to use broker defaults.' : 'Set rates by exchange. Zero is valid.'}</p>
         </div>
         <button type="button" disabled={saving} onClick={onClose} className={`${rateButtonCls} w-10 shrink-0 !p-0`} aria-label="Close rate settings" title="Close">
           <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
       </header>
-      <div className="min-h-0 overflow-auto p-4 sm:p-6">
-        {client && <div className="mb-5 grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px]">
-          <label className="grid min-w-0 gap-1.5 text-xs font-medium text-[#4B5563]">Login filter<input aria-label="Login filter" className={rateInputCls} value={loginFilter} onChange={event => setLoginFilter(event.target.value)} /></label>
-          <label className="grid min-w-0 gap-1.5 text-xs font-medium text-[#4B5563]">Exchange filter<select aria-label="Exchange filter" className={rateInputCls} value={exchangeFilter} onChange={event => setExchangeFilter(event.target.value)}>
+      <div className="min-h-0 overflow-auto p-3 sm:p-6">
+        {client && <div className="mb-3 grid grid-cols-[minmax(0,1fr)_96px_auto] items-center gap-1.5 sm:mb-5 sm:flex sm:gap-3">
+          <input aria-label="Login filter" placeholder="Login" inputMode="numeric" className={`${rateInputCls} w-full min-w-0 sm:flex-1`} value={loginFilter} onChange={event => setLoginFilter(event.target.value)} />
+          <select aria-label="Exchange filter" className={`${rateInputCls} w-full min-w-0 truncate !px-1 sm:w-40 sm:flex-none`} value={exchangeFilter} onChange={event => setExchangeFilter(event.target.value)}>
             <option value="">All exchanges</option>{exchanges.map(row => <option key={row.exchange}>{row.exchange}</option>)}
-          </select></label>
-          <button type="button" className={rateButtonCls} disabled={saving || !rows} onClick={applyFilters}>Apply filters</button>
+          </select>
+          <button type="button" className={`${rateButtonCls} shrink-0 !px-2 sm:!px-3`} disabled={saving || !rows} onClick={applyFilters}>Apply</button>
         </div>}
-        {error && <p role="alert" className="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">{error} {!rows && <button type="button" className={buttonCls} onClick={() => setReload(value => value + 1)}>Retry</button>}</p>}
+        {error && <p role="alert" className="mb-3 rounded bg-red-50 p-2.5 text-xs text-red-700 sm:p-3 sm:text-sm">{error} {!rows && <button type="button" className={buttonCls} onClick={() => setReload(value => value + 1)}>Retry</button>}</p>}
         {!rows ? !error && <p role="status">Loading rates...</p> : <>
-          <div className="overflow-hidden rounded-lg border border-[#E5E7EB]">
-          <Table label={client ? 'Client rate settings' : 'Exchange rate settings'} columnWidths={client ? ['14%', '17%', '22%', '14%', '11%', '22%'] : ['20%', '20%', '14%', '12%', '16%', '18%']} headers={[...(client ? ['Login'] : []), 'Exchange', 'Method', 'Rate', 'Currency', ...(client ? [] : ['Status']), 'Actions']}>
+          <div className="scrollbar-hide overflow-x-auto rounded-lg border border-[#E5E7EB]">
+          <Table label={client ? 'Client rate settings' : 'Exchange rate settings'} stickySecond={false} headers={[...(client ? ['Login'] : []), 'Exchange', 'Method', 'Rate', 'Currency', ...(client ? [] : ['Status']), 'Actions']}>
             <tbody>{rows.map((row, index) => {
               const persisted = original.some(item => item.exchange === row.exchange && (!client || String(item.login) === String(row.login)))
               const currency = client ? exchanges.find(item => item.exchange === row.exchange)?.currency : row.currency
               return <tr key={index} className={`border-b border-[#E5E7EB] last:border-b-0 ${selection.exchange === row.exchange ? 'bg-blue-50' : ''}`}>
-                {client && <td className="px-3 py-3"><input aria-label={`Login ${index + 1}`} readOnly={persisted} disabled={saving} inputMode="numeric" className={`${rateInputCls} tabular-nums read-only:bg-[#F9FAFB]`} value={row.login} onChange={event => update(index, 'login', event.target.value)} /></td>}
-                <td className="px-3 py-3">{client && !persisted ? <select aria-label={`Exchange ${index + 1}`} disabled={saving} className={rateInputCls} value={row.exchange} onChange={event => update(index, 'exchange', event.target.value)}>
+                {client && <td className={`px-1.5 py-2 sm:px-3 sm:py-3 ${stickyRateTdCls}`}><input aria-label={`Login ${index + 1}`} readOnly={persisted} disabled={saving} inputMode="numeric" className={`${rateInputCls} w-[64px] tabular-nums read-only:border-transparent read-only:bg-transparent read-only:px-0 read-only:shadow-none sm:w-20`} value={row.login} onChange={event => update(index, 'login', event.target.value)} /></td>}
+                <td className={`whitespace-nowrap px-1.5 py-2 text-xs sm:px-3 sm:py-3 sm:text-sm ${client ? '' : stickyRateTdCls}`}>{client && !persisted ? <select aria-label={`Exchange ${index + 1}`} disabled={saving} className={`${rateInputCls} w-24 sm:w-32`} value={row.exchange} onChange={event => update(index, 'exchange', event.target.value)}>
                   <option value="">Choose exchange</option>{exchanges.map(item => <option key={item.exchange}>{item.exchange}</option>)}
                 </select> : row.exchange}</td>
-                <td className="px-3 py-3"><select aria-label={`Method ${index + 1}`} disabled={saving} className={rateInputCls} value={row.method} onChange={event => update(index, 'method', event.target.value)}>
+                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><select aria-label={`Method ${index + 1}`} disabled={saving} className={`${rateInputCls} w-[126px] sm:w-36`} value={row.method} onChange={event => update(index, 'method', event.target.value)}>
                   <option value="">{client ? 'Use broker value' : 'Not set'}</option><option value="lot">Per Lot</option><option value="crore">Per Crore</option>
                 </select></td>
-                <td className="px-3 py-3"><input aria-label={`Rate ${index + 1}`} disabled={saving} inputMode="decimal" className={`${rateInputCls} tabular-nums`} placeholder={client ? 'Inherit' : 'Not set'} value={row.rate} onChange={event => update(index, 'rate', event.target.value)} /></td>
-                <td className="px-3 py-3">{client ? <span className="inline-flex h-10 items-center font-medium">{currency || '—'}</span> : <select aria-label={`Currency ${index + 1}`} disabled={saving} className={rateInputCls} value={row.currency} onChange={event => update(index, 'currency', event.target.value)}><option>INR</option><option>USD</option></select>}</td>
-                {!client && <td className="whitespace-nowrap px-3 py-3 text-xs">{row.configured ? 'Set (saved)' : 'Not set (saved)'}</td>}
-                <td className="px-3 py-3"><button type="button" disabled={saving} className={`${rateButtonCls} w-full`} onClick={() => client && !persisted ? setRows(current => current.filter((_, i) => i !== index)) : resetRow(index)}>{client ? persisted ? 'Use broker defaults' : 'Remove' : 'Clear setting'}</button></td>
+                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><input aria-label={`Rate ${index + 1}`} disabled={saving} inputMode="decimal" className={`${rateInputCls} w-[136px] tabular-nums sm:w-36`} placeholder={client ? 'Inherit' : 'Not set'} value={row.rate} onChange={event => update(index, 'rate', event.target.value)} /></td>
+                <td className="px-1.5 py-2 sm:px-3 sm:py-3">{client ? <span className="inline-flex h-9 items-center text-xs font-medium sm:h-10 sm:text-sm">{currency || '—'}</span> : <select aria-label={`Currency ${index + 1}`} disabled={saving} className={`${rateInputCls} w-[74px] sm:w-24`} value={row.currency} onChange={event => update(index, 'currency', event.target.value)}><option>INR</option><option>USD</option></select>}</td>
+                {!client && <td className="whitespace-nowrap px-1.5 py-2 text-[10px] sm:px-3 sm:py-3 sm:text-xs">{row.configured ? 'Set (saved)' : 'Not set (saved)'}</td>}
+                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><button type="button" disabled={saving} className={client && persisted ? 'whitespace-nowrap text-[11px] font-medium text-blue-600 underline-offset-2 hover:underline disabled:opacity-50 sm:text-xs' : rateButtonCls} onClick={() => client && !persisted ? setRows(current => current.filter((_, i) => i !== index)) : resetRow(index)}>{client ? persisted ? 'Use broker defaults' : 'Remove' : 'Clear setting'}</button></td>
               </tr>
             })}</tbody>
           </Table>
           </div>
-          {!rows.length && <p className="py-4 text-sm text-slate-500">No {client ? 'client overrides' : 'exchanges'} found.</p>}
+          {!rows.length && <p className="py-3 text-xs text-slate-500 sm:py-4 sm:text-sm">No {client ? 'client overrides' : 'exchanges'} found.</p>}
         </>}
       </div>
-      <footer className="flex shrink-0 flex-wrap items-center gap-3 border-t border-[#E5E7EB] bg-[#F9FAFB] p-4 sm:px-6">
-        {client && <button type="button" disabled={saving || !rows} className={`${rateButtonCls} min-w-28`} onClick={() => setRows(current => [...current, { login: filters.login || '', exchange: filters.exchange || '', method: '', rate: '' }])}>Add override</button>}
-        <div className="ml-auto flex gap-3">
-          <button type="button" className={`${rateButtonCls} min-w-28`} disabled={saving} onClick={onClose}>Cancel</button>
-          <button type="button" className={`${ratePrimaryCls} min-w-28`} disabled={saving || !rows} onClick={save}>{saving ? 'Saving...' : 'Save rates'}</button>
+      <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[#E5E7EB] bg-[#F9FAFB] p-3 sm:gap-3 sm:px-6 sm:py-4">
+        {client && <button type="button" disabled={saving || !rows} className={rateButtonCls} onClick={() => setRows(current => [...current, { login: filters.login || '', exchange: filters.exchange || '', method: '', rate: '' }])}>Add override</button>}
+        <div className="ml-auto flex gap-2 sm:gap-3">
+          <button type="button" className={`${rateButtonCls} min-w-16 sm:min-w-28`} disabled={saving} onClick={onClose}>Cancel</button>
+          <button type="button" className={`${ratePrimaryCls} min-w-20 sm:min-w-28`} disabled={saving || !rows} onClick={save}>{saving ? 'Saving...' : 'Save rates'}</button>
         </div>
       </footer>
     </section>
@@ -187,8 +192,8 @@ function RateSettings({ client = false, selection = {}, onClose, onSaved }) {
 
 function ExchangeDetail({ entries }) {
   return <Table label="Exchange Detail" headers={['Login', 'Client', 'Exchange', 'Lots', 'Turnover', 'Charged (source)', 'Method', 'Rate', 'Rate currency', 'Rate source', 'Charged INR', 'Our INR', 'Balance INR', 'Rebate INR', 'Status', 'Issues / flags']}>
-    <tbody>{entries.map(({ login, name, exchange: row }, index) => <tr key={`${login}:${row.exchange}:${index}`} className="border-b">
-      <td className={tdCls}>{login}</td><td className={tdCls}>{name}</td><td className={`${tdCls} whitespace-nowrap`}>{row.exchange}</td>
+    <tbody>{entries.map(({ login, name, exchange: row }, index) => <tr key={`${login}:${row.exchange}:${index}`} className="border-b border-[#ECECEC]">
+      <td className={`${tdCls} ${stickyTdCls}`}>{login}</td><td className={tdCls}>{name}</td><td className={`${tdCls} whitespace-nowrap`}>{row.exchange}</td>
       <td className={cellCls}>{format(row.lots, 4)}</td><td className={cellCls}>{format(row.turnover)}</td><td className={cellCls}>{format(row.charged)} {row.charged_currency}</td>
       <td className={`${tdCls} whitespace-nowrap`}>{row.method === 'lot' ? 'Per Lot' : row.method === 'crore' ? 'Per Crore' : '—'}</td>
       <td className={cellCls}>{format(row.rate)}</td><td className={tdCls}>{row.rate_currency}</td><td className={tdCls}>{row.rate_source || '—'}</td>
@@ -333,8 +338,8 @@ export default function BrokerageCalculatorPage() {
   return <div className="flex h-[100dvh] overflow-hidden bg-[#F8FAFC] font-outfit text-sm text-[#374151] [color-scheme:light]">
     <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={toggleSidebar} desktopOnly />
     <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} mobileOnly />
-    <div className={`flex min-w-0 flex-1 flex-col overflow-y-auto ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
-      <header className="mx-3 mb-4 mt-3 rounded-xl bg-white px-3 py-3 shadow-sm sm:m-5 sm:p-4">
+    <div className={`scrollbar-hide flex min-w-0 flex-1 flex-col overflow-y-auto ${sidebarOpen ? 'lg:ml-60' : 'lg:ml-16'}`}>
+      <header className="mx-0 mb-4 mt-0 rounded-none bg-white px-3 py-5 shadow-sm sm:m-5 sm:rounded-xl sm:px-4 sm:py-4">
         <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
           <div className="w-full shrink-0 lg:w-auto lg:max-w-64"><div className="flex items-center gap-3">
             <button type="button" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F1F5FB] text-[#4B4B4B] shadow-inner lg:hidden" onClick={() => setMobileSidebarOpen(true)} aria-label="Open navigation">
@@ -343,19 +348,19 @@ export default function BrokerageCalculatorPage() {
             <h1 className="min-w-0 flex-1 truncate text-left text-base font-semibold text-[#4B4B4B] sm:flex-none sm:text-xl sm:font-bold sm:text-[#1A1A1A]">Brokerage Calculator</h1>
           </div></div>
 
-          {/* Desktop controls */}
-        <div aria-label="Calculator controls" className="hidden min-w-0 flex-1 basis-full grid-cols-[repeat(auto-fit,minmax(110px,1fr))] items-center gap-2 sm:grid lg:basis-0">
-          <select aria-label="Settlement week" title="Settlement week" className={`${headerButtonCls} w-full truncate`} value={query.week_id ?? ''} disabled={savingUsd} onChange={event => { setQuery(current => ({ ...current, week_id: Number(event.target.value), page: 1 })); setPendingIssue('') }}>
+          {/* Desktop controls: nowrap so USD-INR never drops to a second line */}
+        <div aria-label="Calculator controls" className="scrollbar-hide hidden min-w-0 flex-1 basis-full items-center gap-2 overflow-x-auto sm:flex sm:flex-nowrap lg:basis-0">
+          <select aria-label="Settlement week" title="Settlement week" className={`${headerButtonCls} w-32 shrink-0 truncate`} value={query.week_id ?? ''} disabled={savingUsd} onChange={event => { setQuery(current => ({ ...current, week_id: Number(event.target.value), page: 1 })); setPendingIssue('') }}>
             {!weeks.length && <option value="">No weeks available</option>}{weeks.map(week => <option key={week.id} value={week.id}>{week.name || `Week ${week.id}`}</option>)}
           </select>
-          <select aria-label="Status" title="Status" className={`${headerButtonCls} w-full`} value={query.status} onChange={event => setQuery(current => ({ ...current, status: event.target.value, page: 1 }))}>
+          <select aria-label="Status" title="Status" className={`${headerButtonCls} w-24 shrink-0`} value={query.status} onChange={event => setQuery(current => ({ ...current, status: event.target.value, page: 1 }))}>
             <option value="all">All</option><option value="ready">Ready</option><option value="pending">Pending</option>
           </select>
-          <button type="button" className={headerButtonCls} onClick={refresh} disabled={busy}>Recalculate</button>
-          <button type="button" className={headerButtonCls} onClick={() => setSettings({ client: false })}>Exchange Rates</button>
-          <button type="button" className={headerButtonCls} onClick={() => setSettings({ client: true })}>Client Rates</button>
-          <Link className={headerButtonCls} to="/client-percentage">Manage LD%</Link>
-          <button type="button" className={`${headerControlCls} ${usd?.source === 'none' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'}`} disabled={busy || !report} onClick={openUsd} aria-label="Edit USD-INR rate" aria-haspopup="dialog" aria-expanded={editingUsd} title="Edit USD-INR rate">
+          <button type="button" className={`${headerButtonCls} shrink-0`} onClick={refresh} disabled={busy}>Recalculate</button>
+          <button type="button" className={`${headerButtonCls} shrink-0`} onClick={() => setSettings({ client: false })}>Exchange Rates</button>
+          <button type="button" className={`${headerButtonCls} shrink-0`} onClick={() => setSettings({ client: true })}>Client Rates</button>
+          <Link className={`${headerButtonCls} shrink-0`} to="/client-percentage">Manage LD%</Link>
+          <button type="button" className={`${headerControlCls} shrink-0 ${usd?.source === 'none' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-[#E5E7EB] bg-white text-[#374151] hover:bg-gray-50'}`} disabled={busy || !report} onClick={openUsd} aria-label="Edit USD-INR rate" aria-haspopup="dialog" aria-expanded={editingUsd} title="Edit USD-INR rate">
             <span>USD-INR</span><span className="tabular-nums">{usd?.rate == null ? 'Set rate' : format(usd.rate)}</span>
           </button>
         </div>
@@ -366,8 +371,6 @@ export default function BrokerageCalculatorPage() {
             </button>
           </div>
         </div>
-        {usd?.source === 'previous_week' && <p className="mt-2 text-xs text-amber-700">From {usd.source_week_name || `week ${usd.source_week_id}`}: confirm or change.</p>}
-        {usd?.source === 'none' && <p className="mt-2 text-xs text-amber-700">Missing: USD/USC calculations remain pending.</p>}
       </header>
       <main className="min-w-0 px-3 pb-8 sm:px-5">
         {/* Mobile: controls sit in their own row below the header bar, like the Clients module */}
@@ -401,7 +404,7 @@ export default function BrokerageCalculatorPage() {
         {weeksError && <div role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-red-700">{weeksError} <button type="button" className={buttonCls} onClick={() => setWeeksReload(value => value + 1)}>Retry weeks</button></div>}
         {error && <div role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-red-700">{error} <button type="button" className={buttonCls} onClick={refresh}>Retry report</button></div>}
         {report?.skipped_logins?.length > 0 && <p role="alert" className="mb-3 bg-amber-50 p-3 text-amber-800">Logins outside your client scope were skipped: {report.skipped_logins.join(', ')}.</p>}
-        {summary && <div className="scrollbar-hide mb-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 lg:grid lg:snap-none lg:grid-cols-6 lg:overflow-visible lg:pb-0">
+        {summary && <div className="scrollbar-hide mb-4 hidden snap-x snap-mandatory gap-2 overflow-x-auto pb-1 lg:grid lg:snap-none lg:grid-cols-6 lg:overflow-visible lg:pb-0">
           {[
             ['Charged 100% · INR', format(summary.charged_inr)],
             ['Our brokerage · INR', format(summary.our_brokerage_inr)],
@@ -411,37 +414,38 @@ export default function BrokerageCalculatorPage() {
           ].map(([label, value]) => <div key={label} className="w-[168px] shrink-0 snap-start rounded-xl border bg-white p-3 lg:w-auto lg:shrink"><p className="text-[10px] text-[#4B5563] sm:text-xs">{label}</p><p className="mt-1 text-sm font-semibold tabular-nums text-[#1A1A1A] sm:text-base">{value}</p></div>)}
           <button type="button" onClick={() => { setPendingIssue(''); switchTab('pending') }} className="w-[168px] shrink-0 snap-start rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-amber-800 lg:w-auto lg:shrink"><span className="block text-[10px] sm:text-xs">Pending</span><span className="mt-1 block text-sm font-semibold tabular-nums sm:text-base">{format(summary.pending_logins, 0)} clients · {format(summary.pending_issues, 0)} issues</span></button>
         </div>}
-        <div className="overflow-hidden rounded-xl border bg-white">
+        <div className="-mx-3 overflow-hidden border-y bg-white sm:mx-0 sm:rounded-xl sm:border">
           <div role="tablist" aria-label="Calculator reports" className="scrollbar-hide flex overflow-x-auto border-b">
-            {TABS.map(item => <button key={item.id} id={`calculator-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="calculator-panel" type="button" className={`whitespace-nowrap px-3 py-2.5 text-xs font-semibold sm:px-4 sm:py-3 sm:text-sm ${tab === item.id ? 'border-b-2 border-blue-600 text-blue-700' : 'text-[#4B5563]'}`} onClick={() => switchTab(item.id)}>{item.label}</button>)}
+            {TABS.map(item => <button key={item.id} id={`calculator-tab-${item.id}`} role="tab" aria-selected={tab === item.id} aria-controls="calculator-panel" type="button" className={`shrink-0 whitespace-nowrap px-3 py-2.5 text-xs font-semibold sm:px-4 sm:py-3 sm:text-sm ${tab === item.id ? 'border-b-2 border-blue-600 text-blue-700' : 'text-[#4B5563]'}`} onClick={() => switchTab(item.id)}>{item.label}</button>)}
           </div>
           <div id="calculator-panel" role="tabpanel" aria-labelledby={`calculator-tab-${tab}`} aria-busy={loading}>
-            <div aria-label="Table controls" className="flex items-center gap-1.5 border-b border-[#E5E7EB] p-2.5 sm:gap-3 sm:p-4">
+            <div aria-label="Table controls" className="flex items-center gap-1 border-b border-[#E5E7EB] p-2 sm:gap-3 sm:p-4">
               <form className="relative min-w-0 flex-1 sm:max-w-md" role="search" onSubmit={event => { event.preventDefault(); setQuery(current => ({ ...current, search, page: 1 })) }}>
-                <input aria-label="Search login or name" placeholder="Search login or name" className="h-9 w-full rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] pl-3 pr-10 text-xs text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:h-10 sm:pl-4 sm:pr-12 sm:text-sm" value={search} onChange={event => setSearch(event.target.value)} />
-                <button type="submit" aria-label="Search calculator report" className="absolute right-1 top-1/2 flex h-7 w-8 -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700 sm:h-8 sm:w-9">
+                <input aria-label="Search login or name" placeholder="Search login or name" className="h-9 w-full rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] pl-2.5 pr-8 text-xs text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:h-10 sm:pl-4 sm:pr-12 sm:text-sm" value={search} onChange={event => setSearch(event.target.value)} />
+                <button type="submit" aria-label="Search calculator report" className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700 sm:h-8 sm:w-9">
                   <svg aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" /><path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                 </button>
               </form>
-              {tab === 'pending' && report && <select aria-label="Pending issue" title="All matching logins, not just this page" className="h-9 w-[86px] shrink-0 rounded-lg border border-[#E5E7EB] bg-white px-1.5 font-outfit text-[11px] text-[#1F2937] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:h-10 sm:w-36 sm:px-2 sm:text-xs" value={pendingIssue} onChange={event => { setPendingIssue(event.target.value); setPendingPage(1) }}>
+              {tab === 'pending' && report && <select aria-label="Pending issue" title="All matching logins, not just this page" className="h-9 w-[68px] shrink-0 rounded-lg border border-[#E5E7EB] bg-white px-1 font-outfit text-[11px] text-[#1F2937] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:h-10 sm:w-36 sm:px-2 sm:text-xs" value={pendingIssue} onChange={event => { setPendingIssue(event.target.value); setPendingPage(1) }}>
                 <option value="">All issues</option>{[...new Set(report.pending.map(row => row.issue))].map(issue => <option key={issue} value={issue}>{ISSUE_LABELS[issue] || issue}</option>)}
               </select>}
-              <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
-                <button type="button" aria-label="Previous page" className={`${buttonCls} !p-1.5 sm:!p-2`} disabled={busy || !report || tablePage <= 1} onClick={() => changeTablePage(tablePage - 1)}>
+              <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-3">
+                <button type="button" aria-label="Previous page" className={`${buttonCls} !p-1 sm:!p-2`} disabled={busy || !report || tablePage <= 1} onClick={() => changeTablePage(tablePage - 1)}>
                   <svg aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
-                <span className="flex items-center gap-1 whitespace-nowrap text-xs text-[#374151] sm:gap-2 sm:text-sm"><span className="min-w-7 rounded-lg border border-[#E5E7EB] px-1.5 py-0.5 text-center font-semibold sm:min-w-8 sm:px-2 sm:py-1">{tablePage}</span><span className="text-[#6B7280]">/ {tablePages}</span></span>
-                <button type="button" aria-label="Next page" className={`${buttonCls} !p-1.5 sm:!p-2`} disabled={busy || !report || tablePage >= tablePages} onClick={() => changeTablePage(tablePage + 1)}>
+                <span className="flex items-center gap-0.5 whitespace-nowrap text-[11px] text-[#374151] sm:gap-2 sm:text-sm"><span className="min-w-5 rounded-md border border-[#E5E7EB] px-1 py-0.5 text-center font-semibold sm:min-w-8 sm:rounded-lg sm:px-2 sm:py-1">{tablePage}</span><span className="text-[#6B7280]">/ {tablePages}</span></span>
+                <button type="button" aria-label="Next page" className={`${buttonCls} !p-1 sm:!p-2`} disabled={busy || !report || tablePage >= tablePages} onClick={() => changeTablePage(tablePage + 1)}>
                   <svg aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
               </div>
             </div>
             {loading ? <p role="status" className="p-6 text-center text-xs text-slate-500 sm:p-10 sm:text-sm">Calculating brokerage...</p> : !report ? <p className="p-6 text-center text-xs text-slate-500 sm:p-10 sm:text-sm">{error ? 'The report could not be loaded.' : 'Select a settlement week to calculate.'}</p> : <>
-              {tab === 'logins' && <Table label="Final Report" headers={['Details', 'Login', 'Client', 'LD%', 'Charged INR', 'Our INR', 'Balance INR', 'Rebate INR', 'Status / flags', 'Actions']}>
+              {tab === 'logins' && <Table label="Final Report" stickySecond headers={['Details', 'Login', 'Client', 'LD%', 'Charged INR', 'Our INR', 'Balance INR', 'Rebate INR', 'Status / flags', 'Actions']}>
                 <tbody>{rows.map(row => <Fragment key={row.login}>
-                  <tr className="border-b hover:bg-slate-50" onClick={() => toggleRow(row.login)}>
-                    <td className={tdCls}><button type="button" aria-label={`Exchange details for ${row.login}`} aria-expanded={expanded.has(row.login)} className={`${buttonCls} !p-1.5 sm:!p-2`} onClick={event => { event.stopPropagation(); toggleRow(row.login) }}>{expanded.has(row.login) ? '−' : '+'}</button></td>
-                    <td className={`${tdCls} font-semibold text-[#1A63BC]`}>{row.login}</td><td className={`${tdCls} text-[#1F2937]`}>{row.name || '—'}</td>
+                  <tr className="border-b border-[#ECECEC] hover:bg-slate-50" onClick={() => toggleRow(row.login)}>
+                    <td className={`${tdCls} sticky left-0 z-[5] bg-white`}><button type="button" aria-label={`Exchange details for ${row.login}`} aria-expanded={expanded.has(row.login)} className={`${buttonCls} !p-1.5 sm:!p-2`} onClick={event => { event.stopPropagation(); toggleRow(row.login) }}>{expanded.has(row.login) ? '−' : '+'}</button></td>
+                    <td className={`${tdCls} ${stickySecondTdCls}`}>{row.login}</td>
+                    <td className={`${tdCls} text-[#1F2937]`}>{row.name || '—'}</td>
                     <td className={cellCls}>{row.ld_percent == null ? '—' : `${format(row.ld_percent)}%`}{row.ld_is_custom && <span className="ml-1 text-[9px] text-blue-600 sm:text-xs">custom</span>}</td>
                     {['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={row} field={field} />)}
                     <td className={tdCls}><StatusBadge status={row.status} /><Flags row={row} /></td>
@@ -449,12 +453,12 @@ export default function BrokerageCalculatorPage() {
                   </tr>
                   {expanded.has(row.login) && <tr><td colSpan={10} className="bg-slate-50 p-2 sm:p-3"><ExchangeDetail entries={(row.exchanges || []).map(exchange => ({ login: row.login, name: row.name, exchange }))} /></td></tr>}
                 </Fragment>)}</tbody>
-                <tfoot><tr className="bg-blue-50 font-semibold"><td colSpan={4} className="p-2 text-xs sm:p-3 sm:text-sm">TOTAL · all matching logins</td>{['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={summary} field={field} />)}<td colSpan={2} /></tr></tfoot>
+                <tfoot><tr className="bg-blue-50 font-semibold"><td className="sticky left-0 z-[5] bg-blue-50 p-2 text-xs sm:p-3 sm:text-sm" /><td colSpan={3} className={`${stickySecondTdCls} !bg-blue-50 p-2 text-xs sm:p-3 sm:text-sm`}>TOTAL · all matching logins</td>{['charged_inr', 'our_brokerage_inr', 'balance_inr', 'rebate_inr'].map(field => <Amount key={field} row={summary} field={field} />)}<td colSpan={2} /></tr></tfoot>
               </Table>}
               {tab === 'exchanges' && <ExchangeDetail entries={entries} />}
               {tab === 'pivot' && <Table label="Exchange View" headers={['Login', 'Client', ...report.exchanges, 'Total rebate INR', 'Status']}>
-                <tbody>{rows.map(row => <tr key={row.login} className="border-b">
-                  <td className={tdCls}>{row.login}</td><td className={tdCls}>{row.name}</td>
+                <tbody>{rows.map(row => <tr key={row.login} className="border-b border-[#ECECEC]">
+                  <td className={`${tdCls} ${stickyTdCls}`}>{row.login}</td><td className={tdCls}>{row.name}</td>
                   {report.exchanges.map(exchange => <td key={exchange} className={cellCls}>{format(row.exchanges?.find(item => item.exchange === exchange)?.rebate_inr)}</td>)}
                   <Amount row={row} field="rebate_inr" /><td className={tdCls}><StatusBadge status={row.status} /></td>
                 </tr>)}</tbody>
@@ -462,8 +466,8 @@ export default function BrokerageCalculatorPage() {
               {tab === 'pending' && <>
                 {report.pending_truncated && <p role="alert" className="mx-2 mb-2 rounded bg-amber-50 p-2 text-xs text-amber-800 sm:mx-3 sm:mb-3 sm:p-3 sm:text-sm">Only the first 1,000 issues are shown. Use Export in the header to download every matching pending issue.</p>}
                 <Table label="Pending issues" headers={['Login', 'Client', 'Exchange', 'Issue', 'Detail', 'Action']}>
-                  <tbody>{pending.slice((pendingPage - 1) * 250, pendingPage * 250).map((row, index) => <tr key={`${row.login}:${row.exchange}:${row.issue}:${index}`} className="border-b">
-                    <td className={tdCls}>{row.login}</td><td className={tdCls}>{row.name}</td><td className={`${tdCls} whitespace-nowrap`}>{row.exchange}</td>
+                  <tbody>{pending.slice((pendingPage - 1) * 250, pendingPage * 250).map((row, index) => <tr key={`${row.login}:${row.exchange}:${row.issue}:${index}`} className="border-b border-[#ECECEC]">
+                    <td className={`${tdCls} ${stickyTdCls}`}>{row.login}</td><td className={tdCls}>{row.name}</td><td className={`${tdCls} whitespace-nowrap`}>{row.exchange}</td>
                     <td className={`${tdCls} text-amber-700`}>{ISSUE_LABELS[row.issue] || row.issue}</td><td className={`${tdCls} min-w-[160px] sm:min-w-[200px]`}>{row.detail}</td>
                     <td className={tdCls}>{['method_missing', 'rate_missing', 'usd_inr_missing'].includes(row.issue) ? <button type="button" className={`${buttonCls} ${compactButtonCls}`} onClick={() => fix(row)}>Fix</button> : <span className="text-[10px] text-slate-600 sm:text-xs">Contact support with this login, exchange and detail.</span>}</td>
                   </tr>)}</tbody>
