@@ -444,7 +444,6 @@ const BillsPage = () => {
   const [allMenuOpen, setAllMenuOpen] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState({ login: true, name: true, brokerage: true, gross: true, net: true, actions: true })
   const [showColumnChooser, setShowColumnChooser] = useState(false)
-  const [columnSearch, setColumnSearch] = useState('')
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const columnSelectorRef = useRef(null)
   // Column reorder (persisted)
@@ -497,6 +496,23 @@ const BillsPage = () => {
     return [...pinned, ...rest]
   })()
   const toggleColumn = (key) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }))
+
+  // Mobile pinned offsets — 32px selection column sits at the left edge, pinned columns stack after it
+  const MOBILE_COL_WIDTHS = { login: 80, name: 90, actions: 80 }
+  const mobileColWidth = (key) => MOBILE_COL_WIDTHS[key] || 110
+  const mobilePinnedOffsets = (() => {
+    const map = {}
+    let offset = 32
+    for (const col of orderedColumns) {
+      if (!visibleColumns[col.key]) continue
+      if (col.sticky || pinnedColumns.includes(col.key)) {
+        map[col.key] = offset
+        offset += mobileColWidth(col.key)
+      }
+    }
+    return map
+  })()
+  const isMobilePinned = (col) => col.sticky || pinnedColumns.includes(col.key)
   // Column resize (desktop)
   const { setHeaderRef, getHeaderStyle, handleResizeStart } = useColumnResize('billsPageColumnWidths')
   const PINNED_DEFAULT_WIDTH = 150
@@ -1435,11 +1451,12 @@ const BillsPage = () => {
                         key={col.key}
                         onClick={col.key !== 'actions' ? () => handleSort(col.key) : undefined}
                         className={`h-[32px] flex items-center justify-start px-1 ${col.key !== 'actions' ? 'cursor-pointer' : ''} select-none ${
-                          col.sticky ? 'sticky left-8 z-30' : ''
+                          isMobilePinned(col) ? 'sticky z-30' : ''
                         }`}
                         style={{
                           backgroundColor: '#3B82F6',
-                          boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.1)' : 'none'
+                          boxShadow: isMobilePinned(col) ? '2px 0 4px rgba(0,0,0,0.1)' : 'none',
+                          ...(isMobilePinned(col) ? { left: `${mobilePinnedOffsets[col.key] || 32}px` } : {})
                         }}
                       >
                         <span className="truncate">{col.label}</span>
@@ -1463,8 +1480,8 @@ const BillsPage = () => {
                           {orderedColumns.filter(c => visibleColumns[c.key]).map(col => (
                             <div
                               key={col.key}
-                              className={`h-[38px] flex items-center px-2 ${col.sticky ? 'sticky left-8 bg-white z-10' : ''}`}
-                              style={{ boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none' }}
+                              className={`h-[38px] flex items-center px-2 ${isMobilePinned(col) ? 'sticky bg-white z-10' : ''}`}
+                              style={{ boxShadow: isMobilePinned(col) ? '2px 0 4px rgba(0,0,0,0.05)' : 'none', ...(isMobilePinned(col) ? { left: `${mobilePinnedOffsets[col.key] || 32}px` } : {}) }}
                             >
                               <div className="h-3 rounded bg-gray-200 animate-pulse" style={{ width: '80%' }} />
                             </div>
@@ -1495,8 +1512,8 @@ const BillsPage = () => {
                             />
                           </div>
                           {orderedColumns.filter(c => visibleColumns[c.key]).map(col => {
-                            const stickyClass = col.sticky ? 'sticky left-8 z-10' : ''
-                            const stickyStyle = col.sticky ? { boxShadow: '2px 0 4px rgba(0,0,0,0.05)', background: isChecked ? '#EFF6FF' : 'white' } : {}
+                            const stickyClass = isMobilePinned(col) ? 'sticky z-10' : ''
+                            const stickyStyle = isMobilePinned(col) ? { boxShadow: '2px 0 4px rgba(0,0,0,0.05)', background: isChecked ? '#EFF6FF' : 'white', left: `${mobilePinnedOffsets[col.key] || 32}px` } : {}
                             switch (col.key) {
                               case 'login':
                                 return (
@@ -2011,73 +2028,37 @@ const BillsPage = () => {
         editGroup={editingLoginGroup}
       />
 
-      {/* Mobile Column Selector Modal */}
+      {/* Mobile Column Selector Modal — show/hide + pin + drag reorder (same saved settings as desktop) */}
       {showColumnChooser && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:hidden" onClick={() => setShowColumnChooser(false)}>
           <div
-            className="bg-white w-full rounded-t-[24px] max-h-[100vh] flex flex-col overflow-hidden"
+            className="bg-white w-full rounded-t-[24px] flex flex-col overflow-hidden"
+            style={{ maxHeight: '85dvh' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between flex-shrink-0">
-              <h3 className="text-base font-semibold text-[#000000]">Show/Hide Columns</h3>
-              <button onClick={() => setShowColumnChooser(false)}>
+              <h3 className="text-base font-semibold text-[#000000]">Show/Hide & Reorder Columns</h3>
+              <button onClick={() => setShowColumnChooser(false)} aria-label="Close">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="#404040" strokeWidth="2"/>
                 </svg>
               </button>
             </div>
 
-            <div className="px-5 py-3 border-b border-[#E5E7EB] flex-shrink-0">
-              <div className="relative h-12">
-                <input
-                  type="text"
-                  placeholder="Search Columns"
-                  value={columnSearch}
-                  onChange={(e) => setColumnSearch(e.target.value)}
-                  className="w-full h-12 pl-12 pr-4 bg-gray-100 border-0 rounded-xl text-[10px] text-black font-semibold font-outfit placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M13 13L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto min-h-[450px] max-h-[55vh]">
-              <div className="px-5 py-3">
-                {ALL_BILL_COLUMNS.filter(col => col.label.toLowerCase().includes(columnSearch.toLowerCase())).length > 0 ? (
-                  ALL_BILL_COLUMNS
-                    .filter(col => col.label.toLowerCase().includes(columnSearch.toLowerCase()))
-                    .map(col => (
-                    <label
-                      key={col.key}
-                      className="flex items-center justify-between py-3 border-b border-[#F2F2F7] last:border-0"
-                    >
-                      <span className="text-sm text-[#000000] font-outfit">{col.label}</span>
-                      <div className="relative inline-block w-12 h-6">
-                        <input
-                          type="checkbox"
-                          checked={!!visibleColumns[col.key]}
-                          onChange={() => toggleColumn(col.key)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-12 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
-                        <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                      </div>
-                    </label>
-                  ))
-                ) : (
-                  <div className="flex items-center justify-center py-8 text-gray-400 text-sm">
-                    No columns match your search
-                  </div>
-                )}
-              </div>
+            <div className="flex-1 min-h-0 flex flex-col">
+              <ColumnChooserList
+                columns={ALL_BILL_COLUMNS.map(({ key, label }) => ({ key, label }))}
+                visibleColumns={visibleColumns}
+                onToggle={toggleColumn}
+                columnOrder={columnOrder}
+                onReorder={setColumnOrder}
+                onResetOrder={resetColumnOrder}
+                accent="blue"
+                title={null}
+                pinnedColumns={pinnedColumns}
+                onPinToggle={togglePinColumn}
+                reorderMode="touch"
+              />
             </div>
           </div>
         </div>

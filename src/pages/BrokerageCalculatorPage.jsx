@@ -13,7 +13,6 @@ const format = (value, decimals = 2) => {
   return number == null ? '—' : number.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 const errorMessage = error => error?.response?.data?.message || error.message || 'Request failed. Please retry.'
-const inputCls = 'w-full rounded-lg border border-[#E5E7EB] bg-white px-2.5 py-2 font-outfit text-sm text-[#1F2937] placeholder:text-[#9CA3AF] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
 const buttonBaseCls = 'rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50'
 const buttonCls = `${buttonBaseCls} border-[#E5E7EB] bg-white text-[#374151] hover:bg-blue-50`
 const primaryCls = `${buttonBaseCls} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`
@@ -24,7 +23,7 @@ const mobileIconCls = 'flex h-9 w-9 shrink-0 items-center justify-center rounded
 const mobileIconButtonCls = `${mobileIconCls} border-[#E5E7EB] bg-white text-[#374151] hover:bg-blue-50`
 const mobileIconPrimaryCls = `${mobileIconCls} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`
 const stickyRateTdCls = 'sticky left-0 z-[5] bg-white shadow-[2px_0_0_#ECECEC]'
-const rateInputCls = `${inputCls} !h-9 min-w-0 !px-2 text-xs font-medium sm:!h-10 sm:!px-2.5 sm:text-sm`
+const rateInputCls = 'rounded-lg border border-[#E5E7EB] bg-white px-2 font-outfit text-xs font-medium text-[#1F2937] placeholder:text-[#9CA3AF] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 h-9 min-w-0 sm:h-10 sm:px-2.5 sm:text-sm'
 const rateButtonCls = `${buttonCls} inline-flex h-9 items-center justify-center whitespace-nowrap !px-2 text-[11px] sm:h-10 sm:!px-3 sm:text-xs`
 const ratePrimaryCls = `${primaryCls} inline-flex h-9 items-center justify-center whitespace-nowrap !px-2 text-[11px] sm:h-10 sm:!px-3 sm:text-xs`
 const cellCls = 'whitespace-nowrap px-2 py-2 text-right text-xs tabular-nums sm:px-3 sm:py-2.5 sm:text-sm'
@@ -161,17 +160,17 @@ function RateSettings({ client = false, selection = {}, onClose, onSaved }) {
               const persisted = original.some(item => item.exchange === row.exchange && (!client || String(item.login) === String(row.login)))
               const currency = client ? exchanges.find(item => item.exchange === row.exchange)?.currency : row.currency
               return <tr key={index} className={`border-b border-[#E5E7EB] last:border-b-0 ${selection.exchange === row.exchange ? 'bg-blue-50' : ''}`}>
-                {client && <td className={`px-1.5 py-2 sm:px-3 sm:py-3 ${stickyRateTdCls}`}><input aria-label={`Login ${index + 1}`} readOnly={persisted} disabled={saving} inputMode="numeric" className={`${rateInputCls} w-[64px] tabular-nums read-only:border-transparent read-only:bg-transparent read-only:px-0 read-only:shadow-none sm:w-20`} value={row.login} onChange={event => update(index, 'login', event.target.value)} /></td>}
-                <td className={`whitespace-nowrap px-1.5 py-2 text-xs sm:px-3 sm:py-3 sm:text-sm ${client ? '' : stickyRateTdCls}`}>{client && !persisted ? <select aria-label={`Exchange ${index + 1}`} disabled={saving} className={`${rateInputCls} w-24 sm:w-32`} value={row.exchange} onChange={event => update(index, 'exchange', event.target.value)}>
+                {client && <td className={`px-1.5 py-2 sm:px-3 sm:py-3 ${stickyRateTdCls}`}><input aria-label={`Login ${index + 1}`} readOnly={persisted} disabled={saving} inputMode="numeric" className={`${rateInputCls} w-20 tabular-nums read-only:border-transparent read-only:bg-transparent read-only:px-0 read-only:shadow-none sm:w-24`} value={row.login} onChange={event => update(index, 'login', event.target.value)} /></td>}
+                <td className={`whitespace-nowrap px-1.5 py-2 text-xs sm:px-3 sm:py-3 sm:text-sm ${client ? '' : stickyRateTdCls}`}>{client && !persisted ? <select aria-label={`Exchange ${index + 1}`} disabled={saving} className={`${rateInputCls} w-28 sm:w-36`} value={row.exchange} onChange={event => update(index, 'exchange', event.target.value)}>
                   <option value="">Choose exchange</option>{exchanges.map(item => <option key={item.exchange}>{item.exchange}</option>)}
                 </select> : row.exchange}</td>
-                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><select aria-label={`Method ${index + 1}`} disabled={saving} className={`${rateInputCls} w-[126px] sm:w-36`} value={row.method} onChange={event => update(index, 'method', event.target.value)}>
+                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><select aria-label={`Method ${index + 1}`} disabled={saving} className={`${rateInputCls} w-[138px] sm:w-40`} value={row.method} onChange={event => update(index, 'method', event.target.value)}>
                   <option value="">{client ? 'Use broker value' : 'Not set'}</option><option value="lot">Per Lot</option><option value="crore">Per Crore</option>
                 </select></td>
-                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><input aria-label={`Rate ${index + 1}`} disabled={saving} inputMode="decimal" className={`${rateInputCls} w-[136px] tabular-nums sm:w-36`} placeholder={client ? 'Inherit' : 'Not set'} value={row.rate} onChange={event => update(index, 'rate', event.target.value)} /></td>
+                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><input aria-label={`Rate ${index + 1}`} disabled={saving} inputMode="decimal" className={`${rateInputCls} w-28 tabular-nums sm:w-32`} placeholder={client ? 'Inherit' : 'Not set'} value={row.rate} onChange={event => update(index, 'rate', event.target.value)} /></td>
                 <td className="px-1.5 py-2 sm:px-3 sm:py-3">{client ? <span className="inline-flex h-9 items-center text-xs font-medium sm:h-10 sm:text-sm">{currency || '—'}</span> : <select aria-label={`Currency ${index + 1}`} disabled={saving} className={`${rateInputCls} w-[74px] sm:w-24`} value={row.currency} onChange={event => update(index, 'currency', event.target.value)}><option>INR</option><option>USD</option></select>}</td>
                 {!client && <td className="whitespace-nowrap px-1.5 py-2 text-[10px] sm:px-3 sm:py-3 sm:text-xs">{row.configured ? 'Set (saved)' : 'Not set (saved)'}</td>}
-                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><button type="button" disabled={saving} className={client && persisted ? 'whitespace-nowrap text-[11px] font-medium text-blue-600 underline-offset-2 hover:underline disabled:opacity-50 sm:text-xs' : rateButtonCls} onClick={() => client && !persisted ? setRows(current => current.filter((_, i) => i !== index)) : resetRow(index)}>{client ? persisted ? 'Use broker defaults' : 'Remove' : 'Clear setting'}</button></td>
+                <td className="px-1.5 py-2 sm:px-3 sm:py-3"><button type="button" disabled={saving} className={client && persisted ? 'whitespace-nowrap text-[11px] font-medium text-blue-600 underline-offset-2 hover:underline disabled:opacity-50 sm:text-xs' : `${rateButtonCls} !whitespace-nowrap`} onClick={() => client && !persisted ? setRows(current => current.filter((_, i) => i !== index)) : resetRow(index)}>{client ? persisted ? 'Use defaults' : 'Remove' : 'Clear setting'}</button></td>
               </tr>
             })}</tbody>
           </Table>

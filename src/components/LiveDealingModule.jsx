@@ -16,6 +16,7 @@ import LoginGroupModal from './LoginGroupModal'
 import TimeFilterModal from './TimeFilterModal'
 import DealsFilterModal from './DealsFilterModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
+import ColumnChooserList from './ColumnChooserList'
 import { useGroups } from '../contexts/groupContextStore'
 import websocketService from '../services/websocket'
 import { brokerAPI } from '../services/api'
@@ -67,7 +68,6 @@ export default function LiveDealingModule() {
   const [filters, setFilters] = useState({ hasFloating: false, hasCredit: false, noDeposit: false })
 
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
-  const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 15
   const [totalDealsCount, setTotalDealsCount] = useState(0)
@@ -111,6 +111,35 @@ export default function LiveDealingModule() {
     deal: false,
     entry: false
   })
+
+  // Column order (persisted) — same key as desktop Live Dealing page so both stay in sync
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('liveDealingPageColumnOrder'))
+      if (Array.isArray(saved)) return saved
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
+    return null
+  })
+  useEffect(() => {
+    try { if (columnOrder) localStorage.setItem('liveDealingPageColumnOrder', JSON.stringify(columnOrder)) } catch { /* Retain the fallback when this operation is unavailable. */ }
+  }, [columnOrder])
+  const resetColumnOrder = () => {
+    setColumnOrder(null)
+    try { localStorage.removeItem('liveDealingPageColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ }
+  }
+
+  // Pinned (frozen) columns — persisted, default keeps Login frozen like desktop
+  const [pinnedColumns, setPinnedColumns] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('liveDealingPagePinnedColumns'))
+      return Array.isArray(saved) && saved.length ? saved : ['login']
+    } catch { return ['login'] }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('liveDealingPagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
+  }, [pinnedColumns])
+  const togglePinColumn = (key) =>
+    setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
 
   // Clear all filters on component mount (when navigating to this module)
   useEffect(() => {
@@ -468,8 +497,36 @@ export default function LiveDealingModule() {
     { key: 'entry', label: 'Entry', width: '80px' }
   ]
 
-  const activeColumns = allColumns.filter(col => visibleColumns[col.key])
+  const activeColumns = useMemo(() => {
+    const visible = allColumns.filter(col => visibleColumns[col.key])
+    // Apply saved order if present
+    let ordered = visible
+    if (Array.isArray(columnOrder) && columnOrder.length) {
+      const map = new Map(visible.map(c => [c.key, c]))
+      const out = []
+      columnOrder.forEach(k => { if (map.has(k)) { out.push(map.get(k)); map.delete(k) } })
+      map.forEach(c => out.push(c))
+      ordered = out
+    }
+    // Pinned columns always render first so they sit at the left edge when sliding
+    const isPinned = (c) => c.sticky || pinnedColumns.includes(c.key)
+    return [...ordered.filter(isPinned), ...ordered.filter(c => !isPinned(c))]
+  }, [visibleColumns, columnOrder, pinnedColumns, displayMode])
   const gridTemplateColumns = activeColumns.map(col => col.width).join(' ')
+
+  // Sticky left offsets for pinned columns, in display order
+  const pinnedOffsets = useMemo(() => {
+    const map = {}
+    let offset = 0
+    for (const col of activeColumns) {
+      if (col.sticky || pinnedColumns.includes(col.key)) {
+        map[col.key] = offset
+        offset += parseInt(col.width, 10) || 100
+      }
+    }
+    return map
+  }, [activeColumns, pinnedColumns])
+  const isColPinned = (col) => col.sticky || pinnedColumns.includes(col.key)
   const getAppliedPercentage = (raw) => Number(raw?.applied_percentage ?? raw?.appliedPercentage ?? 0)
 
   // Export to CSV
@@ -567,7 +624,7 @@ export default function LiveDealingModule() {
     }
   })
 
-  const renderCellValue = (deal, key, isSticky = false) => {
+  const renderCellValue = (deal, key, isSticky = false, stickyLeft = 0) => {
     let value = '-'
 
     switch (key) {
@@ -578,11 +635,12 @@ export default function LiveDealingModule() {
         value = deal.login || '-'
         return (
           <div 
-            className={`h-[28px] flex items-center justify-start px-2 cursor-pointer hover:underline text-blue-600 font-semibold ${isSticky ? 'sticky left-0 bg-white z-10' : ''}`}
+            className={`h-[28px] flex items-center justify-start px-2 cursor-pointer hover:underline text-blue-600 font-semibold ${isSticky ? 'sticky bg-white z-10' : ''}`}
             style={{
               border: 'none', 
               outline: 'none', 
-              boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
+              boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none',
+              ...(isSticky ? { left: `${stickyLeft}px` } : {})
             }}
             onClick={() => {
               const fullClient = clientNameMap.get(String(deal.login)) || clients.find(c => String(c.login) === String(deal.login))
@@ -598,11 +656,12 @@ const action = deal.rawData?.action || '-'
         const actionLower = action.toLowerCase()
         return (
           <div 
-            className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky left-0 bg-white z-10' : ''}`}
+            className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky bg-white z-10' : ''}`}
             style={{
               border: 'none', 
               outline: 'none', 
-              boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
+              boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none',
+              ...(isSticky ? { left: `${stickyLeft}px` } : {})
             }}
           >
             <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
@@ -646,11 +705,12 @@ const profit = deal.rawData?.profit || 0
         }
         return (
           <div 
-            className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky left-0 bg-white z-10' : ''}`}
+            className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky bg-white z-10' : ''}`}
             style={{
               border: 'none', 
               outline: 'none', 
-              boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
+              boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none',
+              ...(isSticky ? { left: `${stickyLeft}px` } : {})
             }}
           >
             <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -701,11 +761,12 @@ const profit = deal.rawData?.profit || 0
 
           return (
             <div 
-              className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky left-0 bg-white z-10' : ''}`}
+              className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky bg-white z-10' : ''}`}
               style={{
                 border: 'none', 
                 outline: 'none', 
-                boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
+                boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none',
+                ...(isSticky ? { left: `${stickyLeft}px` } : {})
               }}
             >
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold leading-none ${chipClass}`}>
@@ -726,21 +787,18 @@ const profit = deal.rawData?.profit || 0
 
     return (
       <div 
-        className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky left-0 bg-white z-10' : ''}`}
+        className={`h-[28px] flex items-center justify-start px-1 ${isSticky ? 'sticky bg-white z-10' : ''}`}
         style={{
           border: 'none', 
           outline: 'none', 
-          boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
+          boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none',
+          ...(isSticky ? { left: `${stickyLeft}px` } : {})
         }}
       >
         <span className="truncate">{value}</span>
       </div>
     )
   }
-
-  const filteredColumnOptions = allColumns.filter(col =>
-    col.label.toLowerCase().includes(columnSearch.toLowerCase())
-  )
 
   return (
     <div className="h-screen flex flex-col bg-[#F8F8F8] overflow-x-hidden overflow-y-hidden max-w-full" style={{ height: 'var(--app-viewport-height, 100dvh)', width: '100vw', maxWidth: '100vw', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
@@ -1084,15 +1142,16 @@ const profit = deal.rawData?.profit || 0
                       key={col.key}
                       onClick={() => handleSort(col.key)}
                       className={`h-[32px] flex items-center justify-start px-1 cursor-pointer select-none ${
-                        col.sticky ? 'sticky left-0 z-30 bg-blue-500' : ''
+                        isColPinned(col) ? 'sticky z-30 bg-blue-500' : ''
                       }`}
                       style={{
                         border: 'none',
                         outline: 'none',
-                        boxShadow: 'none',
+                        boxShadow: isColPinned(col) ? '2px 0 4px rgba(0,0,0,0.08)' : 'none',
                         WebkitTapHighlightColor: 'transparent',
                         userSelect: 'none',
-                        touchAction: 'manipulation'
+                        touchAction: 'manipulation',
+                        ...(isColPinned(col) ? { left: `${pinnedOffsets[col.key] || 0}px` } : {})
                       }}
                     >
                       <span className="truncate">{col.label}</span>
@@ -1121,8 +1180,8 @@ const profit = deal.rawData?.profit || 0
                         {activeColumns.map((col) => (
                           <div 
                             key={col.key}
-                            className={`h-[38px] flex items-center justify-start px-1 ${col.sticky ? 'sticky left-0 bg-white z-10' : ''}`}
-                            style={{border: 'none', outline: 'none', boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'}}
+                            className={`h-[38px] flex items-center justify-start px-1 ${isColPinned(col) ? 'sticky bg-white z-10' : ''}`}
+                            style={{border: 'none', outline: 'none', boxShadow: isColPinned(col) ? '2px 0 4px rgba(0,0,0,0.05)' : 'none', ...(isColPinned(col) ? { left: `${pinnedOffsets[col.key] || 0}px` } : {})}}
                           >
                             <div 
                               className="h-3 w-full max-w-[80%] bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded"
@@ -1150,7 +1209,7 @@ const profit = deal.rawData?.profit || 0
                     >
                       {activeColumns.map(col => (
                         <React.Fragment key={`${col.key}-${displayMode}`}>
-                          {renderCellValue(deal, col.key, col.sticky)}
+                          {renderCellValue(deal, col.key, isColPinned(col), pinnedOffsets[col.key] || 0)}
                         </React.Fragment>
                       ))}
                     </div>
@@ -1173,68 +1232,34 @@ const profit = deal.rawData?.profit || 0
       {/* Column Selector Modal */}
       {isColumnSelectorOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setIsColumnSelectorOpen(false)}>
-          <div 
-            className="bg-white w-full rounded-t-[24px] max-h-[100vh] flex flex-col overflow-hidden"
+          <div
+            className="bg-white w-full rounded-t-[24px] flex flex-col overflow-hidden"
+            style={{ maxHeight: '85dvh' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between flex-shrink-0">
-              <h3 className="text-base font-semibold text-[#000000]">Show/Hide Columns</h3>
-              <button onClick={() => setIsColumnSelectorOpen(false)}>
+              <h3 className="text-base font-semibold text-[#000000]">Show/Hide & Reorder Columns</h3>
+              <button onClick={() => setIsColumnSelectorOpen(false)} aria-label="Close">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="#404040" strokeWidth="2"/>
                 </svg>
               </button>
             </div>
 
-            <div className="px-5 py-3 border-b border-[#E5E7EB] flex-shrink-0">
-              <div className="relative h-12">
-                <input
-                  type="text"
-                  placeholder="Search Columns"
-                  value={columnSearch}
-                  onChange={(e) => setColumnSearch(e.target.value)}
-                  className="w-full h-12 pl-12 pr-4 bg-gray-100 border-0 rounded-xl text-[10px] text-black font-semibold font-outfit placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <svg 
-                  width="20" 
-                  height="20" 
-                  viewBox="0 0 20 20" 
-                  fill="none" 
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M13 13L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto min-h-[450px] max-h-[55vh]">
-              <div className="px-5 py-3">
-                {filteredColumnOptions.length > 0 ? (
-                  filteredColumnOptions.map(col => (
-                  <label 
-                    key={col.key} 
-                    className="flex items-center justify-between py-3 border-b border-[#F2F2F7] last:border-0"
-                  >
-                    <span className="text-sm text-[#000000] font-outfit">{col.label}</span>
-                    <div className="relative inline-block w-12 h-6">
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[col.key]}
-                        onChange={() => setVisibleColumns(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
-                        className="sr-only peer"
-                      />
-                      <div className="w-12 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
-                      <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                    </div>
-                  </label>
-                ))
-                ) : (
-                  <div className="flex items-center justify-center py-8 text-gray-400 text-sm">
-                    No columns match your search
-                  </div>
-                )}
-              </div>
+            <div className="flex-1 min-h-0 flex flex-col">
+              <ColumnChooserList
+                columns={allColumns.map(({ key, label }) => ({ key, label }))}
+                visibleColumns={visibleColumns}
+                onToggle={(key) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }))}
+                columnOrder={columnOrder}
+                onReorder={setColumnOrder}
+                onResetOrder={resetColumnOrder}
+                accent="blue"
+                title={null}
+                pinnedColumns={pinnedColumns}
+                onPinToggle={togglePinColumn}
+                reorderMode="touch"
+              />
             </div>
           </div>
         </div>

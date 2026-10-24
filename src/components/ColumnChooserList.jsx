@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 
 /**
  * Reusable column chooser list with:
@@ -62,7 +62,8 @@ const ColumnChooserList = ({
   accent = 'amber',
   groupVisibleFirst = false,
   pinnedColumns = [],
-  onPinToggle
+  onPinToggle,
+  reorderMode = 'drag'
 }) => {
   const [search, setSearch] = useState('')
   const [draggedKey, setDraggedKey] = useState(null)
@@ -143,6 +144,50 @@ const ColumnChooserList = ({
     setDragOverKey(null)
   }
 
+  // ---- Touch drag (Pointer Events) — gives mobile the same drag-to-reorder as desktop ----
+  const listRef = useRef(null)
+  const touchDragRef = useRef(null) // { key, pointerId, startY, rowHeight, lastTarget }
+  const [touchDragKey, setTouchDragKey] = useState(null)
+  const [touchOverKey, setTouchOverKey] = useState(null)
+
+  const rowKeyFromPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y)
+    const row = el?.closest?.('[data-col-key]')
+    return row?.getAttribute('data-col-key') || null
+  }
+
+  const handleTouchDragStart = (e, key) => {
+    if (reorderMode !== 'touch') return
+    const pinnedSet = new Set(Array.isArray(pinnedColumns) ? pinnedColumns : [])
+    if (pinnedSet.has(key) || search.trim()) return
+    // Only start from the drag handle; let the rest of the row scroll normally
+    e.stopPropagation()
+    touchDragRef.current = { key, pointerId: e.pointerId }
+    setTouchDragKey(key)
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* Retain the fallback when this operation is unavailable. */ }
+  }
+
+  const handleTouchDragMove = (e) => {
+    const drag = touchDragRef.current
+    if (!drag || e.pointerId !== drag.pointerId) return
+    e.preventDefault() // block page/list scroll while dragging
+    const target = rowKeyFromPoint(e.clientX, e.clientY)
+    if (target && target !== drag.key) {
+      const pinnedSet = new Set(Array.isArray(pinnedColumns) ? pinnedColumns : [])
+      if (!pinnedSet.has(target)) setTouchOverKey(target)
+    }
+  }
+
+  const handleTouchDragEnd = (e) => {
+    const drag = touchDragRef.current
+    if (!drag || e.pointerId !== drag.pointerId) return
+    const target = touchOverKey
+    touchDragRef.current = null
+    setTouchDragKey(null)
+    setTouchOverKey(null)
+    if (target && target !== drag.key) reorderTo(drag.key, target)
+  }
+
   const isSearching = search.trim().length > 0
 
   return (
@@ -193,43 +238,64 @@ const ColumnChooserList = ({
             </button>
           )}
         </div>
-        {!isSearching && (
+        {!isSearching && reorderMode === 'drag' && (
           <p className="mt-1 text-[10px] text-gray-500">Drag <span className="font-semibold">⋮⋮</span> to reorder</p>
+        )}
+        {!isSearching && reorderMode === 'touch' && (
+          <p className="mt-1 text-[10px] text-gray-500">Hold <span className="font-semibold">⋮⋮</span> and drag to reorder</p>
         )}
       </div>
 
-      <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
+      <div ref={listRef} className="overscroll-contain" style={{ overflowY: 'auto', flex: 1, minHeight: 0, WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
         {filtered.length === 0 && (
           <div className="px-3 py-4 text-center text-xs text-gray-500">
             No columns found{isSearching ? ` matching "${search}"` : ''}
           </div>
         )}
         {filtered.map((col) => {
-          const isDragging = draggedKey === col.key
-          const isOver = dragOverKey === col.key && draggedKey && draggedKey !== col.key
+          const isDragging = draggedKey === col.key || touchDragKey === col.key
+          const isOver = (dragOverKey === col.key && draggedKey && draggedKey !== col.key) || (touchOverKey === col.key && touchDragKey && touchDragKey !== col.key)
           const isPinned = Array.isArray(pinnedColumns) && pinnedColumns.includes(col.key)
           const dragDisabled = isSearching || isPinned // disable reorder while searching or when pinned
+          const isTouch = reorderMode === 'touch'
           return (
             <div
               key={col.key}
-              draggable={!dragDisabled}
-              onDragStart={(e) => !dragDisabled && handleDragStart(e, col.key)}
-              onDragOver={(e) => !dragDisabled && handleDragOver(e, col.key)}
-              onDragLeave={() => !dragDisabled && handleDragLeave(col.key)}
-              onDrop={(e) => !dragDisabled && handleDrop(e, col.key)}
+              data-col-key={col.key}
+              draggable={!isTouch && !dragDisabled}
+              onDragStart={(e) => !isTouch && !dragDisabled && handleDragStart(e, col.key)}
+              onDragOver={(e) => !isTouch && !dragDisabled && handleDragOver(e, col.key)}
+              onDragLeave={() => !isTouch && !dragDisabled && handleDragLeave(col.key)}
+              onDrop={(e) => !isTouch && !dragDisabled && handleDrop(e, col.key)}
               onDragEnd={handleDragEnd}
               className={`flex items-center px-2 py-1.5 mx-2 rounded-md cursor-pointer transition-colors ${theme.rowHover} ${isDragging ? 'opacity-50' : ''} ${isOver ? theme.dragOverRing : ''}`}
               title={isPinned ? 'Pinned columns cannot be reordered' : (dragDisabled ? 'Clear search to reorder' : 'Drag to reorder')}
             >
-              {/* Drag handle */}
-              <span
-                className={`select-none mr-1 px-1 text-gray-400 ${dragDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing'}`}
-                aria-hidden
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M7 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6-10a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
-                </svg>
-              </span>
+              {/* Reorder control: native drag handle on desktop, pointer-drag handle on touch */}
+              {isTouch ? (
+                <span
+                  className={`select-none mr-1 px-1 text-gray-400 ${dragDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing'}`}
+                  style={{ touchAction: dragDisabled ? 'auto' : 'none' }}
+                  onPointerDown={(e) => !dragDisabled && handleTouchDragStart(e, col.key)}
+                  onPointerMove={handleTouchDragMove}
+                  onPointerUp={handleTouchDragEnd}
+                  onPointerCancel={handleTouchDragEnd}
+                  aria-hidden
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M7 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6-10a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
+                  </svg>
+                </span>
+              ) : (
+                <span
+                  className={`select-none mr-1 px-1 text-gray-400 ${dragDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing'}`}
+                  aria-hidden
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M7 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6-10a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm0 5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
+                  </svg>
+                </span>
+              )}
               <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
                 <input
                   type="checkbox"

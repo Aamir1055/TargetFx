@@ -14,6 +14,7 @@ import LoginGroupsModal from './LoginGroupsModal'
 import LoginGroupModal from './LoginGroupModal'
 import SetCustomPercentageModal from './SetCustomPercentageModal'
 import ClientDetailsMobileModal from './ClientDetailsMobileModal'
+import ColumnChooserList from './ColumnChooserList'
 import AutoPercentageModal from './AutoPercentageModal'
 import { useGroups } from '../contexts/groupContextStore'
 import { applyCumulativeFilters } from '../utils/mobileFilters'
@@ -63,7 +64,6 @@ export default function ClientPercentageModule() {
   const [selectedClientForDetails, setSelectedClientForDetails] = useState(null)
   const carouselRef = useRef(null)
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false)
-  const [columnSearch, setColumnSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const serverPage = useLocalTypeFiltering ? 1 : currentPage
   const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 768)
@@ -78,6 +78,35 @@ export default function ClientPercentageModule() {
     updatedAt: false,
     actions: true
   })
+
+  // Column order (persisted) — shared with desktop Client Percentage page so both stay in sync
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('clientPercentageColumnOrder'))
+      if (Array.isArray(saved)) return saved
+    } catch { /* Retain the fallback when this operation is unavailable. */ }
+    return null
+  })
+  useEffect(() => {
+    try { if (columnOrder) localStorage.setItem('clientPercentageColumnOrder', JSON.stringify(columnOrder)) } catch { /* Retain the fallback when this operation is unavailable. */ }
+  }, [columnOrder])
+  const resetColumnOrder = () => {
+    setColumnOrder(null)
+    try { localStorage.removeItem('clientPercentageColumnOrder') } catch { /* Retain the fallback when this operation is unavailable. */ }
+  }
+
+  // Pinned (frozen) columns — persisted, default keeps Login frozen like desktop
+  const [pinnedColumns, setPinnedColumns] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('clientPercentagePinnedColumns'))
+      return Array.isArray(saved) && saved.length ? saved : ['login']
+    } catch { return ['login'] }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('clientPercentagePinnedColumns', JSON.stringify(pinnedColumns)) } catch { /* Retain the fallback when this operation is unavailable. */ }
+  }, [pinnedColumns])
+  const togglePinColumn = (key) =>
+    setPinnedColumns(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
 
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false)
@@ -412,10 +441,38 @@ export default function ClientPercentageModule() {
     ...(canSetPercentage ? [{ key: 'actions', label: 'Actions', width: '80px' }] : [])
   ]
 
-  const activeColumns = allColumns.filter(col => visibleColumns[col.key])
+  const activeColumns = useMemo(() => {
+    const visible = allColumns.filter(col => visibleColumns[col.key])
+    // Apply saved order if present
+    let ordered = visible
+    if (Array.isArray(columnOrder) && columnOrder.length) {
+      const map = new Map(visible.map(c => [c.key, c]))
+      const out = []
+      columnOrder.forEach(k => { if (map.has(k)) { out.push(map.get(k)); map.delete(k) } })
+      map.forEach(c => out.push(c))
+      ordered = out
+    }
+    // Pinned columns always render first so they sit right after the selection checkbox column
+    const isPinned = (c) => c.sticky || pinnedColumns.includes(c.key)
+    return [...ordered.filter(isPinned), ...ordered.filter(c => !isPinned(c))]
+  }, [visibleColumns, columnOrder, pinnedColumns, canSetPercentage])
   const gridTemplateColumns = '32px ' + activeColumns.map(col => col.width).join(' ')
 
-  const renderCellValue = (item, key, isSticky = false) => {
+  // Sticky left offsets for pinned columns, starting after the 32px checkbox column
+  const pinnedOffsets = useMemo(() => {
+    const map = {}
+    let offset = 32
+    for (const col of activeColumns) {
+      if (col.sticky || pinnedColumns.includes(col.key)) {
+        map[col.key] = offset
+        offset += parseInt(col.width, 10) || 100
+      }
+    }
+    return map
+  }, [activeColumns, pinnedColumns])
+  const isColPinned = (col) => col.sticky || pinnedColumns.includes(col.key)
+
+  const renderCellValue = (item, key, isSticky = false, stickyLeft = 32) => {
     let value = '-'
 
     switch (key) {
@@ -423,11 +480,12 @@ export default function ClientPercentageModule() {
         value = item.client_login || item.login || '-'
         return (
           <div 
-            className={`h-[28px] flex items-center justify-start px-2 cursor-pointer hover:underline text-blue-600 font-semibold ${isSticky ? 'sticky left-8 bg-white z-10' : ''}`}
+            className={`h-[28px] flex items-center justify-start px-2 cursor-pointer hover:underline text-blue-600 font-semibold ${isSticky ? 'sticky bg-white z-10' : ''}`}
             style={{
               border: 'none', 
               outline: 'none', 
-              boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
+              boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none',
+              ...(isSticky ? { left: `${stickyLeft}px` } : {})
             }}
             onClick={() => {
               const fullClient = allClients.find(c => String(c.login) === String(value))
@@ -468,11 +526,12 @@ export default function ClientPercentageModule() {
 
     return (
       <div 
-        className={`h-[28px] flex items-center justify-start px-2 ${isSticky ? 'sticky left-8 bg-white z-10' : ''}`}
+        className={`h-[28px] flex items-center justify-start px-2 ${isSticky ? 'sticky bg-white z-10' : ''}`}
         style={{
           border: 'none', 
           outline: 'none', 
-          boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'
+          boxShadow: isSticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none',
+          ...(isSticky ? { left: `${stickyLeft}px` } : {})
         }}
       >
         <span className="truncate">{value}</span>
@@ -814,8 +873,8 @@ export default function ClientPercentageModule() {
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
         {/* Action Buttons + View All */}
         <div className="px-5 pt-3 pb-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <div className="flex max-w-full flex-wrap items-center gap-1.5">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="scrollbar-hide flex max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto">
               <PercentageTypeFilter selectedTypes={selectedTypes} onChange={types => {
                 setSelectedTypes(types)
                 setCurrentPage(1)
@@ -866,7 +925,7 @@ export default function ClientPercentageModule() {
               {canSetPercentage && (
               <button
                 onClick={() => setShowAutoPercentageModal(true)}
-                className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151]"
+                className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex shrink-0 items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151]"
                 title="Auto Percentage Ranges"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -879,7 +938,7 @@ export default function ClientPercentageModule() {
               {canSetPercentage && (
               <button
                 onClick={() => { setCsvData([]); setCsvError(''); if (csvFileRef.current) csvFileRef.current.value = ''; setShowImportModal(true) }}
-                className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151]"
+                className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex shrink-0 items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151]"
                 title="Import CSV"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -890,11 +949,11 @@ export default function ClientPercentageModule() {
               )}
               <div className="flex shrink-0 items-center gap-1.5">
               {/* Export Button with dropdown */}
-              <div className="relative" ref={exportMenuRef}>
+              <div className="relative shrink-0" ref={exportMenuRef}>
                 <button
                   onClick={() => setShowExportMenu(v => !v)}
                   disabled={exporting}
-                  className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151] disabled:opacity-60"
+                  className="h-8 px-2 rounded-lg bg-white border border-[#E5E7EB] shadow-sm flex shrink-0 items-center gap-1 hover:bg-gray-50 transition-colors text-[10px] font-medium text-[#374151] disabled:opacity-60"
                   title="Export"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1127,16 +1186,17 @@ export default function ClientPercentageModule() {
                       key={col.key}
                       onClick={() => handleSort(col.key)}
                       className={`h-[32px] flex items-center justify-start px-1 select-none ${col.key === 'type' ? '' : 'cursor-pointer'} ${
-                        col.sticky ? 'sticky left-8 z-30 bg-blue-500' : ''
+                        isColPinned(col) ? 'sticky z-30 bg-blue-500' : ''
                       }`}
                       style={{
                         border: 'none',
                         outline: 'none',
-                        boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.1)' : 'none',
+                        boxShadow: isColPinned(col) ? '2px 0 4px rgba(0,0,0,0.1)' : 'none',
                         WebkitTapHighlightColor: 'transparent',
                         userSelect: 'none',
                         touchAction: 'manipulation',
-                        backgroundColor: '#3B82F6'
+                        backgroundColor: '#3B82F6',
+                        ...(isColPinned(col) ? { left: `${pinnedOffsets[col.key] || 32}px` } : {})
                       }}
                     >
                       <span className="truncate">{col.label}</span>
@@ -1166,8 +1226,8 @@ export default function ClientPercentageModule() {
                         {activeColumns.map(col => (
                           <div 
                             key={col.key}
-                            className={`h-[38px] flex items-center px-2 ${col.sticky ? 'sticky left-8 bg-white z-10' : ''}`}
-                            style={{boxShadow: col.sticky ? '2px 0 4px rgba(0,0,0,0.05)' : 'none'}}
+                            className={`h-[38px] flex items-center px-2 ${isColPinned(col) ? 'sticky bg-white z-10' : ''}`}
+                            style={{boxShadow: isColPinned(col) ? '2px 0 4px rgba(0,0,0,0.05)' : 'none', ...(isColPinned(col) ? { left: `${pinnedOffsets[col.key] || 32}px` } : {})}}
                           >
                             <div 
                               className="h-3 rounded"
@@ -1210,7 +1270,7 @@ export default function ClientPercentageModule() {
                         </div>
                         {activeColumns.map(col => (
                           <React.Fragment key={col.key}>
-                            {renderCellValue(item, col.key, col.sticky)}
+                            {renderCellValue(item, col.key, isColPinned(col), pinnedOffsets[col.key] || 32)}
                           </React.Fragment>
                         ))}
                       </div>
@@ -1485,15 +1545,16 @@ export default function ClientPercentageModule() {
       {/* Column Selector Modal */}
       {isColumnSelectorOpen && (
         <div className="app-sheet-overlay fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setIsColumnSelectorOpen(false)}>
-          <div 
+          <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="percentage-column-title"
             className="app-sheet bg-white w-full rounded-t-[24px] flex flex-col overflow-hidden"
+            style={{ maxHeight: '85dvh' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between flex-shrink-0">
-              <h3 id="percentage-column-title" className="text-base font-semibold text-[#000000]">Show/Hide Columns</h3>
+              <h3 id="percentage-column-title" className="text-base font-semibold text-[#000000]">Show/Hide & Reorder Columns</h3>
               <button aria-label="Close column selector" className="flex h-11 w-11 items-center justify-center" onClick={() => setIsColumnSelectorOpen(false)}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="#404040" strokeWidth="2"/>
@@ -1501,57 +1562,20 @@ export default function ClientPercentageModule() {
               </button>
             </div>
 
-            <div className="px-5 py-3 border-b border-[#E5E7EB] flex-shrink-0">
-              <div className="relative h-12">
-                <input
-                  type="text"
-                  placeholder="Search Columns"
-                  value={columnSearch}
-                  onChange={(e) => setColumnSearch(e.target.value)}
-                  className="w-full h-12 pl-12 pr-4 bg-gray-100 border-0 rounded-xl text-base text-black font-semibold font-outfit placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <svg 
-                  width="20" 
-                  height="20" 
-                  viewBox="0 0 20 20" 
-                  fill="none" 
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M13 13L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
-              <div className="px-5 py-3">
-                {allColumns.filter(col => col.label.toLowerCase().includes(columnSearch.toLowerCase())).length > 0 ? (
-                  allColumns
-                    .filter(col => col.label.toLowerCase().includes(columnSearch.toLowerCase()))
-                    .map(col => (
-                    <label 
-                      key={col.key} 
-                      className="flex items-center justify-between py-3 border-b border-[#F2F2F7] last:border-0"
-                    >
-                      <span className="text-sm text-[#000000] font-outfit">{col.label}</span>
-                      <div className="relative inline-block w-12 h-6">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[col.key]}
-                          onChange={() => toggleColumn(col.key)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-12 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors"></div>
-                        <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-                      </div>
-                    </label>
-                  ))
-                ) : (
-                  <div className="flex items-center justify-center py-8 text-gray-400 text-sm">
-                    No columns match your search
-                  </div>
-                )}
-              </div>
+            <div className="flex-1 min-h-0 flex flex-col">
+              <ColumnChooserList
+                columns={allColumns.map(({ key, label }) => ({ key, label }))}
+                visibleColumns={visibleColumns}
+                onToggle={toggleColumn}
+                columnOrder={columnOrder}
+                onReorder={setColumnOrder}
+                onResetOrder={resetColumnOrder}
+                accent="blue"
+                title={null}
+                pinnedColumns={pinnedColumns}
+                onPinToggle={togglePinColumn}
+                reorderMode="touch"
+              />
             </div>
           </div>
         </div>

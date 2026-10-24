@@ -359,11 +359,13 @@
 html, body {
   overflow: hidden;
   height: 100%;
+  background: #F8FAFC;
 }
 
 #root {
   height: 100%;
   overflow: hidden;
+  background: #F8FAFC;
 }
 
 /* Unified loading dialog: indeterminate progress bar */

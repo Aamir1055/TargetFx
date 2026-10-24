@@ -1443,11 +1443,16 @@ const Client2Page = () => {
         setInitialLoad(false)
       }
     } catch (err) {
-      // Ignore request cancellations caused by in-flight aborts
-      if (currentRequestId !== requestIdRef.current) return
+      // A superseded request must not touch table state — but it must still release the
+      // initial-load overlay it started, otherwise the skeleton gets stuck until refresh.
+      if (currentRequestId !== requestIdRef.current) {
+        if (!silent && initialLoad) setInitialLoad(false)
+        return
+      }
       const isCanceled = err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || /aborted|canceled/i.test(err?.message || '')
       if (isCanceled) {
         try { if (DEBUG_LOGS) console.debug('[Client2] fetchClients canceled (expected on fast refresh)') } catch { /* Retain the fallback when this operation is unavailable. */  }
+        if (!silent && initialLoad) setInitialLoad(false)
         return
       }
       console.error('[Client2] Error fetching clients:', err)
@@ -1484,15 +1489,15 @@ const Client2Page = () => {
     } finally {
       if (currentRequestId === requestIdRef.current) {
         isFetchingRef.current = false
+        setIsSorting(false)
         if (!silent) {
           setLoading(false)
           setProgressActive(false)
         }
-        setIsSorting(false)
+      } else if (!silent && initialLoad) {
+        // The request was superseded mid-flight: never leave the initial skeleton up.
+        setInitialLoad(false)
       }
-      // Always reset sorting state. initialLoad is flipped only after a
-      // successful response so the empty-state doesn't flash on stale-request
-      // races during initial mount.
     }
   }, [currentPage, itemsPerPage, debouncedSearchQuery, filters, columnFilters, mt5Accounts, accountRangeMin, accountRangeMax, sortBy, sortOrder, percentModeActive, activeGroup, selectedIB, ibMT5Accounts, quickFilters, currencyMode])
 

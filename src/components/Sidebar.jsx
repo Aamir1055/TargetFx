@@ -108,12 +108,16 @@ const Sidebar = ({ isOpen, onClose, onToggle, marginLevelCount = 0, mobileOnly =
     sidebarViewState.reportsOpen = reportsOpen
   }, [reportsOpen])
   useLayoutEffect(() => {
-    if (desktopNavRef.current?.clientHeight) {
-      desktopNavRef.current.scrollTop = sidebarViewState.scrollTop[desktopScrollKey]
+    // Clamp the restored scroll position to the real scrollable range. The nav list grows
+    // when new modules are added, and a stale offset from an older build could push the
+    // last items (Tutorials, Brokerage Calculator, Settings) out of view on first login.
+    const clampRestore = (el, saved) => {
+      if (!el?.clientHeight) return
+      const max = Math.max(0, el.scrollHeight - el.clientHeight)
+      el.scrollTop = Math.min(Math.max(0, saved || 0), max)
     }
-    if (mobileNavRef.current?.clientHeight) {
-      mobileNavRef.current.scrollTop = sidebarViewState.scrollTop.mobile
-    }
+    clampRestore(desktopNavRef.current, sidebarViewState.scrollTop[desktopScrollKey])
+    clampRestore(mobileNavRef.current, sidebarViewState.scrollTop.mobile)
   }, [desktopScrollKey, isOpen, reportsExpanded])
 
   const baseUrl = import.meta.env.BASE_URL || '/'
